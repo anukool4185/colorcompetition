@@ -1,0 +1,1216 @@
+import { useState } from "react";
+
+/* ============================================================
+   ระบบจัดการแข่งขันวิชาการสี — Prototype (Phase 1, ครบทุกหน้า)
+   ข้อมูลทั้งหมดเป็น mock ในหน่วยความจำ · ยังไม่เชื่อม Google Sheet/Drive
+   ============================================================ */
+
+/* ---- color helpers + dynamic PASTEL theme (admin-controlled team colors) ---- */
+const hexToRgb = (h) => { h = (h || "#cccccc").replace("#", ""); if (h.length === 3) h = h.split("").map((c) => c + c).join(""); const n = parseInt(h, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+const toHex = (r, g, b) => "#" + [r, g, b].map((x) => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, "0")).join("");
+const darken = (hex, a) => { const [r, g, b] = hexToRgb(hex); return toHex(r * (1 - a), g * (1 - a), b * (1 - a)); };
+const lighten = (hex, a) => { const [r, g, b] = hexToRgb(hex); return toHex(r + (255 - r) * a, g + (255 - g) * a, b + (255 - b) * a); };
+
+const DEFAULT_HOUSES = [
+  { name: "สีชมพู", color: "#eaa0ad" },
+  { name: "สีฟ้า", color: "#93bce8" },
+  { name: "สีเขียว", color: "#95d3b4" },
+  { name: "สีเหลือง", color: "#ebca8a" },
+];
+// พื้นหลัง/ตัวอักษรเป็นโทนพาสเทลนุ่ม · primary/soft ผูกกับ "สีทีมที่ 1" ที่แอดมินกำหนด
+function makeTheme(themeColor) {
+  return {
+    bg: "#f8f5fb", surface: "#ffffff", ink: "#413c54", muted: "#8d879e", line: "#ece6f0",
+    primary: darken(themeColor, 0.26), primaryDark: darken(themeColor, 0.42),
+    gold: "#cf9f52", soft: lighten(themeColor, 0.80),
+  };
+}
+// module-level; <App/> reassigns these from admin settings on every render
+let C = makeTheme(DEFAULT_HOUSES[0].color);
+let HOUSES = DEFAULT_HOUSES.map((h) => h.color);
+
+/* ---------------- seed data ---------------- */
+const seed = {
+  students: [
+    { id: "10234", pre: "เด็กชาย", first: "ปกรณ์", last: "มั่นคง", grade: "ม.3", room: "1", phone: "0812345678", house: 0, guardian: "", user: "com01", password: "com123" },
+    { id: "10235", pre: "เด็กหญิง", first: "ณิชา", last: "รุ่งเรือง", grade: "ม.3", room: "1", phone: "0823456789", house: 1, guardian: "" },
+    { id: "10236", pre: "เด็กชาย", first: "อนุชา", last: "ทองแท้", grade: "ม.2", room: "3", phone: "0834567890", house: 2, guardian: "" },
+    { id: "10237", pre: "เด็กหญิง", first: "พิมพ์", last: "ใสสะอาด", grade: "ม.2", room: "3", phone: "0845678901", house: 3, guardian: "" },
+    { id: "10238", pre: "เด็กชาย", first: "กิตติ", last: "เก่งกาจ", grade: "ม.1", room: "2", phone: "0856789012", house: 0, guardian: "" },
+    { id: "10239", pre: "เด็กหญิง", first: "อารยา", last: "ดวงแก้ว", grade: "ม.1", room: "2", phone: "0867890123", house: 1, guardian: "" },
+  ],
+  teachers: [
+    { id: "T01", pre: "นาย", first: "สมชาย", last: "ใจดี", phone: "0811111111", house: 0, user: "teacher01", password: "teacher123" },
+    { id: "T02", pre: "นาง", first: "วิภา", last: "แสงทอง", phone: "0822222222", house: 1 },
+    { id: "T03", pre: "นางสาว", first: "กนกพร", last: "ศรีสุข", phone: "0833333333", house: 2 },
+    { id: "T04", pre: "นาย", first: "ธนา", last: "พงษ์ไพร", phone: "0844444444", house: 3 },
+  ],
+  assistants: [
+    { user: "assist01", password: "color2568", name: "คุณครูสุนีย์" },
+  ],
+  orgTeacher: [
+    { id: "r1", title: "ประธานคณะกรรมการ", count: 1, after: "-", people: ["T01"] },
+    { id: "r2", title: "รองประธาน", count: 1, after: "ประธาน", people: ["T02"] },
+    { id: "r3", title: "หัวหน้าการแข่งขัน", count: 2, after: "รองประธาน", people: ["T03"] },
+    { id: "r4", title: "ผู้ควบคุมการแข่งขัน", count: 3, after: "หัวหน้า", people: ["T04"] },
+  ],
+  orgStudent: [
+    { id: "s1", title: "ประธานนักเรียน", count: 1, after: "-", people: ["10234"] },
+    { id: "s2", title: "รองประธานนักเรียน", count: 1, after: "ประธาน", people: ["10235"] },
+  ],
+  competitions: [
+    { id: "C1", kind: "แข่งขัน", name: "ตอบปัญหาวิทยาศาสตร์", mainCount: 3, reserveCount: 2, regStart: "2025-07-01", regEnd: "2025-07-10",
+      participants: [{ sid: "10234", status: "main" }, { sid: "10235", status: "reserve" }, { sid: "10236", status: "main" }],
+      schedule: [{ date: "2025-07-15", time: "09:30", place: "ห้องปฏิบัติการ 1", round: "รอบคัดเลือก" }],
+      results: { "10234": { outcome: "ชนะ", medal: "ทอง", rounds: [{ round: "รอบ 1", score: "85" }] } } },
+    { id: "C2", kind: "แข่งขัน", name: "คัดลายมือ", mainCount: 2, reserveCount: 0, regStart: "2025-07-01", regEnd: "2025-07-10",
+      participants: [{ sid: "10237", status: "main" }], schedule: [], results: {} },
+    { id: "A1", kind: "กิจกรรม", name: "โครงงานคณิตศาสตร์", mainCount: 0, reserveCount: 0, regStart: "2025-07-01", regEnd: "2025-07-12",
+      participants: [{ sid: "10238", status: "main" }, { sid: "10239", status: "main" }], schedule: [{ date: "2025-07-16", time: "13:00", place: "หอประชุม", round: "นำเสนอ" }], results: {} },
+  ],
+  settings: { maxMain: 3, houses: DEFAULT_HOUSES, announce: { speed: 18, showLines: 3, lines: [
+    "ยินดีต้อนรับสู่การแข่งขันวิชาการสี ประจำปีการศึกษา 2568",
+    "เปิดรับสมัคร 1–10 กรกฎาคม นี้",
+    "รายงานตัวก่อนเวลาแข่งขัน 15 นาที ทุกรายการ",
+    "ผลการแข่งขันประกาศผ่านหน้าเว็บทันทีที่กรรมการบันทึก",
+  ] } },
+};
+
+/* ---------------- utils + primitives ---------------- */
+const initials = (a = "", b = "") => (a[0] || "") + (b[0] || "");
+const fullName = (p) => `${p.pre || ""}${p.first} ${p.last}`;
+
+function Avatar({ person, size = 44 }) {
+  const h = HOUSES[person?.house ?? 0] || HOUSES[0] || "#c9c3d6";
+  return (
+    <div style={{ width: size, height: size, borderRadius: 12, flexShrink: 0, background: h + "22", color: h,
+      border: `1.5px solid ${h}55`, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, fontSize: size * 0.36 }}>
+      {initials(person?.first, person?.last)}
+    </div>
+  );
+}
+function Ribbon({ h = 4 }) {
+  const cols = HOUSES.length ? HOUSES : ["#c9c3d6"];
+  return <div style={{ display: "flex", height: h, width: "100%" }}>{cols.map((c, i) => <div key={i} style={{ flex: 1, background: c }} />)}</div>;
+}
+function Card({ children, style }) {
+  return <div style={{ background: C.surface, borderRadius: 16, border: `1px solid ${C.line}`, ...style }}>{children}</div>;
+}
+function Btn({ children, onClick, variant = "primary", small, disabled }) {
+  const v = {
+    primary: { background: C.primary, color: "#fff", border: "none" },
+    ghost: { background: C.surface, color: C.ink, border: `1px solid ${C.line}` },
+    gold: { background: C.gold, color: "#fff", border: "none" },
+    danger: { background: "#fdecec", color: "#c0392b", border: "1px solid #f3c9c9" },
+    soft: { background: C.soft, color: C.primaryDark, border: "none" },
+  }[variant];
+  return (
+    <button onClick={onClick} disabled={disabled}
+      style={{ ...v, opacity: disabled ? 0.5 : 1, padding: small ? "7px 12px" : "10px 16px", borderRadius: 11, fontWeight: 600, fontSize: small ? 13 : 14, cursor: disabled ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
+      {children}
+    </button>
+  );
+}
+function Field({ label, value, onChange, placeholder }) {
+  return (
+    <label style={{ display: "block", marginBottom: 12 }}>
+      <span style={{ display: "block", fontSize: 13, color: C.muted, marginBottom: 5 }}>{label}</span>
+      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+        style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, outline: "none", background: "#fbfcfb" }} />
+    </label>
+  );
+}
+const selStyle = { padding: "9px 12px", borderRadius: 10, border: `1px solid ${C.line}`, background: C.surface, color: C.ink, fontSize: 14 };
+function Select({ value, onChange, children }) {
+  return <select value={value} onChange={(e) => onChange(e.target.value)} style={selStyle}>{children}</select>;
+}
+function PageHead({ title, sub, right }) {
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 }}>
+      <div>
+        <h1 style={{ fontSize: 20, fontWeight: 800, color: C.ink, margin: 0 }}>{title}</h1>
+        {sub && <p style={{ color: C.muted, fontSize: 13, margin: "4px 0 0" }}>{sub}</p>}
+      </div>
+      {right}
+    </div>
+  );
+}
+function Tabs({ tabs, active, onChange }) {
+  return (
+    <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 4, marginBottom: 14 }}>
+      {tabs.map((t) => (
+        <button key={t.key} onClick={() => onChange(t.key)}
+          style={{ padding: "8px 14px", borderRadius: 20, border: "none", cursor: "pointer", whiteSpace: "nowrap", fontSize: 13.5, fontWeight: active === t.key ? 700 : 500,
+            background: active === t.key ? C.primary : C.surface, color: active === t.key ? "#fff" : C.ink, boxShadow: active === t.key ? "none" : `inset 0 0 0 1px ${C.line}` }}>
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+function Badge({ status }) {
+  const map = { main: ["ตัวจริง", "#5aab84"], reserve: ["ตัวสำรอง", C.gold], rejected: ["ไม่ผ่านคัดเลือก", "#d17f7a"] };
+  const [txt, col] = map[status] || [status, C.muted];
+  return <span style={{ fontSize: 12, fontWeight: 700, color: col, background: col + "18", padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>{txt}</span>;
+}
+
+function Modal({ title, onClose, children, wide }) {
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(15,25,40,.45)", display: "flex", alignItems: "flex-end", justifyContent: "center" }} className="md:items-center md:p-6">
+      <div onClick={(e) => e.stopPropagation()} style={{ background: C.surface, width: "100%", maxWidth: wide ? 720 : 480, maxHeight: "90vh", overflow: "hidden", borderRadius: "18px 18px 0 0", display: "flex", flexDirection: "column" }} className="md:rounded-2xl">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: `1px solid ${C.line}` }}>
+          <span style={{ fontWeight: 700, color: C.ink, fontSize: 16 }}>{title}</span>
+          <button onClick={onClose} aria-label="ปิด" style={{ width: 34, height: 34, borderRadius: 10, border: `1px solid ${C.line}`, background: C.surface, color: C.muted, fontSize: 18, cursor: "pointer" }}>×</button>
+        </div>
+        <div style={{ padding: 18, overflowY: "auto" }}>{children}</div>
+      </div>
+    </div>
+  );
+}
+function LoadingModal({ label }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(15,25,40,.5)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: C.surface, borderRadius: 16, padding: "26px 34px", display: "flex", flexDirection: "column", alignItems: "center", gap: 14, minWidth: 220 }}>
+        <div style={{ width: 40, height: 40, borderRadius: "50%", border: `4px solid ${C.line}`, borderTopColor: C.primary, animation: "spin .8s linear infinite" }} />
+        <span style={{ color: C.ink, fontWeight: 600, fontSize: 14 }}>{label}</span>
+        <span style={{ color: C.muted, fontSize: 12 }}>กรุณารอสักครู่ ระบบจะปิดเองเมื่อเสร็จ</span>
+      </div>
+    </div>
+  );
+}
+function Toast({ msg }) {
+  return (
+    <div style={{ position: "fixed", bottom: 84, left: "50%", transform: "translateX(-50%)", zIndex: 70, background: C.ink, color: "#fff", padding: "10px 18px", borderRadius: 22, fontSize: 13.5, fontWeight: 600 }} className="md:bottom-6">
+      {msg}
+    </div>
+  );
+}
+function ExportBar({ run }) {
+  return (
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+      <Btn variant="ghost" small onClick={() => window.print()}>ปริ้นท์</Btn>
+      <Btn variant="ghost" small onClick={() => run("กำลังสร้างไฟล์ PDF...")}>PDF</Btn>
+      <Btn variant="ghost" small onClick={() => run("กำลังสร้างไฟล์ Excel...")}>Excel</Btn>
+      <Btn variant="ghost" small onClick={() => run("กำลังบันทึกภาพหน้าจอ...")}>แคปหน้าจอ</Btn>
+    </div>
+  );
+}
+function SearchPersonPopup({ pool, onPick, onClose, title }) {
+  const [q, setQ] = useState("");
+  const list = pool.filter((p) => (fullName(p) + p.id).includes(q));
+  return (
+    <Modal title={title} onClose={onClose}>
+      <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อ / รหัส"
+        style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, marginBottom: 12, fontSize: 14 }} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 320, overflowY: "auto" }}>
+        {list.map((p) => (
+          <button key={p.id} onClick={() => onPick(p)} style={{ display: "flex", alignItems: "center", gap: 10, padding: 8, borderRadius: 10, border: `1px solid ${C.line}`, background: C.surface, cursor: "pointer", textAlign: "left" }}>
+            <Avatar person={p} size={38} />
+            <div><div style={{ fontWeight: 600, color: C.ink, fontSize: 13.5 }}>{fullName(p)}</div><div style={{ fontSize: 11, color: C.muted }}>รหัส {p.id}</div></div>
+          </button>
+        ))}
+        {list.length === 0 && <div style={{ textAlign: "center", color: C.muted, padding: 20, fontSize: 13 }}>ไม่พบรายชื่อ</div>}
+      </div>
+    </Modal>
+  );
+}
+
+/* ---------------- Landing ---------------- */
+function Landing({ onLogin, announce, comps }) {
+  const [speed, setSpeed] = useState(announce.speed);
+  const [showSchedule, setShowSchedule] = useState(false);
+  const allSch = comps.flatMap((c) => c.schedule.map((s) => ({ ...s, name: c.name })));
+  const news = announce.lines;
+  return (
+    <div style={{ minHeight: "100vh", background: C.bg }}>
+      <Ribbon />
+      <header style={{ background: C.surface, borderBottom: `1px solid ${C.line}` }}>
+        <div style={{ maxWidth: 1080, margin: "0 auto", padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <Brand sub="ระบบจัดการแข่งขัน" />
+          <Btn onClick={onLogin} small>เข้าสู่ระบบ</Btn>
+        </div>
+      </header>
+      <main style={{ maxWidth: 1080, margin: "0 auto", padding: 18, display: "flex", flexDirection: "column", gap: 16 }}>
+        <Card style={{ overflow: "hidden" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", borderBottom: `1px solid ${C.line}` }}>
+            <span style={{ background: C.gold, color: "#fff", fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>ประชาสัมพันธ์</span>
+            <span style={{ fontSize: 12, color: C.muted, marginLeft: "auto" }}>ความเร็ว</span>
+            <input type="range" min="6" max="30" value={36 - speed} onChange={(e) => setSpeed(36 - Number(e.target.value))} style={{ width: 90 }} />
+          </div>
+          <div style={{ height: 116, overflow: "hidden", padding: "0 16px" }}>
+            <div style={{ animation: `scrollUp ${speed}s linear infinite` }}>
+              {[...news, ...news].map((n, i) => <div key={i} style={{ padding: "10px 0", borderBottom: `1px dashed ${C.line}`, color: C.ink, fontSize: 14 }}>• {n}</div>)}
+            </div>
+          </div>
+          <button onClick={() => setShowSchedule(true)} style={{ width: "100%", padding: 12, background: C.soft, color: C.primaryDark, fontWeight: 700, border: "none", cursor: "pointer", fontSize: 14 }}>ดูกำหนดการแข่งขันทุกรายการ →</button>
+        </Card>
+        <div style={{ display: "grid", gap: 16 }} className="md:grid-cols-2">
+          <Card>
+            <BlockHead dot="#2f9e6b" title="รายการแข่งขันวันนี้" />
+            <div style={{ padding: 8 }}>
+              {allSch.slice(0, 2).map((s, i) => <SchRow key={i} s={s} status="กำลังแข่ง" />)}
+              {allSch.length === 0 && <Empty text="ยังไม่มีรายการวันนี้" />}
+            </div>
+          </Card>
+          <Card>
+            <BlockHead dot={C.gold} title="รายการแข่งขันรอบต่อไป" />
+            <div style={{ padding: 8 }}>{allSch.slice(2).map((s, i) => <SchRow key={i} s={s} status="รอบต่อไป" />)}{allSch.length < 3 && <Empty text="ยังไม่มีรอบต่อไป" />}</div>
+          </Card>
+        </div>
+      </main>
+      {showSchedule && (
+        <Modal title="กำหนดการแข่งขันทั้งหมด" onClose={() => setShowSchedule(false)} wide>
+          {allSch.map((s, i) => <SchRow key={i} s={s} status="กำหนดการ" />)}
+          {allSch.length === 0 && <Empty text="ยังไม่มีกำหนดการ" />}
+        </Modal>
+      )}
+    </div>
+  );
+}
+function Brand({ sub }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ width: 40, height: 40, borderRadius: 12, background: C.primary, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 18 }}>สี</div>
+      <div><div style={{ fontWeight: 800, color: C.ink, fontSize: 16, lineHeight: 1.1 }}>วิชาการสี</div><div style={{ fontSize: 12, color: C.muted }}>{sub}</div></div>
+    </div>
+  );
+}
+function BlockHead({ dot, title }) {
+  return <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.line}`, display: "flex", alignItems: "center", gap: 8 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: dot }} /><span style={{ fontWeight: 700, color: C.ink }}>{title}</span></div>;
+}
+function SchRow({ s, status }) {
+  const col = status === "กำลังแข่ง" ? "#2f9e6b" : status === "รอบต่อไป" ? C.gold : C.primary;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 8px" }}>
+      <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 600, color: C.ink, fontSize: 14 }}>{s.name}</div><div style={{ fontSize: 12, color: C.muted }}>{s.date} {s.time} · {s.place}</div></div>
+      <span style={{ fontSize: 12, fontWeight: 700, color: col, background: col + "18", padding: "4px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>{status}</span>
+    </div>
+  );
+}
+function Empty({ text }) { return <div style={{ textAlign: "center", color: C.muted, padding: 24, fontSize: 13.5 }}>{text}</div>; }
+
+/* ---------------- Login ---------------- */
+// ลำดับการตรวจสอบ: แอดมิน → ผู้ช่วยแอดมิน → กรรมการครู → กรรมการนักเรียน → นักเรียนทั่วไป
+function resolveLogin(db, uRaw, p) {
+  const u = (uRaw || "").trim();
+  if (!u) return null;
+  if (u === "admin" && p === "admin123") return { role: "admin", name: "ผู้ดูแลระบบ" };
+  const a = db.assistants.find((x) => x.user === u && x.password === p);
+  if (a) return { role: "admin", name: a.name, assistant: true };
+  const t = db.teachers.find((x) => x.user && x.user === u && x.password === p);
+  if (t) return { role: "teacher", id: t.id, name: fullName(t) };
+  const sc = db.students.find((x) => x.user && x.user === u && x.password === p);
+  if (sc) return { role: "studentcom", id: sc.id, name: fullName(sc) };
+  const st = db.students.find((x) => x.id === u && (p === x.id || p === x.phone));
+  if (st) return { role: "student", id: st.id, name: fullName(st) };
+  return null;
+}
+function Login({ db, onEnter, onBack }) {
+  const [u, setU] = useState("");
+  const [p, setP] = useState("");
+  const [err, setErr] = useState("");
+  const [showHint, setShowHint] = useState(false);
+  const submit = () => {
+    const auth = resolveLogin(db, u, p);
+    if (auth) { setErr(""); onEnter(auth); }
+    else setErr("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");
+  };
+  const inp = { width: "100%", padding: "11px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, outline: "none", background: "#fbfafd", marginBottom: 12 };
+  return (
+    <div style={{ minHeight: "100vh", background: C.bg, display: "flex", flexDirection: "column" }}>
+      <Ribbon />
+      <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", padding: 18 }}>
+        <Card style={{ width: "100%", maxWidth: 400, padding: 24 }}>
+          <div style={{ textAlign: "center", marginBottom: 20 }}>
+            <div style={{ width: 52, height: 52, borderRadius: 14, background: C.primary, color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 22 }}>สี</div>
+            <div style={{ fontWeight: 800, color: C.ink, fontSize: 18, marginTop: 10 }}>เข้าสู่ระบบ</div>
+            <div style={{ fontSize: 13, color: C.muted }}>กรอกชื่อผู้ใช้และรหัสผ่าน</div>
+          </div>
+          <label style={{ display: "block", fontSize: 13, color: C.muted, marginBottom: 5 }}>ชื่อผู้ใช้ (user)</label>
+          <input value={u} onChange={(e) => setU(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} style={inp} placeholder="เช่น admin หรือ รหัสนักเรียน" />
+          <label style={{ display: "block", fontSize: 13, color: C.muted, marginBottom: 5 }}>รหัสผ่าน (password)</label>
+          <input value={p} onChange={(e) => setP(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submit()} type="password" style={inp} placeholder="รหัสผ่าน" />
+          {err && <div style={{ background: "#fdeeee", color: "#c0392b", fontSize: 13, padding: "8px 12px", borderRadius: 10, marginBottom: 12 }}>{err}</div>}
+          <Btn onClick={submit}><span style={{ display: "block", textAlign: "center", width: "100%" }}>เข้าสู่ระบบ</span></Btn>
+          <button onClick={() => setShowHint((s) => !s)} style={{ marginTop: 14, width: "100%", background: "none", border: "none", color: C.primary, cursor: "pointer", fontSize: 12.5, fontWeight: 600 }}>
+            {showHint ? "ซ่อน" : "ดู"}บัญชีสำหรับทดสอบ
+          </button>
+          {showHint && (
+            <div style={{ marginTop: 8, background: C.soft, borderRadius: 10, padding: 12, fontSize: 12.5, color: C.primaryDark, lineHeight: 1.7 }}>
+              <div><b>แอดมิน:</b> admin / admin123</div>
+              <div><b>ผู้ช่วยแอดมิน:</b> assist01 / color2568</div>
+              <div><b>กรรมการครู:</b> teacher01 / teacher123</div>
+              <div><b>กรรมการนักเรียน:</b> com01 / com123</div>
+              <div><b>นักเรียน:</b> 10235 / 10235 (หรือเบอร์โทร)</div>
+            </div>
+          )}
+          <button onClick={onBack} style={{ marginTop: 12, width: "100%", background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 13 }}>← กลับหน้าแรก</button>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Shell (nav) ---------------- */
+function Shell({ role, nav, view, setView, onExit, children, ui }) {
+  const roleLabel = { admin: "แอดมิน", teacher: "กรรมการ (ครู)", studentcom: "กรรมการ (นักเรียน)", student: "นักเรียน" }[role];
+  const cur = nav.find((n) => n.key === view);
+  return (
+    <div style={{ minHeight: "100vh", background: C.bg, display: "flex" }}>
+      <aside className="hidden md:flex" style={{ width: 220, background: C.surface, borderRight: `1px solid ${C.line}`, flexDirection: "column", position: "sticky", top: 0, height: "100vh" }}>
+        <div style={{ padding: "18px 18px 10px" }}><Brand sub={roleLabel} /></div>
+        <nav style={{ padding: 10, flex: 1, overflowY: "auto" }}>
+          {nav.map((n) => (
+            <button key={n.key} onClick={() => setView(n.key)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, border: "none", cursor: "pointer", marginBottom: 3, background: view === n.key ? C.soft : "transparent", color: view === n.key ? C.primaryDark : C.ink, fontWeight: view === n.key ? 700 : 500, fontSize: 14 }}>
+              <span style={{ fontSize: 16 }}>{n.icon}</span>{n.label}
+            </button>
+          ))}
+        </nav>
+        <button onClick={onExit} style={{ margin: 12, padding: 10, borderRadius: 10, border: `1px solid ${C.line}`, background: C.surface, color: C.muted, cursor: "pointer", fontSize: 13 }}>ออกจากระบบ</button>
+      </aside>
+
+      <div style={{ flex: 1, minWidth: 0, paddingBottom: 74 }} className="md:pb-0">
+        <div className="md:hidden" style={{ background: C.surface, borderBottom: `1px solid ${C.line}`, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 9, background: C.primary, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14 }}>สี</div>
+            <span style={{ fontWeight: 700, color: C.ink, fontSize: 15 }}>{cur?.label}</span>
+          </div>
+          <button onClick={onExit} style={{ fontSize: 13, color: C.muted, background: "none", border: "none" }}>ออก</button>
+        </div>
+        <div style={{ maxWidth: 960, margin: "0 auto", padding: 16 }}>{children}</div>
+      </div>
+
+      <nav className="md:hidden" style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: C.surface, borderTop: `1px solid ${C.line}`, display: "flex", zIndex: 20 }}>
+        {nav.map((n) => (
+          <button key={n.key} onClick={() => setView(n.key)} style={{ flex: 1, padding: "9px 2px 8px", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, color: view === n.key ? C.primary : C.muted }}>
+            <span style={{ fontSize: 18 }}>{n.icon}</span><span style={{ fontSize: 10, fontWeight: view === n.key ? 700 : 500 }}>{n.label}</span>
+          </button>
+        ))}
+      </nav>
+
+      {ui.loading && <LoadingModal label={ui.loading} />}
+      {ui.toast && <Toast msg={ui.toast} />}
+    </div>
+  );
+}
+function useUI() {
+  const [loading, setLoading] = useState(null);
+  const [toast, setToast] = useState(null);
+  const run = (label, cb, ms = 1300) => { setLoading(label); setTimeout(() => { cb && cb(); setLoading(null); }, ms); };
+  const notify = (m) => { setToast(m); setTimeout(() => setToast(null), 1800); };
+  return { loading, toast, run, notify };
+}
+
+/* ============================================================
+   ADMIN
+   ============================================================ */
+function AdminApp({ db, setDb, onExit }) {
+  const [view, setView] = useState("home");
+  const ui = useUI();
+  const nav = [
+    { key: "home", label: "ภาพรวม", icon: "▦" },
+    { key: "people", label: "บุคลากร", icon: "👥" },
+    { key: "org", label: "ผังองค์กร", icon: "🗂" },
+    { key: "comp", label: "การแข่งขัน", icon: "🏆" },
+    { key: "promo", label: "ตั้งค่า", icon: "⚙️" },
+  ];
+  return (
+    <Shell role="admin" nav={nav} view={view} setView={setView} onExit={onExit} ui={ui}>
+      {view === "home" && <AdminHome db={db} />}
+      {view === "people" && <PeopleManager db={db} setDb={setDb} ui={ui} />}
+      {view === "org" && <OrgManager db={db} setDb={setDb} ui={ui} editable />}
+      {view === "comp" && <CompManager db={db} setDb={setDb} ui={ui} />}
+      {view === "promo" && <SettingsManager db={db} setDb={setDb} ui={ui} />}
+    </Shell>
+  );
+}
+function AdminHome({ db }) {
+  const stats = [
+    { label: "นักเรียนในระบบ", value: db.students.length, color: HOUSES[1] },
+    { label: "ครู/กรรมการ", value: db.teachers.length, color: HOUSES[2] },
+    { label: "รายการแข่ง/กิจกรรม", value: db.competitions.length, color: C.gold },
+    { label: "ผู้ช่วยแอดมิน", value: db.assistants.length, color: HOUSES[0] },
+  ];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <PageHead title="ภาพรวมระบบ" sub="ตัวอย่างแดชบอร์ด — ข้อมูลจำลอง" />
+      <div style={{ display: "grid", gap: 12 }} className="grid-cols-2 md:grid-cols-4">
+        {stats.map((s, i) => <Card key={i} style={{ padding: 16 }}><div style={{ fontSize: 28, fontWeight: 800, color: s.color }}>{s.value}</div><div style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }}>{s.label}</div></Card>)}
+      </div>
+      <Card style={{ padding: 16 }}>
+        <div style={{ fontWeight: 700, color: C.ink, marginBottom: 10 }}>สถานะการเชื่อมต่อ (เฟสถัดไป)</div>
+        {[["Google Sheet (ฐานข้อมูล)", "ยังไม่เชื่อม"], ["Google Drive (รูปภาพ)", "ยังไม่เชื่อม"], ["ย่อรูปอัตโนมัติ ≤ 300×300px", "รอเฟส 2"], ["จำกัดตัวจริงต่อคน", `${db.settings.maxMain} รายการ`]].map(([k, v]) => (
+          <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px dashed ${C.line}`, fontSize: 13 }}><span style={{ color: C.muted }}>{k}</span><span style={{ color: C.ink, fontWeight: 600 }}>{v}</span></div>
+        ))}
+      </Card>
+    </div>
+  );
+}
+
+/* ----- People (students / teachers / assistants) ----- */
+function PeopleManager({ db, setDb, ui }) {
+  const [tab, setTab] = useState("students");
+  return (
+    <div>
+      <PageHead title="จัดการบุคลากร" sub="นักเรียน · ครู · ผู้ช่วยแอดมิน" />
+      <Tabs tabs={[{ key: "students", label: "นักเรียน" }, { key: "teachers", label: "ครู" }, { key: "assist", label: "ผู้ช่วยแอดมิน" }]} active={tab} onChange={setTab} />
+      {tab === "students" && <PersonList kind="student" db={db} setDb={setDb} ui={ui} />}
+      {tab === "teachers" && <PersonList kind="teacher" db={db} setDb={setDb} ui={ui} />}
+      {tab === "assist" && <AssistantList db={db} setDb={setDb} ui={ui} />}
+    </div>
+  );
+}
+function PersonList({ kind, db, setDb, ui }) {
+  const key = kind === "student" ? "students" : "teachers";
+  const list = db[key];
+  const [grade, setGrade] = useState("");
+  const [room, setRoom] = useState("");
+  const [add, setAdd] = useState(false);
+  const [edit, setEdit] = useState(null);
+  const [importing, setImporting] = useState(false);
+
+  const grades = [...new Set(list.map((s) => s.grade).filter(Boolean))];
+  const rooms = [...new Set(list.map((s) => s.room).filter(Boolean))];
+  const filtered = list.filter((s) => (!grade || s.grade === grade) && (!room || s.room === room));
+
+  const remove = (id) => ui.run("กำลังลบข้อมูล...", () => setDb((p) => ({ ...p, [key]: p[key].filter((s) => s.id !== id) })));
+  const save = (data, isEdit) => ui.run(isEdit ? "กำลังบันทึกการแก้ไข..." : "กำลังบันทึกข้อมูลใหม่...", () => {
+    setDb((p) => ({ ...p, [key]: isEdit ? p[key].map((s) => (s.id === data.id ? data : s)) : [...p[key], data] }));
+    setAdd(false); setEdit(null);
+  });
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+        <span style={{ fontSize: 13, color: C.muted }}>{filtered.length} รายการ</span>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Btn variant="ghost" small onClick={() => setImporting(true)}>นำเข้า Excel</Btn>
+          <Btn small onClick={() => setAdd(true)}>+ เพิ่ม{kind === "student" ? "นักเรียน" : "ครู"}</Btn>
+        </div>
+      </div>
+      {kind === "student" && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Select value={grade} onChange={setGrade}><option value="">ทุกระดับชั้น</option>{grades.map((g) => <option key={g}>{g}</option>)}</Select>
+          <Select value={room} onChange={setRoom}><option value="">ทุกห้อง</option>{rooms.map((r) => <option key={r} value={r}>ห้อง {r}</option>)}</Select>
+        </div>
+      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {filtered.map((s) => (
+          <Card key={s.id} style={{ padding: 12, display: "flex", alignItems: "center", gap: 12 }}>
+            <Avatar person={s} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, color: C.ink, fontSize: 14 }}>{fullName(s)}</div>
+              <div style={{ fontSize: 12, color: C.muted }}>รหัส {s.id}{s.grade ? ` · ${s.grade}/${s.room}` : ""} · {s.phone}</div>
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <Btn variant="ghost" small onClick={() => setEdit(s)}>แก้ไข</Btn>
+              <Btn variant="danger" small onClick={() => remove(s.id)}>ลบ</Btn>
+            </div>
+          </Card>
+        ))}
+        {filtered.length === 0 && <Empty text="ไม่พบรายชื่อตามเงื่อนไข" />}
+      </div>
+      {(add || edit) && <PersonForm kind={kind} person={edit} onClose={() => { setAdd(false); setEdit(null); }} onSave={save} />}
+      {importing && <ImportPreview kind={kind} onClose={() => setImporting(false)} onConfirm={(rows) => ui.run("กำลังโอนเข้าระบบ...", () => { setDb((p) => ({ ...p, [key]: [...p[key], ...rows] })); setImporting(false); })} existing={list} />}
+    </div>
+  );
+}
+function PersonForm({ kind, person, onClose, onSave }) {
+  const base = kind === "student"
+    ? { id: "", pre: "เด็กชาย", first: "", last: "", grade: "", room: "", phone: "", house: 0, guardian: "" }
+    : { id: "", pre: "นาย", first: "", last: "", phone: "", house: 0 };
+  const [f, setF] = useState(person || base);
+  const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
+  return (
+    <Modal title={person ? "แก้ไขข้อมูล" : `เพิ่ม${kind === "student" ? "นักเรียน" : "ครู"}ใหม่`} onClose={onClose}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+        <Avatar person={f} size={56} /><Btn variant="ghost" small>อัปโหลดรูป (ย่อ ≤300px)</Btn>
+      </div>
+      <div className="md:grid md:grid-cols-2 md:gap-x-3">
+        <Field label="รหัส" value={f.id} onChange={set("id")} placeholder={kind === "student" ? "เช่น 10234" : "เช่น T05"} />
+        <Field label="เบอร์โทร" value={f.phone} onChange={set("phone")} placeholder="08x-xxx-xxxx" />
+        <Field label="คำนำหน้า" value={f.pre} onChange={set("pre")} />
+        <Field label="ชื่อ" value={f.first} onChange={set("first")} />
+        <Field label="นามสกุล" value={f.last} onChange={set("last")} />
+        {kind === "student" && <Field label="ระดับชั้น" value={f.grade} onChange={set("grade")} placeholder="เช่น ม.3" />}
+        {kind === "student" && <Field label="ห้อง" value={f.room} onChange={set("room")} placeholder="เช่น 1" />}
+      </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+        <Btn onClick={() => onSave(f, !!person)}>{person ? "บันทึกการแก้ไข" : "บันทึก"}</Btn>
+        <Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn>
+      </div>
+    </Modal>
+  );
+}
+function ImportPreview({ kind, onClose, onConfirm, existing }) {
+  // จำลองไฟล์ที่มี "คำนำหน้า+ชื่อ+สกุล" รวมกัน และมีรหัสซ้ำ 1 แถว
+  const raw = kind === "student"
+    ? [
+        { id: "10240", full: "เด็กชายวีระ สู้ศึก", grade: "ม.3", room: "2", phone: "0871111111" },
+        { id: "10234", full: "เด็กชายปกรณ์ มั่นคง", grade: "ม.3", room: "1", phone: "0812345678" }, // ซ้ำ
+        { id: "10241", full: "เด็กหญิงมณี งามตา", grade: "ม.2", room: "1", phone: "0872222222" },
+      ]
+    : [{ id: "T05", full: "นายเอกชัย มานะ", phone: "0899999999" }];
+  const split = (full) => {
+    const pres = ["เด็กชาย", "เด็กหญิง", "นางสาว", "นาย", "นาง"];
+    let pre = pres.find((p) => full.startsWith(p)) || "";
+    const rest = full.slice(pre.length).trim().split(" ");
+    return { pre, first: rest[0] || "", last: rest.slice(1).join(" ") };
+  };
+  const parsed = raw.map((r) => {
+    const dup = existing.some((e) => e.id === r.id);
+    const s = split(r.full);
+    return { ...r, ...s, house: 0, dup };
+  });
+  const toAdd = parsed.filter((r) => !r.dup).map(({ full, dup, ...rest }) => rest);
+  return (
+    <Modal title="ตรวจสอบก่อนโอนเข้าระบบ" onClose={onClose} wide>
+      <p style={{ fontSize: 13, color: C.muted, marginTop: 0 }}>ระบบแยก คำนำหน้า / ชื่อ / นามสกุล ให้อัตโนมัติ และตรวจรหัสซ้ำ — แถวที่ซ้ำจะไม่ถูกโอน</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {parsed.map((r, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: 10, borderRadius: 10, border: `1px solid ${r.dup ? "#f3c9c9" : C.line}`, background: r.dup ? "#fdf0f0" : C.surface }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 600, color: C.ink, fontSize: 13.5 }}>{r.pre} · {r.first} · {r.last}</div>
+              <div style={{ fontSize: 11.5, color: C.muted }}>รหัส {r.id}{r.grade ? ` · ${r.grade}/${r.room}` : ""}</div>
+            </div>
+            {r.dup ? <span style={{ fontSize: 12, fontWeight: 700, color: "#c0392b" }}>รหัสซ้ำ (ข้าม)</span> : <span style={{ fontSize: 12, fontWeight: 700, color: "#2f9e6b" }}>ใหม่</span>}
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+        <Btn onClick={() => onConfirm(toAdd)}>โอนเข้าระบบ ({toAdd.length} คน)</Btn>
+        <Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn>
+      </div>
+    </Modal>
+  );
+}
+function AssistantList({ db, setDb, ui }) {
+  const [add, setAdd] = useState(false);
+  const remove = (u) => ui.run("กำลังลบ...", () => setDb((p) => ({ ...p, assistants: p.assistants.filter((a) => a.user !== u) })));
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 13, color: C.muted }}>{db.assistants.length} บัญชี · แอดมินเห็นรหัสผ่านเป็นข้อความจริง</span>
+        <Btn small onClick={() => setAdd(true)}>+ เพิ่มผู้ช่วย</Btn>
+      </div>
+      {db.assistants.map((a) => (
+        <Card key={a.user} style={{ padding: 14 }}>
+          <div style={{ fontWeight: 700, color: C.ink }}>{a.name}</div>
+          <div style={{ display: "flex", gap: 16, marginTop: 6, fontSize: 13 }}>
+            <span style={{ color: C.muted }}>ผู้ใช้: <b style={{ color: C.ink }}>{a.user}</b></span>
+            <span style={{ color: C.muted }}>รหัสผ่าน: <b style={{ color: C.ink }}>{a.password}</b></span>
+          </div>
+          <div style={{ marginTop: 10 }}><Btn variant="danger" small onClick={() => remove(a.user)}>ลบบัญชี</Btn></div>
+        </Card>
+      ))}
+      {add && <AssistantForm onClose={() => setAdd(false)} onSave={(a) => ui.run("กำลังบันทึก...", () => { setDb((p) => ({ ...p, assistants: [...p.assistants, a] })); setAdd(false); })} />}
+    </div>
+  );
+}
+function AssistantForm({ onClose, onSave }) {
+  const [f, setF] = useState({ name: "", user: "", password: "" });
+  const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
+  return (
+    <Modal title="เพิ่มผู้ช่วยแอดมิน" onClose={onClose}>
+      <Field label="ชื่อ" value={f.name} onChange={set("name")} />
+      <Field label="ชื่อผู้ใช้ (user)" value={f.user} onChange={set("user")} />
+      <Field label="รหัสผ่าน (password)" value={f.password} onChange={set("password")} />
+      <div style={{ display: "flex", gap: 8 }}><Btn onClick={() => onSave(f)}>บันทึก</Btn><Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn></div>
+    </Modal>
+  );
+}
+
+/* ----- Org manager ----- */
+function OrgManager({ db, setDb, ui, editable }) {
+  const [tab, setTab] = useState("combined");
+  return (
+    <div>
+      <PageHead title="ผังโครงสร้างองค์กร" sub={editable ? "กำหนดหน้าที่ ลำดับแถว และรายชื่อ" : "ดูอย่างเดียว"} right={<ExportBar run={ui.run} />} />
+      <Tabs tabs={[{ key: "combined", label: "ผังรวม" }, { key: "teacher", label: "ครู" }, { key: "student", label: "นักเรียน" }]} active={tab} onChange={setTab} />
+      {tab === "combined" && <CombinedChart db={db} />}
+      {tab === "teacher" && <OrgEditor which="orgTeacher" pool={db.teachers} db={db} setDb={setDb} ui={ui} editable={editable} />}
+      {tab === "student" && <OrgEditor which="orgStudent" pool={db.students} db={db} setDb={setDb} ui={ui} editable={editable} />}
+    </div>
+  );
+}
+function CombinedChart({ db }) {
+  const canon = ["ประธาน", "รองประธาน", "หัวหน้า", "ผู้ควบคุม", "ผู้ช่วย"];
+  const labels = ["ประธาน", "รองประธาน", "หัวหน้าการแข่งขัน/กิจกรรม", "ผู้ควบคุมการแข่งขัน/กิจกรรม", "ผู้ช่วยการแข่งขัน/กิจกรรม"];
+  const pick = (rows, pool, kw) => rows.filter((r) => r.title.includes(kw)).flatMap((r) => r.people.map((id) => pool.find((p) => p.id === id)).filter(Boolean));
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", gap: 8, fontSize: 12 }}>
+        <span style={{ flex: 1, textAlign: "center", fontWeight: 700, color: C.primary }}>ครู</span><span style={{ width: 1 }} /><span style={{ flex: 1, textAlign: "center", fontWeight: 700, color: C.gold }}>นักเรียน</span>
+      </div>
+      {canon.map((kw, i) => (
+        <div key={i}>
+          <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, color: C.ink, marginBottom: 6 }}>{labels[i]}</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <ChartSide people={pick(db.orgTeacher, db.teachers, kw)} accent={C.primary} role={labels[i]} />
+            <div style={{ width: 1, background: C.line }} />
+            <ChartSide people={pick(db.orgStudent, db.students, kw)} accent={C.gold} role={labels[i]} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+function ChartSide({ people, accent, role }) {
+  return (
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
+      {people.length === 0 && <div style={{ border: `1.5px dashed ${C.line}`, borderRadius: 12, padding: "14px 8px", textAlign: "center", color: C.muted, fontSize: 12 }}>ยังไม่กำหนด</div>}
+      {people.map((p) => (
+        <Card key={p.id} style={{ padding: 10, display: "flex", alignItems: "center", gap: 10, borderLeft: `3px solid ${accent}` }}>
+          <Avatar person={p} size={40} />
+          <div style={{ minWidth: 0 }}><div style={{ fontWeight: 700, color: C.ink, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fullName(p)}</div><div style={{ fontSize: 11, color: C.muted }}>{role}</div></div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+function OrgEditor({ which, pool, db, setDb, ui, editable }) {
+  const rows = db[which];
+  const [addRow, setAddRow] = useState(false);
+  const [assignTo, setAssignTo] = useState(null);
+  const update = (fn) => setDb((p) => ({ ...p, [which]: fn(p[which]) }));
+  const addPerson = (rowId, id) => ui.run("กำลังกำหนดรายชื่อ...", () => { update((rs) => rs.map((r) => r.id === rowId ? { ...r, people: [...new Set([...r.people, id])] } : r)); setAssignTo(null); });
+  const removePerson = (rowId, id) => update((rs) => rs.map((r) => r.id === rowId ? { ...r, people: r.people.filter((x) => x !== id) } : r));
+  const removeRow = (rowId) => ui.run("กำลังลบหน้าที่...", () => update((rs) => rs.filter((r) => r.id !== rowId)));
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {editable && <div><Btn small onClick={() => setAddRow(true)}>+ เพิ่มหน้าที่ / แถว</Btn></div>}
+      {rows.map((r, idx) => (
+        <Card key={r.id} style={{ padding: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+            <div>
+              <div style={{ fontWeight: 700, color: C.ink }}>{r.title}</div>
+              <div style={{ fontSize: 12, color: C.muted }}>แถวที่ {idx + 1} · จำนวน {r.count} คน · ต่อจาก {r.after}</div>
+            </div>
+            {editable && <Btn variant="danger" small onClick={() => removeRow(r.id)}>ลบแถว</Btn>}
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+            {r.people.map((id) => {
+              const p = pool.find((x) => x.id === id);
+              if (!p) return null;
+              return (
+                <div key={id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px 6px 6px", borderRadius: 20, border: `1px solid ${C.line}` }}>
+                  <Avatar person={p} size={30} /><span style={{ fontSize: 13, color: C.ink }}>{p.first}</span>
+                  {editable && <button onClick={() => removePerson(r.id, id)} style={{ border: "none", background: "none", color: C.muted, cursor: "pointer", fontSize: 15 }}>×</button>}
+                </div>
+              );
+            })}
+            {editable && <button onClick={() => setAssignTo(r.id)} style={{ padding: "8px 12px", borderRadius: 20, border: `1.5px dashed ${C.line}`, background: C.surface, color: C.primary, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>+ กำหนดรายชื่อ</button>}
+          </div>
+        </Card>
+      ))}
+      {assignTo && <SearchPersonPopup title="ค้นหาเพื่อกำหนดรายชื่อ" pool={pool} onClose={() => setAssignTo(null)} onPick={(p) => addPerson(assignTo, p.id)} />}
+      {addRow && <RowForm onClose={() => setAddRow(false)} onSave={(row) => ui.run("กำลังเพิ่มหน้าที่...", () => { update((rs) => [...rs, { ...row, id: "r" + Date.now(), people: [] }]); setAddRow(false); })} />}
+    </div>
+  );
+}
+function RowForm({ onClose, onSave }) {
+  const [f, setF] = useState({ title: "", count: 1, after: "-" });
+  const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
+  return (
+    <Modal title="เพิ่มหน้าที่ / แถว" onClose={onClose}>
+      <Field label="ชื่อหน้าที่ (เช่น ประธาน, ผู้ช่วย)" value={f.title} onChange={set("title")} />
+      <Field label="จำนวนคน" value={String(f.count)} onChange={(v) => set("count")(Number(v) || 1)} />
+      <Field label="ต่อจาก (แถวก่อนหน้า)" value={f.after} onChange={set("after")} />
+      <div style={{ display: "flex", gap: 8 }}><Btn onClick={() => onSave(f)}>บันทึก</Btn><Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn></div>
+    </Modal>
+  );
+}
+
+/* ----- Competition manager ----- */
+function CompManager({ db, setDb, ui }) {
+  const [tab, setTab] = useState("comp");
+  return (
+    <div>
+      <PageHead title="รายการแข่งขัน & กิจกรรม" sub={`จำกัดตัวจริงต่อคน: ${db.settings.maxMain} รายการ`} />
+      <Tabs tabs={[{ key: "comp", label: "รายการแข่งขัน" }, { key: "act", label: "รายการกิจกรรม" }, { key: "select", label: "คัดเลือกผู้เข้าแข่ง" }, { key: "set", label: "ตั้งค่า" }]} active={tab} onChange={setTab} />
+      {tab === "comp" && <CompTable kind="แข่งขัน" db={db} setDb={setDb} ui={ui} />}
+      {tab === "act" && <CompTable kind="กิจกรรม" db={db} setDb={setDb} ui={ui} />}
+      {tab === "select" && <SelectionScreen db={db} setDb={setDb} ui={ui} />}
+      {tab === "set" && <CompSettings db={db} setDb={setDb} ui={ui} />}
+    </div>
+  );
+}
+function CompTable({ kind, db, setDb, ui }) {
+  const list = db.competitions.filter((c) => c.kind === kind);
+  const [add, setAdd] = useState(false);
+  const [edit, setEdit] = useState(null);
+  const remove = (id) => ui.run("กำลังลบรายการ...", () => setDb((p) => ({ ...p, competitions: p.competitions.filter((c) => c.id !== id) })));
+  const save = (c, isEdit) => ui.run("กำลังบันทึก...", () => {
+    setDb((p) => ({ ...p, competitions: isEdit ? p.competitions.map((x) => x.id === c.id ? c : x) : [...p.competitions, { ...c, id: (kind === "แข่งขัน" ? "C" : "A") + Date.now(), participants: [], schedule: [], results: {} }] }));
+    setAdd(false); setEdit(null);
+  });
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}><Btn small onClick={() => setAdd(true)}>+ เพิ่มรายการ{kind}</Btn></div>
+      {list.map((c) => (
+        <Card key={c.id} style={{ padding: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+            <div>
+              <div style={{ fontWeight: 700, color: C.ink }}>{c.name}</div>
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>ตัวจริง {c.mainCount || "ไม่กำหนด"} · สำรอง {c.reserveCount || "ไม่กำหนด"} · สมัคร {c.regStart} ถึง {c.regEnd}</div>
+              <div style={{ fontSize: 12, color: C.muted }}>ผู้สมัคร {c.participants.length} คน</div>
+            </div>
+            <div style={{ display: "flex", gap: 6 }}><Btn variant="ghost" small onClick={() => setEdit(c)}>แก้ไข</Btn><Btn variant="danger" small onClick={() => remove(c.id)}>ลบ</Btn></div>
+          </div>
+        </Card>
+      ))}
+      {list.length === 0 && <Empty text={`ยังไม่มีรายการ${kind}`} />}
+      {(add || edit) && <CompForm kind={kind} comp={edit} onClose={() => { setAdd(false); setEdit(null); }} onSave={save} />}
+    </div>
+  );
+}
+function CompForm({ kind, comp, onClose, onSave }) {
+  const [f, setF] = useState(comp || { kind, name: "", mainCount: 0, reserveCount: 0, regStart: "", regEnd: "" });
+  const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
+  return (
+    <Modal title={comp ? "แก้ไขรายการ" : `เพิ่มรายการ${kind}`} onClose={onClose}>
+      <Field label="ชื่อรายการ" value={f.name} onChange={set("name")} />
+      <div className="md:grid md:grid-cols-2 md:gap-x-3">
+        <Field label="จำนวนตัวจริง (0 = ไม่กำหนด)" value={String(f.mainCount)} onChange={(v) => set("mainCount")(Number(v) || 0)} />
+        <Field label="จำนวนตัวสำรอง (0 = ไม่กำหนด)" value={String(f.reserveCount)} onChange={(v) => set("reserveCount")(Number(v) || 0)} />
+        <Field label="รับสมัครตั้งแต่" value={f.regStart} onChange={set("regStart")} placeholder="2025-07-01" />
+        <Field label="ถึงวันที่" value={f.regEnd} onChange={set("regEnd")} placeholder="2025-07-10" />
+      </div>
+      <div style={{ display: "flex", gap: 8 }}><Btn onClick={() => onSave(f, !!comp)}>บันทึก</Btn><Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn></div>
+    </Modal>
+  );
+}
+function CompSettings({ db, setDb, ui }) {
+  const [max, setMax] = useState(db.settings.maxMain);
+  return (
+    <Card style={{ padding: 16, maxWidth: 420 }}>
+      <div style={{ fontWeight: 700, color: C.ink, marginBottom: 10 }}>จำกัดจำนวนตัวจริงต่อนักเรียน</div>
+      <Field label="ลงเป็นตัวจริงได้ไม่เกิน (รายการ)" value={String(max)} onChange={(v) => setMax(Number(v) || 1)} />
+      <Btn onClick={() => ui.run("กำลังบันทึกค่า...", () => { setDb((p) => ({ ...p, settings: { ...p.settings, maxMain: max } })); ui.notify("บันทึกแล้ว"); })}>บันทึก</Btn>
+    </Card>
+  );
+}
+function SelectionScreen({ db, setDb, ui }) {
+  const [pick, setPick] = useState(db.competitions[0]?.id || "");
+  const comp = db.competitions.find((c) => c.id === pick);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <Select value={pick} onChange={setPick}>{db.competitions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select>
+        {comp && <ExportBar run={ui.run} />}
+      </div>
+      {comp && <ParticipantManager comp={comp} db={db} setDb={setDb} ui={ui} mode="select" />}
+    </div>
+  );
+}
+function ParticipantManager({ comp, db, setDb, ui, mode }) {
+  const setStatus = (sid, status) => ui.run("กำลังปรับสถานะ...", () => {
+    setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, participants: c.participants.map((x) => x.sid === sid ? { ...x, status } : x) } : c) }));
+  });
+  const groups = [["main", "ตัวจริง"], ["reserve", "ตัวสำรอง"], ["rejected", "ไม่ผ่านคัดเลือก"]];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {groups.map(([g, label]) => {
+        const items = comp.participants.filter((x) => x.status === g);
+        if (items.length === 0) return null;
+        return (
+          <div key={g}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.ink, marginBottom: 6 }}>{label} ({items.length})</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {items.map((x) => {
+                const s = db.students.find((st) => st.id === x.sid);
+                if (!s) return null;
+                return (
+                  <Card key={x.sid} style={{ padding: 12 }}>
+                    <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                      <Avatar person={s} size={54} />
+                      <div style={{ flex: 1, minWidth: 0, maxHeight: 54, overflow: "hidden" }}>
+                        <div style={{ fontWeight: 700, color: C.ink, fontSize: 14 }}>{fullName(s)}</div>
+                        <div style={{ fontSize: 12, color: C.muted }}>รหัส {s.id} · {s.grade}/{s.room} · {s.phone}</div>
+                      </div>
+                      <Badge status={x.status} />
+                    </div>
+                    <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+                      <Btn variant="soft" small onClick={() => setStatus(x.sid, "main")}>เป็นตัวจริง</Btn>
+                      <Btn variant="soft" small onClick={() => setStatus(x.sid, "reserve")}>เป็นตัวสำรอง</Btn>
+                      <Btn variant="danger" small onClick={() => setStatus(x.sid, "rejected")}>ไม่ผ่านคัดเลือก</Btn>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+      {comp.participants.length === 0 && <Empty text="ยังไม่มีผู้สมัครในรายการนี้" />}
+      <p style={{ fontSize: 12, color: C.muted, margin: 0 }}>* ตรรกะเต็ม (นักเรียนที่ลงหลายรายการจะกลับสถานะปกติเมื่อถูกตัดออกทุกรายการ) จะทำจริงในเฟสฐานข้อมูล</p>
+    </div>
+  );
+}
+function SettingsManager({ db, setDb, ui }) {
+  const [tab, setTab] = useState("theme");
+  return (
+    <div>
+      <PageHead title="ตั้งค่า" sub="ธีมสี & สีทีมแข่งขัน · ประชาสัมพันธ์" />
+      <Tabs tabs={[{ key: "theme", label: "ธีม & สีทีม" }, { key: "promo", label: "ประชาสัมพันธ์" }]} active={tab} onChange={setTab} />
+      {tab === "theme" && <ThemeCard db={db} setDb={setDb} ui={ui} />}
+      {tab === "promo" && <PromoCard db={db} setDb={setDb} ui={ui} />}
+    </div>
+  );
+}
+function ThemeCard({ db, setDb, ui }) {
+  const houses = db.settings.houses || [];
+  const upd = (fn) => setDb((p) => ({ ...p, settings: { ...p.settings, houses: fn(p.settings.houses) } }));
+  const setColor = (i, color) => upd((hs) => hs.map((h, j) => (j === i ? { ...h, color } : h)));
+  const setName = (i, name) => upd((hs) => hs.map((h, j) => (j === i ? { ...h, name } : h)));
+  const add = () => upd((hs) => [...hs, { name: `สีที่ ${hs.length + 1}`, color: "#c9b7e6" }]);
+  const del = (i) => { if (houses.length <= 2) { ui.notify("ต้องมีอย่างน้อย 2 สี"); return; } upd((hs) => hs.filter((_, j) => j !== i)); };
+  const presets = [
+    ["พาสเทลคลาสสิก", ["#eaa0ad", "#93bce8", "#95d3b4", "#ebca8a"]],
+    ["โทนหวาน", ["#f2b8cb", "#c9b7e6", "#a9dbe8", "#f5cfa3"]],
+    ["โทนเอิร์ธ", ["#d9a89a", "#b7c9a8", "#e6d29a", "#a9c3cf"]],
+  ];
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 520 }}>
+      <Card style={{ padding: 16 }}>
+        <div style={{ fontWeight: 700, color: C.ink, marginBottom: 4 }}>สีทีมแข่งขัน</div>
+        <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 14 }}>สีทีมที่ 1 คือสีหลักของธีมทั้งระบบ · แก้แล้วหน้าเว็บอัปเดตทันที (พรีวิวสด)</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {houses.map((h, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 12, color: C.muted, width: 16 }}>{i + 1}</span>
+              <input type="color" value={h.color} onChange={(e) => setColor(i, e.target.value)}
+                style={{ width: 44, height: 38, border: `1px solid ${C.line}`, borderRadius: 10, background: "none", cursor: "pointer", padding: 2 }} />
+              <input value={h.name} onChange={(e) => setName(i, e.target.value)}
+                style={{ flex: 1, minWidth: 0, padding: "9px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14 }} />
+              {i === 0 && <span style={{ fontSize: 11, fontWeight: 700, color: C.primary, whiteSpace: "nowrap" }}>สีหลัก</span>}
+              <button onClick={() => del(i)} aria-label="ลบสี" style={{ border: "none", background: "none", color: C.muted, cursor: "pointer", fontSize: 18 }}>×</button>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <Btn variant="ghost" small onClick={add}>+ เพิ่มสีทีม</Btn>
+          <Btn small onClick={() => ui.run("กำลังบันทึกธีม...", () => ui.notify("บันทึกธีมแล้ว"))}>บันทึก</Btn>
+        </div>
+        <div style={{ display: "flex", gap: 6, marginTop: 14 }}>
+          {houses.map((h, i) => <div key={i} title={h.name} style={{ flex: 1, height: 30, borderRadius: 8, background: h.color }} />)}
+        </div>
+      </Card>
+      <Card style={{ padding: 16 }}>
+        <div style={{ fontWeight: 700, color: C.ink, marginBottom: 10 }}>ชุดสีสำเร็จรูป</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {presets.map(([name, cols]) => (
+            <button key={name} onClick={() => upd(() => cols.map((c, i) => ({ name: houses[i]?.name || `สีที่ ${i + 1}`, color: c })))}
+              style={{ display: "flex", alignItems: "center", gap: 10, padding: 10, borderRadius: 12, border: `1px solid ${C.line}`, background: C.surface, cursor: "pointer" }}>
+              <span style={{ display: "flex", gap: 4 }}>{cols.map((c, i) => <span key={i} style={{ width: 20, height: 20, borderRadius: 6, background: c }} />)}</span>
+              <span style={{ fontSize: 13.5, color: C.ink, fontWeight: 600 }}>{name}</span>
+            </button>
+          ))}
+        </div>
+      </Card>
+    </div>
+  );
+}
+function PromoCard({ db, setDb, ui }) {
+  const [lines, setLines] = useState(db.settings.announce.lines.join("\n"));
+  const [speed, setSpeed] = useState(db.settings.announce.speed);
+  const [showLines, setShowLines] = useState(db.settings.announce.showLines);
+  return (
+    <Card style={{ padding: 16, maxWidth: 560 }}>
+      <span style={{ display: "block", fontSize: 13, color: C.muted, marginBottom: 5 }}>ข้อความ (บรรทัดละ 1 เรื่อง)</span>
+      <textarea value={lines} onChange={(e) => setLines(e.target.value)} rows={5} style={{ width: "100%", padding: 12, borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, fontFamily: "inherit", marginBottom: 12 }} />
+      <div className="md:grid md:grid-cols-2 md:gap-x-3">
+        <Field label="ความเร็วเลื่อน (วินาที/รอบ, มาก=ช้า)" value={String(speed)} onChange={(v) => setSpeed(Number(v) || 18)} />
+        <Field label="จำนวนบรรทัดที่แสดง" value={String(showLines)} onChange={(v) => setShowLines(Number(v) || 3)} />
+      </div>
+      <Btn onClick={() => ui.run("กำลังบันทึก...", () => { setDb((p) => ({ ...p, settings: { ...p.settings, announce: { speed, showLines, lines: lines.split("\n").filter(Boolean) } } })); ui.notify("บันทึกประชาสัมพันธ์แล้ว"); })}>บันทึก</Btn>
+    </Card>
+  );
+}
+
+/* ============================================================
+   COMMITTEE (teacher / student committee) — same screens
+   ============================================================ */
+function CommitteeApp({ role, db, setDb, onExit }) {
+  const [view, setView] = useState("org");
+  const ui = useUI();
+  const nav = [
+    { key: "org", label: "ผังองค์กร", icon: "🗂" },
+    { key: "results", label: "ลงผล", icon: "🏅" },
+    { key: "schedule", label: "ตารางแข่ง", icon: "📅" },
+    { key: "regfor", label: "สมัครแทน", icon: "✍️" },
+  ];
+  return (
+    <Shell role={role} nav={nav} view={view} setView={setView} onExit={onExit} ui={ui}>
+      {view === "org" && <OrgManager db={db} setDb={setDb} ui={ui} editable={false} />}
+      {view === "results" && <ResultsScreen db={db} setDb={setDb} ui={ui} />}
+      {view === "schedule" && <ScheduleScreen db={db} setDb={setDb} ui={ui} editable />}
+      {view === "regfor" && <RegisterForStudent db={db} setDb={setDb} ui={ui} />}
+    </Shell>
+  );
+}
+function ResultsScreen({ db, setDb, ui }) {
+  const [pick, setPick] = useState(db.competitions[0]?.id || "");
+  const [editRes, setEditRes] = useState(null);
+  const comp = db.competitions.find((c) => c.id === pick);
+  const mains = comp ? comp.participants.filter((x) => x.status !== "rejected") : [];
+  return (
+    <div>
+      <PageHead title="ลงผลการแข่งขัน" sub="แพ้/ชนะ/เสมอ · เหรียญ · คะแนนรายรอบ" right={comp && <ExportBar run={ui.run} />} />
+      <div style={{ marginBottom: 12 }}><Select value={pick} onChange={setPick}>{db.competitions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {mains.map((x) => {
+          const s = db.students.find((st) => st.id === x.sid);
+          const r = comp.results[x.sid] || {};
+          if (!s) return null;
+          return (
+            <Card key={x.sid} style={{ padding: 12 }}>
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <Avatar person={s} size={48} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, color: C.ink, fontSize: 14 }}>{fullName(s)}</div>
+                  <div style={{ fontSize: 12, color: C.muted }}>
+                    {r.outcome ? `ผล: ${r.outcome}` : "ยังไม่ลงผล"}{r.medal ? ` · เหรียญ${r.medal}` : ""}{r.rounds?.length ? ` · ${r.rounds.length} รอบ` : ""}
+                  </div>
+                </div>
+                <Btn variant="ghost" small onClick={() => setEditRes(x.sid)}>ลงผล</Btn>
+              </div>
+            </Card>
+          );
+        })}
+        {mains.length === 0 && <Empty text="ยังไม่มีผู้เข้าแข่งในรายการนี้" />}
+      </div>
+      {editRes && <ResultForm comp={comp} sid={editRes} student={db.students.find((s) => s.id === editRes)} onClose={() => setEditRes(null)}
+        onSave={(res) => ui.run("กำลังบันทึกผล...", () => { setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, results: { ...c.results, [editRes]: res } } : c) })); setEditRes(null); })} />}
+    </div>
+  );
+}
+function ResultForm({ comp, sid, student, onClose, onSave }) {
+  const [r, setR] = useState(comp.results[sid] || { outcome: "", medal: "", nextDate: "", rounds: [] });
+  const set = (k) => (v) => setR((p) => ({ ...p, [k]: v }));
+  const addRound = () => setR((p) => ({ ...p, rounds: [...p.rounds, { round: `รอบ ${p.rounds.length + 1}`, score: "" }] }));
+  const setRound = (i, k, v) => setR((p) => ({ ...p, rounds: p.rounds.map((x, j) => j === i ? { ...x, [k]: v } : x) }));
+  const chip = (label, key, val, colors) => (
+    <button onClick={() => set(key)(r[key] === val ? "" : val)} style={{ padding: "8px 12px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, background: r[key] === val ? colors[0] : C.soft, color: r[key] === val ? "#fff" : C.primaryDark }}>{label}</button>
+  );
+  return (
+    <Modal title={`ลงผล: ${fullName(student)}`} onClose={onClose}>
+      <div style={{ fontSize: 13, color: C.muted, marginBottom: 6 }}>ผลการแข่งขัน</div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+        {chip("ชนะ", "outcome", "ชนะ", ["#2f9e6b"])}{chip("แพ้", "outcome", "แพ้", ["#c0392b"])}{chip("เสมอ", "outcome", "เสมอ", [C.primary])}
+        <Btn variant="ghost" small onClick={() => set("outcome")("")}>ยกเลิกผล</Btn>
+      </div>
+      <div style={{ fontSize: 13, color: C.muted, marginBottom: 6 }}>เหรียญรางวัล</div>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+        {chip("ทอง", "medal", "ทอง", [C.gold])}{chip("เงิน", "medal", "เงิน", ["#8a97a5"])}{chip("ทองแดง", "medal", "ทองแดง", ["#a9702f"])}
+        <Btn variant="ghost" small onClick={() => set("medal")("")}>ยกเลิกเหรียญ</Btn>
+      </div>
+      <Field label="วัน/เวลาแข่งครั้งต่อไป" value={r.nextDate} onChange={set("nextDate")} placeholder="2025-07-20 09:00" />
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <span style={{ fontSize: 13, color: C.muted }}>คะแนนรายรอบ</span><Btn variant="ghost" small onClick={addRound}>+ เพิ่มรอบ</Btn>
+      </div>
+      {r.rounds.map((rd, i) => (
+        <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+          <input value={rd.round} onChange={(e) => setRound(i, "round", e.target.value)} style={{ flex: 1, padding: "9px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 13 }} />
+          <input value={rd.score} onChange={(e) => setRound(i, "score", e.target.value)} placeholder="คะแนน" style={{ width: 90, padding: "9px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 13 }} />
+        </div>
+      ))}
+      <div style={{ display: "flex", gap: 8, marginTop: 8 }}><Btn onClick={() => onSave(r)}>บันทึกผล</Btn><Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn></div>
+    </Modal>
+  );
+}
+function ScheduleScreen({ db, setDb, ui, editable }) {
+  const [pick, setPick] = useState(db.competitions[0]?.id || "");
+  const [add, setAdd] = useState(false);
+  const comp = db.competitions.find((c) => c.id === pick);
+  return (
+    <div>
+      <PageHead title="ตารางการแข่งขัน" sub={editable ? "เพิ่มวัน/เวลา/รอบการแข่งขัน" : "ดูอย่างเดียว"} right={comp && <ExportBar run={ui.run} />} />
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+        <Select value={pick} onChange={setPick}>{db.competitions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select>
+        {editable && <Btn small onClick={() => setAdd(true)}>+ เพิ่มนัดหมาย</Btn>}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {comp?.schedule.map((s, i) => (
+          <Card key={i} style={{ padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div><div style={{ fontWeight: 600, color: C.ink }}>{s.round}</div><div style={{ fontSize: 12, color: C.muted }}>{s.date} {s.time} · {s.place}</div></div>
+          </Card>
+        ))}
+        {(!comp || comp.schedule.length === 0) && <Empty text="ยังไม่มีนัดหมาย" />}
+      </div>
+      {add && <SchForm onClose={() => setAdd(false)} onSave={(s) => ui.run("กำลังเพิ่มนัดหมาย...", () => { setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === pick ? { ...c, schedule: [...c.schedule, s] } : c) })); setAdd(false); })} />}
+    </div>
+  );
+}
+function SchForm({ onClose, onSave }) {
+  const [f, setF] = useState({ round: "", date: "", time: "", place: "" });
+  const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
+  return (
+    <Modal title="เพิ่มนัดหมายการแข่ง" onClose={onClose}>
+      <Field label="รอบ / ชื่อการแข่ง" value={f.round} onChange={set("round")} placeholder="เช่น รอบคัดเลือก" />
+      <div className="md:grid md:grid-cols-2 md:gap-x-3">
+        <Field label="วันที่" value={f.date} onChange={set("date")} placeholder="2025-07-15" />
+        <Field label="เวลา" value={f.time} onChange={set("time")} placeholder="09:30" />
+      </div>
+      <Field label="สถานที่" value={f.place} onChange={set("place")} />
+      <div style={{ display: "flex", gap: 8 }}><Btn onClick={() => onSave(f)}>บันทึก</Btn><Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn></div>
+    </Modal>
+  );
+}
+function RegisterForStudent({ db, setDb, ui }) {
+  const [comp, setComp] = useState(db.competitions[0]?.id || "");
+  const [search, setSearch] = useState(false);
+  const c = db.competitions.find((x) => x.id === comp);
+  const enrolled = c ? c.participants.map((p) => p.sid) : [];
+  const pool = db.students.filter((s) => !enrolled.includes(s.id));
+  const add = (sid, status) => ui.run("กำลังสมัครให้นักเรียน...", () => { setDb((p) => ({ ...p, competitions: p.competitions.map((x) => x.id === comp ? { ...x, participants: [...x.participants, { sid, status }] } : x) })); ui.notify("สมัครแล้ว"); });
+  return (
+    <div>
+      <PageHead title="สมัครแทนนักเรียน" sub="ใช้เมื่อหมดเวลาสมัครแล้ว — กรรมการเพิ่มให้ได้" />
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+        <Select value={comp} onChange={setComp}>{db.competitions.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}</Select>
+        <Btn small onClick={() => setSearch(true)}>+ ค้นหานักเรียน</Btn>
+      </div>
+      <div style={{ fontSize: 13, color: C.muted }}>ผู้สมัครในรายการนี้: {c?.participants.length || 0} คน</div>
+      {search && (
+        <SearchPersonPopup title="เลือกนักเรียนเพื่อสมัคร" pool={pool} onClose={() => setSearch(false)}
+          onPick={(p) => { setSearch(false); ui.run("กำลังเพิ่ม...", () => add(p.id, "main")); }} />
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   STUDENT
+   ============================================================ */
+function StudentApp({ db, setDb, onExit }) {
+  const me = db.students[0]; // จำลองว่าล็อกอินเป็นนักเรียนคนแรก
+  const [view, setView] = useState("home");
+  const ui = useUI();
+  const nav = [
+    { key: "home", label: "หน้าแรก", icon: "🏠" },
+    { key: "me", label: "ข้อมูลฉัน", icon: "🪪" },
+    { key: "register", label: "สมัครแข่ง", icon: "✍️" },
+    { key: "results", label: "ผลแข่ง", icon: "🏅" },
+    { key: "schedule", label: "ตาราง", icon: "📅" },
+  ];
+  return (
+    <Shell role="student" nav={nav} view={view} setView={setView} onExit={onExit} ui={ui}>
+      {view === "home" && <OrgManager db={db} setDb={setDb} ui={ui} editable={false} />}
+      {view === "me" && <MyProfile me={me} db={db} setDb={setDb} ui={ui} />}
+      {view === "register" && <StudentRegister me={me} db={db} setDb={setDb} ui={ui} />}
+      {view === "results" && <StudentResults db={db} ui={ui} />}
+      {view === "schedule" && <ScheduleScreen db={db} setDb={setDb} ui={ui} editable={false} />}
+    </Shell>
+  );
+}
+function MyProfile({ me, db, setDb, ui }) {
+  const [g, setG] = useState({ name: me.guardian || "", phone: "", relation: "" });
+  const set = (k) => (v) => setG((p) => ({ ...p, [k]: v }));
+  return (
+    <div>
+      <PageHead title="ข้อมูลของฉัน" sub={`เข้าสู่ระบบด้วยรหัสนักเรียน ${me.id}`} />
+      <Card style={{ padding: 16, marginBottom: 14, display: "flex", gap: 14, alignItems: "center" }}>
+        <Avatar person={me} size={64} />
+        <div><div style={{ fontWeight: 700, color: C.ink, fontSize: 16 }}>{fullName(me)}</div><div style={{ fontSize: 13, color: C.muted }}>รหัส {me.id} · {me.grade}/{me.room} · {me.phone}</div></div>
+      </Card>
+      <Card style={{ padding: 16, maxWidth: 460 }}>
+        <div style={{ fontWeight: 700, color: C.ink, marginBottom: 10 }}>ข้อมูลผู้ปกครอง</div>
+        <Field label="ชื่อผู้ปกครอง" value={g.name} onChange={set("name")} />
+        <Field label="เบอร์โทรผู้ปกครอง" value={g.phone} onChange={set("phone")} />
+        <Field label="ความเกี่ยวข้องกับนักเรียน" value={g.relation} onChange={set("relation")} placeholder="เช่น บิดา / มารดา" />
+        <Btn onClick={() => ui.run("กำลังบันทึก...", () => { setDb((p) => ({ ...p, students: p.students.map((s) => s.id === me.id ? { ...s, guardian: g.name } : s) })); ui.notify("บันทึกข้อมูลแล้ว"); })}>บันทึกข้อมูล</Btn>
+      </Card>
+    </div>
+  );
+}
+function StudentRegister({ me, db, setDb, ui }) {
+  const myMain = db.competitions.filter((c) => c.participants.some((p) => p.sid === me.id && p.status === "main")).length;
+  const enroll = (compId, status) => {
+    if (status === "main" && myMain >= db.settings.maxMain) { ui.notify(`ลงตัวจริงได้ไม่เกิน ${db.settings.maxMain} รายการ`); return; }
+    ui.run("กำลังสมัคร...", () => { setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === compId ? { ...c, participants: [...c.participants.filter((x) => x.sid !== me.id), { sid: me.id, status }] } : c) })); ui.notify("สมัครสำเร็จ"); });
+  };
+  return (
+    <div>
+      <PageHead title="สมัครลงแข่งขัน" sub={`ลงตัวจริงแล้ว ${myMain}/${db.settings.maxMain} รายการ`} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {db.competitions.map((c) => {
+          const mine = c.participants.find((p) => p.sid === me.id);
+          return (
+            <Card key={c.id} style={{ padding: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                <div>
+                  <div style={{ fontWeight: 700, color: C.ink }}>{c.name} <span style={{ fontSize: 11, color: C.muted, fontWeight: 500 }}>({c.kind})</span></div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>รับสมัคร {c.regStart} ถึง {c.regEnd}</div>
+                </div>
+                {mine && <Badge status={mine.status} />}
+              </div>
+              <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                <Btn variant="soft" small onClick={() => enroll(c.id, "main")}>สมัครตัวจริง</Btn>
+                <Btn variant="ghost" small onClick={() => enroll(c.id, "reserve")}>สมัครสำรอง</Btn>
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+function StudentResults({ db, ui }) {
+  const [pick, setPick] = useState(db.competitions[0]?.id || "");
+  const comp = db.competitions.find((c) => c.id === pick);
+  return (
+    <div>
+      <PageHead title="ผลการแข่งขัน" sub="ดูอย่างเดียว" right={comp && <ExportBar run={ui.run} />} />
+      <div style={{ marginBottom: 12 }}><Select value={pick} onChange={setPick}>{db.competitions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {comp?.participants.filter((x) => x.status !== "rejected").map((x) => {
+          const s = db.students.find((st) => st.id === x.sid);
+          const r = comp.results[x.sid] || {};
+          if (!s) return null;
+          return (
+            <Card key={x.sid} style={{ padding: 12, display: "flex", gap: 12, alignItems: "center" }}>
+              <Avatar person={s} size={48} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, color: C.ink, fontSize: 14 }}>{fullName(s)}</div>
+                <div style={{ fontSize: 12, color: C.muted }}>{r.outcome || "ยังไม่มีผล"}{r.medal ? ` · เหรียญ${r.medal}` : ""}{r.rounds?.length ? ` · คะแนน ${r.rounds.map((rd) => rd.score).join("/")}` : ""}</div>
+              </div>
+              <Badge status={x.status} />
+            </Card>
+          );
+        })}
+        {!comp && <Empty text="ยังไม่มีรายการ" />}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   ROOT
+   ============================================================ */
+export default function App() {
+  const [screen, setScreen] = useState("landing");
+  const [role, setRole] = useState(null);
+  const [db, setDb] = useState(seed);
+  // apply admin-defined pastel theme live (Team 1 color = main accent)
+  const teamColors = db.settings.houses && db.settings.houses.length ? db.settings.houses : DEFAULT_HOUSES;
+  C = makeTheme(teamColors[0].color);
+  HOUSES = teamColors.map((h) => h.color);
+  return (
+    <div style={{ fontFamily: "'Noto Sans Thai', system-ui, sans-serif", color: C.ink }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap');
+        * { box-sizing: border-box; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes scrollUp { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+        input[type=range] { accent-color: ${C.primary}; }
+        textarea:focus, input:focus { border-color: ${C.primary}; }
+      `}</style>
+      {screen === "landing" && <Landing onLogin={() => setScreen("login")} announce={db.settings.announce} comps={db.competitions} />}
+      {screen === "login" && <Login onEnter={(r) => { setRole(r); setScreen("app"); }} onBack={() => setScreen("landing")} />}
+      {screen === "app" && role === "admin" && <AdminApp db={db} setDb={setDb} onExit={() => { setRole(null); setScreen("landing"); }} />}
+      {screen === "app" && (role === "teacher" || role === "studentcom") && <CommitteeApp role={role} db={db} setDb={setDb} onExit={() => { setRole(null); setScreen("landing"); }} />}
+      {screen === "app" && role === "student" && <StudentApp db={db} setDb={setDb} onExit={() => { setRole(null); setScreen("landing"); }} />}
+    </div>
+  );
+}
