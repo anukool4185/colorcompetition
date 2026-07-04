@@ -69,46 +69,14 @@ let HOUSES = DEFAULT_HOUSES.map((h) => h.color);
 
 /* ---------------- seed data ---------------- */
 const seed = {
-  students: [
-    { id: "10234", pre: "เด็กชาย", first: "ปกรณ์", last: "มั่นคง", grade: "ม.3", room: "1", phone: "0812345678", house: 0, guardian: "" },
-    { id: "10235", pre: "เด็กหญิง", first: "ณิชา", last: "รุ่งเรือง", grade: "ม.3", room: "1", phone: "0823456789", house: 1, guardian: "" },
-    { id: "10236", pre: "เด็กชาย", first: "อนุชา", last: "ทองแท้", grade: "ม.2", room: "3", phone: "0834567890", house: 2, guardian: "" },
-    { id: "10237", pre: "เด็กหญิง", first: "พิมพ์", last: "ใสสะอาด", grade: "ม.2", room: "3", phone: "0845678901", house: 3, guardian: "" },
-    { id: "10238", pre: "เด็กชาย", first: "กิตติ", last: "เก่งกาจ", grade: "ม.1", room: "2", phone: "0856789012", house: 0, guardian: "" },
-    { id: "10239", pre: "เด็กหญิง", first: "อารยา", last: "ดวงแก้ว", grade: "ม.1", room: "2", phone: "0867890123", house: 1, guardian: "" },
-  ],
-  teachers: [
-    { id: "T01", pre: "นาย", first: "สมชาย", last: "ใจดี", phone: "0811111111", house: 0 },
-    { id: "T02", pre: "นาง", first: "วิภา", last: "แสงทอง", phone: "0822222222", house: 1 },
-    { id: "T03", pre: "นางสาว", first: "กนกพร", last: "ศรีสุข", phone: "0833333333", house: 2 },
-    { id: "T04", pre: "นาย", first: "ธนา", last: "พงษ์ไพร", phone: "0844444444", house: 3 },
-  ],
+  students: [],
+  teachers: [],
   assistants: [],
-  orgTeacher: [
-    { id: "r1", title: "ประธานคณะกรรมการ", count: 1, after: "-", people: ["T01"] },
-    { id: "r2", title: "รองประธาน", count: 1, after: "ประธาน", people: ["T02"] },
-    { id: "r3", title: "หัวหน้าการแข่งขัน", count: 2, after: "รองประธาน", people: ["T03"] },
-    { id: "r4", title: "ผู้ควบคุมการแข่งขัน", count: 3, after: "หัวหน้า", people: ["T04"] },
-  ],
-  orgStudent: [
-    { id: "s1", title: "ประธานนักเรียน", count: 1, after: "-", people: ["10234"] },
-    { id: "s2", title: "รองประธานนักเรียน", count: 1, after: "ประธาน", people: ["10235"] },
-  ],
-  competitions: [
-    { id: "C1", kind: "แข่งขัน", name: "ตอบปัญหาวิทยาศาสตร์", mainCount: 3, reserveCount: 2, regStart: "2025-07-01", regEnd: "2025-07-10",
-      participants: [{ sid: "10234", status: "main" }, { sid: "10235", status: "reserve" }, { sid: "10236", status: "main" }],
-      schedule: [{ date: "2025-07-15", time: "09:30", place: "ห้องปฏิบัติการ 1", round: "รอบคัดเลือก" }],
-      results: { "10234": { outcome: "ชนะ", medal: "ทอง", rounds: [{ round: "รอบ 1", score: "85" }] } } },
-    { id: "C2", kind: "แข่งขัน", name: "คัดลายมือ", mainCount: 2, reserveCount: 0, regStart: "2025-07-01", regEnd: "2025-07-10",
-      participants: [{ sid: "10237", status: "main" }], schedule: [], results: {} },
-    { id: "A1", kind: "กิจกรรม", name: "โครงงานคณิตศาสตร์", mainCount: 0, reserveCount: 0, regStart: "2025-07-01", regEnd: "2025-07-12",
-      participants: [{ sid: "10238", status: "main" }, { sid: "10239", status: "main" }], schedule: [{ date: "2025-07-16", time: "13:00", place: "หอประชุม", round: "นำเสนอ" }], results: {} },
-  ],
+  orgTeacher: [],
+  orgStudent: [],
+  competitions: [],
   settings: { maxMain: 3, houses: DEFAULT_HOUSES, announce: { speed: 18, showLines: 3, lines: [
-    "ยินดีต้อนรับสู่การแข่งขันวิชาการสี ประจำปีการศึกษา 2568",
-    "เปิดรับสมัคร 1–10 กรกฎาคม นี้",
-    "รายงานตัวก่อนเวลาแข่งขัน 15 นาที ทุกรายการ",
-    "ผลการแข่งขันประกาศผ่านหน้าเว็บทันทีที่กรรมการบันทึก",
+    "ยินดีต้อนรับสู่การแข่งขันวิชาการสี",
   ] } },
 };
 
@@ -150,12 +118,12 @@ function Btn({ children, onClick, variant = "primary", small, disabled }) {
     </button>
   );
 }
-function Field({ label, value, onChange, placeholder }) {
+function Field({ label, value, onChange, placeholder, type }) {
   return (
     <label style={{ display: "block", marginBottom: 12 }}>
       <span style={{ display: "block", fontSize: 13, color: C.muted, marginBottom: 5 }}>{label}</span>
-      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-        style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, outline: "none", background: "#fbfcfb" }} />
+      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} type={type || "text"}
+        style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, fontWeight: 500, outline: "none", background: "#fbfcfb" }} />
     </label>
   );
 }
@@ -330,18 +298,37 @@ function Empty({ text }) { return <div style={{ textAlign: "center", color: C.mu
 
 /* ---------------- Login ---------------- */
 // ลำดับการตรวจสอบ: แอดมิน → ผู้ช่วยแอดมิน → กรรมการครู → กรรมการนักเรียน → นักเรียนทั่วไป
-function resolveLogin(db, uRaw, p) {
+function acceptedTeacherPw(t) {
+  const arr = [String(t.user || t.id)];
+  if (t.phone) arr.push(String(t.phone).replace(/\D/g, ""));
+  if (t.password) arr.push(String(t.password));
+  return arr;
+}
+function acceptedStudentPw(s) {
+  const arr = [];
+  if (s.phone) arr.push(String(s.phone).replace(/\D/g, ""));
+  if (s.password) arr.push(String(s.password));
+  if (arr.length === 0) arr.push(String(s.id)); // ชั่วคราว: ยังไม่มีเบอร์/ไม่ได้ตั้งรหัสเอง
+  return arr;
+}
+function studentProfileComplete(s) {
+  return !!(s.phone && s.password && s.guardian && s.guardianPhone && s.guardianRelation);
+}
+function resolveLogin(db, uRaw, pRaw) {
   const u = (uRaw || "").trim();
+  const p = (pRaw || "").trim();
+  const pd = p.replace(/\D/g, "");
   if (!u) return null;
   if (u === "admin" && p === "admin123") return { role: "admin", name: "ผู้ดูแลระบบ" };
   const a = db.assistants.find((x) => x.user === u && x.password === p);
   if (a) return { role: "admin", name: a.name, assistant: true };
-  const t = db.teachers.find((x) => x.user && x.user === u && x.password === p);
+  const t = db.teachers.find((x) => x.user && String(x.user) === u && (acceptedTeacherPw(x).includes(p) || acceptedTeacherPw(x).includes(pd)));
   if (t) return { role: "teacher", id: t.id, name: fullName(t) };
-  const sc = db.students.find((x) => x.user && x.user === u && x.password === p);
-  if (sc) return { role: "studentcom", id: sc.id, name: fullName(sc) };
-  const st = db.students.find((x) => x.id === u && (p === x.id || p === x.phone));
-  if (st) return { role: "student", id: st.id, name: fullName(st) };
+  const s = db.students.find((x) => String(x.id) === u && (acceptedStudentPw(x).includes(p) || acceptedStudentPw(x).includes(pd)));
+  if (s) {
+    const usedTemp = !s.phone && !s.password && (p === String(s.id));
+    return { role: s.committee ? "studentcom" : "student", id: s.id, name: fullName(s), needsProfile: usedTemp };
+  }
   return null;
 }
 function Login({ db, onEnter, onBack }) {
@@ -481,7 +468,7 @@ function AdminApp({ db, setDb, onExit }) {
   ];
   return (
     <Shell role="admin" nav={nav} view={view} setView={setView} onExit={onExit} ui={ui}>
-      {view === "home" && <AdminHome db={db} />}
+      {view === "home" && <AdminHome db={db} setDb={setDb} ui={ui} />}
       {view === "people" && <PeopleManager db={db} setDb={setDb} ui={ui} />}
       {view === "org" && <OrgManager db={db} setDb={setDb} ui={ui} editable />}
       {view === "comp" && <CompManager db={db} setDb={setDb} ui={ui} />}
@@ -489,7 +476,8 @@ function AdminApp({ db, setDb, onExit }) {
     </Shell>
   );
 }
-function AdminHome({ db }) {
+function AdminHome({ db, setDb, ui }) {
+  const [confirmReset, setConfirmReset] = useState(false);
   const stats = [
     { label: "นักเรียนในระบบ", value: db.students.length, color: HOUSES[1] },
     { label: "ครู/กรรมการ", value: db.teachers.length, color: HOUSES[2] },
@@ -509,6 +497,12 @@ function AdminHome({ db }) {
         ))}
       </Card>
       <ConnTest />
+      <Card style={{ padding: 16, border: `1px solid #eccdcd` }}>
+        <div style={{ fontWeight: 700, color: "#b3453f", marginBottom: 6 }}>ล้างข้อมูลทั้งระบบ (เริ่มใหม่)</div>
+        <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 10, lineHeight: 1.6 }}>ลบรายชื่อนักเรียน/ครู รายการแข่ง ผังองค์กร และบัญชีทั้งหมด (คงไว้เฉพาะสีทีม/ประชาสัมพันธ์) ใช้เมื่ออยากเริ่มต้นใหม่ทั้งหมด</p>
+        <Btn variant="danger" small onClick={() => setConfirmReset(true)}>ล้างข้อมูลทั้งหมด</Btn>
+      </Card>
+      {confirmReset && <ConfirmModal title="ยืนยันล้างข้อมูลทั้งระบบ" message="จะลบข้อมูลทั้งหมด (นักเรียน ครู บัญชี รายการแข่ง ผังองค์กร) เหลือเฉพาะการตั้งค่าสีทีม/ประชาสัมพันธ์ — ย้อนกลับไม่ได้ ยืนยันหรือไม่?" onConfirm={() => ui.run("กำลังล้างข้อมูล...", () => { setDb((p) => ({ students: [], teachers: [], assistants: [], competitions: [], orgTeacher: [], orgStudent: [], settings: p.settings })); setConfirmReset(false); ui.notify("ล้างข้อมูลแล้ว"); })} onClose={() => setConfirmReset(false)} />}
     </div>
   );
 }
@@ -629,10 +623,10 @@ function PersonList({ kind, db, setDb, ui }) {
   const downloadTemplate = () => {
     if (typeof XLSX === "undefined") { ui.notify("ต้องมีอินเทอร์เน็ต"); return; }
     const header = kind === "student"
-      ? ["รหัสนักเรียน", "เบอร์โทร", "คำนำหน้า", "ชื่อ", "นามสกุล", "ระดับชั้น", "ห้องเรียน"]
+      ? ["รหัสนักเรียน", "เบอร์โทร", "คำนำหน้า", "ชื่อ", "นามสกุล", "ระดับชั้น", "ห้องเรียน", "เพศ", "สี"]
       : ["รหัส", "เบอร์โทร", "คำนำหน้า", "ชื่อ", "นามสกุล"];
     const sample = kind === "student"
-      ? ["10234", "0812345678", "เด็กชาย", "ปกรณ์", "มั่นคง", "ม.3", "1"]
+      ? ["10234", "0812345678", "เด็กชาย", "ปกรณ์", "มั่นคง", "ม.3", "1", "ชาย", "สีแดง"]
       : ["T05", "0899999999", "นาย", "เอกชัย", "มานะ"];
     const ws = XLSX.utils.aoa_to_sheet([header, sample]);
     const wb = XLSX.utils.book_new();
@@ -684,15 +678,15 @@ function PersonList({ kind, db, setDb, ui }) {
         ))}
         {filtered.length === 0 && <Empty text="ไม่พบรายชื่อตามเงื่อนไข" />}
       </div>
-      {(add || edit) && <PersonForm kind={kind} person={edit} ui={ui} onClose={() => { setAdd(false); setEdit(null); }} onSave={save} />}
-      {rawRows && <ImportPreview kind={kind} rawRows={rawRows} existing={list} onClose={() => setRawRows(null)} onConfirm={(rows) => ui.run("กำลังโอนเข้าระบบ...", () => { setDb((p) => ({ ...p, [key]: [...p[key], ...rows] })); setRawRows(null); ui.notify(`โอนเข้าระบบแล้ว ${rows.length} คน`); })} />}
+      {(add || edit) && <PersonForm kind={kind} person={edit} ui={ui} houses={db.settings.houses} onClose={() => { setAdd(false); setEdit(null); }} onSave={save} />}
+      {rawRows && <ImportPreview kind={kind} rawRows={rawRows} existing={list} houses={db.settings.houses} onClose={() => setRawRows(null)} onConfirm={(rows) => ui.run("กำลังโอนเข้าระบบ...", () => { setDb((p) => ({ ...p, [key]: [...p[key], ...rows] })); setRawRows(null); ui.notify(`โอนเข้าระบบแล้ว ${rows.length} คน`); })} />}
       {confirm && <ConfirmModal title="ยืนยันการลบ" message={confirm.msg} onConfirm={() => purge(confirm.ids)} onClose={() => setConfirm(null)} />}
     </div>
   );
 }
-function PersonForm({ kind, person, onClose, onSave, ui }) {
+function PersonForm({ kind, person, onClose, onSave, ui, houses }) {
   const base = kind === "student"
-    ? { id: "", pre: "เด็กชาย", first: "", last: "", grade: "", room: "", phone: "", house: 0, guardian: "" }
+    ? { id: "", pre: "เด็กชาย", first: "", last: "", grade: "", room: "", phone: "", house: 0, gender: "", guardian: "" }
     : { id: "", pre: "นาย", first: "", last: "", phone: "", house: 0 };
   const [f, setF] = useState(person || base);
   const [preview, setPreview] = useState(person?.photoUrl || "");
@@ -713,11 +707,15 @@ function PersonForm({ kind, person, onClose, onSave, ui }) {
       else if (!API_URL) { ui.notify("โหมดทดลอง: รูปจะไม่ถูกบันทึกถาวร"); data.photoUrl = newPhoto; }
       else { ui.notify("อัปโหลดรูปไม่สำเร็จ (ตรวจการเชื่อม Drive)"); }
     } else if (person && person.photoId && !data.photoId) {
-      deleteImageRemote(person, kind); // กดลบรูปแล้วบันทึก
+      deleteImageRemote(person, kind);
     }
     onSave(data, !!person);
   });
   const avatarPreview = { ...f, photoUrl: preview };
+  const preOpts = kind === "student" ? ["เด็กชาย", "เด็กหญิง", "นาย", "นางสาว", "นาง"] : ["นาย", "นาง", "นางสาว"];
+  const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff" };
+  const lblCss = { display: "block", marginBottom: 12 };
+  const capCss = { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 };
   return (
     <Modal title={person ? "แก้ไขข้อมูล" : `เพิ่ม${kind === "student" ? "นักเรียน" : "ครู"}ใหม่`} onClose={onClose}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
@@ -729,11 +727,21 @@ function PersonForm({ kind, person, onClose, onSave, ui }) {
       <div className="md:grid md:grid-cols-2 md:gap-x-3">
         <Field label="รหัส" value={f.id} onChange={set("id")} placeholder={kind === "student" ? "เช่น 10234" : "เช่น T05"} />
         <Field label="เบอร์โทร" value={f.phone} onChange={set("phone")} placeholder="08x-xxx-xxxx" />
-        <Field label="คำนำหน้า" value={f.pre} onChange={set("pre")} />
+        <label style={lblCss}><span style={capCss}>คำนำหน้า</span>
+          <select value={f.pre} onChange={(e) => set("pre")(e.target.value)} style={selCss}>{preOpts.map((p) => <option key={p} value={p}>{p}</option>)}</select>
+        </label>
         <Field label="ชื่อ" value={f.first} onChange={set("first")} />
         <Field label="นามสกุล" value={f.last} onChange={set("last")} />
         {kind === "student" && <Field label="ระดับชั้น" value={f.grade} onChange={set("grade")} placeholder="เช่น ม.3" />}
         {kind === "student" && <Field label="ห้อง" value={f.room} onChange={set("room")} placeholder="เช่น 1" />}
+        {kind === "student" && (
+          <label style={lblCss}><span style={capCss}>เพศ</span>
+            <select value={f.gender || ""} onChange={(e) => set("gender")(e.target.value)} style={selCss}><option value="">— เลือก —</option><option value="ชาย">ชาย</option><option value="หญิง">หญิง</option></select>
+          </label>
+        )}
+        <label style={lblCss}><span style={capCss}>สีทีม</span>
+          <select value={f.house ?? 0} onChange={(e) => set("house")(Number(e.target.value))} style={selCss}>{(houses || []).map((h, i) => <option key={i} value={i}>{h.name}</option>)}</select>
+        </label>
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
         <Btn onClick={submit}>{person ? "บันทึกการแก้ไข" : "บันทึก"}</Btn>
@@ -742,9 +750,12 @@ function PersonForm({ kind, person, onClose, onSave, ui }) {
     </Modal>
   );
 }
-/* ----- Excel/CSV import: parsing helpers ----- */
-const IMP_PREFIXES = ["เด็กชาย", "เด็กหญิง", "นางสาว", "นาย", "นาง", "ด.ช.", "ด.ญ.", "น.ส."];
+/* ----- Excel/CSV import: อ่านทุกเซล เดาชนิดคอลัมน์ + จับคู่เองได้ ----- */
+const IMP_PREFIXES = ["เด็กชาย", "เด็กหญิง", "นางสาว", "นาย", "นาง", "ด.ช.", "ด.ญ.", "น.ส.", "ด.ช", "ด.ญ", "น.ส"];
+const PREFIX_FULL = { "ด.ช.": "เด็กชาย", "ด.ช": "เด็กชาย", "ดช": "เด็กชาย", "ด.ญ.": "เด็กหญิง", "ด.ญ": "เด็กหญิง", "ดญ": "เด็กหญิง", "น.ส.": "นางสาว", "น.ส": "นางสาว", "นส": "นางสาว", "นาย": "นาย", "นาง": "นาง", "นางสาว": "นางสาว", "เด็กชาย": "เด็กชาย", "เด็กหญิง": "เด็กหญิง" };
+const expandPrefix = (p) => { const k = String(p || "").trim().replace(/\s/g, ""); return PREFIX_FULL[k] || String(p || "").trim(); };
 const impClean = (v) => String(v == null ? "" : v).trim().replace(/\s+/g, " ");
+const cleanDigits = (v) => String(v == null ? "" : v).replace(/[^\d]/g, "");
 function impSplitName(full) {
   full = impClean(full);
   let pre = "";
@@ -752,7 +763,6 @@ function impSplitName(full) {
   const parts = full.split(" ").filter(Boolean);
   return { pre, first: parts[0] || "", last: parts.slice(1).join(" ") };
 }
-const impCombinedName = (v) => { v = impClean(v); return IMP_PREFIXES.some((p) => v.startsWith(p)) || v.includes(" "); };
 function impSplitGradeRoom(v) {
   v = impClean(v);
   if (!v) return { grade: "", room: "" };
@@ -761,63 +771,119 @@ function impSplitGradeRoom(v) {
   if (m) return { grade: impClean(m[1]), room: impClean(m[2]) };
   return { grade: v, room: "" };
 }
-const impIsHeader = (row) => /รหัส|ชื่อ|ชั้น|เบอร์|สกุล|คำนำหน้า|โทร/.test((row || []).map(impClean).join(" "));
-function impMapHeaders(row) {
-  const H = row.map(impClean);
-  const find = (t) => H.findIndex(t);
-  const idx = {};
-  idx.id = find((h) => h.includes("รหัส"));
-  idx.phone = find((h) => h.includes("เบอร์") || h.includes("โทร"));
-  idx.pre = find((h) => h.includes("คำนำหน้า"));
-  idx.fullName = find((h) => /ชื่อ.*สกุล/.test(h));
-  idx.last = find((h) => (h.includes("สกุล")) && !/ชื่อ.*สกุล/.test(h));
-  idx.first = find((h) => h.includes("ชื่อ") && !h.includes("สกุล") && !h.includes("ผู้ปกครอง"));
-  idx.gradeRoom = find((h) => h.includes("ชั้น") && h.includes("ห้อง"));
-  idx.grade = find((h) => h.includes("ชั้น") && !h.includes("ห้อง"));
-  idx.room = find((h) => h.includes("ห้อง") && !h.includes("ชั้น"));
-  return idx;
-}
-function impPositional(w, kind) {
-  if (kind === "teacher") return w >= 5 ? { id: 0, phone: 1, pre: 2, first: 3, last: 4 } : { id: 0, phone: 1, fullName: 2 };
-  if (w >= 7) return { id: 0, phone: 1, pre: 2, first: 3, last: 4, grade: 5, room: 6 };
-  if (w >= 5) return { id: 0, phone: 1, fullName: 2, grade: 3, room: 4 };
-  if (w >= 4) return { id: 0, phone: 1, fullName: 2, gradeRoom: 3 };
-  return { id: 0, fullName: 1 };
-}
-function impNormalize(cells, idx, kind) {
-  const g = (i) => (i != null && i >= 0 && i < cells.length ? impClean(cells[i]) : "");
-  const id = g(idx.id), phone = g(idx.phone);
-  let pre = "", first = "", last = "";
-  if (idx.fullName != null && idx.fullName >= 0) { ({ pre, first, last } = impSplitName(g(idx.fullName))); }
-  else {
-    pre = g(idx.pre); first = g(idx.first); last = g(idx.last);
-    if (!last && impCombinedName(first)) { const s = impSplitName(first); pre = pre || s.pre; first = s.first; last = s.last; }
-    else if (!pre) { const s = impSplitName([first, last].filter(Boolean).join(" ")); if (s.pre) { pre = s.pre; first = s.first; last = s.last; } }
+const impIsHeader = (row) => /รหัส|ชื่อ|ชั้น|เบอร์|สกุล|คำนำหน้า|โทร|เพศ|สี|ทีม/.test((row || []).map(impClean).join(" "));
+
+// เดาชนิดของค่าในเซลเดียว
+function classifyCell(v, teamNames) {
+  const s = impClean(v);
+  if (!s) return "empty";
+  const isNum = /^[0-9\s\-()]+$/.test(s);
+  const d = cleanDigits(s);
+  if (isNum && d.length) {
+    if (d[0] === "0" && d.length >= 9 && d.length <= 10) return "phone";
+    if (d[0] !== "0" && d.length >= 5 && d.length <= 10) return "id";
+    if (d.length <= 2) return "room";
+    return "num";
   }
-  let grade = "", room = "";
-  if (kind === "student") {
-    if (idx.gradeRoom != null && idx.gradeRoom >= 0) { ({ grade, room } = impSplitGradeRoom(g(idx.gradeRoom))); }
-    else { grade = g(idx.grade); room = g(idx.room); if (!room && grade) { const gr = impSplitGradeRoom(grade); grade = gr.grade; room = gr.room; } }
-  }
-  return { id, phone, pre, first, last, grade, room, house: 0 };
+  const noSp = s.replace(/\s/g, "");
+  if (PREFIX_FULL[noSp]) return s.includes(" ") ? "fullName" : "pre";
+  if (IMP_PREFIXES.some((p) => s.startsWith(p) || noSp.startsWith(p))) return "fullName";
+  if (/(ม|ป|อ)\.?\s*\d+\s*\/\s*\d+/.test(noSp) || /^\d{1,2}\s*\/\s*\d{1,2}$/.test(s)) return "gradeRoom";
+  if (/^(ม|ป|อ)\.?\s*\d+$/.test(noSp) || /^(มัธยม|ประถม|อนุบาล)/.test(s)) return "grade";
+  if (/^(ชาย|หญิง|ช|ญ|male|female|m|f)$/i.test(s)) return "gender";
+  if (teamNames && teamNames.some((n) => n && (s === n || noSp === n.replace(/\s/g, "") || s.replace(/^สี/, "") === n.replace(/^สี/, "")))) return "color";
+  if (s.includes(" ")) return "fullName";
+  return "word";
 }
-function parseSheetRows(rows2d, kind) {
-  const rows = (rows2d || []).filter((r) => r && r.some((c) => impClean(c) !== ""));
-  if (!rows.length) return [];
-  let idx, data;
-  if (impIsHeader(rows[0])) {
-    idx = impMapHeaders(rows[0]); data = rows.slice(1);
-    if ((idx.id == null || idx.id < 0) && (idx.fullName == null || idx.fullName < 0) && (idx.first == null || idx.first < 0)) { idx = impPositional(rows[0].length, kind); data = rows; }
-  } else { idx = impPositional(rows[0].length, kind); data = rows; }
-  return data.map((r) => impNormalize(r, idx, kind)).filter((x) => x.id || x.first || x.last);
+// เดาชนิดของทั้งคอลัมน์จากค่าส่วนใหญ่
+function detectColumns(dataRows, teamNames) {
+  const width = dataRows.reduce((m, r) => Math.max(m, r.length), 0);
+  const types = [];
+  for (let c = 0; c < width; c++) {
+    const counts = {}; let n = 0;
+    for (let r = 0; r < Math.min(dataRows.length, 20); r++) {
+      const t = classifyCell((dataRows[r] || [])[c], teamNames);
+      if (t === "empty") continue; counts[t] = (counts[t] || 0) + 1; n++;
+    }
+    let best = "skip", bn = -1;
+    Object.keys(counts).forEach((k) => { if (counts[k] > bn) { best = k; bn = counts[k]; } });
+    types.push(n ? best : "skip");
+  }
+  // จัดชื่อ: คอลัมน์ที่เป็นคำเดี่ยว ๆ → คอลัมน์แรก=ชื่อ, ถัดไป=นามสกุล
+  let wordSeen = 0;
+  return types.map((t) => {
+    if (t === "num") return "skip";
+    if (t === "word") { wordSeen++; return wordSeen === 1 ? "first" : "last"; }
+    return t;
+  });
+}
+function mappingFromHeader(headerRow, width) {
+  return Array.from({ length: width }, (_, c) => {
+    const h = impClean(headerRow[c]);
+    if (/รหัส/.test(h)) return "id";
+    if (/เบอร์|โทร/.test(h)) return "phone";
+    if (/คำนำหน้า/.test(h)) return "pre";
+    if (/ชื่อ.*สกุล|สกุล.*ชื่อ|ชื่อ-นามสกุล|ชื่อสกุล/.test(h)) return "fullName";
+    if (/นามสกุล|สกุล/.test(h)) return "last";
+    if (/ชื่อ/.test(h)) return "first";
+    if (/ชั้น.*ห้อง|ห้อง.*ชั้น/.test(h)) return "gradeRoom";
+    if (/ชั้น|ระดับ/.test(h)) return "grade";
+    if (/ห้อง/.test(h)) return "room";
+    if (/เพศ/.test(h)) return "gender";
+    if (/สี|ทีม|คณะ/.test(h)) return "color";
+    return "skip";
+  });
+}
+const FIELD_OPTS = [
+  ["skip", "— ข้าม —"], ["id", "รหัส"], ["phone", "เบอร์โทร"], ["pre", "คำนำหน้า"],
+  ["first", "ชื่อ"], ["last", "นามสกุล"], ["fullName", "คำนำหน้า+ชื่อ+สกุล (รวม)"],
+  ["grade", "ระดับชั้น"], ["room", "ห้อง"], ["gradeRoom", "ชั้น/ห้อง (รวม)"],
+  ["gender", "เพศ"], ["color", "สี/ทีม"],
+];
+function applyMapping(dataRows, mapping, kind, houses) {
+  return (dataRows || []).map((cells) => {
+    const rec = { id: "", phone: "", pre: "", first: "", last: "", grade: "", room: "", gender: "", house: 0 };
+    let fullName = "", gradeRoom = "", colorName = "";
+    mapping.forEach((field, c) => {
+      const val = impClean((cells || [])[c]);
+      if (!val || field === "skip") return;
+      if (field === "id") rec.id = rec.id || val;
+      else if (field === "phone") { let d = cleanDigits(val); if (d && d[0] !== "0" && d.length === 9) d = "0" + d; rec.phone = d; }
+      else if (field === "pre") rec.pre = expandPrefix(val);
+      else if (field === "first") rec.first = rec.first || val;
+      else if (field === "last") rec.last = rec.last ? rec.last + " " + val : val;
+      else if (field === "fullName") fullName = fullName ? fullName + " " + val : val;
+      else if (field === "grade") rec.grade = rec.grade || val;
+      else if (field === "room") rec.room = rec.room || val;
+      else if (field === "gradeRoom") gradeRoom = val;
+      else if (field === "gender") rec.gender = /หญิง|^ญ$|female|^f$/i.test(val) ? "หญิง" : "ชาย";
+      else if (field === "color") colorName = val;
+    });
+    if (fullName) { const s = impSplitName(fullName); rec.pre = rec.pre || expandPrefix(s.pre); rec.first = rec.first || s.first; rec.last = rec.last || s.last; }
+    if (!rec.last && rec.first && (rec.first.includes(" ") || IMP_PREFIXES.some((p) => rec.first.startsWith(p)))) { const s = impSplitName(rec.first); rec.pre = rec.pre || expandPrefix(s.pre); rec.first = s.first; rec.last = s.last; }
+    if (gradeRoom) { const gr = impSplitGradeRoom(gradeRoom); rec.grade = rec.grade || gr.grade; rec.room = rec.room || gr.room; }
+    else if (rec.grade && !rec.room) { const gr = impSplitGradeRoom(rec.grade); if (gr.room) { rec.grade = gr.grade; rec.room = gr.room; } }
+    if (colorName) { const i = (houses || []).findIndex((h) => h.name && (h.name === colorName || h.name.replace(/^สี/, "") === colorName.replace(/^สี/, ""))); if (i >= 0) rec.house = i; }
+    return rec;
+  }).filter((r) => r.id || r.first || r.last);
 }
 
-function ImportPreview({ kind, rawRows, existing, onClose, onConfirm }) {
-  const parsed = parseSheetRows(rawRows, kind);
+function ImportPreview({ kind, rawRows, existing, houses, onClose, onConfirm }) {
+  const rows = (rawRows || []).filter((r) => r && r.some((c) => impClean(c) !== ""));
+  const width = rows.reduce((m, r) => Math.max(m, r.length), 0);
+  const teamNames = (houses || []).map((h) => h.name);
+  const headerDetected = rows.length > 0 && impIsHeader(rows[0]);
+  const [useHeader, setUseHeader] = useState(headerDetected);
+  const [mapping, setMapping] = useState(() => headerDetected ? mappingFromHeader(rows[0] || [], width) : detectColumns(rows, teamNames));
+  const dataRows = useHeader ? rows.slice(1) : rows;
+  const toggleHeader = (v) => { setUseHeader(v); const dr = v ? rows.slice(1) : rows; setMapping(v ? mappingFromHeader(rows[0] || [], width) : detectColumns(dr, teamNames)); };
+  const setCol = (c, field) => setMapping((m) => m.map((x, i) => (i === c ? field : x)));
+  const opts = kind === "teacher" ? FIELD_OPTS.filter((o) => ["skip", "id", "phone", "pre", "first", "last", "fullName"].includes(o[0])) : FIELD_OPTS;
+
+  const parsed = applyMapping(dataRows, mapping, kind, houses);
   const fileSeen = new Set(existing.map((e) => String(e.id)));
   const marked = parsed.map((r) => {
-    const idStr = String(r.id || "");
-    let dup = false, reason = "";
+    const idStr = String(r.id || ""); let dup = false, reason = "";
     if (!idStr) { dup = true; reason = "ไม่มีรหัส"; }
     else if (existing.some((e) => String(e.id) === idStr)) { dup = true; reason = "รหัสซ้ำในระบบ"; }
     else if (fileSeen.has(idStr)) { dup = true; reason = "ซ้ำในไฟล์"; }
@@ -826,30 +892,46 @@ function ImportPreview({ kind, rawRows, existing, onClose, onConfirm }) {
   });
   const toAdd = marked.filter((m) => !m.dup).map((m) => m.r);
   const skipped = marked.length - toAdd.length;
+  const cellCss = { border: `1px solid ${C.line}`, padding: "6px 8px", fontSize: 12, color: C.ink, whiteSpace: "nowrap", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis" };
+
   return (
-    <Modal title="ตรวจสอบก่อนโอนเข้าระบบ" onClose={onClose} wide>
-      <p style={{ fontSize: 13, color: C.muted, marginTop: 0 }}>ระบบแยก คำนำหน้า / ชื่อ / นามสกุล และ ระดับชั้น / ห้อง ให้อัตโนมัติ · แถวที่รหัสซ้ำจะไม่ถูกโอน</p>
+    <Modal title="นำเข้า — จับคู่คอลัมน์ & ตรวจสอบ" onClose={onClose} wide>
+      <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13.5, color: C.ink, marginBottom: 6, cursor: "pointer" }}>
+        <input type="checkbox" checked={useHeader} onChange={(e) => toggleHeader(e.target.checked)} style={{ width: 17, height: 17 }} /> แถวแรกเป็นหัวตาราง (ไม่นำเข้าเป็นข้อมูล)
+      </label>
+      <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0 }}>ระบบอ่านทุกเซลแล้วเดาให้ว่าคอลัมน์ไหนคืออะไร ปรับที่ช่องหัวตารางได้ ตัวอย่างจะอัปเดตทันที</p>
+      <div style={{ overflowX: "auto", border: `1px solid ${C.line}`, borderRadius: 10, marginBottom: 12 }}>
+        <table style={{ borderCollapse: "collapse", width: "100%" }}>
+          <thead><tr>{mapping.map((f, c) => (
+            <th key={c} style={{ border: `1px solid ${C.line}`, padding: 4, background: C.soft }}>
+              <select value={f} onChange={(e) => setCol(c, e.target.value)} style={{ fontSize: 12, padding: "5px 6px", borderRadius: 8, border: `1px solid ${C.line}`, background: C.surface, color: f === "skip" ? C.muted : C.primaryDark, fontWeight: 600 }}>
+                {opts.map((o) => <option key={o[0]} value={o[0]}>{o[1]}</option>)}
+              </select>
+            </th>
+          ))}</tr></thead>
+          <tbody>{dataRows.slice(0, 4).map((r, ri) => (
+            <tr key={ri}>{mapping.map((f, c) => <td key={c} style={cellCss}>{impClean((r || [])[c]) || "—"}</td>)}</tr>
+          ))}</tbody>
+        </table>
+      </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
         <Stat label="ทั้งหมด" v={marked.length} col={C.primary} />
         <Stat label="ใหม่ (จะโอน)" v={toAdd.length} col="#5aab84" />
         <Stat label="ซ้ำ/ข้าม" v={skipped} col="#d17f7a" />
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 340, overflowY: "auto" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 280, overflowY: "auto" }}>
         {marked.map((m, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: 10, borderRadius: 10, border: `1px solid ${m.dup ? "#eccdcd" : C.line}`, background: m.dup ? "#fbf1f1" : C.surface }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 600, color: C.ink, fontSize: 13.5 }}>
-                <span style={{ color: C.muted }}>[{m.r.pre || "—"}]</span> {m.r.first} {m.r.last}
-              </div>
+              <div style={{ fontWeight: 600, color: C.ink, fontSize: 13.5 }}><span style={{ color: C.muted }}>[{m.r.pre || "—"}]</span> {m.r.first} {m.r.last}</div>
               <div style={{ fontSize: 11.5, color: C.muted }}>
-                รหัส {m.r.id || "—"}{kind === "student" ? ` · ${m.r.grade || "?"}/${m.r.room || "?"}` : ""}{m.r.phone ? ` · ${m.r.phone}` : ""}
+                รหัส {m.r.id || "—"}{kind === "student" ? ` · ${m.r.grade || "?"}/${m.r.room || "?"}` : ""}{m.r.gender ? ` · ${m.r.gender}` : ""}{m.r.phone ? ` · ${m.r.phone}` : ""}{(houses && houses[m.r.house]) ? ` · ${houses[m.r.house].name}` : ""}
               </div>
             </div>
-            {m.dup ? <span style={{ fontSize: 12, fontWeight: 700, color: "#c0392b", whiteSpace: "nowrap" }}>{m.reason}</span>
-              : <span style={{ fontSize: 12, fontWeight: 700, color: "#2f9e6b" }}>ใหม่</span>}
+            {m.dup ? <span style={{ fontSize: 12, fontWeight: 700, color: "#c0392b", whiteSpace: "nowrap" }}>{m.reason}</span> : <span style={{ fontSize: 12, fontWeight: 700, color: "#2f9e6b" }}>ใหม่</span>}
           </div>
         ))}
-        {marked.length === 0 && <Empty text="อ่านข้อมูลจากไฟล์ไม่ได้ ลองใช้ปุ่ม 'แม่แบบ' เพื่อดูรูปแบบที่ถูกต้อง" />}
+        {marked.length === 0 && <Empty text="ยังแยกข้อมูลไม่ได้ — ลองปรับการจับคู่คอลัมน์ด้านบน หรือดูปุ่ม 'แม่แบบ'" />}
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
         <Btn onClick={() => onConfirm(toAdd)} disabled={toAdd.length === 0}>โอนเข้าระบบ ({toAdd.length} คน)</Btn>
@@ -922,52 +1004,118 @@ function AdminAccountCard() {
     </Card>
   );
 }
+function exportPeopleXLSX(list, houses, kind, filename) {
+  if (typeof XLSX === "undefined") return false;
+  const team = (i) => (houses && houses[i]) ? houses[i].name : "";
+  const header = kind === "student"
+    ? ["รหัสนักเรียน", "คำนำหน้า", "ชื่อ", "นามสกุล", "เพศ", "ระดับชั้น", "ห้อง", "เบอร์โทร", "สีทีม", "เป็นกรรมการ", "รหัสผ่านที่ตั้งเอง", "ผู้ปกครอง", "เบอร์ผู้ปกครอง", "ความเกี่ยวข้อง"]
+    : ["รหัส", "คำนำหน้า", "ชื่อ", "นามสกุล", "เบอร์โทร", "สีทีม", "ผู้ใช้ (user)", "รหัสผ่านที่ตั้งเอง"];
+  const rows = list.map((p) => kind === "student"
+    ? [p.id, p.pre, p.first, p.last, p.gender || "", p.grade || "", p.room || "", p.phone || "", team(p.house), p.committee ? "ใช่" : "", p.password || "", p.guardian || "", p.guardianPhone || "", p.guardianRelation || ""]
+    : [p.id, p.pre, p.first, p.last, p.phone || "", team(p.house), p.user || "", p.password || ""]);
+  const ws = XLSX.utils.aoa_to_sheet([header, ...rows]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "รายชื่อ");
+  XLSX.writeFile(wb, filename);
+  return true;
+}
 function CommitteeCredList({ kind, db, setDb, ui }) {
   const key = kind === "teacher" ? "teachers" : "students";
-  const label = kind === "teacher" ? "กรรมการครู" : "กรรมการนักเรียน";
   const pool = db[key];
-  const accounts = pool.filter((p) => p.user);
-  const [pick, setPick] = useState(false);
+  const isCom = (p) => kind === "teacher" ? !!p.user : !!p.committee;
+  const [grade, setGrade] = useState("");
+  const [room, setRoom] = useState("");
+  const [sel, setSel] = useState([]);
   const [edit, setEdit] = useState(null);
-  const save = (id, cred) => ui.run("กำลังบันทึกบัญชี...", () => { setDb((p) => ({ ...p, [key]: p[key].map((x) => x.id === id ? { ...x, user: cred.user, password: cred.password } : x) })); setEdit(null); });
-  const revoke = (id) => ui.run("กำลังลบสิทธิ์...", () => setDb((p) => ({ ...p, [key]: p[key].map((x) => x.id === id ? { ...x, user: undefined, password: undefined } : x) })));
+
+  const grades = [...new Set(pool.map((s) => s.grade).filter(Boolean))];
+  const rooms = [...new Set(pool.map((s) => s.room).filter(Boolean))];
+  const filtered = pool.filter((p) => kind === "teacher" ? true : ((!grade || p.grade === grade) && (!room || p.room === room)));
+  const selSet = new Set(sel);
+  const allSel = filtered.length > 0 && filtered.every((p) => selSet.has(p.id));
+  const toggle = (id) => setSel((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
+  const toggleAll = () => setSel(allSel ? [] : filtered.map((p) => p.id));
+
+  const setCom = (ids, on) => ui.run(on ? "กำลังตั้งเป็นกรรมการ..." : "กำลังยกเลิกกรรมการ...", () => {
+    setDb((p) => ({ ...p, [key]: p[key].map((x) => ids.includes(x.id)
+      ? (kind === "teacher"
+          ? (on ? { ...x, user: x.user || x.id } : { ...x, user: undefined, password: undefined })
+          : (on ? { ...x, committee: true } : { ...x, committee: false }))
+      : x) }));
+    setSel([]);
+  });
+  const saveCred = (id, cred) => ui.run("กำลังบันทึกบัญชี...", () => {
+    setDb((p) => ({ ...p, [key]: p[key].map((x) => x.id === id
+      ? (kind === "teacher" ? { ...x, user: cred.user || x.id, password: cred.password || undefined } : { ...x, password: cred.password || undefined })
+      : x) }));
+    setEdit(null);
+  });
+
+  const selNonCom = sel.filter((id) => { const p = pool.find((x) => x.id === id); return p && !isCom(p); });
+  const selCom = sel.filter((id) => { const p = pool.find((x) => x.id === id); return p && isCom(p); });
+  const comCount = pool.filter(isCom).length;
+  const loginInfo = (p) => kind === "teacher"
+    ? `ผู้ใช้ ${p.user} · รหัส: ${p.user}${p.phone ? " / " + p.phone : ""}${p.password ? " / " + p.password : ""}`
+    : `ล็อกอิน ${p.id} · รหัส: ${p.phone ? "เบอร์ " + p.phone : "รหัส นร. (ชั่วคราว)"}${p.password ? " / " + p.password : ""}`;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-        <span style={{ fontSize: 13, color: C.muted }}>{accounts.length} บัญชี · เห็นรหัสผ่านเป็นข้อความจริง</span>
-        <Btn small onClick={() => setPick(true)}>+ เพิ่มบัญชี{label}</Btn>
+        <span style={{ fontSize: 13, color: C.muted }}>เป็นกรรมการแล้ว {comCount} คน{sel.length ? ` · เลือก ${sel.length}` : ""}</span>
+        <div style={{ display: "flex", gap: 8 }}>
+          <Btn variant="ghost" small onClick={() => { const ok = exportPeopleXLSX(pool.filter(isCom), db.settings.houses, kind, kind === "teacher" ? "กรรมการครู.xlsx" : "กรรมการนักเรียน.xlsx"); if (!ok) ui.notify("ต้องมีอินเทอร์เน็ต"); }}>Excel</Btn>
+          <Btn variant="ghost" small onClick={() => window.print()}>พิมพ์/PDF</Btn>
+        </div>
       </div>
-      {accounts.map((p) => (
-        <Card key={p.id} style={{ padding: 12, display: "flex", alignItems: "center", gap: 12 }}>
-          <Avatar person={p} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, color: C.ink, fontSize: 14 }}>{fullName(p)}</div>
-            <div style={{ fontSize: 12.5, color: C.muted }}>ผู้ใช้: <b style={{ color: C.ink }}>{p.user}</b> · รหัสผ่าน: <b style={{ color: C.ink }}>{p.password}</b></div>
-          </div>
-          <div style={{ display: "flex", gap: 6 }}>
-            <Btn variant="ghost" small onClick={() => setEdit(p)}>แก้ไข</Btn>
-            <Btn variant="danger" small onClick={() => revoke(p.id)}>ลบสิทธิ์</Btn>
-          </div>
-        </Card>
-      ))}
-      {accounts.length === 0 && <Empty text={`ยังไม่มีบัญชี${label}`} />}
-      {pick && <SearchPersonPopup title={`เลือก${kind === "teacher" ? "ครู" : "นักเรียน"}ที่จะให้เป็น${label}`} pool={pool.filter((p) => !p.user)} onClose={() => setPick(false)} onPick={(p) => { setPick(false); setEdit(p); }} />}
-      {edit && <CredForm person={edit} onClose={() => setEdit(null)} onSave={(cred) => save(edit.id, cred)} />}
+      {kind === "student" && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Select value={grade} onChange={setGrade}><option value="">ทุกชั้น</option>{grades.map((g) => <option key={g}>{g}</option>)}</Select>
+          <Select value={room} onChange={setRoom}><option value="">ทุกห้อง</option>{rooms.map((r) => <option key={r} value={r}>ห้อง {r}</option>)}</Select>
+        </div>
+      )}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
+          <input type="checkbox" checked={allSel} onChange={toggleAll} style={{ width: 17, height: 17 }} /> เลือกทั้งหมด{kind === "student" ? "ที่กรอง" : ""}
+        </label>
+        {selNonCom.length > 0 && <Btn small onClick={() => setCom(selNonCom, true)}>ตั้งเป็นกรรมการ ({selNonCom.length})</Btn>}
+        {selCom.length > 0 && <Btn variant="danger" small onClick={() => setCom(selCom, false)}>ยกเลิกกรรมการ ({selCom.length})</Btn>}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {filtered.map((p) => {
+          const com = isCom(p);
+          return (
+            <Card key={p.id} style={{ padding: 12, display: "flex", alignItems: "center", gap: 10, outline: selSet.has(p.id) ? `2px solid ${C.primary}` : "none" }}>
+              <input type="checkbox" checked={selSet.has(p.id)} onChange={() => toggle(p.id)} style={{ width: 17, height: 17, flexShrink: 0 }} />
+              <Avatar person={p} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, color: C.ink, fontSize: 14 }}>{fullName(p)} {com && <span style={{ fontSize: 11, fontWeight: 700, color: C.primary, background: C.soft, padding: "2px 8px", borderRadius: 20 }}>กรรมการ</span>}</div>
+                <div style={{ fontSize: 12, color: C.muted }}>{com ? loginInfo(p) : `รหัส ${p.id}${p.grade ? ` · ${p.grade}/${p.room}` : ""}`}</div>
+              </div>
+              {com && <Btn variant="ghost" small onClick={() => setEdit(p)}>ตั้งรหัส</Btn>}
+            </Card>
+          );
+        })}
+        {filtered.length === 0 && <Empty text="ไม่พบรายชื่อ" />}
+      </div>
+      {edit && <CredForm kind={kind} person={edit} onClose={() => setEdit(null)} onSave={(cred) => saveCred(edit.id, cred)} />}
     </div>
   );
 }
-function CredForm({ person, onClose, onSave }) {
+function CredForm({ kind, person, onClose, onSave }) {
   const [f, setF] = useState({ user: person.user || person.id, password: person.password || "" });
   const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
   return (
-    <Modal title={`กำหนดรหัสเข้าใช้: ${fullName(person)}`} onClose={onClose}>
+    <Modal title={`ตั้งรหัสเข้าใช้: ${fullName(person)}`} onClose={onClose}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
         <Avatar person={person} size={48} />
         <div><div style={{ fontWeight: 700, color: C.ink }}>{fullName(person)}</div><div style={{ fontSize: 12, color: C.muted }}>รหัส {person.id}</div></div>
       </div>
-      <Field label="ชื่อผู้ใช้ (user)" value={f.user} onChange={set("user")} />
-      <Field label="รหัสผ่าน (password)" value={f.password} onChange={set("password")} placeholder="ตั้งรหัสผ่าน" />
-      <div style={{ display: "flex", gap: 8, marginTop: 4 }}><Btn onClick={() => onSave(f)} disabled={!f.user || !f.password}>บันทึกบัญชี</Btn><Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn></div>
+      {kind === "teacher" && <Field label="ชื่อผู้ใช้ (user)" value={f.user} onChange={set("user")} />}
+      <Field label="รหัสผ่านที่ตั้งเอง (เว้นว่างได้)" value={f.password} onChange={set("password")} placeholder="เว้นว่าง = ใช้ค่าเริ่มต้น" />
+      <p style={{ fontSize: 12, color: C.muted, marginTop: 0, lineHeight: 1.6 }}>
+        {kind === "teacher" ? "เข้าได้ด้วย: user, เบอร์โทร, หรือรหัสที่ตั้งเอง" : "เข้าได้ด้วย: เบอร์โทร หรือรหัสที่ตั้งเอง (ถ้ายังไม่มีเบอร์ ใช้รหัสนักเรียนชั่วคราว)"}
+      </p>
+      <div style={{ display: "flex", gap: 8, marginTop: 4 }}><Btn onClick={() => onSave(f)}>บันทึก</Btn><Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn></div>
     </Modal>
   );
 }
@@ -1125,8 +1273,8 @@ function CompForm({ kind, comp, onClose, onSave }) {
       <div className="md:grid md:grid-cols-2 md:gap-x-3">
         <Field label="จำนวนตัวจริง (0 = ไม่กำหนด)" value={String(f.mainCount)} onChange={(v) => set("mainCount")(Number(v) || 0)} />
         <Field label="จำนวนตัวสำรอง (0 = ไม่กำหนด)" value={String(f.reserveCount)} onChange={(v) => set("reserveCount")(Number(v) || 0)} />
-        <Field label="รับสมัครตั้งแต่" value={f.regStart} onChange={set("regStart")} placeholder="2025-07-01" />
-        <Field label="ถึงวันที่" value={f.regEnd} onChange={set("regEnd")} placeholder="2025-07-10" />
+        <Field label="รับสมัครตั้งแต่" value={f.regStart} onChange={set("regStart")} type="date" />
+        <Field label="ถึงวันที่" value={f.regEnd} onChange={set("regEnd")} type="date" />
       </div>
       <div style={{ display: "flex", gap: 8 }}><Btn onClick={() => onSave(f, !!comp)}>บันทึก</Btn><Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn></div>
     </Modal>
@@ -1401,8 +1549,8 @@ function SchForm({ onClose, onSave }) {
     <Modal title="เพิ่มนัดหมายการแข่ง" onClose={onClose}>
       <Field label="รอบ / ชื่อการแข่ง" value={f.round} onChange={set("round")} placeholder="เช่น รอบคัดเลือก" />
       <div className="md:grid md:grid-cols-2 md:gap-x-3">
-        <Field label="วันที่" value={f.date} onChange={set("date")} placeholder="2025-07-15" />
-        <Field label="เวลา" value={f.time} onChange={set("time")} placeholder="09:30" />
+        <Field label="วันที่" value={f.date} onChange={set("date")} type="date" />
+        <Field label="เวลา" value={f.time} onChange={set("time")} type="time" />
       </div>
       <Field label="สถานที่" value={f.place} onChange={set("place")} />
       <div style={{ display: "flex", gap: 8 }}><Btn onClick={() => onSave(f)}>บันทึก</Btn><Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn></div>
@@ -1561,7 +1709,7 @@ function mergeDb(loaded) {
     },
   };
 }
-function StatusBar({ status, lastSaved, onSave }) {
+function StatusBar({ status, lastSaved, onSave, onRetry }) {
   const map = {
     loading: ["กำลังโหลดข้อมูล…", C.muted, false],
     dirty: ["มีการแก้ไข • กำลังจะบันทึก", C.gold, true],
@@ -1581,9 +1729,9 @@ function StatusBar({ status, lastSaved, onSave }) {
         ? <span style={{ width: 12, height: 12, borderRadius: "50%", border: `2px solid ${C.line}`, borderTopColor: col, animation: "spin .8s linear infinite" }} />
         : <span style={{ width: 8, height: 8, borderRadius: "50%", background: col }} />}
       <span style={{ fontSize: 12, fontWeight: 600, color: col }}>{txt}{time}</span>
-      {showBtn && onSave && (
-        <button onClick={onSave} style={{ border: "none", cursor: "pointer", borderRadius: 16, padding: "5px 12px", fontSize: 12, fontWeight: 700, background: err ? "#d17f7a" : C.soft, color: err ? "#fff" : C.primaryDark }}>
-          {err ? "ลองอีกครั้ง" : "บันทึก"}
+      {showBtn && (onSave || onRetry) && (
+        <button onClick={err ? (onRetry || onSave) : onSave} style={{ border: "none", cursor: "pointer", borderRadius: 16, padding: "5px 12px", fontSize: 12, fontWeight: 700, background: err ? "#d17f7a" : C.soft, color: err ? "#fff" : C.primaryDark }}>
+          {err ? "โหลดใหม่/ลองอีกครั้ง" : "บันทึก"}
         </button>
       )}
     </div>
@@ -1599,16 +1747,16 @@ function App() {
   const [db, setDb] = useState(seed);
   const [sync, setSync] = useState(API_URL ? "loading" : "local");
   const [lastSaved, setLastSaved] = useState(null);
-  const skipSave = useRef(true);   // ข้ามการบันทึกครั้งแรก (seed) และตอนโหลดข้อมูลเข้ามา
+  const loadedRef = useRef(!API_URL);   // ห้ามบันทึกจนกว่าจะโหลดข้อมูลเดิมสำเร็จ (กันเขียนทับของเก่า)
+  const justLoaded = useRef(false);
   const timerRef = useRef(null);
-  const savingRef = useRef(false); // กันบันทึกซ้อนกัน
-  const againRef = useRef(false);  // ถ้ามีแก้ไขระหว่างกำลังบันทึก ให้บันทึกอีกรอบต่อ
+  const savingRef = useRef(false);
+  const againRef = useRef(false);
   const dbRef = useRef(db);
   dbRef.current = db;
 
-  // บันทึกขึ้น Google Sheet แบบเบื้องหลัง (ไม่บล็อกการพิมพ์) และรวบให้เหลือรอบเดียวถ้ากดถี่
   const pushSave = () => {
-    if (!API_URL) return;
+    if (!API_URL || !loadedRef.current) return; // กันบันทึกก่อนโหลดสำเร็จ
     if (savingRef.current) { againRef.current = true; return; }
     savingRef.current = true;
     setSync("saving");
@@ -1623,21 +1771,25 @@ function App() {
       .then(() => { savingRef.current = false; if (againRef.current) { againRef.current = false; pushSave(); } });
   };
   const saveNow = () => { clearTimeout(timerRef.current); pushSave(); };
+  const retryLoad = () => { setSync("loading"); loadData(); };
 
-  // โหลดข้อมูลจาก Google Sheet ตอนเปิดหน้า
-  useEffect(() => {
+  // โหลดข้อมูลจาก Google Sheet ตอนเปิดหน้า — ต้องสำเร็จก่อนถึงจะอนุญาตให้บันทึก
+  const loadData = () => {
     if (!API_URL) return;
     fetch(API_URL).then((r) => r.text()).then((t) => {
       let j; try { j = JSON.parse(t); } catch (e) { throw new Error("ตอบกลับไม่ใช่ JSON"); }
-      if (j.ok && j.data) { try { setDb(mergeDb(JSON.parse(j.data))); skipSave.current = true; } catch (e) {} }
+      if (!j.ok) throw new Error(j.error || "ไม่สำเร็จ");
+      if (j.data) { try { setDb(mergeDb(JSON.parse(j.data))); justLoaded.current = true; } catch (e) {} }
+      loadedRef.current = true;
       setSync("saved"); setLastSaved(Date.now());
-    }).catch((err) => { console.warn("[โหลดไม่สำเร็จ]", err); setSync("offline"); });
-  }, []);
+    }).catch((err) => { console.warn("[โหลดไม่สำเร็จ]", err); loadedRef.current = false; setSync("offline"); });
+  };
+  useEffect(() => { loadData(); }, []);
 
-  // ออโต้เซฟหลังหยุดแก้ไข ~2 วินาที (เงียบ ๆ ผ่านแถบสถานะ)
+  // ออโต้เซฟหลังหยุดแก้ไข ~2 วินาที (ทำงานเฉพาะเมื่อโหลดข้อมูลเดิมสำเร็จแล้ว)
   useEffect(() => {
-    if (!API_URL) return;
-    if (skipSave.current) { skipSave.current = false; return; }
+    if (!API_URL || !loadedRef.current) return;
+    if (justLoaded.current) { justLoaded.current = false; return; }
     setSync("dirty");
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(pushSave, 2000);
@@ -1656,8 +1808,10 @@ function App() {
         @keyframes scrollUp { from { transform: translateY(0); } to { transform: translateY(-50%); } }
         input[type=range] { accent-color: ${C.primary}; }
         textarea:focus, input:focus { border-color: ${C.primary}; }
+        input::placeholder, textarea::placeholder { color: #bcb6c9; opacity: 1; }
+        input, textarea, select { color: ${C.ink}; }
       `}</style>
-      {API_URL && screen === "app" && <StatusBar status={sync} lastSaved={lastSaved} onSave={saveNow} />}
+      {API_URL && screen === "app" && <StatusBar status={sync} lastSaved={lastSaved} onSave={saveNow} onRetry={() => { if (loadedRef.current) saveNow(); else loadData(); }} />}
       {screen === "landing" && <Landing onLogin={() => setScreen("login")} announce={db.settings.announce} comps={db.competitions} />}
       {screen === "login" && <Login db={db} onEnter={(a) => { setAuth(a); setScreen("app"); }} onBack={() => setScreen("landing")} />}
       {screen === "app" && auth?.role === "admin" && <AdminApp db={db} setDb={setDb} onExit={exit} />}
