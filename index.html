@@ -34,7 +34,7 @@
 <body>
 <div id="root"></div>
 <script type="text/babel" data-presets="react">
-const { useState } = React;
+const { useState, useEffect, useRef } = React;
 
 
 
@@ -462,7 +462,7 @@ function AdminHome({ db }) {
       </div>
       <Card style={{ padding: 16 }}>
         <div style={{ fontWeight: 700, color: C.ink, marginBottom: 10 }}>สถานะการเชื่อมต่อ (เฟสถัดไป)</div>
-        {[["Google Sheet (ฐานข้อมูล)", "ยังไม่เชื่อม"], ["Google Drive (รูปภาพ)", "ยังไม่เชื่อม"], ["ย่อรูปอัตโนมัติ ≤ 300×300px", "รอเฟส 2"], ["จำกัดตัวจริงต่อคน", `${db.settings.maxMain} รายการ`]].map(([k, v]) => (
+        {[["Google Sheet (ฐานข้อมูล)", API_URL ? "เชื่อมแล้ว" : "ยังไม่เชื่อม"], ["บันทึกอัตโนมัติ", API_URL ? "เปิดใช้งาน" : "ปิด (โหมดทดลอง)"], ["ย่อรูปอัตโนมัติ ≤ 300×300px", "รอเฟสถัดไป"], ["จำกัดตัวจริงต่อคน", `${db.settings.maxMain} รายการ`]].map(([k, v]) => (
           <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px dashed ${C.line}`, fontSize: 13 }}><span style={{ color: C.muted }}>{k}</span><span style={{ color: C.ink, fontWeight: 600 }}>{v}</span></div>
         ))}
       </Card>
@@ -1394,12 +1394,75 @@ function StudentResults({ db, ui }) {
 }
 
 /* ============================================================
+   GOOGLE SHEET PERSISTENCE
+   วาง URL ของ Google Apps Script Web App ในบรรทัดล่างนี้
+   (เช่น "https://script.google.com/macros/s/xxxxx/exec")
+   ถ้าเว้นว่าง = โหมดทดลอง ข้อมูลจะไม่ถูกบันทึกและรีเซ็ตเมื่อรีเฟรช
+   ============================================================ */
+const API_URL = "https://script.google.com/macros/s/AKfycbw7I3lcOG74_I-ya-yBHhZaU8NM8_MmSFkjilrPZd7ULMUkOEWoa6qLgI8MnkmZJAwO/exec";
+
+function mergeDb(loaded) {
+  const s = loaded && loaded.settings ? loaded.settings : {};
+  return {
+    students: (loaded && loaded.students) || [],
+    teachers: (loaded && loaded.teachers) || [],
+    assistants: (loaded && loaded.assistants) || [],
+    competitions: (loaded && loaded.competitions) || [],
+    orgTeacher: (loaded && loaded.orgTeacher) || [],
+    orgStudent: (loaded && loaded.orgStudent) || [],
+    settings: {
+      ...seed.settings, ...s,
+      houses: (s.houses && s.houses.length) ? s.houses : seed.settings.houses,
+      announce: { ...seed.settings.announce, ...(s.announce || {}) },
+    },
+  };
+}
+function SyncBadge({ status }) {
+  const map = {
+    loading: ["กำลังโหลดข้อมูล...", C.muted],
+    saving: ["กำลังบันทึก...", C.gold],
+    saved: ["บันทึกลง Google Sheet แล้ว", "#5aab84"],
+    offline: ["เชื่อมต่อไม่ได้ — ยังไม่บันทึก", "#d17f7a"],
+    local: ["โหมดทดลอง (ไม่บันทึก)", C.muted],
+  };
+  const [txt, col] = map[status] || ["", C.muted];
+  return (
+    <div style={{ position: "fixed", left: 10, bottom: 80, zIndex: 40, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 20, padding: "6px 12px", fontSize: 12, fontWeight: 600, color: col, display: "flex", alignItems: "center", gap: 6, boxShadow: "0 2px 8px rgba(0,0,0,.06)" }}>
+      <span style={{ width: 8, height: 8, borderRadius: "50%", background: col }} /> {txt}
+    </div>
+  );
+}
+
+/* ============================================================
    ROOT
    ============================================================ */
 function App() {
   const [screen, setScreen] = useState("landing");
   const [auth, setAuth] = useState(null);
   const [db, setDb] = useState(seed);
+  const [sync, setSync] = useState(API_URL ? "loading" : "local");
+  const bootRef = useRef(true);
+  const saveTimer = useRef(null);
+  // โหลดข้อมูลที่บันทึกไว้จาก Google Sheet ตอนเปิดหน้า
+  useEffect(() => {
+    if (!API_URL) return;
+    fetch(API_URL).then((r) => r.json()).then((j) => {
+      if (j && j.ok && j.data) { try { setDb(mergeDb(JSON.parse(j.data))); } catch (e) {} }
+      setSync("saved");
+    }).catch(() => setSync("offline"));
+  }, []);
+  // บันทึกอัตโนมัติทุกครั้งที่มีการเปลี่ยนแปลง (หน่วงเล็กน้อยเพื่อรวบรายการ)
+  useEffect(() => {
+    if (!API_URL) return;
+    if (bootRef.current) { bootRef.current = false; return; }
+    setSync("saving");
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      fetch(API_URL, { method: "POST", body: JSON.stringify(db) })
+        .then((r) => r.json()).then((j) => setSync(j && j.ok ? "saved" : "offline"))
+        .catch(() => setSync("offline"));
+    }, 900);
+  }, [db]);
   // apply admin-defined pastel theme live (Team 1 color = main accent)
   const teamColors = db.settings.houses && db.settings.houses.length ? db.settings.houses : DEFAULT_HOUSES;
   C = makeTheme(teamColors[0].color);
@@ -1415,6 +1478,7 @@ function App() {
         input[type=range] { accent-color: ${C.primary}; }
         textarea:focus, input:focus { border-color: ${C.primary}; }
       `}</style>
+      {API_URL && screen === "app" && <SyncBadge status={sync} />}
       {screen === "landing" && <Landing onLogin={() => setScreen("login")} announce={db.settings.announce} comps={db.competitions} />}
       {screen === "login" && <Login db={db} onEnter={(a) => { setAuth(a); setScreen("app"); }} onBack={() => setScreen("landing")} />}
       {screen === "app" && auth?.role === "admin" && <AdminApp db={db} setDb={setDb} onExit={exit} />}
