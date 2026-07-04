@@ -1739,20 +1739,43 @@ function ThemeCard({ db, setDb, ui }) {
     </div>
   );
 }
+function AnnounceBlock({ lines, speed, showLines = 3 }) {
+  const news = (lines && lines.length) ? lines : ["(ยังไม่มีข้อความประชาสัมพันธ์)"];
+  return (
+    <Card style={{ overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", borderBottom: `1px solid ${C.line}` }}>
+        <span style={{ background: C.gold, color: "#fff", fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 20 }}>ประชาสัมพันธ์</span>
+        <span style={{ fontSize: 11.5, color: C.muted, marginLeft: "auto" }}>ตัวอย่างการแสดงผลจริง</span>
+      </div>
+      <div style={{ height: 40 * (showLines || 3), overflow: "hidden", padding: "0 16px" }}>
+        <div style={{ animation: `scrollUp ${speed}s linear infinite` }}>
+          {[...news, ...news].map((n, i) => <div key={i} style={{ padding: "10px 0", borderBottom: `1px dashed ${C.line}`, color: C.ink, fontSize: 14 }}>• {n}</div>)}
+        </div>
+      </div>
+    </Card>
+  );
+}
 function PromoCard({ db, setDb, ui }) {
   const [lines, setLines] = useState(db.settings.announce.lines.join("\n"));
   const [speed, setSpeed] = useState(db.settings.announce.speed);
   const [showLines, setShowLines] = useState(db.settings.announce.showLines);
+  const previewLines = lines.split("\n").filter(Boolean);
   return (
-    <Card style={{ padding: 16, maxWidth: 560 }}>
-      <span style={{ display: "block", fontSize: 13, color: C.muted, marginBottom: 5 }}>ข้อความ (บรรทัดละ 1 เรื่อง)</span>
-      <textarea value={lines} onChange={(e) => setLines(e.target.value)} rows={5} style={{ width: "100%", padding: 12, borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, fontFamily: "inherit", marginBottom: 12 }} />
-      <div className="md:grid md:grid-cols-2 md:gap-x-3">
-        <Field label="ความเร็วเลื่อน (วินาที/รอบ, มาก=ช้า)" value={String(speed)} onChange={(v) => setSpeed(Number(v) || 18)} />
-        <Field label="จำนวนบรรทัดที่แสดง" value={String(showLines)} onChange={(v) => setShowLines(Number(v) || 3)} />
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 560 }}>
+      <Card style={{ padding: 16 }}>
+        <span style={{ display: "block", fontSize: 13, color: C.muted, marginBottom: 5 }}>ข้อความ (บรรทัดละ 1 เรื่อง)</span>
+        <textarea value={lines} onChange={(e) => setLines(e.target.value)} rows={5} style={{ width: "100%", padding: 12, borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, fontFamily: "inherit", marginBottom: 12 }} />
+        <div className="md:grid md:grid-cols-2 md:gap-x-3">
+          <Field label="ความเร็วเลื่อน (วินาที/รอบ, มาก=ช้า)" value={String(speed)} onChange={(v) => setSpeed(Number(v) || 18)} />
+          <Field label="จำนวนบรรทัดที่แสดง" value={String(showLines)} onChange={(v) => setShowLines(Number(v) || 3)} />
+        </div>
+        <Btn onClick={() => ui.run("กำลังบันทึก...", () => { setDb((p) => ({ ...p, settings: { ...p.settings, announce: { speed, showLines, lines: previewLines } } })); ui.notify("บันทึกประชาสัมพันธ์แล้ว"); })}>บันทึก</Btn>
+      </Card>
+      <div>
+        <span style={{ display: "block", fontSize: 13, color: C.muted, marginBottom: 6 }}>ตัวอย่างที่จะแสดงหน้าแรก (อัปเดตสดตามที่พิมพ์)</span>
+        <AnnounceBlock lines={previewLines} speed={speed} showLines={showLines} />
       </div>
-      <Btn onClick={() => ui.run("กำลังบันทึก...", () => { setDb((p) => ({ ...p, settings: { ...p.settings, announce: { speed, showLines, lines: lines.split("\n").filter(Boolean) } } })); ui.notify("บันทึกประชาสัมพันธ์แล้ว"); })}>บันทึก</Btn>
-    </Card>
+    </div>
   );
 }
 
