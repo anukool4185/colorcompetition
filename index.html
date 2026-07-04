@@ -479,9 +479,10 @@ function AdminApp({ db, setDb, onExit }) {
   const nav = [
     { key: "home", label: "ภาพรวม", icon: "▦" },
     { key: "people", label: "บุคลากร", icon: "👥" },
-    { key: "promote", label: "เลื่อนชั้น", icon: "⬆" },
+    { key: "duties", label: "กำหนดหน้าที่", icon: "🧩" },
     { key: "org", label: "ผังองค์กร", icon: "🗂" },
     { key: "comp", label: "การแข่งขัน", icon: "🏆" },
+    { key: "promote", label: "เลื่อนชั้น", icon: "⬆" },
     { key: "trash", label: "ถังขยะ", icon: "🗑" },
     { key: "promo", label: "ตั้งค่า", icon: "⚙️" },
   ];
@@ -489,9 +490,10 @@ function AdminApp({ db, setDb, onExit }) {
     <Shell role="admin" nav={nav} view={view} setView={setView} onExit={onExit} ui={ui}>
       {view === "home" && <AdminHome db={db} setDb={setDb} ui={ui} />}
       {view === "people" && <PeopleManager db={db} setDb={setDb} ui={ui} />}
-      {view === "promote" && <PromotionManager db={db} setDb={setDb} ui={ui} />}
-      {view === "org" && <OrgManager db={db} setDb={setDb} ui={ui} editable />}
+      {view === "duties" && <DutyManager db={db} setDb={setDb} ui={ui} />}
+      {view === "org" && <OrgViewManager db={db} ui={ui} />}
       {view === "comp" && <CompManager db={db} setDb={setDb} ui={ui} />}
+      {view === "promote" && <PromotionManager db={db} setDb={setDb} ui={ui} />}
       {view === "trash" && <TrashBin db={db} setDb={setDb} ui={ui} />}
       {view === "promo" && <SettingsManager db={db} setDb={setDb} ui={ui} />}
     </Shell>
@@ -1448,6 +1450,37 @@ function CredForm({ kind, person, onClose, onSave }) {
 }
 
 /* ----- Org manager ----- */
+function DutyManager({ db, setDb, ui }) {
+  const [tab, setTab] = useState("teacher");
+  return (
+    <div>
+      <PageHead title="กำหนดหน้าที่" sub="เพิ่มแถวหน้าที่และกำหนดรายชื่อกรรมการ (แยกหมวดแข่งขัน / กิจกรรม)" />
+      <Tabs tabs={[{ key: "teacher", label: "ครู" }, { key: "student", label: "นักเรียน" }]} active={tab} onChange={setTab} />
+      {tab === "teacher" && <OrgEditor which="orgTeacher" pool={db.teachers} pickPool={db.teachers.filter((t) => t.user)} db={db} setDb={setDb} ui={ui} editable committeeLabel="กรรมการครู" />}
+      {tab === "student" && <OrgEditor which="orgStudent" pool={db.students} pickPool={db.students.filter((s) => s.committee)} db={db} setDb={setDb} ui={ui} editable committeeLabel="กรรมการนักเรียน" />}
+    </div>
+  );
+}
+function OrgViewManager({ db, ui }) {
+  const [cat, setCat] = useState("comp");
+  const [side, setSide] = useState("teacher");
+  const which = side === "teacher" ? "orgTeacher" : "orgStudent";
+  const pool = side === "teacher" ? db.teachers : db.students;
+  const rows = db[which].filter((r) => (r.cat || "comp") === cat);
+  return (
+    <div>
+      <PageHead title="ผังองค์กร" sub="ดูผังรวมตามหมวดและฝ่าย" right={<ExportBar run={ui && ui.run} />} />
+      <Tabs tabs={[{ key: "comp", label: "ผังรายการแข่งขัน" }, { key: "act", label: "ผังรายการกิจกรรม" }]} active={cat} onChange={setCat} />
+      <div style={{ marginBottom: 6 }}>
+        <Tabs tabs={[{ key: "teacher", label: "ผังรวมครู" }, { key: "student", label: "ผังรวมนักเรียน" }]} active={side} onChange={setSide} />
+      </div>
+      <Card style={{ padding: 16, overflowX: "auto" }}>
+        <div style={{ textAlign: "center", fontWeight: 800, color: side === "teacher" ? C.primary : C.gold, marginBottom: 14 }}>{cat === "comp" ? "รายการแข่งขัน" : "รายการกิจกรรม"} · {side === "teacher" ? "ครู" : "นักเรียน"}</div>
+        <TreeChart rows={rows} pool={pool} accent={side === "teacher" ? C.primary : C.gold} />
+      </Card>
+    </div>
+  );
+}
 function OrgManager({ db, setDb, ui, editable }) {
   const [tab, setTab] = useState("combined");
   return (
@@ -1930,7 +1963,7 @@ function CommitteeApp({ role, db, setDb, onExit }) {
   ];
   return (
     <Shell role={role} nav={nav} view={view} setView={setView} onExit={onExit} ui={ui}>
-      {view === "org" && <OrgManager db={db} setDb={setDb} ui={ui} editable={false} />}
+      {view === "org" && <OrgViewManager db={db} ui={ui} />}
       {view === "results" && <ResultsScreen db={db} setDb={setDb} ui={ui} />}
       {view === "schedule" && <ScheduleScreen db={db} setDb={setDb} ui={ui} editable />}
       {view === "regfor" && <RegisterForStudent db={db} setDb={setDb} ui={ui} />}
@@ -2084,7 +2117,7 @@ function StudentApp({ db, setDb, onExit, meId }) {
   ];
   return (
     <Shell role="student" nav={nav} view={view} setView={setView} onExit={onExit} ui={ui}>
-      {view === "home" && <OrgManager db={db} setDb={setDb} ui={ui} editable={false} />}
+      {view === "home" && <OrgViewManager db={db} ui={ui} />}
       {view === "me" && <MyProfile me={me} db={db} setDb={setDb} ui={ui} />}
       {view === "register" && <StudentRegister me={me} db={db} setDb={setDb} ui={ui} />}
       {view === "results" && <StudentResults db={db} ui={ui} />}
