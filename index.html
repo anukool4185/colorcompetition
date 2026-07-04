@@ -402,7 +402,7 @@ function Shell({ role, nav, view, setView, onExit, children, ui }) {
         ))}
       </nav>
 
-      {confirmOut && <ConfirmModal title="ออกจากระบบ" message="ต้องการออกจากระบบใช่หรือไม่? ครั้งต่อไปต้องล็อกอินใหม่" onConfirm={() => { setConfirmOut(false); onExit(); }} onClose={() => setConfirmOut(false)} />}
+      {confirmOut && <ConfirmModal title="ออกจากระบบ" message="ต้องการออกจากระบบใช่หรือไม่? ครั้งต่อไปต้องล็อกอินใหม่" confirmLabel="ออกจากระบบ" onConfirm={() => { setConfirmOut(false); onExit(); }} onClose={() => setConfirmOut(false)} />}
       {ui.loading && <LoadingModal label={ui.loading} />}
       {ui.toast && <Toast msg={ui.toast} />}
     </div>
@@ -550,12 +550,12 @@ function PeopleManager({ db, setDb, ui }) {
     </div>
   );
 }
-function ConfirmModal({ title, message, onConfirm, onClose }) {
+function ConfirmModal({ title, message, onConfirm, onClose, confirmLabel, variant }) {
   return (
     <Modal title={title} onClose={onClose}>
       <p style={{ fontSize: 14, color: C.ink, marginTop: 0, lineHeight: 1.7 }}>{message}</p>
       <div style={{ display: "flex", gap: 8 }}>
-        <Btn variant="danger" onClick={onConfirm}>ยืนยันลบ</Btn>
+        <Btn variant={variant || "danger"} onClick={onConfirm}>{confirmLabel || "ยืนยันลบ"}</Btn>
         <Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn>
       </div>
     </Modal>
@@ -842,7 +842,7 @@ const FIELD_OPTS = [
   ["grade", "ระดับชั้น"], ["room", "ห้อง"], ["gradeRoom", "ชั้น/ห้อง (รวม)"],
   ["gender", "เพศ"], ["color", "สี/ทีม"],
 ];
-function applyMapping(dataRows, mapping, kind, houses) {
+function applyMapping(dataRows, mapping, kind, houses, fileHouse, colorSeen) {
   return (dataRows || []).map((cells) => {
     const rec = { id: "", phone: "", pre: "", first: "", last: "", grade: "", room: "", gender: "", house: 0 };
     let fullName = "", gradeRoom = "", colorName = "";
@@ -865,7 +865,12 @@ function applyMapping(dataRows, mapping, kind, houses) {
     if (!rec.last && rec.first && (rec.first.includes(" ") || IMP_PREFIXES.some((p) => rec.first.startsWith(p)))) { const s = impSplitName(rec.first); rec.pre = rec.pre || expandPrefix(s.pre); rec.first = s.first; rec.last = s.last; }
     if (gradeRoom) { const gr = impSplitGradeRoom(gradeRoom); rec.grade = rec.grade || gr.grade; rec.room = rec.room || gr.room; }
     else if (rec.grade && !rec.room) { const gr = impSplitGradeRoom(rec.grade); if (gr.room) { rec.grade = gr.grade; rec.room = gr.room; } }
-    if (!colorSeen) rec.house = fileHouse; // ถ้าไม่มีคอลัมน์สีมา ใช้ค่าที่ผู้ใช้เลือกให้ทั้งไฟล์
+    if (colorSeen) {
+      const i = (houses || []).findIndex((h) => h.name && (h.name === colorName || h.name.replace(/^สี/, "") === colorName.replace(/^สี/, "")));
+      rec.house = i >= 0 ? i : 0;
+    } else {
+      rec.house = fileHouse || 0; // ไม่มีคอลัมน์สี → ใช้สีที่ผู้ใช้เลือกให้ทั้งไฟล์
+    }
     return rec;
   }).filter((r) => r.id || r.first || r.last);
 }
@@ -877,15 +882,15 @@ function ImportPreview({ kind, rawRows, existing, houses, onClose, onConfirm }) 
   const headerDetected = rows.length > 0 && impIsHeader(rows[0]);
   const [useHeader, setUseHeader] = useState(headerDetected);
   const [mapping, setMapping] = useState(() => headerDetected ? mappingFromHeader(rows[0] || [], width) : detectColumns(rows, teamNames));
+  const [fileHouse, setFileHouse] = useState(0);
   const dataRows = useHeader ? rows.slice(1) : rows;
   const toggleHeader = (v) => { setUseHeader(v); const dr = v ? rows.slice(1) : rows; setMapping(v ? mappingFromHeader(rows[0] || [], width) : detectColumns(dr, teamNames)); };
   const setCol = (c, field) => setMapping((m) => m.map((x, i) => (i === c ? field : x)));
   const opts = kind === "teacher" ? FIELD_OPTS.filter((o) => ["skip", "id", "phone", "pre", "first", "last", "fullName"].includes(o[0])) : FIELD_OPTS;
 
-  const parsed = applyMapping(dataRows, mapping, kind, houses);
-  const fileSeen = new Set(existing.map((e) => String(e.id)));
   const colorSeen = mapping.includes("color");
-  const [fileHouse, setFileHouse] = useState(0);
+  const parsed = applyMapping(dataRows, mapping, kind, houses, fileHouse, colorSeen);
+  const fileSeen = new Set(existing.map((e) => String(e.id)));
   const marked = parsed.map((r) => {
     const idStr = String(r.id || ""); let dup = false, reason = "";
     if (!idStr) { dup = true; reason = "ไม่มีรหัส"; }
