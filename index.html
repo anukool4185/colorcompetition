@@ -10,10 +10,10 @@
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <style>
   html, body, #root { height: 100%; margin: 0; }
   body { font-family: 'Noto Sans Thai', system-ui, sans-serif; -webkit-text-size-adjust: 100%; }
-  /* --- minimal responsive utilities (replaces the few Tailwind classes used) --- */
   .hidden { display: none !important; }
   .grid-cols-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   @media (min-width: 768px) {
@@ -490,7 +490,7 @@ function PersonList({ kind, db, setDb, ui }) {
   const [room, setRoom] = useState("");
   const [add, setAdd] = useState(false);
   const [edit, setEdit] = useState(null);
-  const [importing, setImporting] = useState(false);
+  const [rawRows, setRawRows] = useState(null);
 
   const grades = [...new Set(list.map((s) => s.grade).filter(Boolean))];
   const rooms = [...new Set(list.map((s) => s.room).filter(Boolean))];
@@ -502,12 +502,45 @@ function PersonList({ kind, db, setDb, ui }) {
     setAdd(false); setEdit(null);
   });
 
+  const onFile = (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    if (typeof XLSX === "undefined") { ui.notify("โหลดตัวอ่าน Excel ไม่สำเร็จ (ต้องมีอินเทอร์เน็ต)"); return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const wb = XLSX.read(new Uint8Array(ev.target.result), { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+        if (!rows.length) { ui.notify("ไฟล์ว่างเปล่า"); return; }
+        setRawRows(rows);
+      } catch (err) { ui.notify("อ่านไฟล์ไม่สำเร็จ"); }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+  const downloadTemplate = () => {
+    if (typeof XLSX === "undefined") { ui.notify("ต้องมีอินเทอร์เน็ต"); return; }
+    const header = kind === "student"
+      ? ["รหัสนักเรียน", "เบอร์โทร", "คำนำหน้า", "ชื่อ", "นามสกุล", "ระดับชั้น", "ห้องเรียน"]
+      : ["รหัส", "เบอร์โทร", "คำนำหน้า", "ชื่อ", "นามสกุล"];
+    const sample = kind === "student"
+      ? ["10234", "0812345678", "เด็กชาย", "ปกรณ์", "มั่นคง", "ม.3", "1"]
+      : ["T05", "0899999999", "นาย", "เอกชัย", "มานะ"];
+    const ws = XLSX.utils.aoa_to_sheet([header, sample]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "รายชื่อ");
+    XLSX.writeFile(wb, kind === "student" ? "template_students.xlsx" : "template_teachers.xlsx");
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
         <span style={{ fontSize: 13, color: C.muted }}>{filtered.length} รายการ</span>
         <div style={{ display: "flex", gap: 8 }}>
-          <Btn variant="ghost" small onClick={() => setImporting(true)}>นำเข้า Excel</Btn>
+          <input id={"xlsx-" + kind} type="file" accept=".xlsx,.xls,.csv" onChange={onFile} style={{ display: "none" }} />
+          <Btn variant="ghost" small onClick={downloadTemplate}>แม่แบบ</Btn>
+          <Btn variant="ghost" small onClick={() => document.getElementById("xlsx-" + kind).click()}>นำเข้า Excel</Btn>
           <Btn small onClick={() => setAdd(true)}>+ เพิ่ม{kind === "student" ? "นักเรียน" : "ครู"}</Btn>
         </div>
       </div>
@@ -534,7 +567,7 @@ function PersonList({ kind, db, setDb, ui }) {
         {filtered.length === 0 && <Empty text="ไม่พบรายชื่อตามเงื่อนไข" />}
       </div>
       {(add || edit) && <PersonForm kind={kind} person={edit} onClose={() => { setAdd(false); setEdit(null); }} onSave={save} />}
-      {importing && <ImportPreview kind={kind} onClose={() => setImporting(false)} onConfirm={(rows) => ui.run("กำลังโอนเข้าระบบ...", () => { setDb((p) => ({ ...p, [key]: [...p[key], ...rows] })); setImporting(false); })} existing={list} />}
+      {rawRows && <ImportPreview kind={kind} rawRows={rawRows} existing={list} onClose={() => setRawRows(null)} onConfirm={(rows) => ui.run("กำลังโอนเข้าระบบ...", () => { setDb((p) => ({ ...p, [key]: [...p[key], ...rows] })); setRawRows(null); ui.notify(`โอนเข้าระบบแล้ว ${rows.length} คน`); })} />}
     </div>
   );
 }
@@ -565,47 +598,124 @@ function PersonForm({ kind, person, onClose, onSave }) {
     </Modal>
   );
 }
-function ImportPreview({ kind, onClose, onConfirm, existing }) {
-  // จำลองไฟล์ที่มี "คำนำหน้า+ชื่อ+สกุล" รวมกัน และมีรหัสซ้ำ 1 แถว
-  const raw = kind === "student"
-    ? [
-        { id: "10240", full: "เด็กชายวีระ สู้ศึก", grade: "ม.3", room: "2", phone: "0871111111" },
-        { id: "10234", full: "เด็กชายปกรณ์ มั่นคง", grade: "ม.3", room: "1", phone: "0812345678" }, // ซ้ำ
-        { id: "10241", full: "เด็กหญิงมณี งามตา", grade: "ม.2", room: "1", phone: "0872222222" },
-      ]
-    : [{ id: "T05", full: "นายเอกชัย มานะ", phone: "0899999999" }];
-  const split = (full) => {
-    const pres = ["เด็กชาย", "เด็กหญิง", "นางสาว", "นาย", "นาง"];
-    let pre = pres.find((p) => full.startsWith(p)) || "";
-    const rest = full.slice(pre.length).trim().split(" ");
-    return { pre, first: rest[0] || "", last: rest.slice(1).join(" ") };
-  };
-  const parsed = raw.map((r) => {
-    const dup = existing.some((e) => e.id === r.id);
-    const s = split(r.full);
-    return { ...r, ...s, house: 0, dup };
+/* ----- Excel/CSV import: parsing helpers ----- */
+const IMP_PREFIXES = ["เด็กชาย", "เด็กหญิง", "นางสาว", "นาย", "นาง", "ด.ช.", "ด.ญ.", "น.ส."];
+const impClean = (v) => String(v == null ? "" : v).trim().replace(/\s+/g, " ");
+function impSplitName(full) {
+  full = impClean(full);
+  let pre = "";
+  for (const p of IMP_PREFIXES) { if (full.startsWith(p)) { pre = p; full = full.slice(p.length).trim(); break; } }
+  const parts = full.split(" ").filter(Boolean);
+  return { pre, first: parts[0] || "", last: parts.slice(1).join(" ") };
+}
+const impCombinedName = (v) => { v = impClean(v); return IMP_PREFIXES.some((p) => v.startsWith(p)) || v.includes(" "); };
+function impSplitGradeRoom(v) {
+  v = impClean(v);
+  if (!v) return { grade: "", room: "" };
+  if (v.includes("/")) { const a = v.split("/"); return { grade: impClean(a[0]), room: impClean(a.slice(1).join("/")) }; }
+  const m = v.match(/^(.*?)[\s\-]+(\S+)$/);
+  if (m) return { grade: impClean(m[1]), room: impClean(m[2]) };
+  return { grade: v, room: "" };
+}
+const impIsHeader = (row) => /รหัส|ชื่อ|ชั้น|เบอร์|สกุล|คำนำหน้า|โทร/.test((row || []).map(impClean).join(" "));
+function impMapHeaders(row) {
+  const H = row.map(impClean);
+  const find = (t) => H.findIndex(t);
+  const idx = {};
+  idx.id = find((h) => h.includes("รหัส"));
+  idx.phone = find((h) => h.includes("เบอร์") || h.includes("โทร"));
+  idx.pre = find((h) => h.includes("คำนำหน้า"));
+  idx.fullName = find((h) => /ชื่อ.*สกุล/.test(h));
+  idx.last = find((h) => (h.includes("สกุล")) && !/ชื่อ.*สกุล/.test(h));
+  idx.first = find((h) => h.includes("ชื่อ") && !h.includes("สกุล") && !h.includes("ผู้ปกครอง"));
+  idx.gradeRoom = find((h) => h.includes("ชั้น") && h.includes("ห้อง"));
+  idx.grade = find((h) => h.includes("ชั้น") && !h.includes("ห้อง"));
+  idx.room = find((h) => h.includes("ห้อง") && !h.includes("ชั้น"));
+  return idx;
+}
+function impPositional(w, kind) {
+  if (kind === "teacher") return w >= 5 ? { id: 0, phone: 1, pre: 2, first: 3, last: 4 } : { id: 0, phone: 1, fullName: 2 };
+  if (w >= 7) return { id: 0, phone: 1, pre: 2, first: 3, last: 4, grade: 5, room: 6 };
+  if (w >= 5) return { id: 0, phone: 1, fullName: 2, grade: 3, room: 4 };
+  if (w >= 4) return { id: 0, phone: 1, fullName: 2, gradeRoom: 3 };
+  return { id: 0, fullName: 1 };
+}
+function impNormalize(cells, idx, kind) {
+  const g = (i) => (i != null && i >= 0 && i < cells.length ? impClean(cells[i]) : "");
+  const id = g(idx.id), phone = g(idx.phone);
+  let pre = "", first = "", last = "";
+  if (idx.fullName != null && idx.fullName >= 0) { ({ pre, first, last } = impSplitName(g(idx.fullName))); }
+  else {
+    pre = g(idx.pre); first = g(idx.first); last = g(idx.last);
+    if (!last && impCombinedName(first)) { const s = impSplitName(first); pre = pre || s.pre; first = s.first; last = s.last; }
+    else if (!pre) { const s = impSplitName([first, last].filter(Boolean).join(" ")); if (s.pre) { pre = s.pre; first = s.first; last = s.last; } }
+  }
+  let grade = "", room = "";
+  if (kind === "student") {
+    if (idx.gradeRoom != null && idx.gradeRoom >= 0) { ({ grade, room } = impSplitGradeRoom(g(idx.gradeRoom))); }
+    else { grade = g(idx.grade); room = g(idx.room); if (!room && grade) { const gr = impSplitGradeRoom(grade); grade = gr.grade; room = gr.room; } }
+  }
+  return { id, phone, pre, first, last, grade, room, house: 0 };
+}
+function parseSheetRows(rows2d, kind) {
+  const rows = (rows2d || []).filter((r) => r && r.some((c) => impClean(c) !== ""));
+  if (!rows.length) return [];
+  let idx, data;
+  if (impIsHeader(rows[0])) {
+    idx = impMapHeaders(rows[0]); data = rows.slice(1);
+    if ((idx.id == null || idx.id < 0) && (idx.fullName == null || idx.fullName < 0) && (idx.first == null || idx.first < 0)) { idx = impPositional(rows[0].length, kind); data = rows; }
+  } else { idx = impPositional(rows[0].length, kind); data = rows; }
+  return data.map((r) => impNormalize(r, idx, kind)).filter((x) => x.id || x.first || x.last);
+}
+
+function ImportPreview({ kind, rawRows, existing, onClose, onConfirm }) {
+  const parsed = parseSheetRows(rawRows, kind);
+  const fileSeen = new Set(existing.map((e) => String(e.id)));
+  const marked = parsed.map((r) => {
+    const idStr = String(r.id || "");
+    let dup = false, reason = "";
+    if (!idStr) { dup = true; reason = "ไม่มีรหัส"; }
+    else if (existing.some((e) => String(e.id) === idStr)) { dup = true; reason = "รหัสซ้ำในระบบ"; }
+    else if (fileSeen.has(idStr)) { dup = true; reason = "ซ้ำในไฟล์"; }
+    else fileSeen.add(idStr);
+    return { r, dup, reason };
   });
-  const toAdd = parsed.filter((r) => !r.dup).map(({ full, dup, ...rest }) => rest);
+  const toAdd = marked.filter((m) => !m.dup).map((m) => m.r);
+  const skipped = marked.length - toAdd.length;
   return (
     <Modal title="ตรวจสอบก่อนโอนเข้าระบบ" onClose={onClose} wide>
-      <p style={{ fontSize: 13, color: C.muted, marginTop: 0 }}>ระบบแยก คำนำหน้า / ชื่อ / นามสกุล ให้อัตโนมัติ และตรวจรหัสซ้ำ — แถวที่ซ้ำจะไม่ถูกโอน</p>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {parsed.map((r, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: 10, borderRadius: 10, border: `1px solid ${r.dup ? "#f3c9c9" : C.line}`, background: r.dup ? "#fdf0f0" : C.surface }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, color: C.ink, fontSize: 13.5 }}>{r.pre} · {r.first} · {r.last}</div>
-              <div style={{ fontSize: 11.5, color: C.muted }}>รหัส {r.id}{r.grade ? ` · ${r.grade}/${r.room}` : ""}</div>
+      <p style={{ fontSize: 13, color: C.muted, marginTop: 0 }}>ระบบแยก คำนำหน้า / ชื่อ / นามสกุล และ ระดับชั้น / ห้อง ให้อัตโนมัติ · แถวที่รหัสซ้ำจะไม่ถูกโอน</p>
+      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+        <Stat label="ทั้งหมด" v={marked.length} col={C.primary} />
+        <Stat label="ใหม่ (จะโอน)" v={toAdd.length} col="#5aab84" />
+        <Stat label="ซ้ำ/ข้าม" v={skipped} col="#d17f7a" />
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 340, overflowY: "auto" }}>
+        {marked.map((m, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: 10, borderRadius: 10, border: `1px solid ${m.dup ? "#eccdcd" : C.line}`, background: m.dup ? "#fbf1f1" : C.surface }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, color: C.ink, fontSize: 13.5 }}>
+                <span style={{ color: C.muted }}>[{m.r.pre || "—"}]</span> {m.r.first} {m.r.last}
+              </div>
+              <div style={{ fontSize: 11.5, color: C.muted }}>
+                รหัส {m.r.id || "—"}{kind === "student" ? ` · ${m.r.grade || "?"}/${m.r.room || "?"}` : ""}{m.r.phone ? ` · ${m.r.phone}` : ""}
+              </div>
             </div>
-            {r.dup ? <span style={{ fontSize: 12, fontWeight: 700, color: "#c0392b" }}>รหัสซ้ำ (ข้าม)</span> : <span style={{ fontSize: 12, fontWeight: 700, color: "#2f9e6b" }}>ใหม่</span>}
+            {m.dup ? <span style={{ fontSize: 12, fontWeight: 700, color: "#c0392b", whiteSpace: "nowrap" }}>{m.reason}</span>
+              : <span style={{ fontSize: 12, fontWeight: 700, color: "#2f9e6b" }}>ใหม่</span>}
           </div>
         ))}
+        {marked.length === 0 && <Empty text="อ่านข้อมูลจากไฟล์ไม่ได้ ลองใช้ปุ่ม 'แม่แบบ' เพื่อดูรูปแบบที่ถูกต้อง" />}
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-        <Btn onClick={() => onConfirm(toAdd)}>โอนเข้าระบบ ({toAdd.length} คน)</Btn>
+        <Btn onClick={() => onConfirm(toAdd)} disabled={toAdd.length === 0}>โอนเข้าระบบ ({toAdd.length} คน)</Btn>
         <Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn>
       </div>
     </Modal>
   );
+}
+function Stat({ label, v, col }) {
+  return <div style={{ flex: 1, minWidth: 90, background: col + "14", borderRadius: 10, padding: "8px 12px" }}><div style={{ fontSize: 20, fontWeight: 800, color: col }}>{v}</div><div style={{ fontSize: 11.5, color: C.muted }}>{label}</div></div>;
 }
 function AssistantList({ db, setDb, ui }) {
   const [add, setAdd] = useState(false);
