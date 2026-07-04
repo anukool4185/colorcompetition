@@ -521,8 +521,11 @@ function ConnTest() {
       lines.push(`อ่านข้อมูล (GET) → HTTP ${r.status}`);
       lines.push("ตัวอย่างคำตอบ: " + t.slice(0, 140));
       if (t.indexOf("<") === 0 || /accounts\.google|เข้าสู่ระบบ|Sign in/i.test(t)) lines.push("⚠️ ได้หน้าเว็บ/ล็อกอินแทน JSON → ตอน Deploy ต้องตั้ง Who has access = Anyone");
-      else if (/"ok"\s*:\s*true/.test(t)) lines.push("✓ อ่านข้อมูลได้ปกติ — ถ้ายังบันทึกไม่สำเร็จ มักเป็นเรื่องสิทธิ์ตอน Deploy หรือยังไม่ redeploy เวอร์ชันใหม่");
+      else if (/"ok"\s*:\s*true/.test(t)) lines.push("✓ อ่านข้อมูลได้ปกติ");
     } catch (e) { lines.push("อ่านข้อมูลล้มเหลว: " + e.message + " (มักเป็น CORS/สิทธิ์ หรือเน็ต)"); }
+    lines.push("");
+    lines.push("ผลบันทึกล่าสุด (จากปุ่มบันทึก):");
+    lines.push(window.__saveLog || "— ยังไม่เคยกดบันทึก —");
     setOut(lines.join("\n")); setBusy(false);
   };
   return (
@@ -927,7 +930,7 @@ function ImportPreview({ kind, rawRows, existing, houses, onClose, onConfirm }) 
               </select>
             </th>
           ))}</tr></thead>
-          <tbody>{dataRows.slice(0, 4).map((r, ri) => (
+          <tbody>{dataRows.slice(0, 2).map((r, ri) => (
             <tr key={ri}>{mapping.map((f, c) => <td key={c} style={cellCss}>{impClean((r || [])[c]) || "—"}</td>)}</tr>
           ))}</tbody>
         </table>
@@ -937,8 +940,13 @@ function ImportPreview({ kind, rawRows, existing, houses, onClose, onConfirm }) 
         <Stat label="ใหม่ (จะโอน)" v={toAdd.length} col="#5aab84" />
         <Stat label="ซ้ำ/ข้าม" v={skipped} col="#d17f7a" />
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 280, overflowY: "auto" }}>
-        {marked.map((m, i) => (
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <Btn onClick={() => onConfirm(toAdd)} disabled={toAdd.length === 0}>โอนเข้าระบบ ({toAdd.length} คน)</Btn>
+        <Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn>
+      </div>
+      <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>ตัวอย่างที่แยกได้ (แสดง {Math.min(2, marked.length)} จาก {marked.length} คน):</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {marked.slice(0, 2).map((m, i) => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: 10, borderRadius: 10, border: `1px solid ${m.dup ? "#eccdcd" : C.line}`, background: m.dup ? "#fbf1f1" : C.surface }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 600, color: C.ink, fontSize: 13.5 }}><span style={{ color: C.muted }}>[{m.r.pre || "—"}]</span> {m.r.first} {m.r.last}</div>
@@ -950,10 +958,6 @@ function ImportPreview({ kind, rawRows, existing, houses, onClose, onConfirm }) 
           </div>
         ))}
         {marked.length === 0 && <Empty text="ยังแยกข้อมูลไม่ได้ — ลองปรับการจับคู่คอลัมน์ด้านบน หรือดูปุ่ม 'แม่แบบ'" />}
-      </div>
-      <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
-        <Btn onClick={() => onConfirm(toAdd)} disabled={toAdd.length === 0}>โอนเข้าระบบ ({toAdd.length} คน)</Btn>
-        <Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn>
       </div>
     </Modal>
   );
@@ -1807,26 +1811,30 @@ function App() {
   dbRef.current = db;
   const dirtyRef = useRef(false); // มีการแก้ไขที่ยังไม่ถูกบันทึกหรือไม่
 
-  const pushSave = () => {
-    if (!API_URL || !loadedRef.current) return; // กันบันทึกก่อนโหลดสำเร็จ
+  // แกนบันทึกจริง (ไม่ติดล็อก) — ใช้ทั้งออโต้เซฟและปุ่มบันทึกเอง
+  const doSave = () => {
+    if (!API_URL) return;
     if (savingRef.current) { againRef.current = true; return; }
     savingRef.current = true;
     setSync("saving");
+    let st = 0;
     fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "data", data: dbRef.current }) })
-      .then((r) => r.text())
+      .then((r) => { st = r.status; return r.text(); })
       .then((t) => {
-        let j; try { j = JSON.parse(t); } catch (e) { throw new Error("ตอบกลับไม่ใช่ JSON: " + t.slice(0, 80)); }
-        if (!j.ok) throw new Error(j.error || "ไม่สำเร็จ");
-        dirtyRef.current = false;
+        window.__saveLog = `POST HTTP ${st} · ตอบกลับ: ${String(t).slice(0, 140)}`;
+        let j; try { j = JSON.parse(t); } catch (e) { throw new Error("ตอบกลับไม่ใช่ JSON (มักเป็นเพราะ Deploy ไม่ได้ตั้ง Who has access = Anyone): " + String(t).slice(0, 80)); }
+        if (!j.ok) throw new Error(j.error || "server ok=false");
+        dirtyRef.current = false; loadedRef.current = true; // บันทึกได้ = เชื่อมต่อได้ ปลดล็อกออโต้เซฟ
         setSync("saved"); setLastSaved(Date.now());
       })
-      .catch((err) => { console.warn("[บันทึกไม่สำเร็จ]", err); setSync("offline"); })
-      .then(() => { savingRef.current = false; if (againRef.current) { againRef.current = false; pushSave(); } });
+      .catch((err) => { window.__saveLog = "POST ผิดพลาด: " + ((err && err.message) || String(err)); console.warn("[บันทึกไม่สำเร็จ]", err); setSync("offline"); })
+      .then(() => { savingRef.current = false; if (againRef.current) { againRef.current = false; doSave(); } });
   };
-  const saveNow = () => { clearTimeout(timerRef.current); pushSave(); };
+  const pushSave = () => { if (!loadedRef.current) return; doSave(); }; // ออโต้เซฟ: ทำเฉพาะเมื่อโหลดสำเร็จ (กันเขียนทับ)
+  const saveNow = () => { clearTimeout(timerRef.current); doSave(); }; // กดเอง: บังคับบันทึกเสมอ
   const retryLoad = () => { setSync("loading"); loadData(); };
 
-  // โหลดข้อมูลจาก Google Sheet ตอนเปิดหน้า — ต้องสำเร็จก่อนถึงจะอนุญาตให้บันทึก
+  // โหลดข้อมูลจาก Google Sheet ตอนเปิดหน้า — ต้องสำเร็จก่อนถึงจะอนุญาตให้ออโต้เซฟ
   const loadData = () => {
     if (!API_URL) return;
     fetch(API_URL).then((r) => r.text()).then((t) => {
@@ -1862,9 +1870,14 @@ function App() {
     window.addEventListener("pagehide", flush);
     return () => { window.removeEventListener("beforeunload", flush); window.removeEventListener("pagehide", flush); };
   }, []);
-  // apply admin-defined pastel theme live — สีธีมแยกจากสีทีม
+  // ธีมสี: แอดมินใช้สีธีมที่ตั้งไว้ · ครู/กรรมการ/นักเรียน ใช้สีทีมของตัวเอง
   const teamColors = db.settings.houses && db.settings.houses.length ? db.settings.houses : DEFAULT_HOUSES;
-  const themeColor = db.settings.themeColor || (teamColors[0] && teamColors[0].color) || DEFAULT_HOUSES[0].color;
+  let themeColor = db.settings.themeColor || (teamColors[0] && teamColors[0].color) || DEFAULT_HOUSES[0].color;
+  if (auth && (auth.role === "teacher" || auth.role === "studentcom" || auth.role === "student")) {
+    const pool = auth.role === "teacher" ? db.teachers : db.students;
+    const me = pool.find((x) => String(x.id) === String(auth.id));
+    if (me && teamColors[me.house]) themeColor = teamColors[me.house].color;
+  }
   C = makeTheme(themeColor);
   HOUSES = teamColors.map((h) => h.color);
   const exit = () => { localStorage.removeItem("auth"); setAuth(null); setScreen("landing"); };
