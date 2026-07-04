@@ -503,12 +503,41 @@ function AdminHome({ db }) {
         {stats.map((s, i) => <Card key={i} style={{ padding: 16 }}><div style={{ fontSize: 28, fontWeight: 800, color: s.color }}>{s.value}</div><div style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }}>{s.label}</div></Card>)}
       </div>
       <Card style={{ padding: 16 }}>
-        <div style={{ fontWeight: 700, color: C.ink, marginBottom: 10 }}>สถานะการเชื่อมต่อ (เฟสถัดไป)</div>
-        {[["Google Sheet (ฐานข้อมูล)", API_URL ? "เชื่อมแล้ว" : "ยังไม่เชื่อม"], ["บันทึกอัตโนมัติ", API_URL ? "เปิดใช้งาน" : "ปิด (โหมดทดลอง)"], ["ย่อรูปอัตโนมัติ ≤ 300×300px", "รอเฟสถัดไป"], ["จำกัดตัวจริงต่อคน", `${db.settings.maxMain} รายการ`]].map(([k, v]) => (
+        <div style={{ fontWeight: 700, color: C.ink, marginBottom: 10 }}>สถานะการเชื่อมต่อ</div>
+        {[["Google Sheet (ฐานข้อมูล)", API_URL ? "เชื่อมแล้ว" : "ยังไม่เชื่อม"], ["บันทึกอัตโนมัติ", API_URL ? "เปิดใช้งาน (หยุดพิมพ์ ~2 วิ)" : "ปิด (โหมดทดลอง)"], ["ย่อรูปอัตโนมัติ ≤ 300×300px", "เปิดใช้งาน"], ["จำกัดตัวจริงต่อคน", `${db.settings.maxMain} รายการ`]].map(([k, v]) => (
           <div key={k} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: `1px dashed ${C.line}`, fontSize: 13 }}><span style={{ color: C.muted }}>{k}</span><span style={{ color: C.ink, fontWeight: 600 }}>{v}</span></div>
         ))}
       </Card>
+      <ConnTest />
     </div>
+  );
+}
+function ConnTest() {
+  const [out, setOut] = useState("");
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true); setOut("กำลังทดสอบ...");
+    if (!API_URL) { setOut("ยังไม่ได้ตั้งค่า API_URL ในไฟล์ index.html"); setBusy(false); return; }
+    const lines = [];
+    try {
+      const r = await fetch(API_URL);
+      const t = await r.text();
+      lines.push(`อ่านข้อมูล (GET) → HTTP ${r.status}`);
+      lines.push("ตัวอย่างคำตอบ: " + t.slice(0, 140));
+      if (t.indexOf("<") === 0 || /accounts\.google|เข้าสู่ระบบ|Sign in/i.test(t)) lines.push("⚠️ ได้หน้าเว็บ/ล็อกอินแทน JSON → ตอน Deploy ต้องตั้ง Who has access = Anyone");
+      else if (/"ok"\s*:\s*true/.test(t)) lines.push("✓ อ่านข้อมูลได้ปกติ — ถ้ายังบันทึกไม่สำเร็จ มักเป็นเรื่องสิทธิ์ตอน Deploy หรือยังไม่ redeploy เวอร์ชันใหม่");
+    } catch (e) { lines.push("อ่านข้อมูลล้มเหลว: " + e.message + " (มักเป็น CORS/สิทธิ์ หรือเน็ต)"); }
+    setOut(lines.join("\n")); setBusy(false);
+  };
+  return (
+    <Card style={{ padding: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <div style={{ fontWeight: 700, color: C.ink }}>ทดสอบการเชื่อมต่อ</div>
+        <Btn small onClick={run} disabled={busy}>ทดสอบ</Btn>
+      </div>
+      {out && <pre style={{ margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word", fontSize: 12, color: C.muted, background: C.bg, border: `1px solid ${C.line}`, borderRadius: 10, padding: 12, fontFamily: "inherit" }}>{out}</pre>}
+      {!out && <p style={{ fontSize: 12.5, color: C.muted, margin: 0 }}>ใช้ตรวจว่าหน้าเว็บคุยกับ Google Sheet ได้หรือไม่ และช่วยหาสาเหตุถ้าบันทึกไม่สำเร็จ</p>}
+    </Card>
   );
 }
 
@@ -1514,7 +1543,7 @@ function StudentResults({ db, ui }) {
    (เช่น "https://script.google.com/macros/s/xxxxx/exec")
    ถ้าเว้นว่าง = โหมดทดลอง ข้อมูลจะไม่ถูกบันทึกและรีเซ็ตเมื่อรีเฟรช
    ============================================================ */
-const API_URL = "https://script.google.com/macros/s/AKfycbw7I3lcOG74_I-ya-yBHhZaU8NM8_MmSFkjilrPZd7ULMUkOEWoa6qLgI8MnkmZJAwO/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzpV1GA5NDLcr3xfm1eODizmhLkrnZhIc-YTEiHGxqcg2tOHt_rYhkpQ9wjtQaDgG2r/exec";
 
 function mergeDb(loaded) {
   const s = loaded && loaded.settings ? loaded.settings : {};
@@ -1532,18 +1561,31 @@ function mergeDb(loaded) {
     },
   };
 }
-function SyncBadge({ status }) {
+function StatusBar({ status, lastSaved, onSave }) {
   const map = {
-    loading: ["กำลังโหลดข้อมูล...", C.muted],
-    saving: ["กำลังบันทึก...", C.gold],
-    saved: ["บันทึกลง Google Sheet แล้ว", "#5aab84"],
-    offline: ["เชื่อมต่อไม่ได้ — ยังไม่บันทึก", "#d17f7a"],
-    local: ["โหมดทดลอง (ไม่บันทึก)", C.muted],
+    loading: ["กำลังโหลดข้อมูล…", C.muted, false],
+    dirty: ["มีการแก้ไข • กำลังจะบันทึก", C.gold, true],
+    saving: ["กำลังบันทึก…", C.gold, false],
+    saved: ["บันทึกแล้ว", "#5aab84", true],
+    offline: ["บันทึกไม่สำเร็จ", "#d17f7a", true],
+    local: ["โหมดทดลอง (ไม่บันทึกถาวร)", C.muted, false],
   };
-  const [txt, col] = map[status] || ["", C.muted];
+  const [txt, col, showBtn] = map[status] || ["", C.muted, false];
+  const spinning = status === "saving" || status === "loading";
+  const err = status === "offline";
+  const time = (status === "saved" && lastSaved) ? " " + new Date(lastSaved).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "";
   return (
-    <div style={{ position: "fixed", left: 10, bottom: 80, zIndex: 40, background: C.surface, border: `1px solid ${C.line}`, borderRadius: 20, padding: "6px 12px", fontSize: 12, fontWeight: 600, color: col, display: "flex", alignItems: "center", gap: 6, boxShadow: "0 2px 8px rgba(0,0,0,.06)" }}>
-      <span style={{ width: 8, height: 8, borderRadius: "50%", background: col }} /> {txt}
+    <div className="md:bottom-6" style={{ position: "fixed", left: 10, bottom: 80, zIndex: 40, display: "flex", alignItems: "center", gap: 8,
+      background: err ? "#fbeeee" : C.surface, border: `1px solid ${err ? "#eccdcd" : C.line}`, borderRadius: 22, padding: "6px 8px 6px 12px", boxShadow: "0 2px 10px rgba(0,0,0,.08)" }}>
+      {spinning
+        ? <span style={{ width: 12, height: 12, borderRadius: "50%", border: `2px solid ${C.line}`, borderTopColor: col, animation: "spin .8s linear infinite" }} />
+        : <span style={{ width: 8, height: 8, borderRadius: "50%", background: col }} />}
+      <span style={{ fontSize: 12, fontWeight: 600, color: col }}>{txt}{time}</span>
+      {showBtn && onSave && (
+        <button onClick={onSave} style={{ border: "none", cursor: "pointer", borderRadius: 16, padding: "5px 12px", fontSize: 12, fontWeight: 700, background: err ? "#d17f7a" : C.soft, color: err ? "#fff" : C.primaryDark }}>
+          {err ? "ลองอีกครั้ง" : "บันทึก"}
+        </button>
+      )}
     </div>
   );
 }
@@ -1556,27 +1598,49 @@ function App() {
   const [auth, setAuth] = useState(null);
   const [db, setDb] = useState(seed);
   const [sync, setSync] = useState(API_URL ? "loading" : "local");
-  const bootRef = useRef(true);
-  const saveTimer = useRef(null);
-  // โหลดข้อมูลที่บันทึกไว้จาก Google Sheet ตอนเปิดหน้า
-  useEffect(() => {
+  const [lastSaved, setLastSaved] = useState(null);
+  const skipSave = useRef(true);   // ข้ามการบันทึกครั้งแรก (seed) และตอนโหลดข้อมูลเข้ามา
+  const timerRef = useRef(null);
+  const savingRef = useRef(false); // กันบันทึกซ้อนกัน
+  const againRef = useRef(false);  // ถ้ามีแก้ไขระหว่างกำลังบันทึก ให้บันทึกอีกรอบต่อ
+  const dbRef = useRef(db);
+  dbRef.current = db;
+
+  // บันทึกขึ้น Google Sheet แบบเบื้องหลัง (ไม่บล็อกการพิมพ์) และรวบให้เหลือรอบเดียวถ้ากดถี่
+  const pushSave = () => {
     if (!API_URL) return;
-    fetch(API_URL).then((r) => r.json()).then((j) => {
-      if (j && j.ok && j.data) { try { setDb(mergeDb(JSON.parse(j.data))); } catch (e) {} }
-      setSync("saved");
-    }).catch(() => setSync("offline"));
-  }, []);
-  // บันทึกอัตโนมัติทุกครั้งที่มีการเปลี่ยนแปลง (หน่วงเล็กน้อยเพื่อรวบรายการ)
-  useEffect(() => {
-    if (!API_URL) return;
-    if (bootRef.current) { bootRef.current = false; return; }
+    if (savingRef.current) { againRef.current = true; return; }
+    savingRef.current = true;
     setSync("saving");
-    clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => {
-      fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "data", data: db }) })
-        .then((r) => r.json()).then((j) => setSync(j && j.ok ? "saved" : "offline"))
-        .catch(() => setSync("offline"));
-    }, 900);
+    fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "data", data: dbRef.current }) })
+      .then((r) => r.text())
+      .then((t) => {
+        let j; try { j = JSON.parse(t); } catch (e) { throw new Error("ตอบกลับไม่ใช่ JSON: " + t.slice(0, 80)); }
+        if (!j.ok) throw new Error(j.error || "ไม่สำเร็จ");
+        setSync("saved"); setLastSaved(Date.now());
+      })
+      .catch((err) => { console.warn("[บันทึกไม่สำเร็จ]", err); setSync("offline"); })
+      .then(() => { savingRef.current = false; if (againRef.current) { againRef.current = false; pushSave(); } });
+  };
+  const saveNow = () => { clearTimeout(timerRef.current); pushSave(); };
+
+  // โหลดข้อมูลจาก Google Sheet ตอนเปิดหน้า
+  useEffect(() => {
+    if (!API_URL) return;
+    fetch(API_URL).then((r) => r.text()).then((t) => {
+      let j; try { j = JSON.parse(t); } catch (e) { throw new Error("ตอบกลับไม่ใช่ JSON"); }
+      if (j.ok && j.data) { try { setDb(mergeDb(JSON.parse(j.data))); skipSave.current = true; } catch (e) {} }
+      setSync("saved"); setLastSaved(Date.now());
+    }).catch((err) => { console.warn("[โหลดไม่สำเร็จ]", err); setSync("offline"); });
+  }, []);
+
+  // ออโต้เซฟหลังหยุดแก้ไข ~2 วินาที (เงียบ ๆ ผ่านแถบสถานะ)
+  useEffect(() => {
+    if (!API_URL) return;
+    if (skipSave.current) { skipSave.current = false; return; }
+    setSync("dirty");
+    clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(pushSave, 2000);
   }, [db]);
   // apply admin-defined pastel theme live (Team 1 color = main accent)
   const teamColors = db.settings.houses && db.settings.houses.length ? db.settings.houses : DEFAULT_HOUSES;
@@ -1593,7 +1657,7 @@ function App() {
         input[type=range] { accent-color: ${C.primary}; }
         textarea:focus, input:focus { border-color: ${C.primary}; }
       `}</style>
-      {API_URL && screen === "app" && <SyncBadge status={sync} />}
+      {API_URL && screen === "app" && <StatusBar status={sync} lastSaved={lastSaved} onSave={saveNow} />}
       {screen === "landing" && <Landing onLogin={() => setScreen("login")} announce={db.settings.announce} comps={db.competitions} />}
       {screen === "login" && <Login db={db} onEnter={(a) => { setAuth(a); setScreen("app"); }} onBack={() => setScreen("landing")} />}
       {screen === "app" && auth?.role === "admin" && <AdminApp db={db} setDb={setDb} onExit={exit} />}
