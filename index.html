@@ -16,6 +16,21 @@
   body { font-family: 'Noto Sans Thai', system-ui, sans-serif; -webkit-text-size-adjust: 100%; }
   .hidden { display: none !important; }
   .grid-cols-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* org tree connectors */
+  .orgtree { display: inline-block; min-width: 100%; text-align: center; }
+  .orgtree ul { display: flex; justify-content: center; padding-top: 18px; position: relative; margin: 0; list-style: none; }
+  .orgtree li { position: relative; padding: 18px 8px 0; list-style: none; }
+  .orgtree li::before, .orgtree li::after { content: ''; position: absolute; top: 0; right: 50%; border-top: 2px solid var(--tl,#e5e0ec); width: 50%; height: 18px; }
+  .orgtree li::after { right: auto; left: 50%; border-left: 2px solid var(--tl,#e5e0ec); }
+  .orgtree li:only-child::before, .orgtree li:only-child::after { display: none; }
+  .orgtree li:only-child { padding-top: 0; }
+  .orgtree li:first-child::before, .orgtree li:last-child::after { border: 0 none; }
+  .orgtree li:last-child::before { border-right: 2px solid var(--tl,#e5e0ec); border-radius: 0 6px 0 0; }
+  .orgtree li:first-child::after { border-radius: 6px 0 0 0; }
+  .orgtree ul ul::before { content: ''; position: absolute; top: 0; left: 50%; border-left: 2px solid var(--tl,#e5e0ec); width: 0; height: 18px; }
+  .orgtree > ul { padding-top: 0; }
+  .orgtree > ul::before { display: none; }
+  .orgbox { display: inline-block; }
   @media (min-width: 768px) {
     .md\:flex { display: flex !important; }
     .md\:grid { display: grid !important; }
@@ -571,7 +586,7 @@ function TrashBin({ db, setDb, ui }) {
   const [q, setQ] = useState("");
   const [sel, setSel] = useState([]);
   const [confirmDel, setConfirmDel] = useState(null);
-  const typeLabel = { competition: "รายการแข่ง/กิจกรรม", orgRow: "แถวผังองค์กร", student: "นักเรียน", teacher: "ครู", assistant: "ผู้ช่วยแอดมิน" };
+  const typeLabel = { competition: "รายการแข่ง/กิจกรรม", orgRow: "แถวผังองค์กร", orgNodes: "ผังองค์กร (กิ่ง)", student: "นักเรียน", teacher: "ครู", assistant: "ผู้ช่วยแอดมิน" };
   const filtered = trash.filter((t) => (t.label + " " + (typeLabel[t.type] || "")).includes(q));
   const selSet = new Set(sel);
   const allSel = filtered.length > 0 && filtered.every((t) => selSet.has(t.tid));
@@ -584,6 +599,7 @@ function TrashBin({ db, setDb, ui }) {
         if (!tids.includes(t.tid)) { keep.push(t); return; }
         if (t.type === "competition") next.competitions = [...next.competitions, t.data];
         else if (t.type === "orgRow") next[t.extra.which] = [...(next[t.extra.which] || []), t.data];
+        else if (t.type === "orgNodes") next[t.extra.which] = [...(next[t.extra.which] || []), ...t.data];
         else if (t.type === "student") next.students = [...next.students, t.data];
         else if (t.type === "teacher") next.teachers = [...next.teachers, t.data];
         else if (t.type === "assistant") next.assistants = [...next.assistants, t.data];
@@ -672,7 +688,7 @@ function PromotePanel({ db, setDb, ui }) {
           else stay.push({ ...s, grade: ng });
         });
         const gradIds = new Set(grad.map((g) => g.id));
-        const orgStudent = p.orgStudent.map((r) => ({ ...r, people: r.people.filter((pid) => !gradIds.has(pid)) }));
+        const orgStudent = pruneOrg(p.orgStudent, gradIds);
         const competitions = p.competitions.map((c) => { const results = { ...c.results }; grad.forEach((g) => { delete results[g.id]; }); return { ...c, participants: c.participants.filter((x) => !gradIds.has(x.sid)), results }; });
         return { ...p, students: stay, archived: [...(p.archived || []), ...grad], orgStudent, competitions };
       });
@@ -873,8 +889,8 @@ function PersonList({ kind, db, setDb, ui }) {
         const next = { ...p };
         const removed = p[key].filter((x) => idset.has(x.id));
         next[key] = p[key].filter((x) => !idset.has(x.id));
-        next.orgTeacher = p.orgTeacher.map((r) => kind === "teacher" ? { ...r, people: r.people.filter((pid) => !idset.has(pid)) } : r);
-        next.orgStudent = p.orgStudent.map((r) => kind === "student" ? { ...r, people: r.people.filter((pid) => !idset.has(pid)) } : r);
+        next.orgTeacher = kind === "teacher" ? pruneOrg(p.orgTeacher, idset) : p.orgTeacher;
+        next.orgStudent = kind === "student" ? pruneOrg(p.orgStudent, idset) : p.orgStudent;
         if (kind === "student") {
           next.competitions = p.competitions.map((c) => {
             const results = { ...c.results }; ids.forEach((id) => { delete results[id]; });
@@ -1476,7 +1492,7 @@ function OrgViewManager({ db, ui }) {
       </div>
       <Card style={{ padding: 16, overflowX: "auto" }}>
         <div style={{ textAlign: "center", fontWeight: 800, color: side === "teacher" ? C.primary : C.gold, marginBottom: 14 }}>{cat === "comp" ? "รายการแข่งขัน" : "รายการกิจกรรม"} · {side === "teacher" ? "ครู" : "นักเรียน"}</div>
-        <TreeChart rows={rows} pool={pool} accent={side === "teacher" ? C.primary : C.gold} />
+        <OrgTree nodes={rows} pool={pool} accent={side === "teacher" ? C.primary : C.gold} editable={false} />
       </Card>
     </div>
   );
@@ -1555,85 +1571,96 @@ function ChartSide({ people, accent, role }) {
     </div>
   );
 }
-function OrgEditor({ which, pool, pickPool, db, setDb, ui, editable, committeeLabel }) {
-  const rows = db[which];
-  const [addRow, setAddRow] = useState(null); // หมวดที่จะเพิ่ม "comp"|"act"
-  const [editRow, setEditRow] = useState(null);
-  const [assignTo, setAssignTo] = useState(null);
-  const [confirmRow, setConfirmRow] = useState(null);
-  const update = (fn) => setDb((p) => ({ ...p, [which]: fn(p[which]) }));
-  const addPerson = (rowId, id) => ui.run("กำลังกำหนดรายชื่อ...", () => { update((rs) => rs.map((r) => r.id === rowId ? { ...r, people: [...new Set([...r.people, id])] } : r)); setAssignTo(null); });
-  const removePerson = (rowId, id) => update((rs) => rs.map((r) => r.id === rowId ? { ...r, people: r.people.filter((x) => x !== id) } : r));
-  const removeRow = (row) => ui.run("กำลังลบหน้าที่...", () => { setDb((p) => ({ ...p, [which]: p[which].filter((r) => r.id !== row.id), trash: [makeTrash("orgRow", `แถวผัง: ${row.title}`, row, { which }), ...(p.trash || [])] })); setConfirmRow(null); });
-  const availPool = (pickPool || pool).filter((p) => !(rows.find((r) => r.id === assignTo)?.people || []).includes(p.id));
-
-  const renderRow = (r, idx) => (
-    <Card key={r.id} style={{ padding: 14 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-        <div>
-          <div style={{ fontWeight: 700, color: C.ink }}>{r.title}</div>
-          <div style={{ fontSize: 12, color: C.muted }}>แถวที่ {idx + 1} · จำนวน {r.people.length} คน · ต่อจาก {r.after}</div>
-        </div>
-        {editable && (
-          <div style={{ display: "flex", gap: 6 }}>
-            <Btn variant="ghost" small onClick={() => setEditRow(r)}>แก้ชื่อแถว</Btn>
-            <Btn variant="danger" small onClick={() => setConfirmRow(r)}>ลบแถว</Btn>
-          </div>
-        )}
-      </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
-        {r.people.map((id) => {
-          const p = pool.find((x) => x.id === id);
-          if (!p) return null;
-          return (
-            <div key={id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px 6px 6px", borderRadius: 20, border: `1px solid ${C.line}` }}>
-              <Avatar person={p} size={30} /><span style={{ fontSize: 13, color: C.ink }}>{p.first}</span>
-              {editable && <button onClick={() => removePerson(r.id, id)} style={{ border: "none", background: "none", color: C.muted, cursor: "pointer", fontSize: 15 }}>×</button>}
-            </div>
-          );
-        })}
-        {editable && <button onClick={() => setAssignTo(r.id)} style={{ padding: "8px 12px", borderRadius: 20, border: `1.5px dashed ${C.line}`, background: C.surface, color: C.primary, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>+ กำหนดรายชื่อ</button>}
-      </div>
-    </Card>
-  );
-  const section = (cat, label) => {
-    const catRows = rows.filter((r) => (r.cat || "comp") === cat);
+function pruneOrg(nodes, removedSet) {
+  const kept = (nodes || []).filter((n) => !removedSet.has(n.personId));
+  const ids = new Set(kept.map((n) => n.id));
+  return kept.map((n) => (n.parent && !ids.has(n.parent)) ? { ...n, parent: null } : n);
+}
+function OrgTree({ nodes, pool, accent, editable, onAddChild, onEdit, onDelete }) {
+  const ids = new Set(nodes.map((n) => n.id));
+  const roots = nodes.filter((n) => !n.parent || !ids.has(n.parent));
+  const mini = (bg, col, brd) => ({ border: `1px solid ${brd || bg}`, background: bg, color: col, borderRadius: 14, padding: "3px 9px", fontSize: 11, fontWeight: 700, cursor: "pointer" });
+  const renderLi = (node) => {
+    const p = pool.find((x) => x.id === node.personId);
+    const kids = nodes.filter((n) => n.parent === node.id);
     return (
-      <div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
-          <div style={{ fontWeight: 800, color: C.primaryDark, fontSize: 15 }}>{label} <span style={{ fontSize: 12, fontWeight: 500, color: C.muted }}>({catRows.length} แถว)</span></div>
-          {editable && <Btn small onClick={() => setAddRow(cat)}>+ เพิ่มหน้าที่ / แถว</Btn>}
+      <li key={node.id}>
+        <div className="orgbox">
+          <div style={{ border: `1.5px solid ${accent}66`, borderRadius: 12, padding: "8px 10px", background: C.surface, minWidth: 104, boxShadow: "0 1px 4px rgba(0,0,0,.05)" }}>
+            <div style={{ display: "flex", justifyContent: "center" }}><Avatar person={p} size={42} /></div>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: C.ink, textAlign: "center", marginTop: 4, lineHeight: 1.2 }}>{p ? `${p.first} ${p.last}` : "— (ไม่พบ) —"}</div>
+            <div style={{ fontSize: 11, color: accent, textAlign: "center", fontWeight: 600 }}>{node.title}</div>
+            {editable && (
+              <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 6, flexWrap: "wrap" }}>
+                <button onClick={() => onAddChild(node)} style={mini(C.soft, C.primaryDark)}>+ ลูกน้อง</button>
+                <button onClick={() => onEdit(node)} style={mini(C.surface, C.muted, C.line)}>แก้</button>
+                <button onClick={() => onDelete(node)} style={mini("#fbeeee", "#c0392b", "#eccdcd")}>ลบ</button>
+              </div>
+            )}
+          </div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {catRows.map((r, idx) => renderRow(r, idx))}
-          {catRows.length === 0 && <Empty text="ยังไม่มีแถวในหมวดนี้" />}
-        </div>
-      </div>
+        {kids.length > 0 && <ul>{kids.map(renderLi)}</ul>}
+      </li>
     );
   };
-
+  if (!nodes.length) return <Empty text="ยังไม่มีผัง" />;
+  return <div className="orgtree" style={{ ["--tl"]: C.line }}><ul>{roots.map(renderLi)}</ul></div>;
+}
+function NodeForm({ node, pickPool, onClose, onSave }) {
+  const [personId, setPersonId] = useState(node?.personId || "");
+  const [title, setTitle] = useState(node?.title || "");
+  const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff", marginBottom: 12 };
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-      {editable && <div style={{ fontSize: 12.5, color: C.muted }}>เลือกรายชื่อจาก{committeeLabel} ({(pickPool || []).length} คน)</div>}
-      {section("comp", "รายการแข่งขัน")}
-      {section("act", "รายการกิจกรรม")}
-      {assignTo && <SearchPersonPopup title={`เลือกจาก${committeeLabel}`} pool={availPool} emptyText={`ยังไม่มี${committeeLabel} — ไปตั้งกรรมการที่ บุคลากร → บัญชีผู้ใช้ ก่อน`} onClose={() => setAssignTo(null)} onPick={(p) => addPerson(assignTo, p.id)} />}
-      {addRow && <RowForm onClose={() => setAddRow(null)} onSave={(row) => ui.run("กำลังเพิ่มหน้าที่...", () => { update((rs) => [...rs, { ...row, cat: addRow, id: "r" + Date.now(), people: [] }]); setAddRow(null); })} />}
-      {editRow && <RowForm row={editRow} onClose={() => setEditRow(null)} onSave={(row) => ui.run("กำลังบันทึกแถว...", () => { update((rs) => rs.map((x) => x.id === editRow.id ? { ...x, title: row.title, after: row.after } : x)); setEditRow(null); })} />}
-      {confirmRow && <ConfirmModal title="ยืนยันการลบแถว" message={`ลบแถว "${confirmRow.title}" ? จะถูกเก็บในถังขยะ (กู้คืนได้)`} onConfirm={() => removeRow(confirmRow)} onClose={() => setConfirmRow(null)} />}
-    </div>
+    <Modal title={node ? "แก้ตำแหน่ง / บุคคล" : "เพิ่มรายชื่อ / ตำแหน่ง"} onClose={onClose}>
+      <Field label="ชื่อตำแหน่ง / หน้าที่" value={title} onChange={setTitle} placeholder="เช่น ประธาน, ผู้ช่วย" />
+      <span style={{ display: "block", fontSize: 13, color: C.muted, marginBottom: 5 }}>เลือกบุคคล (จากกรรมการ)</span>
+      <select value={personId} onChange={(e) => setPersonId(e.target.value)} style={selCss}>
+        <option value="">— เลือก —</option>
+        {pickPool.map((p) => <option key={p.id} value={p.id}>{fullName(p)} ({p.id})</option>)}
+      </select>
+      {pickPool.length === 0 && <p style={{ fontSize: 12, color: "#c0392b", marginTop: 0 }}>ยังไม่มีกรรมการ — ไปตั้งที่ บุคลากร → บัญชีผู้ใช้ ก่อน</p>}
+      <div style={{ display: "flex", gap: 8 }}><Btn onClick={() => onSave({ personId, title })} disabled={!personId || !title}>บันทึก</Btn><Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn></div>
+    </Modal>
   );
 }
-function RowForm({ row, onClose, onSave }) {
-  const [f, setF] = useState(row || { title: "", after: "-" });
-  const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
+function OrgEditor({ which, pool, pickPool, db, setDb, ui, editable, committeeLabel }) {
+  const nodes = db[which];
+  const accent = which === "orgTeacher" ? C.primary : C.gold;
+  const [form, setForm] = useState(null);       // { cat, parent } เพิ่ม | { node } แก้
+  const [confirmNode, setConfirmNode] = useState(null);
+  const update = (fn) => setDb((p) => ({ ...p, [which]: fn(p[which]) }));
+  const addNode = ({ personId, title }, cat, parent) => ui.run("กำลังเพิ่ม...", () => { update((ns) => [...ns, { id: "n" + Date.now() + Math.random().toString(36).slice(2, 5), personId, title, cat, parent: parent || null }]); setForm(null); });
+  const editNode = (nodeId, { personId, title }) => ui.run("กำลังบันทึก...", () => { update((ns) => ns.map((n) => n.id === nodeId ? { ...n, personId, title } : n)); setForm(null); });
+  const delNode = (node) => ui.run("กำลังลบ...", () => {
+    const all = db[which];
+    const toDel = new Set([node.id]);
+    let changed = true;
+    while (changed) { changed = false; all.forEach((n) => { if (n.parent && toDel.has(n.parent) && !toDel.has(n.id)) { toDel.add(n.id); changed = true; } }); }
+    const removed = all.filter((n) => toDel.has(n.id));
+    setDb((p) => ({ ...p, [which]: p[which].filter((n) => !toDel.has(n.id)), trash: [makeTrash("orgNodes", `ผัง: ${node.title} (${removed.length} ตำแหน่ง)`, removed, { which }), ...(p.trash || [])] }));
+    setConfirmNode(null);
+  });
+  const section = (cat, label) => {
+    const catNodes = nodes.filter((n) => (n.cat || "comp") === cat);
+    return (
+      <Card style={{ padding: 14, overflowX: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 8 }}>
+          <div style={{ fontWeight: 800, color: C.primaryDark }}>{label} <span style={{ fontSize: 12, fontWeight: 500, color: C.muted }}>({catNodes.length} ตำแหน่ง)</span></div>
+          {editable && <Btn small onClick={() => setForm({ cat, parent: null })}>+ เพิ่มหัวหน้าสูงสุด</Btn>}
+        </div>
+        <OrgTree nodes={catNodes} pool={pool} accent={accent} editable={editable}
+          onAddChild={(node) => setForm({ cat, parent: node.id })} onEdit={(node) => setForm({ node })} onDelete={(node) => setConfirmNode(node)} />
+      </Card>
+    );
+  };
   return (
-    <Modal title={row ? "แก้ชื่อแถว / ลำดับ" : "เพิ่มหน้าที่ / แถว"} onClose={onClose}>
-      <Field label="ชื่อหน้าที่ (เช่น ประธาน, ผู้ช่วย)" value={f.title} onChange={set("title")} />
-      <Field label="ต่อจาก (แถวก่อนหน้า)" value={f.after} onChange={set("after")} />
-      <p style={{ fontSize: 12, color: C.muted, marginTop: 0 }}>จำนวนคนจะนับอัตโนมัติตามรายชื่อที่เพิ่มในแถว</p>
-      <div style={{ display: "flex", gap: 8 }}><Btn onClick={() => onSave(f)} disabled={!f.title}>บันทึก</Btn><Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn></div>
-    </Modal>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {editable && <div style={{ fontSize: 12.5, color: C.muted }}>เลือกรายชื่อจาก{committeeLabel} ({(pickPool || []).length} คน) · กด "+ ลูกน้อง" ที่ชื่อใดเพื่อเพิ่มผู้ใต้บังคับบัญชาในแถวถัดไป (เส้นจะเชื่อมให้ถูกต้อง)</div>}
+      {section("comp", "รายการแข่งขัน")}
+      {section("act", "รายการกิจกรรม")}
+      {form && <NodeForm node={form.node} pickPool={pickPool || []} onClose={() => setForm(null)} onSave={(v) => form.node ? editNode(form.node.id, v) : addNode(v, form.cat, form.parent)} />}
+      {confirmNode && <ConfirmModal title="ยืนยันการลบ" message={`ลบ "${confirmNode.title}" และผู้ใต้บังคับบัญชาทั้งหมด? จะถูกเก็บในถังขยะ (กู้คืนได้)`} onConfirm={() => delNode(confirmNode)} onClose={() => setConfirmNode(null)} />}
+    </div>
   );
 }
 
@@ -1711,27 +1738,32 @@ function JudgeAssign({ comp, cat, db, setDb, onClose }) {
   const cur = db.competitions.find((c) => c.id === comp.id) || comp;
   const jt = cur.judgeTeachers || [], js = cur.judgeStudents || [];
   const update = (patch) => setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, ...patch } : c) }));
-  const K = (rowId, id) => `${rowId}::${id}`;
-  const toggle = (arr, patchKey, rowId, id) => { const k = K(rowId, id); update({ [patchKey]: arr.includes(k) ? arr.filter((x) => x !== k) : [...arr, k] }); };
-  const section = (allRows, pool, selected, patchKey, label) => {
-    const rows = allRows.filter((r) => (r.cat || "comp") === cat);
+  const toggle = (arr, patchKey, nodeId) => update({ [patchKey]: arr.includes(nodeId) ? arr.filter((x) => x !== nodeId) : [...arr, nodeId] });
+  const levelsOf = (allNodes) => {
+    const nodes = allNodes.filter((n) => (n.cat || "comp") === cat);
+    const byId = {}; nodes.forEach((n) => { byId[n.id] = n; });
+    const depth = (n) => { let d = 0, c = n, guard = 0; while (c && c.parent && byId[c.parent] && guard++ < 50) { d++; c = byId[c.parent]; } return d; };
+    const groups = {}; nodes.forEach((n) => { const d = depth(n); (groups[d] = groups[d] || []).push(n); });
+    return Object.keys(groups).sort((a, b) => a - b).map((d) => ({ level: Number(d) + 1, nodes: groups[d] }));
+  };
+  const section = (allNodes, pool, selected, patchKey, label) => {
+    const levels = levelsOf(allNodes);
     return (
       <div style={{ marginBottom: 18 }}>
         <div style={{ fontWeight: 700, color: C.ink, marginBottom: 8 }}>{label} <span style={{ fontSize: 12, fontWeight: 500, color: C.muted }}>(เลือกแล้ว {selected.length})</span></div>
-        {rows.length === 0 && <div style={{ fontSize: 12.5, color: C.muted }}>ยังไม่มีแถวหมวดนี้ในผังองค์กร — ไปสร้างที่ ผังองค์กร ก่อน</div>}
-        {rows.map((r, i) => (
-          <div key={r.id} style={{ marginBottom: 12, padding: 10, border: `1px solid ${C.line}`, borderRadius: 10 }}>
+        {levels.length === 0 && <div style={{ fontSize: 12.5, color: C.muted }}>ยังไม่มีผังหมวดนี้ — ไปสร้างที่ กำหนดหน้าที่ ก่อน</div>}
+        {levels.map((lv) => (
+          <div key={lv.level} style={{ marginBottom: 12, padding: 10, border: `1px solid ${C.line}`, borderRadius: 10 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, gap: 8 }}>
-              <div style={{ fontSize: 12.5, fontWeight: 600, color: C.primaryDark }}>แถวที่ {i + 1} · {r.title}</div>
-              {r.people.length > 0 && <button onClick={() => update({ [patchKey]: [...new Set([...selected, ...r.people.map((id) => K(r.id, id))])] })} style={{ border: "none", background: C.soft, color: C.primaryDark, borderRadius: 16, padding: "4px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>+ เพิ่มทั้งแถว</button>}
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: C.primaryDark }}>ระดับที่ {lv.level}</div>
+              <button onClick={() => update({ [patchKey]: [...new Set([...selected, ...lv.nodes.map((n) => n.id)])] })} style={{ border: "none", background: C.soft, color: C.primaryDark, borderRadius: 16, padding: "4px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>+ ทั้งระดับ</button>
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {r.people.length === 0 && <span style={{ fontSize: 12, color: C.muted }}>— ไม่มีรายชื่อ —</span>}
-              {r.people.map((id) => {
-                const p = pool.find((x) => x.id === id); if (!p) return null;
-                const on = selected.includes(K(r.id, id));
-                return <button key={id} onClick={() => toggle(selected, patchKey, r.id, id)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px 5px 5px", borderRadius: 20, border: `1px solid ${on ? C.primary : C.line}`, background: on ? C.soft : C.surface, color: on ? C.primaryDark : C.ink, cursor: "pointer", fontSize: 13, fontWeight: on ? 700 : 500 }}>
-                  <Avatar person={p} size={26} />{p.first}{on ? " ✓" : ""}
+              {lv.nodes.map((n) => {
+                const p = pool.find((x) => x.id === n.personId);
+                const on = selected.includes(n.id);
+                return <button key={n.id} onClick={() => toggle(selected, patchKey, n.id)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px 5px 5px", borderRadius: 20, border: `1px solid ${on ? C.primary : C.line}`, background: on ? C.soft : C.surface, color: on ? C.primaryDark : C.ink, cursor: "pointer", fontSize: 13, fontWeight: on ? 700 : 500 }}>
+                  <Avatar person={p} size={26} />{p ? p.first : "—"} · {n.title}{on ? " ✓" : ""}
                 </button>;
               })}
             </div>
@@ -1742,7 +1774,7 @@ function JudgeAssign({ comp, cat, db, setDb, onClose }) {
   };
   return (
     <Modal title={`จัดกรรมการ: ${comp.name}`} onClose={onClose} wide>
-      <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0 }}>แตะรายชื่อเพื่อเพิ่ม/นำออก · เลือกแยกตามแถว (คนเดียวกันในคนละแถวนับแยกกัน) · แสดงเฉพาะผังหมวด{cat === "comp" ? "แข่งขัน" : "กิจกรรม"}</p>
+      <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0 }}>แตะรายชื่อเพื่อเพิ่ม/นำออก · แต่ละตำแหน่งเลือกแยกกัน (คนเดียวกันคนละตำแหน่งไม่เกี่ยวกัน) · แสดงเฉพาะผังหมวด{cat === "comp" ? "แข่งขัน" : "กิจกรรม"}</p>
       {section(db.orgTeacher, db.teachers, jt, "judgeTeachers", "กรรมการครู")}
       {section(db.orgStudent, db.students, js, "judgeStudents", "กรรมการนักเรียน")}
       <div style={{ display: "flex", gap: 8 }}><Btn onClick={onClose}>เสร็จสิ้น</Btn></div>
