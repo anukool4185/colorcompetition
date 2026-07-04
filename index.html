@@ -75,7 +75,7 @@ const seed = {
   orgTeacher: [],
   orgStudent: [],
   competitions: [],
-  settings: { maxMain: 3, houses: DEFAULT_HOUSES, announce: { speed: 18, showLines: 3, lines: [
+  settings: { maxMain: 3, themeColor: DEFAULT_HOUSES[0].color, houses: DEFAULT_HOUSES, announce: { speed: 18, showLines: 3, lines: [
     "ยินดีต้อนรับสู่การแข่งขันวิชาการสี",
   ] } },
 };
@@ -379,8 +379,8 @@ function Shell({ role, nav, view, setView, onExit, children, ui }) {
               <span style={{ fontSize: 16 }}>{n.icon}</span>{n.label}
             </button>
           ))}
+          <button onClick={() => setConfirmOut(true)} style={{ width: "100%", textAlign: "left", padding: "10px 12px", border: "none", background: "transparent", color: C.muted, cursor: "pointer", fontSize: 14, marginTop: 2 }}>ออกจากระบบ</button>
         </nav>
-        <button onClick={() => setConfirmOut(true)} style={{ margin: 12, padding: "11px 12px", borderRadius: 10, border: `1px solid #eccdcd`, background: "#fbeeee", color: "#c0392b", cursor: "pointer", fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>⎋ ออกจากระบบ</button>
       </aside>
 
       <div style={{ flex: 1, minWidth: 0, paddingBottom: 74 }} className="md:pb-0">
@@ -389,7 +389,7 @@ function Shell({ role, nav, view, setView, onExit, children, ui }) {
             <div style={{ width: 32, height: 32, borderRadius: 9, background: C.primary, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14 }}>สี</div>
             <span style={{ fontWeight: 700, color: C.ink, fontSize: 15 }}>{cur?.label}</span>
           </div>
-          <button onClick={() => setConfirmOut(true)} style={{ fontSize: 13, fontWeight: 700, color: "#c0392b", background: "#fbeeee", border: `1px solid #eccdcd`, borderRadius: 20, padding: "6px 12px", display: "flex", alignItems: "center", gap: 5, cursor: "pointer" }}>⎋ ออก</button>
+          <button onClick={() => setConfirmOut(true)} style={{ fontSize: 13, fontWeight: 500, color: C.muted, background: "none", border: "none", padding: 0, cursor: "pointer" }}>ออกจากระบบ</button>
         </div>
         <div style={{ maxWidth: 960, margin: "0 auto", padding: 16 }}>{children}</div>
       </div>
@@ -1386,8 +1386,22 @@ function ThemeCard({ db, setDb, ui }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 520 }}>
       <Card style={{ padding: 16 }}>
-        <div style={{ fontWeight: 700, color: C.ink, marginBottom: 4 }}>สีทีมแข่งขัน</div>
-        <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 14 }}>สีทีมที่ 1 คือสีหลักของธีมทั้งระบบ · แก้แล้วหน้าเว็บอัปเดตทันที (พรีวิวสด)</p>
+        <div style={{ fontWeight: 700, color: C.ink, marginBottom: 4 }}>สีธีมของหน้าเว็บ</div>
+        <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 14 }}>สีหลักที่ใช้แต่งหน้าเว็บทั้งระบบ · แยกจากสีทีมแข่งขัน · แก้แล้วอัปเดตทันที</p>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <input type="color" value={db.settings.themeColor || (houses[0] && houses[0].color) || "#eaa0ad"} onChange={(e) => setDb((p) => ({ ...p, settings: { ...p.settings, themeColor: e.target.value } }))}
+            style={{ width: 52, height: 44, border: `1px solid ${C.line}`, borderRadius: 10, background: "none", cursor: "pointer", padding: 2 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13.5, color: C.ink, fontWeight: 600 }}>สีธีมปัจจุบัน</div>
+            <div style={{ fontSize: 12, color: C.muted }}>เลือกสีที่ต้องการให้เป็นโทนหลักของเว็บ</div>
+          </div>
+          <button onClick={() => setDb((p) => ({ ...p, settings: { ...p.settings, themeColor: (p.settings.houses[0] && p.settings.houses[0].color) || "#eaa0ad" } }))}
+            style={{ border: `1px solid ${C.line}`, background: C.surface, color: C.muted, borderRadius: 10, padding: "8px 12px", fontSize: 12.5, cursor: "pointer", whiteSpace: "nowrap" }}>ใช้สีทีมที่ 1</button>
+        </div>
+      </Card>
+      <Card style={{ padding: 16 }}>
+        <div style={{ fontWeight: 700, color: C.ink, marginBottom: 4 }}>สีทีมแข่งขัน (สีหลัก)</div>
+        <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 14 }}>กำหนดได้หลายสีตามจำนวนทีม · ใช้กับนักเรียน ครู และกรรมการ (เลือกให้แต่ละคนได้) · ไม่กระทบสีธีม</p>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {houses.map((h, i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1396,7 +1410,6 @@ function ThemeCard({ db, setDb, ui }) {
                 style={{ width: 44, height: 38, border: `1px solid ${C.line}`, borderRadius: 10, background: "none", cursor: "pointer", padding: 2 }} />
               <input value={h.name} onChange={(e) => setName(i, e.target.value)}
                 style={{ flex: 1, minWidth: 0, padding: "9px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14 }} />
-              {i === 0 && <span style={{ fontSize: 11, fontWeight: 700, color: C.primary, whiteSpace: "nowrap" }}>สีหลัก</span>}
               <button onClick={() => del(i)} aria-label="ลบสี" style={{ border: "none", background: "none", color: C.muted, cursor: "pointer", fontSize: 18 }}>×</button>
             </div>
           ))}
@@ -1836,9 +1849,10 @@ function App() {
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(pushSave, 2000);
   }, [db]);
-  // apply admin-defined pastel theme live (Team 1 color = main accent)
+  // apply admin-defined pastel theme live — สีธีมแยกจากสีทีม
   const teamColors = db.settings.houses && db.settings.houses.length ? db.settings.houses : DEFAULT_HOUSES;
-  C = makeTheme(teamColors[0].color);
+  const themeColor = db.settings.themeColor || (teamColors[0] && teamColors[0].color) || DEFAULT_HOUSES[0].color;
+  C = makeTheme(themeColor);
   HOUSES = teamColors.map((h) => h.color);
   const exit = () => { localStorage.removeItem("auth"); setAuth(null); setScreen("landing"); };
   return (
