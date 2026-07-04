@@ -1805,6 +1805,7 @@ function App() {
   const againRef = useRef(false);
   const dbRef = useRef(db);
   dbRef.current = db;
+  const dirtyRef = useRef(false); // มีการแก้ไขที่ยังไม่ถูกบันทึกหรือไม่
 
   const pushSave = () => {
     if (!API_URL || !loadedRef.current) return; // กันบันทึกก่อนโหลดสำเร็จ
@@ -1816,6 +1817,7 @@ function App() {
       .then((t) => {
         let j; try { j = JSON.parse(t); } catch (e) { throw new Error("ตอบกลับไม่ใช่ JSON: " + t.slice(0, 80)); }
         if (!j.ok) throw new Error(j.error || "ไม่สำเร็จ");
+        dirtyRef.current = false;
         setSync("saved"); setLastSaved(Date.now());
       })
       .catch((err) => { console.warn("[บันทึกไม่สำเร็จ]", err); setSync("offline"); })
@@ -1841,10 +1843,25 @@ function App() {
   useEffect(() => {
     if (!API_URL || !loadedRef.current) return;
     if (justLoaded.current) { justLoaded.current = false; return; }
+    dirtyRef.current = true;
     setSync("dirty");
     clearTimeout(timerRef.current);
     timerRef.current = setTimeout(pushSave, 2000);
   }, [db]);
+
+  // กันข้อมูลหายตอนปิด/รีเฟรชหน้า: ถ้ายังมีค้างไม่บันทึก ให้ยิงบันทึกทันทีด้วย sendBeacon
+  useEffect(() => {
+    const flush = () => {
+      if (!API_URL || !loadedRef.current || !dirtyRef.current) return;
+      try {
+        const body = JSON.stringify({ type: "data", data: dbRef.current });
+        if (navigator.sendBeacon) navigator.sendBeacon(API_URL, new Blob([body], { type: "text/plain" }));
+      } catch (e) {}
+    };
+    window.addEventListener("beforeunload", flush);
+    window.addEventListener("pagehide", flush);
+    return () => { window.removeEventListener("beforeunload", flush); window.removeEventListener("pagehide", flush); };
+  }, []);
   // apply admin-defined pastel theme live — สีธีมแยกจากสีทีม
   const teamColors = db.settings.houses && db.settings.houses.length ? db.settings.houses : DEFAULT_HOUSES;
   const themeColor = db.settings.themeColor || (teamColors[0] && teamColors[0].color) || DEFAULT_HOUSES[0].color;
