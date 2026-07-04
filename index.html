@@ -1425,7 +1425,7 @@ function ChartSide({ people, accent, role }) {
 }
 function OrgEditor({ which, pool, pickPool, db, setDb, ui, editable, committeeLabel }) {
   const rows = db[which];
-  const [addRow, setAddRow] = useState(false);
+  const [addRow, setAddRow] = useState(null); // หมวดที่จะเพิ่ม "comp"|"act"
   const [editRow, setEditRow] = useState(null);
   const [assignTo, setAssignTo] = useState(null);
   const update = (fn) => setDb((p) => ({ ...p, [which]: fn(p[which]) }));
@@ -1433,46 +1433,59 @@ function OrgEditor({ which, pool, pickPool, db, setDb, ui, editable, committeeLa
   const removePerson = (rowId, id) => update((rs) => rs.map((r) => r.id === rowId ? { ...r, people: r.people.filter((x) => x !== id) } : r));
   const removeRow = (rowId) => ui.run("กำลังลบหน้าที่...", () => update((rs) => rs.filter((r) => r.id !== rowId)));
   const availPool = (pickPool || pool).filter((p) => !(rows.find((r) => r.id === assignTo)?.people || []).includes(p.id));
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {editable && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <Btn small onClick={() => setAddRow(true)}>+ เพิ่มหน้าที่ / แถว</Btn>
-          <span style={{ fontSize: 12.5, color: C.muted }}>เลือกรายชื่อจาก{committeeLabel} ({(pickPool || []).length} คน)</span>
+
+  const renderRow = (r, idx) => (
+    <Card key={r.id} style={{ padding: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+        <div>
+          <div style={{ fontWeight: 700, color: C.ink }}>{r.title}</div>
+          <div style={{ fontSize: 12, color: C.muted }}>แถวที่ {idx + 1} · จำนวน {r.people.length} คน · ต่อจาก {r.after}</div>
         </div>
-      )}
-      {rows.map((r, idx) => (
-        <Card key={r.id} style={{ padding: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-            <div>
-              <div style={{ fontWeight: 700, color: C.ink }}>{r.title}</div>
-              <div style={{ fontSize: 12, color: C.muted }}>แถวที่ {idx + 1} · จำนวน {r.people.length} คน · ต่อจาก {r.after}</div>
+        {editable && (
+          <div style={{ display: "flex", gap: 6 }}>
+            <Btn variant="ghost" small onClick={() => setEditRow(r)}>แก้ชื่อแถว</Btn>
+            <Btn variant="danger" small onClick={() => removeRow(r.id)}>ลบแถว</Btn>
+          </div>
+        )}
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
+        {r.people.map((id) => {
+          const p = pool.find((x) => x.id === id);
+          if (!p) return null;
+          return (
+            <div key={id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px 6px 6px", borderRadius: 20, border: `1px solid ${C.line}` }}>
+              <Avatar person={p} size={30} /><span style={{ fontSize: 13, color: C.ink }}>{p.first}</span>
+              {editable && <button onClick={() => removePerson(r.id, id)} style={{ border: "none", background: "none", color: C.muted, cursor: "pointer", fontSize: 15 }}>×</button>}
             </div>
-            {editable && (
-              <div style={{ display: "flex", gap: 6 }}>
-                <Btn variant="ghost" small onClick={() => setEditRow(r)}>แก้ชื่อแถว</Btn>
-                <Btn variant="danger" small onClick={() => removeRow(r.id)}>ลบแถว</Btn>
-              </div>
-            )}
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
-            {r.people.map((id) => {
-              const p = pool.find((x) => x.id === id);
-              if (!p) return null;
-              return (
-                <div key={id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px 6px 6px", borderRadius: 20, border: `1px solid ${C.line}` }}>
-                  <Avatar person={p} size={30} /><span style={{ fontSize: 13, color: C.ink }}>{p.first}</span>
-                  {editable && <button onClick={() => removePerson(r.id, id)} style={{ border: "none", background: "none", color: C.muted, cursor: "pointer", fontSize: 15 }}>×</button>}
-                </div>
-              );
-            })}
-            {editable && <button onClick={() => setAssignTo(r.id)} style={{ padding: "8px 12px", borderRadius: 20, border: `1.5px dashed ${C.line}`, background: C.surface, color: C.primary, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>+ กำหนดรายชื่อ</button>}
-          </div>
-        </Card>
-      ))}
-      {rows.length === 0 && <Empty text="ยังไม่มีแถวหน้าที่ · กด + เพิ่มหน้าที่ / แถว" />}
+          );
+        })}
+        {editable && <button onClick={() => setAssignTo(r.id)} style={{ padding: "8px 12px", borderRadius: 20, border: `1.5px dashed ${C.line}`, background: C.surface, color: C.primary, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>+ กำหนดรายชื่อ</button>}
+      </div>
+    </Card>
+  );
+  const section = (cat, label) => {
+    const catRows = rows.filter((r) => (r.cat || "comp") === cat);
+    return (
+      <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
+          <div style={{ fontWeight: 800, color: C.primaryDark, fontSize: 15 }}>{label} <span style={{ fontSize: 12, fontWeight: 500, color: C.muted }}>({catRows.length} แถว)</span></div>
+          {editable && <Btn small onClick={() => setAddRow(cat)}>+ เพิ่มหน้าที่ / แถว</Btn>}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {catRows.map((r, idx) => renderRow(r, idx))}
+          {catRows.length === 0 && <Empty text="ยังไม่มีแถวในหมวดนี้" />}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+      {editable && <div style={{ fontSize: 12.5, color: C.muted }}>เลือกรายชื่อจาก{committeeLabel} ({(pickPool || []).length} คน)</div>}
+      {section("comp", "รายการแข่งขัน")}
+      {section("act", "รายการกิจกรรม")}
       {assignTo && <SearchPersonPopup title={`เลือกจาก${committeeLabel}`} pool={availPool} emptyText={`ยังไม่มี${committeeLabel} — ไปตั้งกรรมการที่ บุคลากร → บัญชีผู้ใช้ ก่อน`} onClose={() => setAssignTo(null)} onPick={(p) => addPerson(assignTo, p.id)} />}
-      {addRow && <RowForm onClose={() => setAddRow(false)} onSave={(row) => ui.run("กำลังเพิ่มหน้าที่...", () => { update((rs) => [...rs, { ...row, id: "r" + Date.now(), people: [] }]); setAddRow(false); })} />}
+      {addRow && <RowForm onClose={() => setAddRow(null)} onSave={(row) => ui.run("กำลังเพิ่มหน้าที่...", () => { update((rs) => [...rs, { ...row, cat: addRow, id: "r" + Date.now(), people: [] }]); setAddRow(null); })} />}
       {editRow && <RowForm row={editRow} onClose={() => setEditRow(null)} onSave={(row) => ui.run("กำลังบันทึกแถว...", () => { update((rs) => rs.map((x) => x.id === editRow.id ? { ...x, title: row.title, after: row.after } : x)); setEditRow(null); })} />}
     </div>
   );
@@ -1535,46 +1548,48 @@ function CompTable({ kind, db, setDb, ui }) {
       ))}
       {list.length === 0 && <Empty text={`ยังไม่มีรายการ${kind}`} />}
       {(add || edit) && <CompForm kind={kind} comp={edit} onClose={() => { setAdd(false); setEdit(null); }} onSave={save} />}
-      {judge && <JudgeAssign comp={judge} db={db} setDb={setDb} onClose={() => setJudge(null)} />}
+      {judge && <JudgeAssign comp={judge} cat={kind === "แข่งขัน" ? "comp" : "act"} db={db} setDb={setDb} onClose={() => setJudge(null)} />}
     </div>
   );
 }
-function JudgeAssign({ comp, db, setDb, onClose }) {
+function JudgeAssign({ comp, cat, db, setDb, onClose }) {
   const cur = db.competitions.find((c) => c.id === comp.id) || comp;
   const jt = cur.judgeTeachers || [], js = cur.judgeStudents || [];
   const update = (patch) => setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, ...patch } : c) }));
-  const toggleT = (id) => update({ judgeTeachers: jt.includes(id) ? jt.filter((x) => x !== id) : [...jt, id] });
-  const toggleS = (id) => update({ judgeStudents: js.includes(id) ? js.filter((x) => x !== id) : [...js, id] });
-  const addRow = (rowPeople, selected, setter) => { const all = [...new Set([...selected, ...rowPeople])]; setter(all); };
-  const section = (rows, pool, selected, toggle, patchKey, label) => (
-    <div style={{ marginBottom: 18 }}>
-      <div style={{ fontWeight: 700, color: C.ink, marginBottom: 8 }}>{label} <span style={{ fontSize: 12, fontWeight: 500, color: C.muted }}>(เลือกแล้ว {selected.length})</span></div>
-      {rows.length === 0 && <div style={{ fontSize: 12.5, color: C.muted }}>ยังไม่มีแถวในผังองค์กร — ไปสร้างที่ ผังองค์กร ก่อน</div>}
-      {rows.map((r, i) => (
-        <div key={r.id} style={{ marginBottom: 12, padding: 10, border: `1px solid ${C.line}`, borderRadius: 10 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, gap: 8 }}>
-            <div style={{ fontSize: 12.5, fontWeight: 600, color: C.primaryDark }}>แถวที่ {i + 1} · {r.title}</div>
-            {r.people.length > 0 && <button onClick={() => update({ [patchKey]: [...new Set([...selected, ...r.people])] })} style={{ border: "none", background: C.soft, color: C.primaryDark, borderRadius: 16, padding: "4px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>+ เพิ่มทั้งแถว</button>}
+  const K = (rowId, id) => `${rowId}::${id}`;
+  const toggle = (arr, patchKey, rowId, id) => { const k = K(rowId, id); update({ [patchKey]: arr.includes(k) ? arr.filter((x) => x !== k) : [...arr, k] }); };
+  const section = (allRows, pool, selected, patchKey, label) => {
+    const rows = allRows.filter((r) => (r.cat || "comp") === cat);
+    return (
+      <div style={{ marginBottom: 18 }}>
+        <div style={{ fontWeight: 700, color: C.ink, marginBottom: 8 }}>{label} <span style={{ fontSize: 12, fontWeight: 500, color: C.muted }}>(เลือกแล้ว {selected.length})</span></div>
+        {rows.length === 0 && <div style={{ fontSize: 12.5, color: C.muted }}>ยังไม่มีแถวหมวดนี้ในผังองค์กร — ไปสร้างที่ ผังองค์กร ก่อน</div>}
+        {rows.map((r, i) => (
+          <div key={r.id} style={{ marginBottom: 12, padding: 10, border: `1px solid ${C.line}`, borderRadius: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, gap: 8 }}>
+              <div style={{ fontSize: 12.5, fontWeight: 600, color: C.primaryDark }}>แถวที่ {i + 1} · {r.title}</div>
+              {r.people.length > 0 && <button onClick={() => update({ [patchKey]: [...new Set([...selected, ...r.people.map((id) => K(r.id, id))])] })} style={{ border: "none", background: C.soft, color: C.primaryDark, borderRadius: 16, padding: "4px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>+ เพิ่มทั้งแถว</button>}
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {r.people.length === 0 && <span style={{ fontSize: 12, color: C.muted }}>— ไม่มีรายชื่อ —</span>}
+              {r.people.map((id) => {
+                const p = pool.find((x) => x.id === id); if (!p) return null;
+                const on = selected.includes(K(r.id, id));
+                return <button key={id} onClick={() => toggle(selected, patchKey, r.id, id)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px 5px 5px", borderRadius: 20, border: `1px solid ${on ? C.primary : C.line}`, background: on ? C.soft : C.surface, color: on ? C.primaryDark : C.ink, cursor: "pointer", fontSize: 13, fontWeight: on ? 700 : 500 }}>
+                  <Avatar person={p} size={26} />{p.first}{on ? " ✓" : ""}
+                </button>;
+              })}
+            </div>
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {r.people.length === 0 && <span style={{ fontSize: 12, color: C.muted }}>— ไม่มีรายชื่อ —</span>}
-            {r.people.map((id) => {
-              const p = pool.find((x) => x.id === id); if (!p) return null;
-              const on = selected.includes(id);
-              return <button key={id} onClick={() => toggle(id)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 10px 5px 5px", borderRadius: 20, border: `1px solid ${on ? C.primary : C.line}`, background: on ? C.soft : C.surface, color: on ? C.primaryDark : C.ink, cursor: "pointer", fontSize: 13, fontWeight: on ? 700 : 500 }}>
-                <Avatar person={p} size={26} />{p.first}{on ? " ✓" : ""}
-              </button>;
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+        ))}
+      </div>
+    );
+  };
   return (
     <Modal title={`จัดกรรมการ: ${comp.name}`} onClose={onClose} wide>
-      <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0 }}>แตะรายชื่อเพื่อเพิ่ม/นำออกเป็นกรรมการของรายการนี้ · เลือกจากผังองค์กรตามแถว หรือกด "เพิ่มทั้งแถว"</p>
-      {section(db.orgTeacher, db.teachers, jt, toggleT, "judgeTeachers", "กรรมการครู")}
-      {section(db.orgStudent, db.students, js, toggleS, "judgeStudents", "กรรมการนักเรียน")}
+      <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0 }}>แตะรายชื่อเพื่อเพิ่ม/นำออก · เลือกแยกตามแถว (คนเดียวกันในคนละแถวนับแยกกัน) · แสดงเฉพาะผังหมวด{cat === "comp" ? "แข่งขัน" : "กิจกรรม"}</p>
+      {section(db.orgTeacher, db.teachers, jt, "judgeTeachers", "กรรมการครู")}
+      {section(db.orgStudent, db.students, js, "judgeStudents", "กรรมการนักเรียน")}
       <div style={{ display: "flex", gap: 8 }}><Btn onClick={onClose}>เสร็จสิ้น</Btn></div>
     </Modal>
   );
