@@ -75,6 +75,7 @@ const seed = {
   orgTeacher: [],
   orgStudent: [],
   competitions: [],
+  archived: [],
   settings: { maxMain: 3, themeColor: DEFAULT_HOUSES[0].color, houses: DEFAULT_HOUSES, announce: { speed: 18, showLines: 3, lines: [
     "ยินดีต้อนรับสู่การแข่งขันวิชาการสี",
   ] } },
@@ -454,6 +455,19 @@ function deleteImageRemote(person, kind) {
   const body = JSON.stringify({ type: "deleteImage", fileId: person.photoId, kind, grade: person.grade || "", room: person.room || "" });
   fetch(API_URL, { method: "POST", body }).catch(() => {});
 }
+// ย้ายไฟล์รูปไปโฟลเดอร์ชั้น/ห้องใหม่ใน Drive (และลบโฟลเดอร์เดิมถ้าว่าง)
+function moveImageRemote(person, kind, toGrade, toRoom) {
+  if (!API_URL || !person || !person.photoId) return;
+  const body = JSON.stringify({ type: "moveImage", fileId: person.photoId, kind, fromGrade: person.grade || "", fromRoom: person.room || "", toGrade: toGrade || "", toRoom: toRoom || "" });
+  fetch(API_URL, { method: "POST", body }).catch(() => {});
+}
+// ลำดับชั้นเรียนสำหรับเลื่อนชั้น
+const GRADE_ORDER = ["อ.1", "อ.2", "อ.3", "ป.1", "ป.2", "ป.3", "ป.4", "ป.5", "ป.6", "ม.1", "ม.2", "ม.3", "ม.4", "ม.5", "ม.6"];
+function nextGrade(g) {
+  const i = GRADE_ORDER.indexOf((g || "").trim());
+  if (i < 0 || i === GRADE_ORDER.length - 1) return null; // ไม่รู้จัก หรือ ชั้นสูงสุด → จบออก
+  return GRADE_ORDER[i + 1];
+}
 
 /* ============================================================
    ADMIN
@@ -464,6 +478,7 @@ function AdminApp({ db, setDb, onExit }) {
   const nav = [
     { key: "home", label: "ภาพรวม", icon: "▦" },
     { key: "people", label: "บุคลากร", icon: "👥" },
+    { key: "promote", label: "เลื่อนชั้น", icon: "⬆" },
     { key: "org", label: "ผังองค์กร", icon: "🗂" },
     { key: "comp", label: "การแข่งขัน", icon: "🏆" },
     { key: "promo", label: "ตั้งค่า", icon: "⚙️" },
@@ -472,6 +487,7 @@ function AdminApp({ db, setDb, onExit }) {
     <Shell role="admin" nav={nav} view={view} setView={setView} onExit={onExit} ui={ui}>
       {view === "home" && <AdminHome db={db} setDb={setDb} ui={ui} />}
       {view === "people" && <PeopleManager db={db} setDb={setDb} ui={ui} />}
+      {view === "promote" && <PromotionManager db={db} setDb={setDb} ui={ui} />}
       {view === "org" && <OrgManager db={db} setDb={setDb} ui={ui} editable />}
       {view === "comp" && <CompManager db={db} setDb={setDb} ui={ui} />}
       {view === "promo" && <SettingsManager db={db} setDb={setDb} ui={ui} />}
@@ -504,7 +520,7 @@ function AdminHome({ db, setDb, ui }) {
         <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 10, lineHeight: 1.6 }}>ลบรายชื่อนักเรียน/ครู รายการแข่ง ผังองค์กร และบัญชีทั้งหมด (คงไว้เฉพาะสีทีม/ประชาสัมพันธ์) ใช้เมื่ออยากเริ่มต้นใหม่ทั้งหมด</p>
         <Btn variant="danger" small onClick={() => setConfirmReset(true)}>ล้างข้อมูลทั้งหมด</Btn>
       </Card>
-      {confirmReset && <ConfirmModal title="ยืนยันล้างข้อมูลทั้งระบบ" message="จะลบข้อมูลทั้งหมด (นักเรียน ครู บัญชี รายการแข่ง ผังองค์กร) เหลือเฉพาะการตั้งค่าสีทีม/ประชาสัมพันธ์ — ย้อนกลับไม่ได้ ยืนยันหรือไม่?" onConfirm={() => ui.run("กำลังล้างข้อมูล...", () => { setDb((p) => ({ students: [], teachers: [], assistants: [], competitions: [], orgTeacher: [], orgStudent: [], settings: p.settings })); setConfirmReset(false); ui.notify("ล้างข้อมูลแล้ว"); })} onClose={() => setConfirmReset(false)} />}
+      {confirmReset && <ConfirmModal title="ยืนยันล้างข้อมูลทั้งระบบ" message="จะลบข้อมูลทั้งหมด (นักเรียน ครู บัญชี รายการแข่ง ผังองค์กร) เหลือเฉพาะการตั้งค่าสีทีม/ประชาสัมพันธ์ — ย้อนกลับไม่ได้ ยืนยันหรือไม่?" onConfirm={() => ui.run("กำลังล้างข้อมูล...", () => { setDb((p) => ({ students: [], teachers: [], assistants: [], competitions: [], orgTeacher: [], orgStudent: [], archived: [], settings: p.settings })); setConfirmReset(false); ui.notify("ล้างข้อมูลแล้ว"); })} onClose={() => setConfirmReset(false)} />}
     </div>
   );
 }
@@ -541,6 +557,166 @@ function ConnTest() {
 }
 
 /* ----- People (students / teachers / assistants) ----- */
+/* ----- Promotion / room move / graduation ----- */
+function PromotionManager({ db, setDb, ui }) {
+  const [tab, setTab] = useState("promote");
+  return (
+    <div>
+      <PageHead title="เลื่อนชั้น / ย้ายห้อง / จบการศึกษา" sub="เลื่อนทั้งโรงเรียน หรือย้ายเฉพาะกลุ่ม · ผู้จบจะถูกสำรองไว้ นำกลับได้ (เผื่อซ้ำชั้น)" />
+      <Tabs tabs={[{ key: "promote", label: "เลื่อนชั้น / ย้ายห้อง" }, { key: "archived", label: `จบ/สำรอง (${(db.archived || []).length})` }]} active={tab} onChange={setTab} />
+      {tab === "promote" && <PromotePanel db={db} setDb={setDb} ui={ui} />}
+      {tab === "archived" && <ArchivedPanel db={db} setDb={setDb} ui={ui} />}
+    </div>
+  );
+}
+function PromotePanel({ db, setDb, ui }) {
+  const students = db.students;
+  const grades = [...new Set(students.map((s) => s.grade).filter(Boolean))].sort((a, b) => GRADE_ORDER.indexOf(a) - GRADE_ORDER.indexOf(b));
+  const rooms = [...new Set(students.map((s) => s.room).filter(Boolean))];
+  const [gradGrades, setGradGrades] = useState([]); // ชั้นที่จะจบออก
+  const [confirmWhole, setConfirmWhole] = useState(false);
+  // group move
+  const [fg, setFg] = useState(""); const [fr, setFr] = useState("");
+  const [sel, setSel] = useState([]);
+  const [tGrade, setTGrade] = useState(""); const [tRoom, setTRoom] = useState("");
+  const filtered = students.filter((s) => (!fg || s.grade === fg) && (!fr || s.room === fr));
+  const selSet = new Set(sel);
+  const allSel = filtered.length > 0 && filtered.every((s) => selSet.has(s.id));
+  const toggle = (id) => setSel((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
+
+  const toggleGrad = (g) => setGradGrades((p) => p.includes(g) ? p.filter((x) => x !== g) : [...p, g]);
+  const willGrad = students.filter((s) => gradGrades.includes(s.grade) || nextGrade(s.grade) === null);
+  const willMove = students.length - willGrad.length;
+
+  const runWhole = () => {
+    const gset = new Set(gradGrades);
+    ui.run("กำลังเลื่อนชั้นทั้งโรงเรียน...", () => {
+      setDb((p) => {
+        const stay = [], grad = [];
+        p.students.forEach((s) => {
+          const ng = nextGrade(s.grade);
+          if (gset.has(s.grade) || ng === null) grad.push({ ...s, archivedFrom: `${s.grade || "?"}/${s.room || "?"}`, archivedAt: Date.now(), archivedReason: "จบการศึกษา/เลื่อนออก" });
+          else stay.push({ ...s, grade: ng });
+        });
+        const gradIds = new Set(grad.map((g) => g.id));
+        const orgStudent = p.orgStudent.map((r) => ({ ...r, people: r.people.filter((pid) => !gradIds.has(pid)) }));
+        const competitions = p.competitions.map((c) => { const results = { ...c.results }; grad.forEach((g) => { delete results[g.id]; }); return { ...c, participants: c.participants.filter((x) => !gradIds.has(x.sid)), results }; });
+        return { ...p, students: stay, archived: [...(p.archived || []), ...grad], orgStudent, competitions };
+      });
+      setConfirmWhole(false);
+      ui.notify("เลื่อนชั้นเรียบร้อย");
+    });
+  };
+  const runMove = () => {
+    if (!tGrade) { ui.notify("กรุณาระบุชั้นปลายทาง"); return; }
+    ui.run("กำลังย้าย...", () => {
+      sel.forEach((id) => { const s = students.find((x) => x.id === id); if (s && s.photoId) moveImageRemote(s, "student", tGrade, tRoom); });
+      setDb((p) => ({ ...p, students: p.students.map((s) => sel.includes(s.id) ? { ...s, grade: tGrade, room: tRoom } : s) }));
+      setSel([]);
+      ui.notify("ย้ายเรียบร้อย");
+    });
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <Card style={{ padding: 16 }}>
+        <div style={{ fontWeight: 700, color: C.ink, marginBottom: 6 }}>เลื่อนชั้นทั้งโรงเรียน</div>
+        <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 12, lineHeight: 1.6 }}>ทุกคนเลื่อนขึ้น 1 ชั้น (ห้องเดิม) · เลือกชั้นที่ถือว่า "จบออก" ด้านล่าง คนกลุ่มนั้นจะถูกสำรองไว้ (นำกลับได้)</p>
+        <div style={{ fontSize: 12.5, color: C.muted, marginBottom: 6 }}>ชั้นที่จะจบออก (สำรองไว้):</div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+          {grades.length === 0 && <span style={{ fontSize: 13, color: C.muted }}>ยังไม่มีข้อมูลนักเรียน</span>}
+          {grades.map((g) => {
+            const on = gradGrades.includes(g) || nextGrade(g) === null;
+            const forced = nextGrade(g) === null;
+            return <button key={g} onClick={() => !forced && toggleGrad(g)} style={{ padding: "6px 12px", borderRadius: 20, border: `1px solid ${on ? C.primary : C.line}`, background: on ? C.soft : C.surface, color: on ? C.primaryDark : C.ink, fontSize: 13, fontWeight: 600, cursor: forced ? "default" : "pointer" }}>{g}{forced ? " (จบ)" : ""}</button>;
+          })}
+        </div>
+        <div style={{ fontSize: 13, color: C.ink, marginBottom: 10 }}>จะเลื่อนขึ้น <b>{willMove}</b> คน · จบออก(สำรอง) <b>{willGrad.length}</b> คน</div>
+        <Btn onClick={() => setConfirmWhole(true)} disabled={students.length === 0}>เลื่อนชั้นทั้งโรงเรียน</Btn>
+        <p style={{ fontSize: 11.5, color: C.muted, marginTop: 10, marginBottom: 0 }}>* รูปยังแสดงได้ตามปกติ (อ้างอิงไฟล์เดิม) การจัดโฟลเดอร์รูปตามชั้นใหม่จะทำเฉพาะตอน "ย้ายเฉพาะกลุ่ม" ด้านล่าง</p>
+      </Card>
+
+      <Card style={{ padding: 16 }}>
+        <div style={{ fontWeight: 700, color: C.ink, marginBottom: 6 }}>ย้ายเฉพาะกลุ่ม / ย้ายห้อง</div>
+        <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 12, lineHeight: 1.6 }}>กรอง เลือกคน แล้วระบุชั้น/ห้องปลายทาง · รูปจะย้ายตามไปโฟลเดอร์ใหม่ใน Drive</p>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          <Select value={fg} onChange={(v) => { setFg(v); setSel([]); }}><option value="">ทุกชั้น</option>{grades.map((g) => <option key={g}>{g}</option>)}</Select>
+          <Select value={fr} onChange={(v) => { setFr(v); setSel([]); }}><option value="">ทุกห้อง</option>{rooms.map((r) => <option key={r} value={r}>ห้อง {r}</option>)}</Select>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
+            <input type="checkbox" checked={allSel} onChange={() => setSel(allSel ? [] : filtered.map((s) => s.id))} style={{ width: 16, height: 16 }} /> เลือกทั้งหมดที่กรอง
+          </label>
+        </div>
+        <div style={{ maxHeight: 220, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+          {filtered.map((s) => (
+            <label key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: 8, borderRadius: 10, border: `1px solid ${C.line}`, cursor: "pointer" }}>
+              <input type="checkbox" checked={selSet.has(s.id)} onChange={() => toggle(s.id)} style={{ width: 16, height: 16 }} />
+              <Avatar person={s} size={34} />
+              <span style={{ fontSize: 13.5, color: C.ink }}>{fullName(s)}</span>
+              <span style={{ fontSize: 12, color: C.muted, marginLeft: "auto" }}>{s.grade}/{s.room}</span>
+            </label>
+          ))}
+          {filtered.length === 0 && <Empty text="ไม่พบนักเรียน" />}
+        </div>
+        <div className="md:grid md:grid-cols-2 md:gap-x-3">
+          <Field label="ชั้นปลายทาง" value={tGrade} onChange={setTGrade} placeholder="เช่น ม.4" />
+          <Field label="ห้องปลายทาง" value={tRoom} onChange={setTRoom} placeholder="เช่น 1" />
+        </div>
+        <Btn onClick={runMove} disabled={sel.length === 0}>ย้ายที่เลือก ({sel.length} คน)</Btn>
+      </Card>
+
+      {confirmWhole && <ConfirmModal title="ยืนยันเลื่อนชั้นทั้งโรงเรียน" message={`จะเลื่อนขึ้น ${willMove} คน และสำรอง(จบออก) ${willGrad.length} คน · ผู้จบยังนำกลับได้ในแท็บ "จบ/สำรอง" ยืนยันหรือไม่?`} confirmLabel="เลื่อนชั้น" variant="primary" onConfirm={runWhole} onClose={() => setConfirmWhole(false)} />}
+    </div>
+  );
+}
+function ArchivedPanel({ db, setDb, ui }) {
+  const archived = db.archived || [];
+  const [sel, setSel] = useState([]);
+  const [confirmDel, setConfirmDel] = useState(false);
+  const selSet = new Set(sel);
+  const allSel = archived.length > 0 && archived.every((a) => selSet.has(a.id));
+  const toggle = (id) => setSel((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
+
+  const restore = () => ui.run("กำลังนำกลับ...", () => {
+    setDb((p) => {
+      const back = (p.archived || []).filter((a) => sel.includes(a.id)).map((a) => { const { archivedFrom, archivedAt, archivedReason, ...s } = a; return s; });
+      return { ...p, students: [...p.students, ...back], archived: (p.archived || []).filter((a) => !sel.includes(a.id)) };
+    });
+    setSel([]); ui.notify("นำกลับเข้าระบบแล้ว");
+  });
+  const purge = () => {
+    sel.forEach((id) => { const a = archived.find((x) => x.id === id); if (a) deleteImageRemote(a, "student"); });
+    ui.run("กำลังลบถาวร...", () => { setDb((p) => ({ ...p, archived: (p.archived || []).filter((a) => !sel.includes(a.id)) })); setSel([]); setConfirmDel(false); });
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0 }}>รายชื่อที่จบ/เลื่อนออก ถูกสำรองไว้ที่นี่ นำกลับเข้าระบบได้ (เผื่อซ้ำชั้น) หรือลบถาวรเมื่อแน่ใจ</p>
+      {archived.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
+            <input type="checkbox" checked={allSel} onChange={() => setSel(allSel ? [] : archived.map((a) => a.id))} style={{ width: 16, height: 16 }} /> เลือกทั้งหมด
+          </label>
+          {sel.length > 0 && <Btn small onClick={restore}>นำกลับเข้าระบบ ({sel.length})</Btn>}
+          {sel.length > 0 && <Btn variant="danger" small onClick={() => setConfirmDel(true)}>ลบถาวร ({sel.length})</Btn>}
+        </div>
+      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {archived.map((a) => (
+          <Card key={a.id} style={{ padding: 10, display: "flex", alignItems: "center", gap: 10, outline: selSet.has(a.id) ? `2px solid ${C.primary}` : "none" }}>
+            <input type="checkbox" checked={selSet.has(a.id)} onChange={() => toggle(a.id)} style={{ width: 16, height: 16, flexShrink: 0 }} />
+            <Avatar person={a} size={36} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, color: C.ink, fontSize: 13.5 }}>{fullName(a)}</div>
+              <div style={{ fontSize: 11.5, color: C.muted }}>รหัส {a.id} · เดิม {a.archivedFrom || "-"}{a.archivedReason ? ` · ${a.archivedReason}` : ""}</div>
+            </div>
+          </Card>
+        ))}
+        {archived.length === 0 && <Empty text="ยังไม่มีรายชื่อสำรอง" />}
+      </div>
+      {confirmDel && <ConfirmModal title="ลบถาวร" message={`ลบถาวร ${sel.length} รายชื่อ (พร้อมลบรูปใน Drive) · กู้คืนไม่ได้อีก ยืนยันหรือไม่?`} onConfirm={purge} onClose={() => setConfirmDel(false)} />}
+    </div>
+  );
+}
 function PeopleManager({ db, setDb, ui }) {
   const [tab, setTab] = useState("students");
   return (
@@ -1763,6 +1939,7 @@ function mergeDb(loaded) {
     competitions: (loaded && loaded.competitions) || [],
     orgTeacher: (loaded && loaded.orgTeacher) || [],
     orgStudent: (loaded && loaded.orgStudent) || [],
+    archived: (loaded && loaded.archived) || [],
     settings: {
       ...seed.settings, ...s,
       houses: (s.houses && s.houses.length) ? s.houses : seed.settings.houses,
