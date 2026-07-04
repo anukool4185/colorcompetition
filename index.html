@@ -1045,26 +1045,16 @@ function CommitteeCredList({ kind, db, setDb, ui }) {
   const key = kind === "teacher" ? "teachers" : "students";
   const pool = db[key];
   const isCom = (p) => kind === "teacher" ? !!p.user : !!p.committee;
-  const [grade, setGrade] = useState("");
-  const [room, setRoom] = useState("");
-  const [sel, setSel] = useState([]);
   const [edit, setEdit] = useState(null);
+  const [pick, setPick] = useState(false);
 
-  const grades = [...new Set(pool.map((s) => s.grade).filter(Boolean))];
-  const rooms = [...new Set(pool.map((s) => s.room).filter(Boolean))];
-  const filtered = pool.filter((p) => kind === "teacher" ? true : ((!grade || p.grade === grade) && (!room || p.room === room)));
-  const selSet = new Set(sel);
-  const allSel = filtered.length > 0 && filtered.every((p) => selSet.has(p.id));
-  const toggle = (id) => setSel((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
-  const toggleAll = () => setSel(allSel ? [] : filtered.map((p) => p.id));
-
+  const committee = pool.filter(isCom);
   const setCom = (ids, on) => ui.run(on ? "กำลังตั้งเป็นกรรมการ..." : "กำลังยกเลิกกรรมการ...", () => {
     setDb((p) => ({ ...p, [key]: p[key].map((x) => ids.includes(x.id)
       ? (kind === "teacher"
           ? (on ? { ...x, user: x.user || x.id } : { ...x, user: undefined, password: undefined })
           : (on ? { ...x, committee: true } : { ...x, committee: false }))
       : x) }));
-    setSel([]);
   });
   const saveCred = (id, cred) => ui.run("กำลังบันทึกบัญชี...", () => {
     setDb((p) => ({ ...p, [key]: p[key].map((x) => x.id === id
@@ -1072,10 +1062,6 @@ function CommitteeCredList({ kind, db, setDb, ui }) {
       : x) }));
     setEdit(null);
   });
-
-  const selNonCom = sel.filter((id) => { const p = pool.find((x) => x.id === id); return p && !isCom(p); });
-  const selCom = sel.filter((id) => { const p = pool.find((x) => x.id === id); return p && isCom(p); });
-  const comCount = pool.filter(isCom).length;
   const loginInfo = (p) => kind === "teacher"
     ? `ผู้ใช้ ${p.user} · รหัส: ${p.user}${p.phone ? " / " + p.phone : ""}${p.password ? " / " + p.password : ""}`
     : `ล็อกอิน ${p.id} · รหัส: ${p.phone ? "เบอร์ " + p.phone : "รหัส นร. (ชั่วคราว)"}${p.password ? " / " + p.password : ""}`;
@@ -1083,44 +1069,84 @@ function CommitteeCredList({ kind, db, setDb, ui }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
-        <span style={{ fontSize: 13, color: C.muted }}>เป็นกรรมการแล้ว {comCount} คน{sel.length ? ` · เลือก ${sel.length}` : ""}</span>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Btn variant="ghost" small onClick={() => { const ok = exportPeopleXLSX(pool.filter(isCom), db.settings.houses, kind, kind === "teacher" ? "กรรมการครู.xlsx" : "กรรมการนักเรียน.xlsx"); if (!ok) ui.notify("ต้องมีอินเทอร์เน็ต"); }}>Excel</Btn>
+        <span style={{ fontSize: 13, color: C.muted }}>กรรมการ {committee.length} คน</span>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Btn variant="ghost" small onClick={() => { const ok = exportPeopleXLSX(committee, db.settings.houses, kind, kind === "teacher" ? "กรรมการครู.xlsx" : "กรรมการนักเรียน.xlsx"); if (!ok) ui.notify("ต้องมีอินเทอร์เน็ต"); }}>Excel</Btn>
           <Btn variant="ghost" small onClick={() => window.print()}>พิมพ์/PDF</Btn>
+          <Btn small onClick={() => setPick(true)}>+ เลือกกรรมการ</Btn>
         </div>
       </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {committee.map((p) => (
+          <Card key={p.id} style={{ padding: 12, display: "flex", alignItems: "center", gap: 10 }}>
+            <Avatar person={p} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, color: C.ink, fontSize: 14 }}>{fullName(p)} <span style={{ fontSize: 11, fontWeight: 700, color: C.primary, background: C.soft, padding: "2px 8px", borderRadius: 20 }}>กรรมการ</span></div>
+              <div style={{ fontSize: 12, color: C.muted }}>{loginInfo(p)}</div>
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <Btn variant="ghost" small onClick={() => setEdit(p)}>ตั้งรหัส</Btn>
+              <Btn variant="danger" small onClick={() => setCom([p.id], false)}>ออก</Btn>
+            </div>
+          </Card>
+        ))}
+        {committee.length === 0 && <Empty text={`ยังไม่มีกรรมการ${kind === "teacher" ? "ครู" : "นักเรียน"} — กด "+ เลือกกรรมการ" เพื่อเพิ่ม`} />}
+      </div>
+      {pick && <CommitteePicker kind={kind} pool={pool} isCom={isCom} onClose={() => setPick(false)} onConfirm={(ids) => { setCom(ids, true); setPick(false); }} />}
+      {edit && <CredForm kind={kind} person={edit} onClose={() => setEdit(null)} onSave={(cred) => saveCred(edit.id, cred)} />}
+    </div>
+  );
+}
+function CommitteePicker({ kind, pool, isCom, onClose, onConfirm }) {
+  const [grade, setGrade] = useState("");
+  const [room, setRoom] = useState("");
+  const [q, setQ] = useState("");
+  const [sel, setSel] = useState([]);
+  const candidates = pool.filter((p) => !isCom(p));
+  const grades = [...new Set(candidates.map((s) => s.grade).filter(Boolean))];
+  const rooms = [...new Set(candidates.map((s) => s.room).filter(Boolean))];
+  const kw = q.trim();
+  const filtered = candidates.filter((p) =>
+    (kind === "teacher" || ((!grade || p.grade === grade) && (!room || p.room === room))) &&
+    (!kw || fullName(p).includes(kw) || String(p.id).includes(kw)));
+  const selSet = new Set(sel);
+  const allSel = filtered.length > 0 && filtered.every((p) => selSet.has(p.id));
+  const toggle = (id) => setSel((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
+  const toggleAll = () => setSel(allSel ? sel.filter((id) => !filtered.some((p) => p.id === id)) : [...new Set([...sel, ...filtered.map((p) => p.id)])]);
+  return (
+    <Modal title={`เลือก${kind === "teacher" ? "ครู" : "นักเรียน"}ที่จะเป็นกรรมการ`} onClose={onClose} wide>
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อ หรือรหัส"
+        style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, marginBottom: 10 }} />
       {kind === "student" && (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
           <Select value={grade} onChange={setGrade}><option value="">ทุกชั้น</option>{grades.map((g) => <option key={g}>{g}</option>)}</Select>
           <Select value={room} onChange={setRoom}><option value="">ทุกห้อง</option>{rooms.map((r) => <option key={r} value={r}>ห้อง {r}</option>)}</Select>
         </div>
       )}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
-          <input type="checkbox" checked={allSel} onChange={toggleAll} style={{ width: 17, height: 17 }} /> เลือกทั้งหมด{kind === "student" ? "ที่กรอง" : ""}
+          <input type="checkbox" checked={allSel} onChange={toggleAll} style={{ width: 17, height: 17 }} /> เลือกทั้งหมด{kind === "student" ? "ที่กรอง" : ""} ({filtered.length})
         </label>
-        {selNonCom.length > 0 && <Btn small onClick={() => setCom(selNonCom, true)}>ตั้งเป็นกรรมการ ({selNonCom.length})</Btn>}
-        {selCom.length > 0 && <Btn variant="danger" small onClick={() => setCom(selCom, false)}>ยกเลิกกรรมการ ({selCom.length})</Btn>}
+        <span style={{ fontSize: 13, color: C.muted }}>เลือก {sel.length}</span>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {filtered.map((p) => {
-          const com = isCom(p);
-          return (
-            <Card key={p.id} style={{ padding: 12, display: "flex", alignItems: "center", gap: 10, outline: selSet.has(p.id) ? `2px solid ${C.primary}` : "none" }}>
-              <input type="checkbox" checked={selSet.has(p.id)} onChange={() => toggle(p.id)} style={{ width: 17, height: 17, flexShrink: 0 }} />
-              <Avatar person={p} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, color: C.ink, fontSize: 14 }}>{fullName(p)} {com && <span style={{ fontSize: 11, fontWeight: 700, color: C.primary, background: C.soft, padding: "2px 8px", borderRadius: 20 }}>กรรมการ</span>}</div>
-                <div style={{ fontSize: 12, color: C.muted }}>{com ? loginInfo(p) : `รหัส ${p.id}${p.grade ? ` · ${p.grade}/${p.room}` : ""}`}</div>
-              </div>
-              {com && <Btn variant="ghost" small onClick={() => setEdit(p)}>ตั้งรหัส</Btn>}
-            </Card>
-          );
-        })}
-        {filtered.length === 0 && <Empty text="ไม่พบรายชื่อ" />}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 320, overflowY: "auto" }}>
+        {filtered.map((p) => (
+          <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: 10, borderRadius: 10, border: `1px solid ${selSet.has(p.id) ? C.primary : C.line}`, background: selSet.has(p.id) ? C.soft : C.surface, cursor: "pointer" }}>
+            <input type="checkbox" checked={selSet.has(p.id)} onChange={() => toggle(p.id)} style={{ width: 17, height: 17, flexShrink: 0 }} />
+            <Avatar person={p} size={38} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, color: C.ink, fontSize: 13.5 }}>{fullName(p)}</div>
+              <div style={{ fontSize: 12, color: C.muted }}>รหัส {p.id}{p.grade ? ` · ${p.grade}/${p.room}` : ""}</div>
+            </div>
+          </label>
+        ))}
+        {filtered.length === 0 && <Empty text="ไม่พบรายชื่อที่ยังไม่เป็นกรรมการ" />}
       </div>
-      {edit && <CredForm kind={kind} person={edit} onClose={() => setEdit(null)} onSave={(cred) => saveCred(edit.id, cred)} />}
-    </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+        <Btn onClick={() => onConfirm(sel)} disabled={sel.length === 0}>ตั้งเป็นกรรมการ ({sel.length})</Btn>
+        <Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn>
+      </div>
+    </Modal>
   );
 }
 function CredForm({ kind, person, onClose, onSave }) {
