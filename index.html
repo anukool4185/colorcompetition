@@ -1736,11 +1736,6 @@ function mergeDb(loaded) {
   };
 }
 function StatusBar({ status, lastSaved, onSave, onRetry }) {
-  const [mini, setMini] = useState(false);
-  useEffect(() => {
-    if (status === "saved") { const t = setTimeout(() => setMini(true), 2200); return () => clearTimeout(t); }
-    setMini(false);
-  }, [status, lastSaved]);
   const map = {
     loading: ["กำลังโหลดข้อมูล…", C.muted, false],
     dirty: ["มีการแก้ไข • กำลังจะบันทึก", C.gold, true],
@@ -1753,10 +1748,6 @@ function StatusBar({ status, lastSaved, onSave, onRetry }) {
   const spinning = status === "saving" || status === "loading";
   const err = status === "offline";
   const time = (status === "saved" && lastSaved) ? " " + new Date(lastSaved).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : "";
-  // เมื่อบันทึกเสร็จแล้วยุบเป็นจุดเล็ก ๆ ไม่บังปุ่ม (แตะเพื่อบันทึกซ้ำได้)
-  if (mini && status === "saved") {
-    return <button onClick={onSave} title="บันทึกแล้ว — แตะเพื่อบันทึกอีกครั้ง" className="md:bottom-6" style={{ position: "fixed", left: 10, bottom: 80, zIndex: 40, width: 14, height: 14, borderRadius: "50%", background: "#5aab84", border: "2px solid #fff", boxShadow: "0 1px 5px rgba(0,0,0,.25)", cursor: "pointer", padding: 0 }} />;
-  }
   return (
     <div className="md:bottom-6" style={{ position: "fixed", left: 10, bottom: 80, zIndex: 40, display: "flex", alignItems: "center", gap: 8,
       background: err ? "#fbeeee" : C.surface, border: `1px solid ${err ? "#eccdcd" : C.line}`, borderRadius: 22, padding: "6px 8px 6px 12px", boxShadow: "0 2px 10px rgba(0,0,0,.08)" }}>
