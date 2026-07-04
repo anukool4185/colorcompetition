@@ -76,6 +76,7 @@ const seed = {
   orgStudent: [],
   competitions: [],
   archived: [],
+  trash: [],
   settings: { maxMain: 3, themeColor: DEFAULT_HOUSES[0].color, houses: DEFAULT_HOUSES, announce: { speed: 18, showLines: 3, lines: [
     "ยินดีต้อนรับสู่การแข่งขันวิชาการสี",
   ] } },
@@ -481,6 +482,7 @@ function AdminApp({ db, setDb, onExit }) {
     { key: "promote", label: "เลื่อนชั้น", icon: "⬆" },
     { key: "org", label: "ผังองค์กร", icon: "🗂" },
     { key: "comp", label: "การแข่งขัน", icon: "🏆" },
+    { key: "trash", label: "ถังขยะ", icon: "🗑" },
     { key: "promo", label: "ตั้งค่า", icon: "⚙️" },
   ];
   return (
@@ -490,6 +492,7 @@ function AdminApp({ db, setDb, onExit }) {
       {view === "promote" && <PromotionManager db={db} setDb={setDb} ui={ui} />}
       {view === "org" && <OrgManager db={db} setDb={setDb} ui={ui} editable />}
       {view === "comp" && <CompManager db={db} setDb={setDb} ui={ui} />}
+      {view === "trash" && <TrashBin db={db} setDb={setDb} ui={ui} />}
       {view === "promo" && <SettingsManager db={db} setDb={setDb} ui={ui} />}
     </Shell>
   );
@@ -520,7 +523,7 @@ function AdminHome({ db, setDb, ui }) {
         <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 10, lineHeight: 1.6 }}>ลบรายชื่อนักเรียน/ครู รายการแข่ง ผังองค์กร และบัญชีทั้งหมด (คงไว้เฉพาะสีทีม/ประชาสัมพันธ์) ใช้เมื่ออยากเริ่มต้นใหม่ทั้งหมด</p>
         <Btn variant="danger" small onClick={() => setConfirmReset(true)}>ล้างข้อมูลทั้งหมด</Btn>
       </Card>
-      {confirmReset && <ConfirmModal title="ยืนยันล้างข้อมูลทั้งระบบ" message="จะลบข้อมูลทั้งหมด (นักเรียน ครู บัญชี รายการแข่ง ผังองค์กร) เหลือเฉพาะการตั้งค่าสีทีม/ประชาสัมพันธ์ — ย้อนกลับไม่ได้ ยืนยันหรือไม่?" onConfirm={() => ui.run("กำลังล้างข้อมูล...", () => { setDb((p) => ({ students: [], teachers: [], assistants: [], competitions: [], orgTeacher: [], orgStudent: [], archived: [], settings: p.settings })); setConfirmReset(false); ui.notify("ล้างข้อมูลแล้ว"); })} onClose={() => setConfirmReset(false)} />}
+      {confirmReset && <ConfirmModal title="ยืนยันล้างข้อมูลทั้งระบบ" message="จะลบข้อมูลทั้งหมด (นักเรียน ครู บัญชี รายการแข่ง ผังองค์กร) เหลือเฉพาะการตั้งค่าสีทีม/ประชาสัมพันธ์ — ย้อนกลับไม่ได้ ยืนยันหรือไม่?" onConfirm={() => ui.run("กำลังล้างข้อมูล...", () => { setDb((p) => ({ students: [], teachers: [], assistants: [], competitions: [], orgTeacher: [], orgStudent: [], archived: [], trash: [], settings: p.settings })); setConfirmReset(false); ui.notify("ล้างข้อมูลแล้ว"); })} onClose={() => setConfirmReset(false)} />}
     </div>
   );
 }
@@ -558,6 +561,74 @@ function ConnTest() {
 
 /* ----- People (students / teachers / assistants) ----- */
 /* ----- Promotion / room move / graduation ----- */
+function makeTrash(type, label, data, extra) {
+  return { tid: "t" + Date.now() + Math.random().toString(36).slice(2, 6), type, label, data, extra: extra || {}, at: Date.now() };
+}
+function TrashBin({ db, setDb, ui }) {
+  const trash = db.trash || [];
+  const [q, setQ] = useState("");
+  const [sel, setSel] = useState([]);
+  const [confirmDel, setConfirmDel] = useState(null);
+  const typeLabel = { competition: "รายการแข่ง/กิจกรรม", orgRow: "แถวผังองค์กร", student: "นักเรียน", teacher: "ครู", assistant: "ผู้ช่วยแอดมิน" };
+  const filtered = trash.filter((t) => (t.label + " " + (typeLabel[t.type] || "")).includes(q));
+  const selSet = new Set(sel);
+  const allSel = filtered.length > 0 && filtered.every((t) => selSet.has(t.tid));
+  const toggle = (tid) => setSel((p) => p.includes(tid) ? p.filter((x) => x !== tid) : [...p, tid]);
+
+  const restore = (tids) => ui.run("กำลังกู้คืน...", () => {
+    setDb((p) => {
+      const next = { ...p }; const keep = [];
+      (p.trash || []).forEach((t) => {
+        if (!tids.includes(t.tid)) { keep.push(t); return; }
+        if (t.type === "competition") next.competitions = [...next.competitions, t.data];
+        else if (t.type === "orgRow") next[t.extra.which] = [...(next[t.extra.which] || []), t.data];
+        else if (t.type === "student") next.students = [...next.students, t.data];
+        else if (t.type === "teacher") next.teachers = [...next.teachers, t.data];
+        else if (t.type === "assistant") next.assistants = [...next.assistants, t.data];
+      });
+      next.trash = keep; return next;
+    });
+    setSel((s) => s.filter((x) => !tids.includes(x))); ui.notify("กู้คืนแล้ว");
+  });
+  const del = (tids) => {
+    tids.forEach((tid) => { const t = trash.find((x) => x.tid === tid); if (t && (t.type === "student" || t.type === "teacher") && t.data && t.data.photoId) deleteImageRemote(t.data, t.type); });
+    ui.run("กำลังลบถาวร...", () => { setDb((p) => ({ ...p, trash: (p.trash || []).filter((t) => !tids.includes(t.tid)) })); setSel((s) => s.filter((x) => !tids.includes(x))); setConfirmDel(null); });
+  };
+
+  return (
+    <div>
+      <PageHead title="ถังขยะ / ประวัติการลบ" sub="รายการที่ถูกลบถูกเก็บไว้ที่นี่ · กู้คืนได้ จนกว่าจะกดลบถาวร" />
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาในประวัติการลบ" style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, marginBottom: 12 }} />
+      {trash.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer" }}>
+            <input type="checkbox" checked={allSel} onChange={() => setSel(allSel ? [] : filtered.map((t) => t.tid))} style={{ width: 16, height: 16 }} /> เลือกทั้งหน้า
+          </label>
+          {sel.length > 0 && <Btn small onClick={() => restore(sel)}>กู้คืน ({sel.length})</Btn>}
+          {sel.length > 0 && <Btn variant="danger" small onClick={() => setConfirmDel({ ids: sel })}>ลบถาวร ({sel.length})</Btn>}
+          <Btn variant="danger" small onClick={() => setConfirmDel({ ids: trash.map((t) => t.tid) })}>ลบทั้งหมด</Btn>
+        </div>
+      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {filtered.map((t) => (
+          <Card key={t.tid} style={{ padding: 12, display: "flex", alignItems: "center", gap: 10, outline: selSet.has(t.tid) ? `2px solid ${C.primary}` : "none" }}>
+            <input type="checkbox" checked={selSet.has(t.tid)} onChange={() => toggle(t.tid)} style={{ width: 16, height: 16, flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, color: C.ink, fontSize: 13.5 }}>{t.label}</div>
+              <div style={{ fontSize: 11.5, color: C.muted }}>{typeLabel[t.type] || t.type} · ลบเมื่อ {new Date(t.at).toLocaleString("th-TH")}</div>
+            </div>
+            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+              <Btn variant="ghost" small onClick={() => restore([t.tid])}>กู้คืน</Btn>
+              <Btn variant="danger" small onClick={() => setConfirmDel({ ids: [t.tid] })}>ลบถาวร</Btn>
+            </div>
+          </Card>
+        ))}
+        {filtered.length === 0 && <Empty text={trash.length === 0 ? "ถังขยะว่าง" : "ไม่พบตามคำค้น"} />}
+      </div>
+      {confirmDel && <ConfirmModal title="ลบถาวร" message={`ลบถาวร ${confirmDel.ids.length} รายการ (รวมรูปใน Drive สำหรับบุคลากร) · กู้คืนไม่ได้อีก ยืนยันหรือไม่?`} onConfirm={() => del(confirmDel.ids)} onClose={() => setConfirmDel(null)} />}
+    </div>
+  );
+}
 function PromotionManager({ db, setDb, ui }) {
   const [tab, setTab] = useState("promote");
   return (
@@ -795,10 +866,10 @@ function PersonList({ kind, db, setDb, ui }) {
   // ลบ พร้อมตัดความเกี่ยวข้องทั้งหมด (ผังองค์กร, ผู้เข้าแข่ง, ผลการแข่ง) และลบรูปใน Drive
   const purge = (ids) => {
     const idset = new Set(ids);
-    ids.forEach((id) => { const person = list.find((x) => x.id === id); if (person) deleteImageRemote(person, kind); });
     ui.run("กำลังลบข้อมูลและความเกี่ยวข้อง...", () => {
       setDb((p) => {
         const next = { ...p };
+        const removed = p[key].filter((x) => idset.has(x.id));
         next[key] = p[key].filter((x) => !idset.has(x.id));
         next.orgTeacher = p.orgTeacher.map((r) => kind === "teacher" ? { ...r, people: r.people.filter((pid) => !idset.has(pid)) } : r);
         next.orgStudent = p.orgStudent.map((r) => kind === "student" ? { ...r, people: r.people.filter((pid) => !idset.has(pid)) } : r);
@@ -808,6 +879,7 @@ function PersonList({ kind, db, setDb, ui }) {
             return { ...c, participants: c.participants.filter((x) => !idset.has(x.sid)), results };
           });
         }
+        next.trash = [...removed.map((person) => makeTrash(kind === "student" ? "student" : "teacher", `${kind === "student" ? "นักเรียน" : "ครู"}: ${fullName(person)}`, person)), ...(p.trash || [])];
         return next;
       });
       setSel((p) => p.filter((x) => !idset.has(x)));
@@ -1388,24 +1460,51 @@ function OrgManager({ db, setDb, ui, editable }) {
     </div>
   );
 }
-function CombinedChart({ db }) {
-  const canon = ["ประธาน", "รองประธาน", "หัวหน้า", "ผู้ควบคุม", "ผู้ช่วย"];
-  const labels = ["ประธาน", "รองประธาน", "หัวหน้าการแข่งขัน/กิจกรรม", "ผู้ควบคุมการแข่งขัน/กิจกรรม", "ผู้ช่วยการแข่งขัน/กิจกรรม"];
-  const pick = (rows, pool, kw) => rows.filter((r) => r.title.includes(kw)).flatMap((r) => r.people.map((id) => pool.find((p) => p.id === id)).filter(Boolean));
+function TreeChart({ rows, pool, accent }) {
+  if (!rows.length) return <div style={{ textAlign: "center", color: C.muted, fontSize: 12.5, padding: 10 }}>ยังไม่มีแถว</div>;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", gap: 8, fontSize: 12 }}>
-        <span style={{ flex: 1, textAlign: "center", fontWeight: 700, color: C.primary }}>ครู</span><span style={{ width: 1 }} /><span style={{ flex: 1, textAlign: "center", fontWeight: 700, color: C.gold }}>นักเรียน</span>
-      </div>
-      {canon.map((kw, i) => (
-        <div key={i}>
-          <div style={{ textAlign: "center", fontSize: 13, fontWeight: 700, color: C.ink, marginBottom: 6 }}>{labels[i]}</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <ChartSide people={pick(db.orgTeacher, db.teachers, kw)} accent={C.primary} role={labels[i]} />
-            <div style={{ width: 1, background: C.line }} />
-            <ChartSide people={pick(db.orgStudent, db.students, kw)} accent={C.gold} role={labels[i]} />
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
+      {rows.map((r, i) => (
+        <div key={r.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
+          {i > 0 && <div style={{ width: 2, height: 18, background: C.line }} />}
+          <div style={{ fontSize: 12, fontWeight: 700, color: accent, marginBottom: 6, textAlign: "center" }}>แถว {i + 1} · {r.title}</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center", width: "100%" }}>
+            {r.people.length === 0 && <span style={{ fontSize: 12, color: C.muted }}>—</span>}
+            {r.people.map((id) => {
+              const p = pool.find((x) => x.id === id); if (!p) return null;
+              return (
+                <div key={id} style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 100, padding: 8, border: `1px solid ${accent}55`, borderRadius: 12, background: C.surface }}>
+                  <Avatar person={p} size={46} />
+                  <div style={{ fontSize: 12, fontWeight: 600, color: C.ink, marginTop: 5, textAlign: "center", lineHeight: 1.2 }}>{p.first} {p.last}</div>
+                  <div style={{ fontSize: 10.5, color: C.muted, textAlign: "center", marginTop: 2 }}>{r.title}</div>
+                </div>
+              );
+            })}
           </div>
         </div>
+      ))}
+    </div>
+  );
+}
+function CombinedChart({ db }) {
+  const cats = [["comp", "รายการแข่งขัน"], ["act", "รายการกิจกรรม"]];
+  const rowsOf = (which, cat) => db[which].filter((r) => (r.cat || "comp") === cat);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      {cats.map(([cat, label]) => (
+        <Card key={cat} style={{ padding: 16, overflowX: "auto" }}>
+          <div style={{ textAlign: "center", fontWeight: 800, color: C.primaryDark, fontSize: 16, marginBottom: 14 }}>{label}</div>
+          <div className="md:grid md:grid-cols-2" style={{ display: "grid", gridTemplateColumns: "1fr", gap: 22 }}>
+            <div>
+              <div style={{ textAlign: "center", fontWeight: 700, color: C.primary, marginBottom: 10, background: C.soft, padding: "6px 0", borderRadius: 8 }}>ครู</div>
+              <TreeChart rows={rowsOf("orgTeacher", cat)} pool={db.teachers} accent={C.primary} />
+            </div>
+            <div>
+              <div style={{ textAlign: "center", fontWeight: 700, color: C.gold, marginBottom: 10, background: C.gold + "22", padding: "6px 0", borderRadius: 8 }}>นักเรียน</div>
+              <TreeChart rows={rowsOf("orgStudent", cat)} pool={db.students} accent={C.gold} />
+            </div>
+          </div>
+        </Card>
       ))}
     </div>
   );
@@ -1428,10 +1527,11 @@ function OrgEditor({ which, pool, pickPool, db, setDb, ui, editable, committeeLa
   const [addRow, setAddRow] = useState(null); // หมวดที่จะเพิ่ม "comp"|"act"
   const [editRow, setEditRow] = useState(null);
   const [assignTo, setAssignTo] = useState(null);
+  const [confirmRow, setConfirmRow] = useState(null);
   const update = (fn) => setDb((p) => ({ ...p, [which]: fn(p[which]) }));
   const addPerson = (rowId, id) => ui.run("กำลังกำหนดรายชื่อ...", () => { update((rs) => rs.map((r) => r.id === rowId ? { ...r, people: [...new Set([...r.people, id])] } : r)); setAssignTo(null); });
   const removePerson = (rowId, id) => update((rs) => rs.map((r) => r.id === rowId ? { ...r, people: r.people.filter((x) => x !== id) } : r));
-  const removeRow = (rowId) => ui.run("กำลังลบหน้าที่...", () => update((rs) => rs.filter((r) => r.id !== rowId)));
+  const removeRow = (row) => ui.run("กำลังลบหน้าที่...", () => { setDb((p) => ({ ...p, [which]: p[which].filter((r) => r.id !== row.id), trash: [makeTrash("orgRow", `แถวผัง: ${row.title}`, row, { which }), ...(p.trash || [])] })); setConfirmRow(null); });
   const availPool = (pickPool || pool).filter((p) => !(rows.find((r) => r.id === assignTo)?.people || []).includes(p.id));
 
   const renderRow = (r, idx) => (
@@ -1444,7 +1544,7 @@ function OrgEditor({ which, pool, pickPool, db, setDb, ui, editable, committeeLa
         {editable && (
           <div style={{ display: "flex", gap: 6 }}>
             <Btn variant="ghost" small onClick={() => setEditRow(r)}>แก้ชื่อแถว</Btn>
-            <Btn variant="danger" small onClick={() => removeRow(r.id)}>ลบแถว</Btn>
+            <Btn variant="danger" small onClick={() => setConfirmRow(r)}>ลบแถว</Btn>
           </div>
         )}
       </div>
@@ -1487,6 +1587,7 @@ function OrgEditor({ which, pool, pickPool, db, setDb, ui, editable, committeeLa
       {assignTo && <SearchPersonPopup title={`เลือกจาก${committeeLabel}`} pool={availPool} emptyText={`ยังไม่มี${committeeLabel} — ไปตั้งกรรมการที่ บุคลากร → บัญชีผู้ใช้ ก่อน`} onClose={() => setAssignTo(null)} onPick={(p) => addPerson(assignTo, p.id)} />}
       {addRow && <RowForm onClose={() => setAddRow(null)} onSave={(row) => ui.run("กำลังเพิ่มหน้าที่...", () => { update((rs) => [...rs, { ...row, cat: addRow, id: "r" + Date.now(), people: [] }]); setAddRow(null); })} />}
       {editRow && <RowForm row={editRow} onClose={() => setEditRow(null)} onSave={(row) => ui.run("กำลังบันทึกแถว...", () => { update((rs) => rs.map((x) => x.id === editRow.id ? { ...x, title: row.title, after: row.after } : x)); setEditRow(null); })} />}
+      {confirmRow && <ConfirmModal title="ยืนยันการลบแถว" message={`ลบแถว "${confirmRow.title}" ? จะถูกเก็บในถังขยะ (กู้คืนได้)`} onConfirm={() => removeRow(confirmRow)} onClose={() => setConfirmRow(null)} />}
     </div>
   );
 }
@@ -1522,26 +1623,46 @@ function CompTable({ kind, db, setDb, ui }) {
   const [add, setAdd] = useState(false);
   const [edit, setEdit] = useState(null);
   const [judge, setJudge] = useState(null);
-  const remove = (id) => ui.run("กำลังลบรายการ...", () => setDb((p) => ({ ...p, competitions: p.competitions.filter((c) => c.id !== id) })));
+  const [confirmDel, setConfirmDel] = useState(null);
+  const remove = (c) => ui.run("กำลังลบรายการ...", () => { setDb((p) => ({ ...p, competitions: p.competitions.filter((x) => x.id !== c.id), trash: [makeTrash("competition", `รายการ${kind}: ${c.name}`, c), ...(p.trash || [])] })); setConfirmDel(null); });
+  const move = (id, dir) => ui.run("กำลังจัดลำดับ...", () => setDb((p) => {
+    const arr = [...p.competitions];
+    const idxs = arr.map((c, i) => c.kind === kind ? i : -1).filter((i) => i >= 0);
+    const pos = arr.findIndex((c) => c.id === id);
+    const among = idxs.indexOf(pos) + dir;
+    if (among < 0 || among >= idxs.length) return p;
+    const j = idxs[among];
+    [arr[pos], arr[j]] = [arr[j], arr[pos]];
+    return { ...p, competitions: arr };
+  }));
   const save = (c, isEdit) => ui.run("กำลังบันทึก...", () => {
     setDb((p) => ({ ...p, competitions: isEdit ? p.competitions.map((x) => x.id === c.id ? c : x) : [...p.competitions, { ...c, id: (kind === "แข่งขัน" ? "C" : "A") + Date.now(), participants: [], schedule: [], results: {}, judgeTeachers: [], judgeStudents: [] }] }));
     setAdd(false); setEdit(null);
   });
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}><Btn small onClick={() => setAdd(true)}>+ เพิ่มรายการ{kind}</Btn></div>
-      {list.map((c) => (
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontSize: 12.5, color: C.muted }}>เลื่อนลำดับด้วยปุ่ม ▲▼ · ลำดับนี้ใช้ในดรอปดาวน์คัดเลือก</span>
+        <Btn small onClick={() => setAdd(true)}>+ เพิ่มรายการ{kind}</Btn>
+      </div>
+      {list.map((c, i) => (
         <Card key={c.id} style={{ padding: 14 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-            <div>
-              <div style={{ fontWeight: 700, color: C.ink }}>{c.name}</div>
-              <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>ตัวจริง {c.mainCount || "ไม่กำหนด"} · สำรอง {c.reserveCount || "ไม่กำหนด"} · สมัคร {c.regStart} ถึง {c.regEnd}</div>
-              <div style={{ fontSize: 12, color: C.muted }}>ผู้สมัคร {c.participants.length} คน · กรรมการครู {(c.judgeTeachers || []).length} · กรรมการนักเรียน {(c.judgeStudents || []).length}</div>
+            <div style={{ display: "flex", gap: 10, minWidth: 0 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                <button onClick={() => move(c.id, -1)} disabled={i === 0} style={{ border: `1px solid ${C.line}`, background: C.surface, borderRadius: 6, cursor: i === 0 ? "default" : "pointer", color: i === 0 ? C.line : C.primary, width: 26, height: 22, fontSize: 12 }}>▲</button>
+                <button onClick={() => move(c.id, 1)} disabled={i === list.length - 1} style={{ border: `1px solid ${C.line}`, background: C.surface, borderRadius: 6, cursor: i === list.length - 1 ? "default" : "pointer", color: i === list.length - 1 ? C.line : C.primary, width: 26, height: 22, fontSize: 12 }}>▼</button>
+              </div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 700, color: C.ink }}>{i + 1}. {c.name}</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>ตัวจริง {c.mainCount || "ไม่กำหนด"} · สำรอง {c.reserveCount || "ไม่กำหนด"} · สมัคร {c.regStart} ถึง {c.regEnd}</div>
+                <div style={{ fontSize: 12, color: C.muted }}>ผู้สมัคร {c.participants.length} คน · กรรมการครู {(c.judgeTeachers || []).length} · กรรมการนักเรียน {(c.judgeStudents || []).length}</div>
+              </div>
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
               <Btn variant="ghost" small onClick={() => setJudge(c)}>จัดกรรมการ</Btn>
               <Btn variant="ghost" small onClick={() => setEdit(c)}>แก้ไข</Btn>
-              <Btn variant="danger" small onClick={() => remove(c.id)}>ลบ</Btn>
+              <Btn variant="danger" small onClick={() => setConfirmDel(c)}>ลบ</Btn>
             </div>
           </div>
         </Card>
@@ -1549,6 +1670,7 @@ function CompTable({ kind, db, setDb, ui }) {
       {list.length === 0 && <Empty text={`ยังไม่มีรายการ${kind}`} />}
       {(add || edit) && <CompForm kind={kind} comp={edit} onClose={() => { setAdd(false); setEdit(null); }} onSave={save} />}
       {judge && <JudgeAssign comp={judge} cat={kind === "แข่งขัน" ? "comp" : "act"} db={db} setDb={setDb} onClose={() => setJudge(null)} />}
+      {confirmDel && <ConfirmModal title="ยืนยันการลบ" message={`ลบ "${confirmDel.name}" ? รายการจะถูกเก็บในถังขยะ (กู้คืนได้)`} onConfirm={() => remove(confirmDel)} onClose={() => setConfirmDel(null)} />}
     </div>
   );
 }
@@ -2069,6 +2191,7 @@ function mergeDb(loaded) {
     orgTeacher: (loaded && loaded.orgTeacher) || [],
     orgStudent: (loaded && loaded.orgStudent) || [],
     archived: (loaded && loaded.archived) || [],
+    trash: (loaded && loaded.trash) || [],
     settings: {
       ...seed.settings, ...s,
       houses: (s.houses && s.houses.length) ? s.houses : seed.settings.houses,
