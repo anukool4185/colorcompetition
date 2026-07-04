@@ -337,7 +337,7 @@ function Login({ db, onEnter, onBack }) {
   const [err, setErr] = useState("");
   const submit = () => {
     const auth = resolveLogin(db, u, p);
-    if (auth) { setErr(""); onEnter(auth); }
+    if (auth) { localStorage.setItem("auth", JSON.stringify(auth)); setErr(""); onEnter(auth); }
     else setErr("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");
   };
   const inp = { width: "100%", padding: "11px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, outline: "none", background: "#fbfafd", marginBottom: 12 };
@@ -1738,12 +1738,26 @@ function StatusBar({ status, lastSaved, onSave, onRetry }) {
   );
 }
 
+function toast(msg) {
+  const t = document.createElement("div");
+  t.className = "toast";
+  t.innerText = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2800);
+}
+
 /* ============================================================
    ROOT
    ============================================================ */
 function App() {
   const [screen, setScreen] = useState("landing");
-  const [auth, setAuth] = useState(null);
+  const [auth, setAuth] = useState(() => {
+    try {
+      const stored = localStorage.getItem("auth");
+      if (stored) return JSON.parse(stored);
+    } catch (e) {}
+    return null;
+  });
   const [db, setDb] = useState(seed);
   const [sync, setSync] = useState(API_URL ? "loading" : "local");
   const [lastSaved, setLastSaved] = useState(null);
@@ -1784,7 +1798,7 @@ function App() {
       setSync("saved"); setLastSaved(Date.now());
     }).catch((err) => { console.warn("[โหลดไม่สำเร็จ]", err); loadedRef.current = false; setSync("offline"); });
   };
-  useEffect(() => { loadData(); }, []);
+  useEffect(() => { if (auth) toast("กลับสู่ระบบ"); loadData(); }, []);
 
   // ออโต้เซฟหลังหยุดแก้ไข ~2 วินาที (ทำงานเฉพาะเมื่อโหลดข้อมูลเดิมสำเร็จแล้ว)
   useEffect(() => {
@@ -1798,7 +1812,7 @@ function App() {
   const teamColors = db.settings.houses && db.settings.houses.length ? db.settings.houses : DEFAULT_HOUSES;
   C = makeTheme(teamColors[0].color);
   HOUSES = teamColors.map((h) => h.color);
-  const exit = () => { setAuth(null); setScreen("landing"); };
+  const exit = () => { localStorage.removeItem("auth"); setAuth(null); setScreen("landing"); };
   return (
     <div style={{ fontFamily: "'Noto Sans Thai', system-ui, sans-serif", color: C.ink }}>
       <style>{`
@@ -1825,5 +1839,18 @@ function App() {
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
 </script>
+<style>
+.toast {
+  position: fixed; z-index: 100; left: 50%; bottom: 0;
+  padding: 12px 14px; border-radius: 24px;
+  transform: translate(-50%, -24px); transition: transform 0.3s ease-out;
+  box-shadow: 0 2px 20px rgba(0,0,0,.2); animation: fade-in .3s ease-out;
+  background: rgba(24,38,53,.88); color: white; font-size: 14px;
+}
+@keyframes fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+</style>
 </body>
 </html>
