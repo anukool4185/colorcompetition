@@ -1750,7 +1750,13 @@ function toast(msg) {
    ROOT
    ============================================================ */
 function App() {
-  const [screen, setScreen] = useState("landing");
+  const [screen, setScreen] = useState(() => {
+    try {
+      const stored = localStorage.getItem("auth");
+      if (stored) return "app";
+    } catch (e) {}
+    return "landing";
+  });
   const [auth, setAuth] = useState(() => {
     try {
       const stored = localStorage.getItem("auth");
