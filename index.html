@@ -863,7 +863,7 @@ function applyMapping(dataRows, mapping, kind, houses) {
     if (!rec.last && rec.first && (rec.first.includes(" ") || IMP_PREFIXES.some((p) => rec.first.startsWith(p)))) { const s = impSplitName(rec.first); rec.pre = rec.pre || expandPrefix(s.pre); rec.first = s.first; rec.last = s.last; }
     if (gradeRoom) { const gr = impSplitGradeRoom(gradeRoom); rec.grade = rec.grade || gr.grade; rec.room = rec.room || gr.room; }
     else if (rec.grade && !rec.room) { const gr = impSplitGradeRoom(rec.grade); if (gr.room) { rec.grade = gr.grade; rec.room = gr.room; } }
-    if (colorName) { const i = (houses || []).findIndex((h) => h.name && (h.name === colorName || h.name.replace(/^สี/, "") === colorName.replace(/^สี/, ""))); if (i >= 0) rec.house = i; }
+    if (!colorSeen) rec.house = fileHouse; // ถ้าไม่มีคอลัมน์สีมา ใช้ค่าที่ผู้ใช้เลือกให้ทั้งไฟล์
     return rec;
   }).filter((r) => r.id || r.first || r.last);
 }
@@ -882,6 +882,8 @@ function ImportPreview({ kind, rawRows, existing, houses, onClose, onConfirm }) 
 
   const parsed = applyMapping(dataRows, mapping, kind, houses);
   const fileSeen = new Set(existing.map((e) => String(e.id)));
+  const colorSeen = mapping.includes("color");
+  const [fileHouse, setFileHouse] = useState(0);
   const marked = parsed.map((r) => {
     const idStr = String(r.id || ""); let dup = false, reason = "";
     if (!idStr) { dup = true; reason = "ไม่มีรหัส"; }
@@ -900,6 +902,15 @@ function ImportPreview({ kind, rawRows, existing, houses, onClose, onConfirm }) 
         <input type="checkbox" checked={useHeader} onChange={(e) => toggleHeader(e.target.checked)} style={{ width: 17, height: 17 }} /> แถวแรกเป็นหัวตาราง (ไม่นำเข้าเป็นข้อมูล)
       </label>
       <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0 }}>ระบบอ่านทุกเซลแล้วเดาให้ว่าคอลัมน์ไหนคืออะไร ปรับที่ช่องหัวตารางได้ ตัวอย่างจะอัปเดตทันที</p>
+      {!colorSeen && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+          <span style={{ fontSize: 13, color: C.muted }}>ไม่มีคอลัมน์ "สี" ใช้สีนี้กับทุกคนในไฟล์:</span>
+          <Select value={fileHouse} onChange={(v) => { setFileHouse(Number(v)); }}>
+            <option value={0}>ไม่ระบุ</option>
+            {(houses || []).map((h, i) => <option key={h.name} value={i}>{h.name}</option>)}
+          </Select>
+        </div>
+      )}
       <div style={{ overflowX: "auto", border: `1px solid ${C.line}`, borderRadius: 10, marginBottom: 12 }}>
         <table style={{ borderCollapse: "collapse", width: "100%" }}>
           <thead><tr>{mapping.map((f, c) => (
@@ -1853,10 +1864,7 @@ root.render(<App />);
   box-shadow: 0 2px 20px rgba(0,0,0,.2); animation: fade-in .3s ease-out;
   background: rgba(24,38,53,.88); color: white; font-size: 14px;
 }
-@keyframes fade-in {
-  0% { opacity: 0; }
-  100% { opacity: 1; }
-}
+@keyframes fade-in { 0% { opacity: 0; } 100% { opacity: 1; } }
 </style>
 </body>
 </html>
