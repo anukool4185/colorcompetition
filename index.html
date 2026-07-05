@@ -1979,7 +1979,7 @@ function CompTable({ kind, db, setDb, ui }) {
               </div>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 700, color: C.ink, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>{i + 1}. {c.name} <ItemStatusBadge c={c} /></div>
-                <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>ตัวจริง {c.mainCount || "ไม่จำกัด"} · สำรอง {c.reserveCount || "ไม่จำกัด"} · สมัคร {c.regStart} ถึง {c.regEnd}</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>ตัวจริง {c.mainCount || "ไม่จำกัด"} · สำรอง {c.reserveCount || "ไม่จำกัด"} · ชั้น {gradesLabel(c)} · สมัคร {c.regStart} ถึง {c.regEnd}</div>
                 <div style={{ fontSize: 12, color: C.muted }}>ผู้สมัคร {c.participants.length} คน · กรรมการครู {(c.judgeTeachers || []).length} · กรรมการนักเรียน {(c.judgeStudents || []).length}</div>
               </div>
             </div>
@@ -2046,18 +2046,27 @@ function JudgeAssign({ comp, cat, db, setDb, onClose }) {
   );
 }
 function CompForm({ kind, comp, onClose, onSave }) {
-  const [f, setF] = useState(comp || { kind, name: "", mainCount: 0, reserveCount: 0, regStart: "", regEnd: "" });
+  const [f, setF] = useState(comp || { kind, name: "", mainCount: 0, reserveCount: 0, regStart: "", regEnd: "", grades: [] });
   const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
+  const gsel = f.grades || [];
+  const toggleG = (g) => setF((p) => { const cur = p.grades || []; return { ...p, grades: cur.includes(g) ? cur.filter((x) => x !== g) : [...cur, g] }; });
   return (
     <Modal title={comp ? "แก้ไขรายการ" : `เพิ่มรายการ${kind}`} onClose={onClose}>
       <Field label="ชื่อรายการ" value={f.name} onChange={set("name")} />
       <div className="md:grid md:grid-cols-2 md:gap-x-3">
-        <Field label="จำนวนตัวจริง (0 = ไม่กำหนด)" value={String(f.mainCount)} onChange={(v) => set("mainCount")(Number(v) || 0)} />
-        <Field label="จำนวนตัวสำรอง (0 = ไม่กำหนด)" value={String(f.reserveCount)} onChange={(v) => set("reserveCount")(Number(v) || 0)} />
+        <Field label="จำนวนตัวจริง (0 = ไม่จำกัด)" value={String(f.mainCount)} onChange={(v) => set("mainCount")(Number(v) || 0)} />
+        <Field label="จำนวนตัวสำรอง (0 = ไม่จำกัด)" value={String(f.reserveCount)} onChange={(v) => set("reserveCount")(Number(v) || 0)} />
         <Field label="รับสมัครตั้งแต่" value={f.regStart} onChange={set("regStart")} type="date" />
         <Field label="ถึงวันที่" value={f.regEnd} onChange={set("regEnd")} type="date" />
       </div>
-      <div style={{ display: "flex", gap: 8 }}><Btn onClick={() => onSave(f, !!comp)}>บันทึก</Btn><Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn></div>
+      <span style={{ display: "block", fontSize: 13, color: C.muted, marginBottom: 6 }}>ระดับชั้นที่ลงรายการนี้ได้ (ไม่เลือก = ทุกชั้น)</span>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+        {GRADE_ORDER.map((g) => {
+          const on = gsel.includes(g);
+          return <button key={g} onClick={() => toggleG(g)} style={{ padding: "5px 11px", borderRadius: 16, border: `1px solid ${on ? C.primary : C.line}`, background: on ? C.soft : C.surface, color: on ? C.primaryDark : C.ink, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>{g}</button>;
+        })}
+      </div>
+      <div style={{ display: "flex", gap: 8 }}><Btn onClick={() => onSave(f, !!comp)} disabled={!f.name}>บันทึก</Btn><Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn></div>
     </Modal>
   );
 }
@@ -2082,6 +2091,14 @@ function itemStatus(c) {
 function ItemStatusBadge({ c }) {
   const st = itemStatus(c);
   return <span style={{ fontSize: 11.5, fontWeight: 700, color: st.color, background: st.bg, borderRadius: 12, padding: "2px 10px", whiteSpace: "nowrap" }}>{st.label}</span>;
+}
+function eligibleForGrade(c, grade) {
+  if (!c.grades || c.grades.length === 0) return true;
+  return c.grades.includes(grade);
+}
+function gradesLabel(c) {
+  if (!c.grades || c.grades.length === 0) return "ทุกชั้น";
+  return c.grades.join(", ");
 }
 function SelectionScreen({ db, setDb, ui }) {
   const [kind, setKind] = useState("แข่งขัน");
@@ -2793,7 +2810,7 @@ function MyProfile({ me, db, setDb, ui }) {
 }
 function StudentRegister({ me, db, setDb, ui }) {
   const [kind, setKind] = useState("แข่งขัน");
-  const list = db.competitions.filter((c) => c.kind === kind);
+  const list = db.competitions.filter((c) => c.kind === kind && eligibleForGrade(c, me.grade));
   const myMain = db.competitions.filter((c) => c.participants.some((p) => p.sid === me.id && p.status === "main")).length;
   const quota = Number(db.settings.maxMain) || 0;
   const quotaFull = quota > 0 && myMain >= quota;
