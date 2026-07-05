@@ -89,10 +89,30 @@ const seed = {
   competitions: [],
   archived: [],
   trash: [],
-  settings: { maxMain: 3, themeColor: DEFAULT_HOUSES[0].color, houses: DEFAULT_HOUSES, announce: { speed: 18, showLines: 3, lines: [
+  settings: { maxMain: 3, themeColor: DEFAULT_HOUSES[0].color, houses: DEFAULT_HOUSES, scoreConfig: { scheme: "outcome", win: 3, draw: 1, lose: 0, gold: 10, silver: 8, bronze: 6 }, announce: { speed: 18, showLines: 3, lines: [
     "ยินดีต้อนรับสู่การแข่งขันวิชาการสี",
   ] } },
 };
+function scoreOf(r, cfg) {
+  if (!r || !cfg) return 0;
+  let s = 0;
+  if (r.outcome === "ชนะ") s += Number(cfg.win) || 0;
+  else if (r.outcome === "เสมอ") s += Number(cfg.draw) || 0;
+  else if (r.outcome === "แพ้") s += Number(cfg.lose) || 0;
+  if (r.medal === "ทอง") s += Number(cfg.gold) || 0;
+  else if (r.medal === "เงิน") s += Number(cfg.silver) || 0;
+  else if (r.medal === "ทองแดง") s += Number(cfg.bronze) || 0;
+  return s;
+}
+// รวมคะแนนรายคนจากทุกรายการ → { [sid]: totalScore }
+function scoreStats(db) {
+  const cfg = db.settings.scoreConfig || {};
+  const tot = {};
+  db.competitions.forEach((c) => {
+    Object.entries(c.results || {}).forEach(([sid, r]) => { tot[sid] = (tot[sid] || 0) + scoreOf(r, cfg); });
+  });
+  return tot;
+}
 
 /* ---------------- utils + primitives ---------------- */
 const initials = (a = "", b = "") => (a[0] || "") + (b[0] || "");
@@ -1813,10 +1833,12 @@ function CompManager({ db, setDb, ui }) {
   return (
     <div>
       <PageHead title="การแข่งขัน & กิจกรรม" sub={`คัดเลือกผู้เข้าแข่ง · จำกัดตัวจริงต่อคน: ${db.settings.maxMain} รายการ (เพิ่ม/แก้รายการที่เมนู กำหนดหน้าที่)`} />
-      <Tabs tabs={[{ key: "select", label: "คัดเลือกผู้เข้าแข่ง" }, { key: "comp", label: "รายการแข่งขัน" }, { key: "act", label: "รายการกิจกรรม" }, { key: "set", label: "ตั้งค่า" }]} active={tab} onChange={setTab} />
+      <Tabs tabs={[{ key: "select", label: "คัดเลือกผู้เข้าแข่ง" }, { key: "results", label: "ลงผล" }, { key: "stats", label: "สถิติคะแนน" }, { key: "comp", label: "รายการแข่งขัน" }, { key: "act", label: "รายการกิจกรรม" }, { key: "set", label: "ตั้งค่า" }]} active={tab} onChange={setTab} />
       {tab === "comp" && <CompTable kind="แข่งขัน" db={db} setDb={setDb} ui={ui} />}
       {tab === "act" && <CompTable kind="กิจกรรม" db={db} setDb={setDb} ui={ui} />}
       {tab === "select" && <SelectionScreen db={db} setDb={setDb} ui={ui} />}
+      {tab === "results" && <ResultsScreen db={db} setDb={setDb} ui={ui} />}
+      {tab === "stats" && <ScoreStatsScreen db={db} ui={ui} />}
       {tab === "set" && <CompSettings db={db} setDb={setDb} ui={ui} />}
     </div>
   );
@@ -2012,10 +2034,45 @@ function SettingsManager({ db, setDb, ui }) {
   return (
     <div>
       <PageHead title="ตั้งค่า" sub="ธีมสี & สีทีม · ประชาสัมพันธ์ · กำหนดการแข่งขัน" />
-      <Tabs tabs={[{ key: "theme", label: "ธีม & สีทีม" }, { key: "promo", label: "ประชาสัมพันธ์" }, { key: "schedule", label: "กำหนดการแข่งขัน" }]} active={tab} onChange={setTab} />
+      <Tabs tabs={[{ key: "theme", label: "ธีม & สีทีม" }, { key: "promo", label: "ประชาสัมพันธ์" }, { key: "schedule", label: "กำหนดการแข่งขัน" }, { key: "score", label: "คะแนน" }]} active={tab} onChange={setTab} />
       {tab === "theme" && <ThemeCard db={db} setDb={setDb} ui={ui} />}
       {tab === "promo" && <PromoCard db={db} setDb={setDb} ui={ui} />}
       {tab === "schedule" && <ScheduleSettings db={db} setDb={setDb} ui={ui} />}
+      {tab === "score" && <ScoreSettings db={db} setDb={setDb} ui={ui} />}
+    </div>
+  );
+}
+function ScoreSettings({ db, setDb, ui }) {
+  const cfg = db.settings.scoreConfig || { scheme: "outcome", win: 3, draw: 1, lose: 0, gold: 10, silver: 8, bronze: 6 };
+  const [f, setF] = useState(cfg);
+  const set = (k) => (v) => setF((p) => ({ ...p, [k]: k === "scheme" ? v : (Number(v) || 0) }));
+  const save = () => ui.run("กำลังบันทึกคะแนน...", () => { setDb((p) => ({ ...p, settings: { ...p.settings, scoreConfig: f } })); ui.notify("บันทึกคะแนนแล้ว"); });
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 520 }}>
+      <Card style={{ padding: 16 }}>
+        <div style={{ fontWeight: 700, color: C.ink, marginBottom: 6 }}>รูปแบบการให้คะแนน</div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+          {[["outcome", "แพ้ / เสมอ / ชนะ"], ["medal", "เหรียญ ทองแดง/เงิน/ทอง"], ["both", "ใช้ทั้งสองแบบ"]].map(([v, l]) => (
+            <button key={v} onClick={() => set("scheme")(v)} style={{ padding: "8px 12px", borderRadius: 10, border: `1px solid ${f.scheme === v ? C.primary : C.line}`, background: f.scheme === v ? C.soft : C.surface, color: f.scheme === v ? C.primaryDark : C.ink, fontWeight: 600, fontSize: 13, cursor: "pointer" }}>{l}</button>
+          ))}
+        </div>
+        {(f.scheme === "outcome" || f.scheme === "both") && (
+          <div className="md:grid md:grid-cols-2 md:gap-x-3">
+            <Field label="คะแนนชนะ" value={String(f.win)} onChange={set("win")} />
+            <Field label="คะแนนเสมอ" value={String(f.draw)} onChange={set("draw")} />
+            <Field label="คะแนนแพ้" value={String(f.lose)} onChange={set("lose")} />
+          </div>
+        )}
+        {(f.scheme === "medal" || f.scheme === "both") && (
+          <div className="md:grid md:grid-cols-2 md:gap-x-3">
+            <Field label="เหรียญทอง" value={String(f.gold)} onChange={set("gold")} />
+            <Field label="เหรียญเงิน" value={String(f.silver)} onChange={set("silver")} />
+            <Field label="เหรียญทองแดง" value={String(f.bronze)} onChange={set("bronze")} />
+          </div>
+        )}
+        <Btn onClick={save}>บันทึกคะแนน</Btn>
+      </Card>
+      <p style={{ fontSize: 12.5, color: C.muted, margin: 0 }}>คะแนนนี้จะถูกแจกอัตโนมัติเมื่อลงผลแต่ละรายการ และรวมเป็นสถิติรายคน (ดูที่ การแข่งขัน → สถิติคะแนน)</p>
     </div>
   );
 }
@@ -2180,73 +2237,124 @@ function CommitteeApp({ role, db, setDb, onExit }) {
   );
 }
 function ResultsScreen({ db, setDb, ui }) {
-  const [pick, setPick] = useState(db.competitions[0]?.id || "");
-  const [editRes, setEditRes] = useState(null);
-  const comp = db.competitions.find((c) => c.id === pick);
-  const mains = comp ? comp.participants.filter((x) => x.status !== "rejected") : [];
+  const cfg = db.settings.scoreConfig || {};
+  const scheme = cfg.scheme || "outcome";
+  const [kind, setKind] = useState("แข่งขัน");
+  const list = db.competitions.filter((c) => c.kind === kind);
+  const [pick, setPick] = useState("");
+  const [nextFor, setNextFor] = useState(null);
+  const comp = list.find((c) => c.id === pick) || list[0];
+  const parts = comp ? comp.participants.filter((x) => x.status === "main" || x.status === "reserve") : [];
+  const setResult = (sid, patch) => setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, results: { ...c.results, [sid]: { ...(c.results[sid] || {}), ...patch } } } : c) }));
+  const chip = (sid, key, val, r, color) => (
+    <button onClick={() => setResult(sid, { [key]: r[key] === val ? "" : val })} style={{ padding: "5px 11px", borderRadius: 16, border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 700, background: r[key] === val ? color : C.soft, color: r[key] === val ? "#fff" : C.primaryDark }}>{val}</button>
+  );
   return (
     <div>
-      <PageHead title="ลงผลการแข่งขัน" sub="แพ้/ชนะ/เสมอ · เหรียญ · คะแนนรายรอบ" right={comp && <ExportBar run={ui.run} />} />
-      <div style={{ marginBottom: 12 }}><Select value={pick} onChange={setPick}>{db.competitions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></div>
+      <PageHead title="ลงผลการแข่งขัน" sub="ลงผลรายรายการ · คะแนนแจกอัตโนมัติตามที่ตั้งไว้ (ตั้งค่า → คะแนน)" />
+      <Tabs tabs={[{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }]} active={kind} onChange={(k) => { setKind(k); setPick(""); }} />
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <Select value={comp?.id || ""} onChange={setPick}>{list.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select>
+        {comp && <Btn small onClick={() => setNextFor(comp)}>บันทึก & ระบุรอบถัดไป</Btn>}
+        {comp && comp.resultDone && <span style={{ fontSize: 12, fontWeight: 700, color: "#2f9e6b" }}>● จบการแข่งแล้ว</span>}
+      </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {mains.map((x) => {
-          const s = db.students.find((st) => st.id === x.sid);
+        {parts.map((x) => {
+          const s = db.students.find((st) => st.id === x.sid); if (!s) return null;
           const r = comp.results[x.sid] || {};
-          if (!s) return null;
+          const sc = scoreOf(r, cfg);
           return (
             <Card key={x.sid} style={{ padding: 12 }}>
-              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                <Avatar person={s} size={48} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, color: C.ink, fontSize: 14 }}>{fullName(s)}</div>
-                  <div style={{ fontSize: 12, color: C.muted }}>
-                    {r.outcome ? `ผล: ${r.outcome}` : "ยังไม่ลงผล"}{r.medal ? ` · เหรียญ${r.medal}` : ""}{r.rounds?.length ? ` · ${r.rounds.length} รอบ` : ""}
-                  </div>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                <Avatar person={s} size={40} />
+                <div style={{ flex: 1, minWidth: 120 }}>
+                  <div style={{ fontWeight: 700, color: C.ink, fontSize: 13.5 }}>{fullName(s)} <span style={{ fontSize: 11, color: C.muted }}>({x.status === "main" ? "ตัวจริง" : "สำรอง"})</span></div>
+                  <div style={{ fontSize: 11.5, color: C.muted }}>{s.grade}/{s.room} · คะแนนรายการนี้ {sc}</div>
                 </div>
-                <Btn variant="ghost" small onClick={() => setEditRes(x.sid)}>ลงผล</Btn>
+                <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                  {(scheme === "outcome" || scheme === "both") && <>{chip(x.sid, "outcome", "ชนะ", r, "#2f9e6b")}{chip(x.sid, "outcome", "เสมอ", r, C.primary)}{chip(x.sid, "outcome", "แพ้", r, "#c0392b")}</>}
+                  {(scheme === "medal" || scheme === "both") && <>{chip(x.sid, "medal", "ทอง", r, C.gold)}{chip(x.sid, "medal", "เงิน", r, "#8a97a5")}{chip(x.sid, "medal", "ทองแดง", r, "#a9702f")}</>}
+                </div>
               </div>
             </Card>
           );
         })}
-        {mains.length === 0 && <Empty text="ยังไม่มีผู้เข้าแข่งในรายการนี้" />}
+        {(!comp || parts.length === 0) && <Empty text="ยังไม่มีผู้เข้าแข่งในรายการนี้" />}
       </div>
-      {editRes && <ResultForm comp={comp} sid={editRes} student={db.students.find((s) => s.id === editRes)} onClose={() => setEditRes(null)}
-        onSave={(res) => ui.run("กำลังบันทึกผล...", () => { setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, results: { ...c.results, [editRes]: res } } : c) })); setEditRes(null); })} />}
+      {nextFor && <NextRoundModal comp={nextFor} db={db} setDb={setDb} ui={ui} onClose={() => setNextFor(null)} />}
     </div>
   );
 }
-function ResultForm({ comp, sid, student, onClose, onSave }) {
-  const [r, setR] = useState(comp.results[sid] || { outcome: "", medal: "", nextDate: "", rounds: [] });
-  const set = (k) => (v) => setR((p) => ({ ...p, [k]: v }));
-  const addRound = () => setR((p) => ({ ...p, rounds: [...p.rounds, { round: `รอบ ${p.rounds.length + 1}`, score: "" }] }));
-  const setRound = (i, k, v) => setR((p) => ({ ...p, rounds: p.rounds.map((x, j) => j === i ? { ...x, [k]: v } : x) }));
-  const chip = (label, key, val, colors) => (
-    <button onClick={() => set(key)(r[key] === val ? "" : val)} style={{ padding: "8px 12px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, background: r[key] === val ? colors[0] : C.soft, color: r[key] === val ? "#fff" : C.primaryDark }}>{label}</button>
+function NextRoundModal({ comp, db, setDb, ui, onClose }) {
+  const [mode, setMode] = useState("");
+  const [date, setDate] = useState(""); const [time, setTime] = useState(""); const [place, setPlace] = useState("");
+  const opt = (v, label) => (
+    <button key={v} onClick={() => setMode(v)} style={{ padding: "10px 12px", borderRadius: 10, border: `1px solid ${mode === v ? C.primary : C.line}`, background: mode === v ? C.soft : C.surface, color: mode === v ? C.primaryDark : C.ink, fontWeight: 600, fontSize: 13, cursor: "pointer", textAlign: "left" }}>{label}</button>
   );
+  const save = () => ui.run("กำลังบันทึก...", () => {
+    const dup = comp.schedule.some((s) => s.date === date && s.time === time && date);
+    setDb((p) => ({ ...p, competitions: p.competitions.map((c) => {
+      if (c.id !== comp.id) return c;
+      let schedule = c.schedule, resultDone = c.resultDone || false;
+      if (mode === "finished") resultDone = true;
+      if (mode === "known" && date && !dup) schedule = [...c.schedule, { round: "รอบถัดไป", date, time, place }];
+      return { ...c, schedule, resultDone };
+    }) }));
+    if (mode === "known" && dup) ui.notify("เวลาซ้ำกับที่ตั้งไว้ — บันทึกเฉพาะผล");
+    else ui.notify("บันทึกแล้ว");
+    onClose();
+  });
   return (
-    <Modal title={`ลงผล: ${fullName(student)}`} onClose={onClose}>
-      <div style={{ fontSize: 13, color: C.muted, marginBottom: 6 }}>ผลการแข่งขัน</div>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-        {chip("ชนะ", "outcome", "ชนะ", ["#2f9e6b"])}{chip("แพ้", "outcome", "แพ้", ["#c0392b"])}{chip("เสมอ", "outcome", "เสมอ", [C.primary])}
-        <Btn variant="ghost" small onClick={() => set("outcome")("")}>ยกเลิกผล</Btn>
+    <Modal title={`รอบถัดไป: ${comp.name}`} onClose={onClose}>
+      <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0 }}>ผลถูกบันทึกไว้แล้ว · เลือกสถานะรอบถัดไป</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+        {opt("finished", "1. จบการแข่งแล้ว (ไม่ต้องลงวันเวลา)")}
+        {opt("unknown", "2. ไม่ทราบวันรอบต่อไป (ไม่ต้องลงวันเวลา)")}
+        {opt("known", "3. ทราบเวลาแข่งครั้งถัดไป (ต้องลงวันเวลา)")}
       </div>
-      <div style={{ fontSize: 13, color: C.muted, marginBottom: 6 }}>เหรียญรางวัล</div>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-        {chip("ทอง", "medal", "ทอง", [C.gold])}{chip("เงิน", "medal", "เงิน", ["#8a97a5"])}{chip("ทองแดง", "medal", "ทองแดง", ["#a9702f"])}
-        <Btn variant="ghost" small onClick={() => set("medal")("")}>ยกเลิกเหรียญ</Btn>
-      </div>
-      <Field label="วัน/เวลาแข่งครั้งต่อไป" value={r.nextDate} onChange={set("nextDate")} placeholder="2025-07-20 09:00" />
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-        <span style={{ fontSize: 13, color: C.muted }}>คะแนนรายรอบ</span><Btn variant="ghost" small onClick={addRound}>+ เพิ่มรอบ</Btn>
-      </div>
-      {r.rounds.map((rd, i) => (
-        <div key={i} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-          <input value={rd.round} onChange={(e) => setRound(i, "round", e.target.value)} style={{ flex: 1, padding: "9px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 13 }} />
-          <input value={rd.score} onChange={(e) => setRound(i, "score", e.target.value)} placeholder="คะแนน" style={{ width: 90, padding: "9px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 13 }} />
+      {mode === "known" && (
+        <div>
+          <div className="md:grid md:grid-cols-2 md:gap-x-3">
+            <Field label="วันที่" value={date} onChange={setDate} type="date" />
+            <Field label="เวลา" value={time} onChange={setTime} type="time" />
+          </div>
+          <Field label="สถานที่" value={place} onChange={setPlace} />
+          <p style={{ fontSize: 11.5, color: C.muted, marginTop: 0 }}>ถ้าวัน/เวลาซ้ำกับที่แอดมินตั้งไว้ ระบบจะบันทึกเฉพาะผล (ไม่เพิ่มเวลาซ้ำ)</p>
         </div>
-      ))}
-      <div style={{ display: "flex", gap: 8, marginTop: 8 }}><Btn onClick={() => onSave(r)}>บันทึกผล</Btn><Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn></div>
+      )}
+      <div style={{ display: "flex", gap: 8 }}><Btn onClick={save} disabled={!mode || (mode === "known" && !date)}>บันทึก</Btn><Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn></div>
     </Modal>
+  );
+}
+function ScoreStatsScreen({ db, ui }) {
+  const tot = scoreStats(db);
+  const rows = db.students.map((s) => ({ s, score: tot[s.id] || 0 })).filter((r) => r.score > 0).sort((a, b) => b.score - a.score);
+  const exportXlsx = () => {
+    try {
+      const aoa = [["อันดับ", "ชื่อ", "ชั้น/ห้อง", "สี", "คะแนนรวม"]];
+      rows.forEach((r, i) => aoa.push([i + 1, fullName(r.s), `${r.s.grade}/${r.s.room}`, (db.settings.houses[r.s.house] || {}).name || "", r.score]));
+      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "คะแนน"); XLSX.writeFile(wb, "สถิติคะแนน.xlsx");
+    } catch (e) { ui && ui.notify("ดาวน์โหลดไม่สำเร็จ"); }
+  };
+  return (
+    <div>
+      <PageHead title="สถิติคะแนน / ประกาศรางวัล" sub="คะแนนรวมรายคนจากทุกรายการ (มาก → น้อย)" />
+      <div style={{ marginBottom: 12 }}><Btn small variant="ghost" onClick={exportXlsx}>ดาวน์โหลด Excel</Btn></div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {rows.map((r, i) => (
+          <Card key={r.s.id} style={{ padding: 10, display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 30, textAlign: "center", fontWeight: 800, color: i < 3 ? C.gold : C.muted, fontSize: 16 }}>{i + 1}</div>
+            <Avatar person={r.s} size={38} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, color: C.ink, fontSize: 13.5 }}>{fullName(r.s)}</div>
+              <div style={{ fontSize: 11.5, color: C.muted }}>{r.s.grade}/{r.s.room}</div>
+            </div>
+            <div style={{ fontWeight: 800, color: C.primary, fontSize: 18 }}>{r.score}</div>
+          </Card>
+        ))}
+        {rows.length === 0 && <Empty text="ยังไม่มีคะแนน (ลงผลการแข่งขันก่อน)" />}
+      </div>
+    </div>
   );
 }
 function ScheduleScreen({ db, setDb, ui, editable }) {
@@ -2437,6 +2545,7 @@ function mergeDb(loaded) {
     settings: {
       ...seed.settings, ...s,
       houses: (s.houses && s.houses.length) ? s.houses : seed.settings.houses,
+      scoreConfig: { ...seed.settings.scoreConfig, ...(s.scoreConfig || {}) },
       announce: { ...seed.settings.announce, ...(s.announce || {}) },
     },
   };
