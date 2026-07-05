@@ -4,8 +4,6 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>ระบบจัดการแข่งขันวิชาการสี</title>
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -493,7 +491,7 @@ function AdminApp({ db, setDb, onExit }) {
   const nav = [
     { key: "home", label: "ภาพรวม", icon: "▦" },
     { key: "people", label: "บุคลากร", icon: "👥" },
-    { key: "duties", label: "กำหนดหน้าที่", icon: "🧩" },
+    { key: "duties", label: "หน้าที่ กิจกรรมแข่งขัน", icon: "🧩" },
     { key: "org", label: "ผังองค์กร", icon: "🗂" },
     { key: "comp", label: "การแข่งขัน", icon: "🏆" },
     { key: "promote", label: "เลื่อนชั้น", icon: "⬆" },
@@ -534,6 +532,16 @@ function AdminHome({ db, setDb, ui }) {
         ))}
       </Card>
       <ConnTest />
+      <Card style={{ padding: 16 }}>
+        <div style={{ fontWeight: 700, color: C.ink, marginBottom: 4 }}>ข้อมูลทั้งหมดที่บันทึกใน Google Sheet</div>
+        <p style={{ fontSize: 12, color: C.muted, marginTop: 0, marginBottom: 10 }}>ทุกอย่างถูกเก็บเป็น JSON ก้อนเดียวในแท็บ APP_DATA (ไม่ได้อยู่ในไฟล์ HTML) · อัปเดตหน้าเว็บได้โดยข้อมูลไม่หาย</p>
+        <div style={{ display: "grid", gap: 8 }} className="grid-cols-2 md:grid-cols-4">
+          {[["นักเรียน", db.students.length], ["ครู", db.teachers.length], ["รายการแข่งขัน", db.competitions.filter((c) => c.kind === "แข่งขัน").length], ["รายการกิจกรรม", db.competitions.filter((c) => c.kind === "กิจกรรม").length], ["ตำแหน่งผังครู", db.orgTeacher.length], ["ตำแหน่งผังนักเรียน", db.orgStudent.length], ["สำรอง(จบ)", (db.archived || []).length], ["ถังขยะ", (db.trash || []).length]].map(([k, v]) => (
+            <div key={k} style={{ padding: 10, borderRadius: 10, border: `1px solid ${C.line}`, textAlign: "center" }}><div style={{ fontSize: 20, fontWeight: 800, color: C.primary }}>{v}</div><div style={{ fontSize: 11, color: C.muted }}>{k}</div></div>
+          ))}
+        </div>
+      </Card>
+      <BackupCard db={db} setDb={setDb} ui={ui} />
       <Card style={{ padding: 16, border: `1px solid #eccdcd` }}>
         <div style={{ fontWeight: 700, color: "#b3453f", marginBottom: 6 }}>ล้างข้อมูลทั้งระบบ (เริ่มใหม่)</div>
         <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 10, lineHeight: 1.6 }}>ลบรายชื่อนักเรียน/ครู รายการแข่ง ผังองค์กร และบัญชีทั้งหมด (คงไว้เฉพาะสีทีม/ประชาสัมพันธ์) ใช้เมื่ออยากเริ่มต้นใหม่ทั้งหมด</p>
@@ -541,6 +549,38 @@ function AdminHome({ db, setDb, ui }) {
       </Card>
       {confirmReset && <ConfirmModal title="ยืนยันล้างข้อมูลทั้งระบบ" message="จะลบข้อมูลทั้งหมด (นักเรียน ครู บัญชี รายการแข่ง ผังองค์กร) เหลือเฉพาะการตั้งค่าสีทีม/ประชาสัมพันธ์ — ย้อนกลับไม่ได้ ยืนยันหรือไม่?" onConfirm={() => ui.run("กำลังล้างข้อมูล...", () => { setDb((p) => ({ students: [], teachers: [], assistants: [], competitions: [], orgTeacher: [], orgStudent: [], archived: [], trash: [], settings: p.settings })); setConfirmReset(false); ui.notify("ล้างข้อมูลแล้ว"); })} onClose={() => setConfirmReset(false)} />}
     </div>
+  );
+}
+function BackupCard({ db, setDb, ui }) {
+  const fileRef = useRef();
+  const [confirmR, setConfirmR] = useState(null);
+  const download = () => {
+    try {
+      const blob = new Blob([JSON.stringify(db, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const d = new Date(); const stamp = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}-${String(d.getHours()).padStart(2, "0")}${String(d.getMinutes()).padStart(2, "0")}`;
+      const a = document.createElement("a"); a.href = url; a.download = `สำรองวิชาการสี-${stamp}.json`; a.click();
+      URL.revokeObjectURL(url); ui.notify("ดาวน์โหลดไฟล์สำรองแล้ว");
+    } catch (e) { ui.notify("ดาวน์โหลดไม่สำเร็จ (เปิดผ่านหน้าเว็บจริง)"); }
+  };
+  const pick = (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => { try { setConfirmR(JSON.parse(r.result)); } catch (err) { ui.notify("ไฟล์ไม่ถูกต้อง"); } };
+    r.readAsText(f); e.target.value = "";
+  };
+  const restore = () => ui.run("กำลังกู้คืน...", () => { setDb(mergeDb(confirmR)); setConfirmR(null); ui.notify("กู้คืนแล้ว · ระบบจะบันทึกขึ้น Sheet อัตโนมัติ"); });
+  return (
+    <Card style={{ padding: 16, border: `1px solid ${C.primary}44` }}>
+      <div style={{ fontWeight: 700, color: C.primaryDark, marginBottom: 4 }}>สำรอง / กู้คืนข้อมูลทั้งระบบ (ไฟล์)</div>
+      <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 12, lineHeight: 1.6 }}>ดาวน์โหลดข้อมูลทั้งหมดเก็บไว้ในเครื่องเป็นไฟล์ .json · ถ้าต้องการย้อนกลับ ให้กู้คืนจากไฟล์นี้ได้ทุกเมื่อ (อุ่นใจ ไม่มีวันเริ่มใหม่)</p>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <Btn small onClick={download}>ดาวน์โหลดสำรอง (JSON)</Btn>
+        <Btn small variant="ghost" onClick={() => fileRef.current && fileRef.current.click()}>กู้คืนจากไฟล์</Btn>
+      </div>
+      <input ref={fileRef} type="file" accept="application/json,.json" style={{ display: "none" }} onChange={pick} />
+      {confirmR && <ConfirmModal title="ยืนยันกู้คืนจากไฟล์" message="จะแทนที่ข้อมูลปัจจุบันทั้งหมดด้วยไฟล์สำรอง แล้วบันทึกขึ้น Google Sheet — ยืนยันหรือไม่?" confirmLabel="กู้คืน" variant="primary" onConfirm={restore} onClose={() => setConfirmR(null)} />}
+    </Card>
   );
 }
 function ConnTest() {
@@ -1469,7 +1509,7 @@ function DutyManager({ db, setDb, ui }) {
   const [tab, setTab] = useState("teacher");
   return (
     <div>
-      <PageHead title="กำหนดหน้าที่" sub="สร้างโครงผัง (ตำแหน่ง ยังไม่ใส่ชื่อ) และรายการแข่ง/กิจกรรม · ไปลงชื่อในผังที่เมนู ผังองค์กร" />
+      <PageHead title="หน้าที่ กิจกรรมแข่งขัน" sub="สร้างโครงผัง (ตำแหน่ง ยังไม่ใส่ชื่อ) และรายการแข่ง/กิจกรรม · ไปลงชื่อในผังที่เมนู ผังองค์กร" />
       <Tabs tabs={[{ key: "teacher", label: "โครงผังครู" }, { key: "student", label: "โครงผังนักเรียน" }, { key: "comp", label: "รายการแข่งขัน" }, { key: "act", label: "รายการกิจกรรม" }]} active={tab} onChange={setTab} />
       {tab === "teacher" && <OrgEditor which="orgTeacher" pool={db.teachers} db={db} setDb={setDb} ui={ui} />}
       {tab === "student" && <OrgEditor which="orgStudent" pool={db.students} db={db} setDb={setDb} ui={ui} />}
@@ -1478,29 +1518,125 @@ function DutyManager({ db, setDb, ui }) {
     </div>
   );
 }
+function buildForest(nodes, cat) {
+  const catNodes = (nodes || []).filter((n) => (n.cat || "comp") === cat);
+  const ids = new Set(catNodes.map((n) => n.id));
+  const byParent = {};
+  catNodes.forEach((n) => { const k = (n.parent && ids.has(n.parent)) ? n.parent : "__root"; (byParent[k] = byParent[k] || []).push(n); });
+  const build = (key) => (byParent[key] || []).map((n) => ({ node: n, children: build(n.id) }));
+  return build("__root");
+}
+function printOrg(orientation) {
+  let el = document.getElementById("orgPrintStyle");
+  if (!el) { el = document.createElement("style"); el.id = "orgPrintStyle"; document.head.appendChild(el); }
+  el.textContent = `@media print {
+    body * { visibility: hidden !important; }
+    #orgPrintArea, #orgPrintArea * { visibility: visible !important; }
+    #orgPrintArea { position: absolute; left: 0; top: 0; width: auto; }
+    @page { size: A4 ${orientation || "landscape"}; margin: 6mm; }
+  }`;
+  window.print();
+}
+function exportOrgExcel(db, ui) {
+  try {
+    const wb = XLSX.utils.book_new();
+    const build = (which, pool, judgeKey) => {
+      const rows = [["ชื่อ", "เบอร์โทร", "หน้าที่", "รายการแข่งขัน", "รายการกิจกรรม"]];
+      const order = [];
+      ["comp", "act"].forEach((cat) => { const walk = (arr) => arr.forEach((x) => { order.push(x.node); walk(x.children); }); walk(buildForest(db[which], cat)); });
+      order.forEach((n) => {
+        const p = pool.find((x) => x.id === n.personId);
+        const comps = db.competitions.filter((c) => c.kind === "แข่งขัน" && (c[judgeKey] || []).includes(n.id)).map((c) => c.name).join(", ");
+        const acts = db.competitions.filter((c) => c.kind === "กิจกรรม" && (c[judgeKey] || []).includes(n.id)).map((c) => c.name).join(", ");
+        rows.push([p ? `${p.first} ${p.last}` : "(ยังไม่ลงชื่อ)", (p && p.phone) || "", n.title, comps, acts]);
+      });
+      return XLSX.utils.aoa_to_sheet(rows);
+    };
+    XLSX.utils.book_append_sheet(wb, build("orgTeacher", db.teachers, "judgeTeachers"), "ครู");
+    XLSX.utils.book_append_sheet(wb, build("orgStudent", db.students, "judgeStudents"), "นักเรียน");
+    XLSX.writeFile(wb, "ผังองค์กร.xlsx");
+  } catch (e) { if (ui) ui.notify("ดาวน์โหลดไม่สำเร็จ (ต้องเปิดผ่านหน้าเว็บจริง)"); }
+}
+function HalfBlock({ person, title, comps, accent, side }) {
+  return (
+    <div style={{ flex: 1, padding: "10px 8px", minWidth: 0, textAlign: "center" }}>
+      <div style={{ fontSize: 9.5, color: accent, fontWeight: 700 }}>{side}</div>
+      <div style={{ display: "flex", justifyContent: "center", marginTop: 2 }}><Avatar person={person || { first: "", last: "" }} size={38} /></div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: person ? C.ink : C.muted, marginTop: 3, lineHeight: 1.2 }}>{person ? `${person.first} ${person.last}` : "(ยังไม่ลงชื่อ)"}</div>
+      <div style={{ fontSize: 10.5, color: accent, fontWeight: 600 }}>{title || "—"}</div>
+      {comps && comps.length > 0 && <div style={{ fontSize: 9.5, color: C.muted, marginTop: 2 }}>{comps.join(", ")}</div>}
+    </div>
+  );
+}
+function CombinedOrg({ db, cat }) {
+  const kind = cat === "comp" ? "แข่งขัน" : "กิจกรรม";
+  const tForest = buildForest(db.orgTeacher, cat);
+  const sForest = buildForest(db.orgStudent, cat);
+  const compsOf = (nodeId, which) => db.competitions.filter((c) => c.kind === kind && (c[which] || []).includes(nodeId)).map((c) => c.name);
+  const renderForest = (tF, sF) => {
+    const max = Math.max(tF.length, sF.length);
+    if (max === 0) return null;
+    return (
+      <ul>{Array.from({ length: max }).map((_, i) => {
+        const t = tF[i], s = sF[i];
+        const tp = t ? db.teachers.find((x) => x.id === t.node.personId) : null;
+        const sp = s ? db.students.find((x) => x.id === s.node.personId) : null;
+        return (
+          <li key={i}>
+            <div className="orgbox">
+              <div style={{ border: `1.5px solid ${C.line}`, borderRadius: 12, background: C.surface, minWidth: 230, display: "flex", boxShadow: "0 1px 4px rgba(0,0,0,.06)", overflow: "hidden" }}>
+                <HalfBlock person={tp} title={t && t.node.title} comps={t ? compsOf(t.node.id, "judgeTeachers") : []} accent={C.primary} side="ครู" />
+                <div style={{ width: 0, alignSelf: "stretch", borderLeft: `1.5px dashed ${C.line}`, margin: "12px 0" }} />
+                <HalfBlock person={sp} title={s && s.node.title} comps={s ? compsOf(s.node.id, "judgeStudents") : []} accent={C.gold} side="นักเรียน" />
+              </div>
+            </div>
+            {((t && t.children.length) || (s && s.children.length)) ? renderForest(t ? t.children : [], s ? s.children : []) : null}
+          </li>
+        );
+      })}</ul>
+    );
+  };
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+        <Btn small onClick={() => printOrg("portrait")}>ปริ้น/PDF แนวตั้ง</Btn>
+        <Btn small onClick={() => printOrg("landscape")}>ปริ้น/PDF แนวนอน</Btn>
+        <Btn small variant="ghost" onClick={() => exportOrgExcel(db)}>ดาวน์โหลด Excel</Btn>
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <div id="orgPrintArea" className="orgtree" style={{ ["--tl"]: C.line }}>
+          {(tForest.length || sForest.length) ? renderForest(tForest, sForest) : <Empty text="ยังไม่มีผัง (สร้างโครงที่เมนู หน้าที่ กิจกรรมแข่งขัน แล้วลงชื่อในผัง)" />}
+        </div>
+      </div>
+    </div>
+  );
+}
 function OrgViewManager({ db, setDb, ui, editable }) {
   const [cat, setCat] = useState("comp");
-  const [side, setSide] = useState("teacher");
+  const [view, setView] = useState("combined"); // combined | teacher | student
   const [assign, setAssign] = useState(null);
-  const which = side === "teacher" ? "orgTeacher" : "orgStudent";
-  const pool = side === "teacher" ? db.teachers : db.students;
-  const pickPool = side === "teacher" ? db.teachers.filter((t) => t.user) : db.students.filter((s) => s.committee);
+  const which = view === "teacher" ? "orgTeacher" : "orgStudent";
+  const pool = view === "teacher" ? db.teachers : db.students;
+  const pickPool = view === "teacher" ? db.teachers.filter((t) => t.user) : db.students.filter((s) => s.committee);
   const nodes = db[which].filter((n) => (n.cat || "comp") === cat);
   const setPerson = (nodeId, personId) => ui.run("กำลังลงชื่อ...", () => { setDb((p) => ({ ...p, [which]: p[which].map((n) => n.id === nodeId ? { ...n, personId } : n) })); setAssign(null); });
   const clearName = (node) => ui.run("กำลังลบชื่อ...", () => setDb((p) => ({ ...p, [which]: p[which].map((n) => n.id === node.id ? { ...n, personId: "" } : n) })));
   return (
     <div>
-      <PageHead title="ผังองค์กร" sub={editable ? "กดที่กล่องเพื่อลงชื่อในตำแหน่ง (ค้นหาได้ เลือกแล้วลงทันที)" : "ดูอย่างเดียว"} right={<ExportBar run={ui && ui.run} />} />
-      <Tabs tabs={[{ key: "comp", label: "ผังรายการแข่งขัน" }, { key: "act", label: "ผังรายการกิจกรรม" }]} active={cat} onChange={setCat} />
+      <PageHead title="ผังองค์กร" sub={editable ? "ผังรวมครู+นักเรียน · หรือลงชื่อในตำแหน่ง (ค้นหาได้ ลงทันที)" : "ดูอย่างเดียว"} />
+      <Tabs tabs={[{ key: "comp", label: "ผังรวมแข่งขัน" }, { key: "act", label: "ผังรวมกิจกรรม" }]} active={cat} onChange={setCat} />
       <div style={{ marginBottom: 6 }}>
-        <Tabs tabs={[{ key: "teacher", label: "ผังรวมครู" }, { key: "student", label: "ผังรวมนักเรียน" }]} active={side} onChange={setSide} />
+        <Tabs tabs={[{ key: "combined", label: "ผังรวม (ครู+นักเรียน)" }, { key: "teacher", label: editable ? "ลงชื่อครู" : "ผังครู" }, { key: "student", label: editable ? "ลงชื่อนักเรียน" : "ผังนักเรียน" }]} active={view} onChange={setView} />
       </div>
-      <Card style={{ padding: 16, overflowX: "auto" }}>
-        <div style={{ textAlign: "center", fontWeight: 800, color: side === "teacher" ? C.primary : C.gold, marginBottom: 14 }}>{cat === "comp" ? "รายการแข่งขัน" : "รายการกิจกรรม"} · {side === "teacher" ? "ครู" : "นักเรียน"}</div>
-        <OrgTree nodes={nodes} pool={pool} accent={side === "teacher" ? C.primary : C.gold} mode={editable ? "names" : "view"}
-          onAssign={(node) => setAssign(node)} onClearName={clearName} />
-      </Card>
-      {assign && <SearchPersonPopup title={`ลงชื่อในตำแหน่ง: ${assign.title}`} pool={pickPool} emptyText={`ยังไม่มี${side === "teacher" ? "กรรมการครู" : "กรรมการนักเรียน"} — ตั้งที่ บุคลากร → บัญชีผู้ใช้ ก่อน`} onClose={() => setAssign(null)} onPick={(p) => setPerson(assign.id, p.id)} />}
+      {view === "combined" && <Card style={{ padding: 16 }}><CombinedOrg db={db} cat={cat} /></Card>}
+      {view !== "combined" && (
+        <Card style={{ padding: 16, overflowX: "auto" }}>
+          <div style={{ textAlign: "center", fontWeight: 800, color: view === "teacher" ? C.primary : C.gold, marginBottom: 14 }}>{cat === "comp" ? "รายการแข่งขัน" : "รายการกิจกรรม"} · {view === "teacher" ? "ครู" : "นักเรียน"}</div>
+          <OrgTree nodes={nodes} pool={pool} accent={view === "teacher" ? C.primary : C.gold} mode={editable ? "names" : "view"}
+            onAssign={(node) => setAssign(node)} onClearName={clearName} />
+        </Card>
+      )}
+      {assign && <SearchPersonPopup title={`ลงชื่อในตำแหน่ง: ${assign.title}`} pool={pickPool} emptyText={`ยังไม่มี${view === "teacher" ? "กรรมการครู" : "กรรมการนักเรียน"} — ตั้งที่ บุคลากร → บัญชีผู้ใช้ ก่อน`} onClose={() => setAssign(null)} onPick={(p) => setPerson(assign.id, p.id)} />}
     </div>
   );
 }
@@ -1722,7 +1858,7 @@ function CompTable({ kind, db, setDb, ui }) {
               </div>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontWeight: 700, color: C.ink }}>{i + 1}. {c.name}</div>
-                <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>ตัวจริง {c.mainCount || "ไม่กำหนด"} · สำรอง {c.reserveCount || "ไม่กำหนด"} · สมัคร {c.regStart} ถึง {c.regEnd}</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>ตัวจริง {c.mainCount || "ไม่จำกัด"} · สำรอง {c.reserveCount || "ไม่จำกัด"} · สมัคร {c.regStart} ถึง {c.regEnd}</div>
                 <div style={{ fontSize: 12, color: C.muted }}>ผู้สมัคร {c.participants.length} คน · กรรมการครู {(c.judgeTeachers || []).length} · กรรมการนักเรียน {(c.judgeStudents || []).length}</div>
               </div>
             </div>
@@ -1875,10 +2011,44 @@ function SettingsManager({ db, setDb, ui }) {
   const [tab, setTab] = useState("theme");
   return (
     <div>
-      <PageHead title="ตั้งค่า" sub="ธีมสี & สีทีมแข่งขัน · ประชาสัมพันธ์" />
-      <Tabs tabs={[{ key: "theme", label: "ธีม & สีทีม" }, { key: "promo", label: "ประชาสัมพันธ์" }]} active={tab} onChange={setTab} />
+      <PageHead title="ตั้งค่า" sub="ธีมสี & สีทีม · ประชาสัมพันธ์ · กำหนดการแข่งขัน" />
+      <Tabs tabs={[{ key: "theme", label: "ธีม & สีทีม" }, { key: "promo", label: "ประชาสัมพันธ์" }, { key: "schedule", label: "กำหนดการแข่งขัน" }]} active={tab} onChange={setTab} />
       {tab === "theme" && <ThemeCard db={db} setDb={setDb} ui={ui} />}
       {tab === "promo" && <PromoCard db={db} setDb={setDb} ui={ui} />}
+      {tab === "schedule" && <ScheduleSettings db={db} setDb={setDb} ui={ui} />}
+    </div>
+  );
+}
+function ScheduleSettings({ db, setDb, ui }) {
+  const [kind, setKind] = useState("แข่งขัน");
+  const [addTo, setAddTo] = useState(null);
+  const list = db.competitions.filter((c) => c.kind === kind);
+  const addSch = (cid, s) => ui.run("กำลังบันทึกนัดหมาย...", () => { setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === cid ? { ...c, schedule: [...c.schedule, s] } : c) })); setAddTo(null); });
+  const delSch = (cid, idx) => ui.run("กำลังลบนัดหมาย...", () => setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === cid ? { ...c, schedule: c.schedule.filter((_, i) => i !== idx) } : c) })));
+  return (
+    <div>
+      <Tabs tabs={[{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }]} active={kind} onChange={setKind} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        {list.map((c) => (
+          <Card key={c.id} style={{ padding: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <div style={{ fontWeight: 700, color: C.ink }}>{c.name}</div>
+              <Btn small onClick={() => setAddTo(c.id)}>+ กำหนดวัน/เวลา/สถานที่</Btn>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {c.schedule.map((s, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", border: `1px solid ${C.line}`, borderRadius: 10 }}>
+                  <div style={{ fontSize: 13, color: C.ink }}><b>{s.round || "นัดหมาย"}</b> · {s.date} {s.time} · {s.place}</div>
+                  <button onClick={() => delSch(c.id, i)} style={{ border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>ลบ</button>
+                </div>
+              ))}
+              {c.schedule.length === 0 && <span style={{ fontSize: 12.5, color: C.muted }}>ยังไม่มีนัดหมาย</span>}
+            </div>
+          </Card>
+        ))}
+        {list.length === 0 && <Empty text={`ยังไม่มีรายการ${kind} (เพิ่มที่เมนู หน้าที่ กิจกรรมแข่งขัน)`} />}
+      </div>
+      {addTo && <SchForm onClose={() => setAddTo(null)} onSave={(s) => addSch(addTo, s)} />}
     </div>
   );
 }
