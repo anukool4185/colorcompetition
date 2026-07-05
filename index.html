@@ -9,6 +9,8 @@
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   html, body, #root { height: 100%; margin: 0; }
   body { font-family: 'Noto Sans Thai', system-ui, sans-serif; -webkit-text-size-adjust: 100%; }
@@ -1637,6 +1639,36 @@ function DutyManager({ db, setDb, ui }) {
     </div>
   );
 }
+async function snapshotEl(elId) {
+  const el = document.getElementById(elId);
+  if (!el || typeof html2canvas === "undefined") return null;
+  return await html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+}
+async function printImageFromEl(elId, notify) {
+  try {
+    const canvas = await snapshotEl(elId);
+    if (!canvas) { notify && notify("ต้องเปิดผ่านหน้าเว็บจริง (มีอินเทอร์เน็ต)"); return; }
+    const img = canvas.toDataURL("image/png");
+    const w = window.open("", "_blank"); if (!w) { notify && notify("เบราว์เซอร์บล็อกหน้าต่าง"); return; }
+    w.document.write(`<html><head><meta charset="utf-8"><title>ปริ้นผัง</title><style>@page{size:auto;margin:6mm}body{margin:0}img{width:100%;display:block}</style></head><body><img src="${img}" onload="setTimeout(function(){window.print()},250)"></body></html>`);
+    w.document.close();
+  } catch (e) { notify && notify("ปริ้นไม่สำเร็จ"); }
+}
+async function pdfFromEl(elId, orientation, filename, notify) {
+  try {
+    const canvas = await snapshotEl(elId);
+    if (!canvas || !window.jspdf) { notify && notify("ต้องเปิดผ่านหน้าเว็บจริง (มีอินเทอร์เน็ต)"); return; }
+    const img = canvas.toDataURL("image/png");
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation, unit: "mm", format: "a4" });
+    const PW = pdf.internal.pageSize.getWidth(), PH = pdf.internal.pageSize.getHeight();
+    const availW = PW - 12, availH = PH - 12;
+    let w = availW, h = canvas.height * (availW / canvas.width);
+    if (h > availH) { h = availH; w = canvas.width * (availH / canvas.height); }
+    pdf.addImage(img, "PNG", (PW - w) / 2, 6, w, h);
+    pdf.save(filename);
+  } catch (e) { notify && notify("สร้าง PDF ไม่สำเร็จ"); }
+}
 function buildForest(nodes, cat) {
   const catNodes = (nodes || []).filter((n) => (n.cat || "comp") === cat);
   const ids = new Set(catNodes.map((n) => n.id));
@@ -1718,8 +1750,9 @@ function CombinedOrg({ db, cat }) {
   return (
     <div>
       <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-        <Btn small onClick={() => printOrg("portrait")}>ปริ้น/PDF แนวตั้ง</Btn>
-        <Btn small onClick={() => printOrg("landscape")}>ปริ้น/PDF แนวนอน</Btn>
+        <Btn small onClick={() => printImageFromEl("orgPrintArea", (m) => alert(m))}>ปริ้น (รูปต่อเนื่อง)</Btn>
+        <Btn small variant="ghost" onClick={() => pdfFromEl("orgPrintArea", "portrait", "ผังองค์กร-แนวตั้ง.pdf", (m) => alert(m))}>PDF แนวตั้ง (พอดี A4)</Btn>
+        <Btn small variant="ghost" onClick={() => pdfFromEl("orgPrintArea", "landscape", "ผังองค์กร-แนวนอน.pdf", (m) => alert(m))}>PDF แนวนอน (พอดี A4)</Btn>
         <Btn small variant="ghost" onClick={() => exportOrgExcel(db)}>ดาวน์โหลด Excel</Btn>
       </div>
       <div style={{ overflowX: "auto" }}>
