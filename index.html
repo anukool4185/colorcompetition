@@ -1719,7 +1719,7 @@ function HalfBlock({ person, title, comps, accent, side }) {
     </div>
   );
 }
-function CombinedOrg({ db, cat }) {
+function CombinedOrg({ db, cat, ui }) {
   const kind = cat === "comp" ? "แข่งขัน" : "กิจกรรม";
   const tForest = buildForest(db.orgTeacher, cat);
   const sForest = buildForest(db.orgStudent, cat);
@@ -1750,9 +1750,9 @@ function CombinedOrg({ db, cat }) {
   return (
     <div>
       <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
-        <Btn small onClick={() => printImageFromEl("orgPrintArea", (m) => alert(m))}>ปริ้น (รูปต่อเนื่อง)</Btn>
-        <Btn small variant="ghost" onClick={() => pdfFromEl("orgPrintArea", "portrait", "ผังองค์กร-แนวตั้ง.pdf", (m) => alert(m))}>PDF แนวตั้ง (พอดี A4)</Btn>
-        <Btn small variant="ghost" onClick={() => pdfFromEl("orgPrintArea", "landscape", "ผังองค์กร-แนวนอน.pdf", (m) => alert(m))}>PDF แนวนอน (พอดี A4)</Btn>
+        <Btn small onClick={() => printImageFromEl("orgPrintArea", ui && ui.notify)}>ปริ้น (รูปต่อเนื่อง)</Btn>
+        <Btn small variant="ghost" onClick={() => pdfFromEl("orgPrintArea", "portrait", "ผังองค์กร-แนวตั้ง.pdf", ui && ui.notify)}>PDF แนวตั้ง (พอดี A4)</Btn>
+        <Btn small variant="ghost" onClick={() => pdfFromEl("orgPrintArea", "landscape", "ผังองค์กร-แนวนอน.pdf", ui && ui.notify)}>PDF แนวนอน (พอดี A4)</Btn>
         <Btn small variant="ghost" onClick={() => exportOrgExcel(db)}>ดาวน์โหลด Excel</Btn>
       </div>
       <div style={{ overflowX: "auto" }}>
@@ -1780,7 +1780,7 @@ function OrgViewManager({ db, setDb, ui, editable }) {
       <div style={{ marginBottom: 6 }}>
         <Tabs tabs={[{ key: "combined", label: "ผังรวม (ครู+นักเรียน)" }, { key: "teacher", label: editable ? "ลงชื่อครู" : "ผังครู" }, { key: "student", label: editable ? "ลงชื่อนักเรียน" : "ผังนักเรียน" }]} active={view} onChange={setView} />
       </div>
-      {view === "combined" && <Card style={{ padding: 16 }}><CombinedOrg db={db} cat={cat} /></Card>}
+      {view === "combined" && <Card style={{ padding: 16 }}><CombinedOrg db={db} cat={cat} ui={ui} /></Card>}
       {view !== "combined" && (
         <Card style={{ padding: 16, overflowX: "auto" }}>
           <div style={{ textAlign: "center", fontWeight: 800, color: view === "teacher" ? C.primary : C.gold, marginBottom: 14 }}>{cat === "comp" ? "รายการแข่งขัน" : "รายการกิจกรรม"} · {view === "teacher" ? "ครู" : "นักเรียน"}</div>
