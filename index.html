@@ -2114,7 +2114,10 @@ function AddApplicantModal({ comp, db, onClose, onAdd }) {
         {pool.slice(0, 60).map((s) => (
           <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: 8, borderRadius: 10, border: `1px solid ${C.line}` }}>
             <Avatar person={s} size={34} />
-            <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{fullName(s)}</div><div style={{ fontSize: 11, color: C.muted }}>{s.grade}/{s.room}</div></div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{fullName(s)} <span style={{ fontSize: 11, color: C.muted }}>({s.id})</span></div>
+              <div style={{ fontSize: 11, color: C.muted }}>{s.grade}/{s.room} · {s.phone || "ไม่มีเบอร์"}{s.guardian ? ` · ผู้ปกครอง ${s.guardian} ${s.guardianPhone || ""}` : ""}</div>
+            </div>
             <button onClick={() => onAdd(s.id, "main")} style={{ border: "none", background: "#e6f4ec", color: "#2f9e6b", borderRadius: 14, padding: "5px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>สมัครตัวจริง</button>
             <button onClick={() => onAdd(s.id, "reserve")} style={{ border: "none", background: C.soft, color: C.primaryDark, borderRadius: 14, padding: "5px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>สำรอง</button>
           </div>
@@ -2368,22 +2371,106 @@ function PromoCard({ db, setDb, ui }) {
    COMMITTEE (teacher / student committee) — same screens
    ============================================================ */
 function CommitteeApp({ role, db, setDb, onExit, meId }) {
-  const [view, setView] = useState("duty");
+  const [view, setView] = useState("me");
   const ui = useUI();
   if (role === "studentcom") { const me = db.students.find((s) => s.id === meId); if (me && !studentProfileComplete(me)) return (<><ProfileGate me={me} setDb={setDb} ui={ui} />{ui.loading && <LoadingModal label={ui.loading} />}{ui.toast && <Toast msg={ui.toast} />}</>); }
+  const which = role === "teacher" ? "orgTeacher" : "orgStudent";
+  const judgeKey = role === "teacher" ? "judgeTeachers" : "judgeStudents";
+  const myNodeIds = db[which].filter((n) => n.personId === meId).map((n) => n.id);
+  const myCompIds = db.competitions.filter((c) => (c[judgeKey] || []).some((id) => myNodeIds.includes(id))).map((c) => c.id);
   const nav = [
-    { key: "duty", label: "หน้าที่ของฉัน", icon: "🧩" },
-    { key: "org", label: "ผังองค์กร", icon: "🗂" },
     { key: "me", label: "ข้อมูลฉัน", icon: "🪪" },
+    { key: "org", label: "ผังองค์กร", icon: "🗂" },
+    { key: "select", label: "คัดเลือก", icon: "✅" },
+    { key: "results", label: "ส่งผล", icon: "🏅" },
     { key: "schedule", label: "ตารางแข่ง", icon: "📅" },
+    { key: "register", label: "สมัคร", icon: "✍️" },
   ];
   return (
     <Shell role={role} nav={nav} view={view} setView={setView} onExit={onExit} ui={ui}>
-      {view === "duty" && <MyDutyScreen role={role} meId={meId} db={db} setDb={setDb} ui={ui} />}
-      {view === "org" && <OrgViewManager db={db} ui={ui} />}
       {view === "me" && <CommitteeProfile role={role} meId={meId} db={db} setDb={setDb} ui={ui} />}
-      {view === "schedule" && <ScheduleScreen db={db} setDb={setDb} ui={ui} editable={false} />}
+      {view === "org" && <OrgViewManager db={db} ui={ui} />}
+      {view === "select" && <MyDutyScreen role={role} meId={meId} db={db} setDb={setDb} ui={ui} />}
+      {view === "results" && <ResultsScreen db={db} setDb={setDb} ui={ui} restrict={myCompIds} title="ส่งผล (รายการที่ฉันดูแล)" />}
+      {view === "schedule" && <CommitteeSchedule myCompIds={myCompIds} db={db} ui={ui} />}
+      {view === "register" && <CommitteeRegister myCompIds={myCompIds} db={db} setDb={setDb} ui={ui} />}
     </Shell>
+  );
+}
+function CommitteeSchedule({ myCompIds, db, ui }) {
+  const [popup, setPopup] = useState(null);
+  const mine = db.competitions.filter((c) => myCompIds.includes(c.id));
+  return (
+    <div>
+      <PageHead title="ตารางที่ฉันดูแล" sub="รายการที่ฉันเป็นกรรมการขึ้นก่อน · ดูรายการอื่นได้" />
+      <div style={{ display: "flex", gap: 8, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ fontSize: 13, color: C.muted }}>ดูตารางรายการอื่น:</span>
+        <Select value="" onChange={(v) => { const c = db.competitions.find((x) => x.id === v); if (c) setPopup(c); }}>
+          <option value="">— เลือกรายการ —</option>
+          {db.competitions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </Select>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {mine.map((c) => (
+          <Card key={c.id} style={{ padding: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ fontWeight: 700, color: C.ink }}>{c.name} <span style={{ fontSize: 11, color: C.muted, fontWeight: 500 }}>({c.kind})</span></div>
+              <ItemStatusBadge c={c} />
+            </div>
+            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 5 }}>
+              {(c.schedule || []).map((s, i) => <div key={i} style={{ fontSize: 12.5, color: C.ink }}>• {s.round || "นัดหมาย"} — {s.date} {s.time} {s.place ? `· ${s.place}` : ""}</div>)}
+              {(!c.schedule || c.schedule.length === 0) && <div style={{ fontSize: 12, color: C.muted }}>ยังไม่มีนัดหมาย</div>}
+            </div>
+          </Card>
+        ))}
+        {mine.length === 0 && <Empty text="ยังไม่ได้รับมอบหมายรายการ" />}
+      </div>
+      {popup && (
+        <Modal title={`ตาราง: ${popup.name}`} onClose={() => setPopup(null)}>
+          <div style={{ marginBottom: 8 }}><ItemStatusBadge c={popup} /></div>
+          {(popup.schedule || []).map((s, i) => <div key={i} style={{ fontSize: 13, color: C.ink, padding: "6px 0", borderBottom: `1px dashed ${C.line}` }}>• {s.round || "นัดหมาย"} — {s.date} {s.time} {s.place ? `· ${s.place}` : ""}</div>)}
+          {(!popup.schedule || popup.schedule.length === 0) && <Empty text="ยังไม่มีนัดหมาย" />}
+        </Modal>
+      )}
+    </div>
+  );
+}
+function CommitteeRegister({ myCompIds, db, setDb, ui }) {
+  const [kind, setKind] = useState("แข่งขัน");
+  const [pick, setPick] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const listAll = db.competitions.filter((c) => c.kind === kind);
+  const list = [...listAll.filter((c) => myCompIds.includes(c.id)), ...listAll.filter((c) => !myCompIds.includes(c.id))];
+  const comp = list.find((c) => c.id === pick) || list[0];
+  const add = (sid, status) => ui.run("กำลังเพิ่มผู้สมัคร...", () => setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, participants: [...c.participants, { sid, status, sel: undefined }] } : c) })));
+  const remove = (sid) => ui.run("กำลังยกเลิก...", () => setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, participants: c.participants.filter((x) => x.sid !== sid) } : c) })));
+  return (
+    <div>
+      <PageHead title="สมัครแทนนักเรียน" sub="รายการที่ฉันดูแลขึ้นก่อน (★) · สมัครแทนในรายการอื่นได้ด้วย" />
+      <Tabs tabs={[{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }]} active={kind} onChange={(k) => { setKind(k); setPick(""); }} />
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+        <Select value={comp?.id || ""} onChange={setPick}>{list.map((c) => <option key={c.id} value={c.id}>{myCompIds.includes(c.id) ? "★ " : ""}{c.name}</option>)}</Select>
+        {comp && <ItemStatusBadge c={comp} />}
+        {comp && <Btn small onClick={() => setAddOpen(true)}>+ เพิ่มผู้สมัครแทน</Btn>}
+      </div>
+      {comp && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {comp.participants.map((x) => {
+            const s = db.students.find((st) => st.id === x.sid); if (!s) return null;
+            return (
+              <Card key={x.sid} style={{ padding: 10, display: "flex", alignItems: "center", gap: 10 }}>
+                <Avatar person={s} size={34} />
+                <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{fullName(s)}</div><div style={{ fontSize: 11, color: C.muted }}>{s.grade}/{s.room} · {s.phone}</div></div>
+                <Badge status={x.sel || x.status} />
+                <Btn variant="ghost" small onClick={() => remove(x.sid)}>นำออก</Btn>
+              </Card>
+            );
+          })}
+          {comp.participants.length === 0 && <Empty text="ยังไม่มีผู้สมัครในรายการนี้" />}
+        </div>
+      )}
+      {addOpen && comp && <AddApplicantModal comp={comp} db={db} onClose={() => setAddOpen(false)} onAdd={(sid, status) => add(sid, status)} />}
+    </div>
   );
 }
 function MyDutyScreen({ role, meId, db, setDb, ui }) {
@@ -2441,11 +2528,11 @@ function CommitteeProfile({ role, meId, db, setDb, ui }) {
     </div>
   );
 }
-function ResultsScreen({ db, setDb, ui }) {
+function ResultsScreen({ db, setDb, ui, restrict, title }) {
   const cfg = db.settings.scoreConfig || {};
   const scheme = cfg.scheme || "outcome";
   const [kind, setKind] = useState("แข่งขัน");
-  const list = db.competitions.filter((c) => c.kind === kind);
+  const list = db.competitions.filter((c) => c.kind === kind && (!restrict || restrict.includes(c.id)));
   const [pick, setPick] = useState("");
   const [nextFor, setNextFor] = useState(null);
   const comp = list.find((c) => c.id === pick) || list[0];
@@ -2456,7 +2543,7 @@ function ResultsScreen({ db, setDb, ui }) {
   );
   return (
     <div>
-      <PageHead title="ลงผลการแข่งขัน" sub="ลงผลรายรายการ · คะแนนแจกอัตโนมัติตามที่ตั้งไว้ (ตั้งค่า → คะแนน)" />
+      <PageHead title={title || "ลงผลการแข่งขัน"} sub="ลงผลรายรายการ · คะแนนแจกอัตโนมัติตามที่ตั้งไว้ (ตั้งค่า → คะแนน)" />
       <Tabs tabs={[{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }]} active={kind} onChange={(k) => { setKind(k); setPick(""); }} />
       <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
         <Select value={comp?.id || ""} onChange={setPick}>{list.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select>
