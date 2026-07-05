@@ -2515,10 +2515,38 @@ function RegisterForStudent({ db, setDb, ui }) {
 /* ============================================================
    STUDENT
    ============================================================ */
+function ProfileGate({ me, setDb, ui }) {
+  const rels = ["บิดา", "มารดา", "ปู่", "ย่า", "ตา", "ยาย", "ลุง", "ป้า", "น้า", "อา", "พี่", "ผู้ปกครองอื่น ๆ"];
+  const [f, setF] = useState({ phone: me.phone || "", password: me.password || "", guardian: me.guardian || "", guardianPhone: me.guardianPhone || "", guardianRelation: me.guardianRelation || "" });
+  const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
+  const ok = f.phone && f.password && f.guardian && f.guardianPhone && f.guardianRelation;
+  const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff", marginBottom: 12 };
+  const save = () => ui.run("กำลังบันทึกข้อมูล...", () => { setDb((p) => ({ ...p, students: p.students.map((s) => s.id === me.id ? { ...s, ...f, profileDone: true } : s) })); ui.notify("บันทึกข้อมูลแล้ว ยินดีต้อนรับ"); });
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(20,20,30,.6)", zIndex: 200, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" }}>
+      <div style={{ background: C.surface, borderRadius: 18, padding: 22, maxWidth: 440, width: "100%", margin: "24px 0", boxShadow: "0 10px 40px rgba(0,0,0,.3)" }}>
+        <div style={{ fontWeight: 800, fontSize: 18, color: C.ink, marginBottom: 4 }}>ตั้งค่าบัญชีครั้งแรก</div>
+        <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0, lineHeight: 1.6 }}>กรุณากรอกข้อมูลให้ครบก่อนเริ่มใช้งาน · ต้องกด "บันทึก" จึงจะเข้าระบบได้ (ปิดหน้าต่างเฉย ๆ ข้อมูลจะไม่ถูกบันทึก)</p>
+        <Field label="เบอร์โทรนักเรียน (ใช้เข้าระบบ)" value={f.phone} onChange={set("phone")} type="tel" />
+        <Field label="ตั้งรหัสผ่านใหม่" value={f.password} onChange={set("password")} />
+        <div style={{ fontWeight: 700, color: C.ink, margin: "6px 0 8px" }}>ข้อมูลผู้ปกครอง</div>
+        <Field label="ชื่อผู้ปกครอง" value={f.guardian} onChange={set("guardian")} />
+        <Field label="เบอร์โทรผู้ปกครอง" value={f.guardianPhone} onChange={set("guardianPhone")} type="tel" />
+        <span style={{ display: "block", fontSize: 13, color: C.muted, marginBottom: 5 }}>ความเกี่ยวข้องกับนักเรียน</span>
+        <select value={f.guardianRelation} onChange={(e) => set("guardianRelation")(e.target.value)} style={selCss}>
+          <option value="">— เลือก —</option>{rels.map((r) => <option key={r}>{r}</option>)}
+        </select>
+        <Btn onClick={save} disabled={!ok}>บันทึกและเข้าใช้งาน</Btn>
+        {!ok && <p style={{ fontSize: 12, color: "#c0392b", marginBottom: 0 }}>* กรอกให้ครบทุกช่อง</p>}
+      </div>
+    </div>
+  );
+}
 function StudentApp({ db, setDb, onExit, meId }) {
   const me = db.students.find((s) => s.id === meId) || db.students[0];
   const [view, setView] = useState("home");
   const ui = useUI();
+  if (me && !studentProfileComplete(me)) return (<><ProfileGate me={me} setDb={setDb} ui={ui} />{ui.loading && <LoadingModal label={ui.loading} />}{ui.toast && <Toast msg={ui.toast} />}</>);
   const nav = [
     { key: "home", label: "หน้าแรก", icon: "🏠" },
     { key: "me", label: "ข้อมูลฉัน", icon: "🪪" },
@@ -2528,63 +2556,124 @@ function StudentApp({ db, setDb, onExit, meId }) {
   ];
   return (
     <Shell role="student" nav={nav} view={view} setView={setView} onExit={onExit} ui={ui}>
-      {view === "home" && <OrgViewManager db={db} ui={ui} />}
+      {view === "home" && <StudentSchedule me={me} db={db} ui={ui} />}
       {view === "me" && <MyProfile me={me} db={db} setDb={setDb} ui={ui} />}
       {view === "register" && <StudentRegister me={me} db={db} setDb={setDb} ui={ui} />}
       {view === "results" && <StudentResults db={db} ui={ui} />}
-      {view === "schedule" && <ScheduleScreen db={db} setDb={setDb} ui={ui} editable={false} />}
+      {view === "schedule" && <StudentSchedule me={me} db={db} ui={ui} />}
     </Shell>
   );
 }
 function MyProfile({ me, db, setDb, ui }) {
-  const [g, setG] = useState({ name: me.guardian || "", phone: "", relation: "" });
-  const set = (k) => (v) => setG((p) => ({ ...p, [k]: v }));
+  const rels = ["บิดา", "มารดา", "ปู่", "ย่า", "ตา", "ยาย", "ลุง", "ป้า", "น้า", "อา", "พี่", "ผู้ปกครองอื่น ๆ"];
+  const [f, setF] = useState({ phone: me.phone || "", password: me.password || "", guardian: me.guardian || "", guardianPhone: me.guardianPhone || "", guardianRelation: me.guardianRelation || "" });
+  const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
+  const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff", marginBottom: 12 };
+  const total = scoreStats(db)[me.id] || 0;
   return (
     <div>
       <PageHead title="ข้อมูลของฉัน" sub={`เข้าสู่ระบบด้วยรหัสนักเรียน ${me.id}`} />
-      <Card style={{ padding: 16, marginBottom: 14, display: "flex", gap: 14, alignItems: "center" }}>
+      <Card style={{ padding: 16, marginBottom: 14, display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
         <Avatar person={me} size={64} />
-        <div><div style={{ fontWeight: 700, color: C.ink, fontSize: 16 }}>{fullName(me)}</div><div style={{ fontSize: 13, color: C.muted }}>รหัส {me.id} · {me.grade}/{me.room} · {me.phone}</div></div>
+        <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 700, color: C.ink, fontSize: 16 }}>{fullName(me)}</div><div style={{ fontSize: 13, color: C.muted }}>รหัส {me.id} · {me.grade}/{me.room}</div></div>
+        <div style={{ textAlign: "center" }}><div style={{ fontSize: 24, fontWeight: 800, color: C.primary }}>{total}</div><div style={{ fontSize: 11, color: C.muted }}>คะแนนสะสม</div></div>
       </Card>
       <Card style={{ padding: 16, maxWidth: 460 }}>
-        <div style={{ fontWeight: 700, color: C.ink, marginBottom: 10 }}>ข้อมูลผู้ปกครอง</div>
-        <Field label="ชื่อผู้ปกครอง" value={g.name} onChange={set("name")} />
-        <Field label="เบอร์โทรผู้ปกครอง" value={g.phone} onChange={set("phone")} />
-        <Field label="ความเกี่ยวข้องกับนักเรียน" value={g.relation} onChange={set("relation")} placeholder="เช่น บิดา / มารดา" />
-        <Btn onClick={() => ui.run("กำลังบันทึก...", () => { setDb((p) => ({ ...p, students: p.students.map((s) => s.id === me.id ? { ...s, guardian: g.name } : s) })); ui.notify("บันทึกข้อมูลแล้ว"); })}>บันทึกข้อมูล</Btn>
+        <div style={{ fontWeight: 700, color: C.ink, marginBottom: 10 }}>แก้ไขข้อมูล</div>
+        <Field label="เบอร์โทรนักเรียน" value={f.phone} onChange={set("phone")} type="tel" />
+        <Field label="รหัสผ่าน" value={f.password} onChange={set("password")} />
+        <div style={{ fontWeight: 700, color: C.ink, margin: "6px 0 8px" }}>ข้อมูลผู้ปกครอง</div>
+        <Field label="ชื่อผู้ปกครอง" value={f.guardian} onChange={set("guardian")} />
+        <Field label="เบอร์โทรผู้ปกครอง" value={f.guardianPhone} onChange={set("guardianPhone")} type="tel" />
+        <span style={{ display: "block", fontSize: 13, color: C.muted, marginBottom: 5 }}>ความเกี่ยวข้องกับนักเรียน</span>
+        <select value={f.guardianRelation} onChange={(e) => set("guardianRelation")(e.target.value)} style={selCss}><option value="">— เลือก —</option>{rels.map((r) => <option key={r}>{r}</option>)}</select>
+        <Btn onClick={() => ui.run("กำลังบันทึก...", () => { setDb((p) => ({ ...p, students: p.students.map((s) => s.id === me.id ? { ...s, ...f } : s) })); ui.notify("บันทึกข้อมูลแล้ว"); })}>บันทึกข้อมูล</Btn>
       </Card>
     </div>
   );
 }
 function StudentRegister({ me, db, setDb, ui }) {
+  const [kind, setKind] = useState("แข่งขัน");
+  const list = db.competitions.filter((c) => c.kind === kind);
   const myMain = db.competitions.filter((c) => c.participants.some((p) => p.sid === me.id && p.status === "main")).length;
+  const quota = Number(db.settings.maxMain) || 0;
+  const quotaFull = quota > 0 && myMain >= quota;
   const enroll = (compId, status) => {
-    if (status === "main" && myMain >= db.settings.maxMain) { ui.notify(`ลงตัวจริงได้ไม่เกิน ${db.settings.maxMain} รายการ`); return; }
-    ui.run("กำลังสมัคร...", () => { setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === compId ? { ...c, participants: [...c.participants.filter((x) => x.sid !== me.id), { sid: me.id, status }] } : c) })); ui.notify("สมัครสำเร็จ"); });
+    if (quotaFull) { ui.notify("ครบโควตาแล้ว — ติดต่อกรรมการสี(นักเรียน)"); return; }
+    ui.run("กำลังสมัคร...", () => { setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === compId ? { ...c, participants: [...c.participants.filter((x) => x.sid !== me.id), { sid: me.id, status, sel: undefined }] } : c) })); ui.notify("สมัครสำเร็จ"); });
   };
+  const unreg = (compId) => ui.run("กำลังยกเลิก...", () => setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === compId ? { ...c, participants: c.participants.filter((x) => x.sid !== me.id) } : c) })));
   return (
     <div>
-      <PageHead title="สมัครลงแข่งขัน" sub={`ลงตัวจริงแล้ว ${myMain}/${db.settings.maxMain} รายการ`} />
+      <PageHead title="สมัครลงแข่งขัน / กิจกรรม" sub={`สมัครตัวจริงแล้ว ${myMain}${quota ? "/" + quota : ""} รายการ`} />
+      {quotaFull && (
+        <Card style={{ padding: 12, marginBottom: 12, background: "#fbeeee", border: "1px solid #eccdcd" }}>
+          <div style={{ fontSize: 13, color: "#b3453f", fontWeight: 700 }}>ครบโควตาการสมัครแล้ว</div>
+          <div style={{ fontSize: 12.5, color: "#8a5a57", marginTop: 2 }}>ต้องการสมัครรายการอื่นหรือแก้ไข กรุณาติดต่อ กรรมการสี (นักเรียน)</div>
+        </Card>
+      )}
+      <Tabs tabs={[{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }]} active={kind} onChange={setKind} />
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {db.competitions.map((c) => {
+        {list.map((c) => {
           const mine = c.participants.find((p) => p.sid === me.id);
           return (
             <Card key={c.id} style={{ padding: 14 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-                <div>
-                  <div style={{ fontWeight: 700, color: C.ink }}>{c.name} <span style={{ fontSize: 11, color: C.muted, fontWeight: 500 }}>({c.kind})</span></div>
-                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>รับสมัคร {c.regStart} ถึง {c.regEnd}</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8, flexWrap: "wrap" }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, color: C.ink, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>{c.name} <ItemStatusBadge c={c} /></div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>รับสมัคร {c.regStart || "-"} ถึง {c.regEnd || "-"}</div>
                 </div>
-                {mine && <Badge status={mine.status} />}
+                {mine && <Badge status={mine.sel || mine.status} />}
               </div>
-              <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-                <Btn variant="soft" small onClick={() => enroll(c.id, "main")}>สมัครตัวจริง</Btn>
-                <Btn variant="ghost" small onClick={() => enroll(c.id, "reserve")}>สมัครสำรอง</Btn>
+              <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+                <Btn variant="soft" small disabled={quotaFull} onClick={() => enroll(c.id, "main")}>สมัครตัวจริง</Btn>
+                <Btn variant="ghost" small disabled={quotaFull} onClick={() => enroll(c.id, "reserve")}>สมัครสำรอง</Btn>
+                {mine && <Btn variant="ghost" small onClick={() => unreg(c.id)}>ยกเลิกสมัคร</Btn>}
               </div>
             </Card>
           );
         })}
+        {list.length === 0 && <Empty text={`ยังไม่มีรายการ${kind}`} />}
       </div>
+    </div>
+  );
+}
+function StudentSchedule({ me, db, ui }) {
+  const [popup, setPopup] = useState(null);
+  const mine = db.competitions.filter((c) => c.participants.some((p) => p.sid === me.id));
+  const statusText = (c) => { const p = c.participants.find((x) => x.sid === me.id); return p ? (p.sel === "main" ? "ตัวจริง (คัดแล้ว)" : p.sel === "reserve" ? "สำรอง (คัดแล้ว)" : p.status === "main" ? "สมัครตัวจริง" : "สมัครสำรอง") : ""; };
+  return (
+    <div>
+      <PageHead title="ตารางแข่งของฉัน" sub="รายการที่ฉันสมัคร/ถูกคัดเลือก และนัดหมาย" />
+      <div style={{ display: "flex", gap: 8, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ fontSize: 13, color: C.muted }}>ดูตารางรายการอื่น:</span>
+        <Select value="" onChange={(v) => { const c = db.competitions.find((x) => x.id === v); if (c) setPopup(c); }}>
+          <option value="">— เลือกรายการ —</option>
+          {db.competitions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </Select>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {mine.map((c) => (
+          <Card key={c.id} style={{ padding: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ fontWeight: 700, color: C.ink }}>{c.name} <span style={{ fontSize: 11, color: C.muted, fontWeight: 500 }}>({c.kind})</span></div>
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: C.primaryDark, background: C.soft, borderRadius: 12, padding: "2px 10px" }}>{statusText(c)}</span>
+            </div>
+            <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 5 }}>
+              {(c.schedule || []).map((s, i) => <div key={i} style={{ fontSize: 12.5, color: C.ink }}>• {s.round || "นัดหมาย"} — {s.date} {s.time} {s.place ? `· ${s.place}` : ""}</div>)}
+              {(!c.schedule || c.schedule.length === 0) && <div style={{ fontSize: 12, color: C.muted }}>ยังไม่มีนัดหมาย</div>}
+            </div>
+          </Card>
+        ))}
+        {mine.length === 0 && <Empty text="ยังไม่ได้สมัครรายการใด" />}
+      </div>
+      {popup && (
+        <Modal title={`ตาราง: ${popup.name}`} onClose={() => setPopup(null)}>
+          <div style={{ marginBottom: 8 }}><ItemStatusBadge c={popup} /></div>
+          {(popup.schedule || []).map((s, i) => <div key={i} style={{ fontSize: 13, color: C.ink, padding: "6px 0", borderBottom: `1px dashed ${C.line}` }}>• {s.round || "นัดหมาย"} — {s.date} {s.time} {s.place ? `· ${s.place}` : ""}</div>)}
+          {(!popup.schedule || popup.schedule.length === 0) && <Empty text="ยังไม่มีนัดหมาย" />}
+        </Modal>
+      )}
     </div>
   );
 }
