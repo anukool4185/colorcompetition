@@ -1922,7 +1922,7 @@ function CompTable({ kind, db, setDb, ui }) {
                 <button onClick={() => move(c.id, 1)} disabled={i === list.length - 1} style={{ border: `1px solid ${C.line}`, background: C.surface, borderRadius: 6, cursor: i === list.length - 1 ? "default" : "pointer", color: i === list.length - 1 ? C.line : C.primary, width: 26, height: 22, fontSize: 12 }}>▼</button>
               </div>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontWeight: 700, color: C.ink }}>{i + 1}. {c.name}</div>
+                <div style={{ fontWeight: 700, color: C.ink, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>{i + 1}. {c.name} <ItemStatusBadge c={c} /></div>
                 <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>ตัวจริง {c.mainCount || "ไม่จำกัด"} · สำรอง {c.reserveCount || "ไม่จำกัด"} · สมัคร {c.regStart} ถึง {c.regEnd}</div>
                 <div style={{ fontSize: 12, color: C.muted }}>ผู้สมัคร {c.participants.length} คน · กรรมการครู {(c.judgeTeachers || []).length} · กรรมการนักเรียน {(c.judgeStudents || []).length}</div>
               </div>
@@ -2015,60 +2015,110 @@ function CompSettings({ db, setDb, ui }) {
     </Card>
   );
 }
+function itemStatus(c) {
+  const selMain = (c.participants || []).filter((p) => p.sel === "main").length;
+  const q = Number(c.mainCount) || 0;
+  if (!q) return { key: "open", label: `คัดแล้ว ${selMain} (ไม่จำกัด)`, color: "#8a97a5", bg: "#eef0f2" };
+  if (selMain > q) return { key: "over", label: `เกิน ${selMain}/${q}`, color: "#c0392b", bg: "#fbeeee" };
+  if (selMain === q) return { key: "full", label: `ครบ ${selMain}/${q}`, color: "#2f9e6b", bg: "#e6f4ec" };
+  return { key: "partial", label: `ไม่ครบ ${selMain}/${q}`, color: "#c99a2e", bg: "#f7efd9" };
+}
+function ItemStatusBadge({ c }) {
+  const st = itemStatus(c);
+  return <span style={{ fontSize: 11.5, fontWeight: 700, color: st.color, background: st.bg, borderRadius: 12, padding: "2px 10px", whiteSpace: "nowrap" }}>{st.label}</span>;
+}
 function SelectionScreen({ db, setDb, ui }) {
-  const [pick, setPick] = useState(db.competitions[0]?.id || "");
-  const comp = db.competitions.find((c) => c.id === pick);
+  const [kind, setKind] = useState("แข่งขัน");
+  const list = db.competitions.filter((c) => c.kind === kind);
+  const [pick, setPick] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const comp = list.find((c) => c.id === pick) || list[0];
+  const addStudent = (sid, status) => ui.run("กำลังเพิ่มผู้สมัคร...", () => { setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, participants: [...c.participants, { sid, status, sel: undefined }] } : c) })); });
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <Tabs tabs={[{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }]} active={kind} onChange={(k) => { setKind(k); setPick(""); }} />
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-        <Select value={pick} onChange={setPick}>{db.competitions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select>
-        {comp && <ExportBar run={ui.run} />}
+        <Select value={comp?.id || ""} onChange={setPick}>{list.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select>
+        {comp && <ItemStatusBadge c={comp} />}
+        {comp && <Btn small onClick={() => setAddOpen(true)}>+ เพิ่มผู้สมัคร (แทนนักเรียน)</Btn>}
       </div>
-      {comp && <ParticipantManager comp={comp} db={db} setDb={setDb} ui={ui} mode="select" />}
+      {comp ? <ParticipantManager comp={comp} db={db} setDb={setDb} ui={ui} /> : <Empty text={`ยังไม่มีรายการ${kind}`} />}
+      {addOpen && comp && <AddApplicantModal comp={comp} db={db} onClose={() => setAddOpen(false)} onAdd={(sid, status) => { addStudent(sid, status); }} />}
     </div>
   );
 }
-function ParticipantManager({ comp, db, setDb, ui, mode }) {
-  const setStatus = (sid, status) => ui.run("กำลังปรับสถานะ...", () => {
-    setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, participants: c.participants.map((x) => x.sid === sid ? { ...x, status } : x) } : c) }));
-  });
-  const groups = [["main", "ตัวจริง"], ["reserve", "ตัวสำรอง"], ["rejected", "ไม่ผ่านคัดเลือก"]];
+function AddApplicantModal({ comp, db, onClose, onAdd }) {
+  const [q, setQ] = useState("");
+  const enrolled = new Set(comp.participants.map((p) => p.sid));
+  const pool = db.students.filter((s) => !enrolled.has(s.id) && (fullName(s) + s.id).includes(q));
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {groups.map(([g, label]) => {
-        const items = comp.participants.filter((x) => x.status === g);
-        if (items.length === 0) return null;
-        return (
-          <div key={g}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.ink, marginBottom: 6 }}>{label} ({items.length})</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {items.map((x) => {
-                const s = db.students.find((st) => st.id === x.sid);
-                if (!s) return null;
-                return (
-                  <Card key={x.sid} style={{ padding: 12 }}>
-                    <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                      <Avatar person={s} size={54} />
-                      <div style={{ flex: 1, minWidth: 0, maxHeight: 54, overflow: "hidden" }}>
-                        <div style={{ fontWeight: 700, color: C.ink, fontSize: 14 }}>{fullName(s)}</div>
-                        <div style={{ fontSize: 12, color: C.muted }}>รหัส {s.id} · {s.grade}/{s.room} · {s.phone}</div>
-                      </div>
-                      <Badge status={x.status} />
-                    </div>
-                    <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
-                      <Btn variant="soft" small onClick={() => setStatus(x.sid, "main")}>เป็นตัวจริง</Btn>
-                      <Btn variant="soft" small onClick={() => setStatus(x.sid, "reserve")}>เป็นตัวสำรอง</Btn>
-                      <Btn variant="danger" small onClick={() => setStatus(x.sid, "rejected")}>ไม่ผ่านคัดเลือก</Btn>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
+    <Modal title={`เพิ่มผู้สมัคร: ${comp.name}`} onClose={onClose}>
+      <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อ / รหัส" style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, marginBottom: 12, fontSize: 14 }} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 340, overflowY: "auto" }}>
+        {pool.slice(0, 60).map((s) => (
+          <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: 8, borderRadius: 10, border: `1px solid ${C.line}` }}>
+            <Avatar person={s} size={34} />
+            <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{fullName(s)}</div><div style={{ fontSize: 11, color: C.muted }}>{s.grade}/{s.room}</div></div>
+            <button onClick={() => onAdd(s.id, "main")} style={{ border: "none", background: "#e6f4ec", color: "#2f9e6b", borderRadius: 14, padding: "5px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>สมัครตัวจริง</button>
+            <button onClick={() => onAdd(s.id, "reserve")} style={{ border: "none", background: C.soft, color: C.primaryDark, borderRadius: 14, padding: "5px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" }}>สำรอง</button>
           </div>
-        );
-      })}
-      {comp.participants.length === 0 && <Empty text="ยังไม่มีผู้สมัครในรายการนี้" />}
-      <p style={{ fontSize: 12, color: C.muted, margin: 0 }}>* ตรรกะเต็ม (นักเรียนที่ลงหลายรายการจะกลับสถานะปกติเมื่อถูกตัดออกทุกรายการ) จะทำจริงในเฟสฐานข้อมูล</p>
+        ))}
+        {pool.length === 0 && <div style={{ textAlign: "center", color: C.muted, padding: 16, fontSize: 13 }}>ไม่พบนักเรียน (หรือสมัครไปแล้ว)</div>}
+      </div>
+    </Modal>
+  );
+}
+function ParticipantManager({ comp, db, setDb, ui }) {
+  const patch = (fn) => ui.run("กำลังปรับสถานะ...", () => setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, participants: fn(c.participants) } : c) })));
+  const setSel = (sid, sel) => patch((ps) => ps.map((x) => x.sid === sid ? { ...x, sel } : x));
+  const remove = (sid) => patch((ps) => ps.filter((x) => x.sid !== sid));
+  const cur = db.competitions.find((c) => c.id === comp.id) || comp;
+  const P = cur.participants;
+  const mini = (bg, col, onClick, label) => <button onClick={onClick} style={{ border: "none", background: bg, color: col, borderRadius: 14, padding: "4px 9px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{label}</button>;
+  const block = (title, items, actions, accent) => (
+    <div style={{ flex: 1, minWidth: 170, border: `1px solid ${C.line}`, borderRadius: 12, padding: 10, background: C.surface }}>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: accent || C.ink, marginBottom: 6 }}>{title} ({items.length})</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {items.length === 0 && <div style={{ fontSize: 12, color: C.muted }}>—</div>}
+        {items.map((x) => {
+          const s = db.students.find((st) => st.id === x.sid); if (!s) return null;
+          return (
+            <div key={x.sid} style={{ border: `1px solid ${C.line}`, borderRadius: 10, padding: 8 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <Avatar person={s} size={32} />
+                <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{s.first} {s.last}</div><div style={{ fontSize: 11, color: C.muted }}>{s.grade}/{s.room}</div></div>
+              </div>
+              <div style={{ display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" }}>{actions(x)}</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+  const selectedMain = P.filter((x) => x.sel === "main");
+  const selectedRes = P.filter((x) => x.sel === "reserve");
+  const appliedMain = P.filter((x) => !x.sel && x.status === "main");
+  const appliedRes = P.filter((x) => !x.sel && x.status !== "main");
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <div style={{ fontWeight: 800, color: "#2f9e6b" }}>โซนคัดเลือกแล้ว</div><ItemStatusBadge c={cur} />
+        </div>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          {block("บล็อกตัวจริง", selectedMain, (x) => [mini(C.soft, C.primaryDark, () => setSel(x.sid, "reserve"), "→ สำรอง"), mini("#eef0f2", C.muted, () => setSel(x.sid, undefined), "ยกเลิกคัด"), mini("#fbeeee", "#c0392b", () => remove(x.sid), "ลบออก")], "#2f9e6b")}
+          {block("บล็อกตัวสำรอง", selectedRes, (x) => [mini(C.soft, C.primaryDark, () => setSel(x.sid, "main"), "→ ตัวจริง"), mini("#eef0f2", C.muted, () => setSel(x.sid, undefined), "ยกเลิกคัด"), mini("#fbeeee", "#c0392b", () => remove(x.sid), "ลบออก")], "#c99a2e")}
+        </div>
+      </div>
+      <div>
+        <div style={{ fontWeight: 800, color: C.muted, marginBottom: 8 }}>โซนยังไม่คัดเลือก (ผู้สมัคร)</div>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          {block("สมัครเป็นตัวจริง", appliedMain, (x) => [mini("#e6f4ec", "#2f9e6b", () => setSel(x.sid, "main"), "คัดตัวจริง"), mini(C.soft, C.primaryDark, () => setSel(x.sid, "reserve"), "คัดสำรอง"), mini("#fbeeee", "#c0392b", () => remove(x.sid), "ไม่ผ่าน")])}
+          {block("สมัครเป็นตัวสำรอง", appliedRes, (x) => [mini("#e6f4ec", "#2f9e6b", () => setSel(x.sid, "main"), "คัดตัวจริง"), mini(C.soft, C.primaryDark, () => setSel(x.sid, "reserve"), "คัดสำรอง"), mini("#fbeeee", "#c0392b", () => remove(x.sid), "ไม่ผ่าน")])}
+        </div>
+      </div>
+      {P.length === 0 && <Empty text="ยังไม่มีผู้สมัครในรายการนี้" />}
+      <p style={{ fontSize: 11.5, color: C.muted, margin: 0 }}>"ลบออก/ไม่ผ่าน" = นำออกจากรายการ กลับสู่สถานะเริ่มต้น รอสมัครใหม่</p>
     </div>
   );
 }
@@ -2298,6 +2348,7 @@ function ResultsScreen({ db, setDb, ui }) {
       <Tabs tabs={[{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }]} active={kind} onChange={(k) => { setKind(k); setPick(""); }} />
       <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
         <Select value={comp?.id || ""} onChange={setPick}>{list.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select>
+        {comp && <ItemStatusBadge c={comp} />}
         {comp && <Btn small onClick={() => setNextFor(comp)}>บันทึก & ระบุรอบถัดไป</Btn>}
         {comp && comp.resultDone && <span style={{ fontSize: 12, fontWeight: 700, color: "#2f9e6b" }}>● จบการแข่งแล้ว</span>}
       </div>
