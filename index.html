@@ -919,11 +919,32 @@ function ConfirmModal({ title, message, onConfirm, onClose, confirmLabel, varian
     </Modal>
   );
 }
+function regStatusOf(db, sid) {
+  let main = false, res = false;
+  db.competitions.forEach((c) => c.participants.forEach((p) => { if (p.sid === sid) { if (p.status === "main") main = true; else if (p.status === "reserve") res = true; } }));
+  return main ? "ตัวจริง" : res ? "สำรอง" : "";
+}
+function selStatusOf(db, sid) {
+  let main = false, res = false;
+  db.competitions.forEach((c) => c.participants.forEach((p) => { if (p.sid === sid) { if (p.sel === "main") main = true; else if (p.sel === "reserve") res = true; } }));
+  return main ? "ตัวจริง" : res ? "สำรอง" : "";
+}
+function StatusBadge({ label, value, emptyText, emptyRed }) {
+  const col = value === "ตัวจริง" ? "#2f9e6b" : value === "สำรอง" ? "#c99a2e" : (emptyRed ? "#c0392b" : C.muted);
+  const bg = value === "ตัวจริง" ? "#e6f4ec" : value === "สำรอง" ? "#f7efd9" : (emptyRed ? "#fbeeee" : C.soft);
+  return (
+    <div style={{ textAlign: "center", minWidth: 66 }}>
+      <div style={{ fontSize: 9.5, color: C.muted }}>{label}</div>
+      <div style={{ fontSize: 11.5, fontWeight: 700, color: col, background: bg, borderRadius: 12, padding: "2px 8px", marginTop: 2 }}>{value || emptyText}</div>
+    </div>
+  );
+}
 function PersonList({ kind, db, setDb, ui }) {
   const key = kind === "student" ? "students" : "teachers";
   const list = db[key];
   const [grade, setGrade] = useState("");
   const [room, setRoom] = useState("");
+  const [reg, setReg] = useState(""); // "" ทั้งหมด | "no" ยังไม่สมัคร | "yes" สมัครแล้ว
   const [add, setAdd] = useState(false);
   const [edit, setEdit] = useState(null);
   const [rawRows, setRawRows] = useState(null);
@@ -932,7 +953,20 @@ function PersonList({ kind, db, setDb, ui }) {
 
   const grades = [...new Set(list.map((s) => s.grade).filter(Boolean))];
   const rooms = [...new Set(list.map((s) => s.room).filter(Boolean))];
-  const filtered = list.filter((s) => (!grade || s.grade === grade) && (!room || s.room === room));
+  const filtered = list.filter((s) => (!grade || s.grade === grade) && (!room || s.room === room) && (kind !== "student" || reg === "" || (reg === "no" ? regStatusOf(db, s.id) === "" : regStatusOf(db, s.id) !== "")));
+  const printList = () => {
+    const rows = filtered.map((s) => `<tr><td>${s.id}</td><td>${fullName(s)}</td><td>${s.grade || ""}/${s.room || ""}</td><td>${s.phone || ""}</td><td>${regStatusOf(db, s.id) || "ยังไม่สมัคร"}</td><td>${selStatusOf(db, s.id) || "-"}</td></tr>`).join("");
+    const w = window.open("", "_blank"); if (!w) { ui.notify("เบราว์เซอร์บล็อกหน้าต่าง"); return; }
+    w.document.write(`<html><head><meta charset="utf-8"><title>รายชื่อ${kindLabel}</title><style>body{font-family:'Noto Sans Thai',sans-serif;padding:16px}h3{margin:0 0 10px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #999;padding:6px 8px;font-size:13px;text-align:left}th{background:#eee}@page{margin:8mm}</style></head><body><h3>รายชื่อ${kindLabel} (${filtered.length} คน)</h3><table><thead><tr><th>รหัส</th><th>ชื่อ</th><th>ชั้น/ห้อง</th><th>เบอร์</th><th>สถานะสมัคร</th><th>สถานะคัดเลือก</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
+    w.document.close(); w.focus(); setTimeout(() => w.print(), 300);
+  };
+  const exportList = () => {
+    try {
+      const aoa = [["รหัส", "คำนำหน้า", "ชื่อ", "นามสกุล", "ชั้น/ห้อง", "เบอร์โทร", "สถานะสมัคร", "สถานะคัดเลือก"]];
+      filtered.forEach((s) => aoa.push([s.id, s.pre || "", s.first, s.last, `${s.grade || ""}/${s.room || ""}`, s.phone || "", regStatusOf(db, s.id) || "ยังไม่สมัคร", selStatusOf(db, s.id) || "-"]));
+      const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "รายชื่อ"); XLSX.writeFile(wb, `รายชื่อ${kindLabel}.xlsx`);
+    } catch (e) { ui.notify("ดาวน์โหลดไม่สำเร็จ (เปิดผ่านหน้าเว็บจริง)"); }
+  };
   const selSet = new Set(sel);
   const allVisibleSelected = filtered.length > 0 && filtered.every((s) => selSet.has(s.id));
   const toggle = (id) => setSel((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
@@ -1004,6 +1038,8 @@ function PersonList({ kind, db, setDb, ui }) {
           <input id={"xlsx-" + kind} type="file" accept=".xlsx,.xls,.csv" onChange={onFile} style={{ display: "none" }} />
           <Btn variant="ghost" small onClick={downloadTemplate}>แม่แบบ</Btn>
           <Btn variant="ghost" small onClick={() => document.getElementById("xlsx-" + kind).click()}>นำเข้า Excel</Btn>
+          {kind === "student" && <Btn variant="ghost" small onClick={printList}>ปริ้น/PDF</Btn>}
+          {kind === "student" && <Btn variant="ghost" small onClick={exportList}>ดาวน์โหลด Excel</Btn>}
           <Btn small onClick={() => setAdd(true)}>+ เพิ่ม{kindLabel}</Btn>
         </div>
       </div>
@@ -1020,6 +1056,7 @@ function PersonList({ kind, db, setDb, ui }) {
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Select value={grade} onChange={setGrade}><option value="">ทุกระดับชั้น</option>{grades.map((g) => <option key={g}>{g}</option>)}</Select>
           <Select value={room} onChange={setRoom}><option value="">ทุกห้อง</option>{rooms.map((r) => <option key={r} value={r}>ห้อง {r}</option>)}</Select>
+          <Select value={reg} onChange={setReg}><option value="">ทุกสถานะสมัคร</option><option value="no">ยังไม่สมัคร</option><option value="yes">สมัครแล้ว</option></Select>
         </div>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1031,6 +1068,12 @@ function PersonList({ kind, db, setDb, ui }) {
               <div style={{ fontWeight: 700, color: C.ink, fontSize: 14 }}>{fullName(s)}</div>
               <div style={{ fontSize: 12, color: C.muted }}>รหัส {s.id}{s.grade ? ` · ${s.grade}/${s.room}` : ""} · {s.phone}</div>
             </div>
+            {kind === "student" && (
+              <div style={{ display: "flex", gap: 6 }}>
+                <StatusBadge label="สมัคร" value={regStatusOf(db, s.id)} emptyText="ยังไม่สมัคร" emptyRed />
+                <StatusBadge label="คัดเลือก" value={selStatusOf(db, s.id)} emptyText="ยังไม่คัด" />
+              </div>
+            )}
             <div style={{ display: "flex", gap: 6 }}>
               <Btn variant="ghost" small onClick={() => setEdit(s)}>แก้ไข</Btn>
               <Btn variant="danger" small onClick={() => setConfirm({ ids: [s.id], msg: `ลบ ${fullName(s)} พร้อมตัดความเกี่ยวข้องและลบรูปใน Drive ?` })}>ลบ</Btn>
