@@ -16,7 +16,6 @@
   body { font-family: 'Noto Sans Thai', system-ui, sans-serif; -webkit-text-size-adjust: 100%; }
   .hidden { display: none !important; }
   .grid-cols-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  /* org tree connectors */
   .orgtree { display: inline-block; min-width: 100%; text-align: center; }
   .orgtree ul { display: flex; justify-content: center; padding-top: 18px; position: relative; margin: 0; list-style: none; }
   .orgtree li { position: relative; padding: 18px 8px 0; list-style: none; }
@@ -506,7 +505,7 @@ function AdminApp({ db, setDb, onExit }) {
       {view === "home" && <AdminHome db={db} setDb={setDb} ui={ui} />}
       {view === "people" && <PeopleManager db={db} setDb={setDb} ui={ui} />}
       {view === "duties" && <DutyManager db={db} setDb={setDb} ui={ui} />}
-      {view === "org" && <OrgViewManager db={db} ui={ui} />}
+      {view === "org" && <OrgViewManager db={db} setDb={setDb} ui={ui} editable />}
       {view === "comp" && <CompManager db={db} setDb={setDb} ui={ui} />}
       {view === "promote" && <PromotionManager db={db} setDb={setDb} ui={ui} />}
       {view === "trash" && <TrashBin db={db} setDb={setDb} ui={ui} />}
@@ -1470,30 +1469,38 @@ function DutyManager({ db, setDb, ui }) {
   const [tab, setTab] = useState("teacher");
   return (
     <div>
-      <PageHead title="กำหนดหน้าที่" sub="เพิ่มแถวหน้าที่และกำหนดรายชื่อกรรมการ (แยกหมวดแข่งขัน / กิจกรรม)" />
-      <Tabs tabs={[{ key: "teacher", label: "ครู" }, { key: "student", label: "นักเรียน" }]} active={tab} onChange={setTab} />
-      {tab === "teacher" && <OrgEditor which="orgTeacher" pool={db.teachers} pickPool={db.teachers.filter((t) => t.user)} db={db} setDb={setDb} ui={ui} editable committeeLabel="กรรมการครู" />}
-      {tab === "student" && <OrgEditor which="orgStudent" pool={db.students} pickPool={db.students.filter((s) => s.committee)} db={db} setDb={setDb} ui={ui} editable committeeLabel="กรรมการนักเรียน" />}
+      <PageHead title="กำหนดหน้าที่" sub="สร้างโครงผัง (ตำแหน่ง ยังไม่ใส่ชื่อ) และรายการแข่ง/กิจกรรม · ไปลงชื่อในผังที่เมนู ผังองค์กร" />
+      <Tabs tabs={[{ key: "teacher", label: "โครงผังครู" }, { key: "student", label: "โครงผังนักเรียน" }, { key: "comp", label: "รายการแข่งขัน" }, { key: "act", label: "รายการกิจกรรม" }]} active={tab} onChange={setTab} />
+      {tab === "teacher" && <OrgEditor which="orgTeacher" pool={db.teachers} db={db} setDb={setDb} ui={ui} />}
+      {tab === "student" && <OrgEditor which="orgStudent" pool={db.students} db={db} setDb={setDb} ui={ui} />}
+      {tab === "comp" && <CompTable kind="แข่งขัน" db={db} setDb={setDb} ui={ui} />}
+      {tab === "act" && <CompTable kind="กิจกรรม" db={db} setDb={setDb} ui={ui} />}
     </div>
   );
 }
-function OrgViewManager({ db, ui }) {
+function OrgViewManager({ db, setDb, ui, editable }) {
   const [cat, setCat] = useState("comp");
   const [side, setSide] = useState("teacher");
+  const [assign, setAssign] = useState(null);
   const which = side === "teacher" ? "orgTeacher" : "orgStudent";
   const pool = side === "teacher" ? db.teachers : db.students;
-  const rows = db[which].filter((r) => (r.cat || "comp") === cat);
+  const pickPool = side === "teacher" ? db.teachers.filter((t) => t.user) : db.students.filter((s) => s.committee);
+  const nodes = db[which].filter((n) => (n.cat || "comp") === cat);
+  const setPerson = (nodeId, personId) => ui.run("กำลังลงชื่อ...", () => { setDb((p) => ({ ...p, [which]: p[which].map((n) => n.id === nodeId ? { ...n, personId } : n) })); setAssign(null); });
+  const clearName = (node) => ui.run("กำลังลบชื่อ...", () => setDb((p) => ({ ...p, [which]: p[which].map((n) => n.id === node.id ? { ...n, personId: "" } : n) })));
   return (
     <div>
-      <PageHead title="ผังองค์กร" sub="ดูผังรวมตามหมวดและฝ่าย" right={<ExportBar run={ui && ui.run} />} />
+      <PageHead title="ผังองค์กร" sub={editable ? "กดที่กล่องเพื่อลงชื่อในตำแหน่ง (ค้นหาได้ เลือกแล้วลงทันที)" : "ดูอย่างเดียว"} right={<ExportBar run={ui && ui.run} />} />
       <Tabs tabs={[{ key: "comp", label: "ผังรายการแข่งขัน" }, { key: "act", label: "ผังรายการกิจกรรม" }]} active={cat} onChange={setCat} />
       <div style={{ marginBottom: 6 }}>
         <Tabs tabs={[{ key: "teacher", label: "ผังรวมครู" }, { key: "student", label: "ผังรวมนักเรียน" }]} active={side} onChange={setSide} />
       </div>
       <Card style={{ padding: 16, overflowX: "auto" }}>
         <div style={{ textAlign: "center", fontWeight: 800, color: side === "teacher" ? C.primary : C.gold, marginBottom: 14 }}>{cat === "comp" ? "รายการแข่งขัน" : "รายการกิจกรรม"} · {side === "teacher" ? "ครู" : "นักเรียน"}</div>
-        <OrgTree nodes={rows} pool={pool} accent={side === "teacher" ? C.primary : C.gold} editable={false} />
+        <OrgTree nodes={nodes} pool={pool} accent={side === "teacher" ? C.primary : C.gold} mode={editable ? "names" : "view"}
+          onAssign={(node) => setAssign(node)} onClearName={clearName} />
       </Card>
+      {assign && <SearchPersonPopup title={`ลงชื่อในตำแหน่ง: ${assign.title}`} pool={pickPool} emptyText={`ยังไม่มี${side === "teacher" ? "กรรมการครู" : "กรรมการนักเรียน"} — ตั้งที่ บุคลากร → บัญชีผู้ใช้ ก่อน`} onClose={() => setAssign(null)} onPick={(p) => setPerson(assign.id, p.id)} />}
     </div>
   );
 }
@@ -1576,25 +1583,32 @@ function pruneOrg(nodes, removedSet) {
   const ids = new Set(kept.map((n) => n.id));
   return kept.map((n) => (n.parent && !ids.has(n.parent)) ? { ...n, parent: null } : n);
 }
-function OrgTree({ nodes, pool, accent, editable, onAddChild, onEdit, onDelete }) {
+function OrgTree({ nodes, pool, accent, mode, onAddChild, onEditTitle, onDelete, onAssign, onClearName }) {
   const ids = new Set(nodes.map((n) => n.id));
   const roots = nodes.filter((n) => !n.parent || !ids.has(n.parent));
   const mini = (bg, col, brd) => ({ border: `1px solid ${brd || bg}`, background: bg, color: col, borderRadius: 14, padding: "3px 9px", fontSize: 11, fontWeight: 700, cursor: "pointer" });
+  const structure = mode === "structure", names = mode === "names";
   const renderLi = (node) => {
     const p = pool.find((x) => x.id === node.personId);
     const kids = nodes.filter((n) => n.parent === node.id);
     return (
       <li key={node.id}>
         <div className="orgbox">
-          <div style={{ border: `1.5px solid ${accent}66`, borderRadius: 12, padding: "8px 10px", background: C.surface, minWidth: 104, boxShadow: "0 1px 4px rgba(0,0,0,.05)" }}>
-            <div style={{ display: "flex", justifyContent: "center" }}><Avatar person={p} size={42} /></div>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: C.ink, textAlign: "center", marginTop: 4, lineHeight: 1.2 }}>{p ? `${p.first} ${p.last}` : "— (ไม่พบ) —"}</div>
+          <div onClick={names ? () => onAssign(node) : undefined} style={{ border: `1.5px ${(!p && names) ? "dashed" : "solid"} ${accent}66`, borderRadius: 12, padding: "8px 10px", background: C.surface, minWidth: 110, boxShadow: "0 1px 4px rgba(0,0,0,.05)", cursor: names ? "pointer" : "default" }}>
+            <div style={{ display: "flex", justifyContent: "center" }}><Avatar person={p || { first: "", last: "" }} size={42} /></div>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: p ? C.ink : C.muted, textAlign: "center", marginTop: 4, lineHeight: 1.2 }}>{p ? `${p.first} ${p.last}` : (names ? "＋ เพิ่มชื่อ" : "(ยังไม่ลงชื่อ)")}</div>
             <div style={{ fontSize: 11, color: accent, textAlign: "center", fontWeight: 600 }}>{node.title}</div>
-            {editable && (
+            {structure && (
               <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 6, flexWrap: "wrap" }}>
                 <button onClick={() => onAddChild(node)} style={mini(C.soft, C.primaryDark)}>+ ลูกน้อง</button>
-                <button onClick={() => onEdit(node)} style={mini(C.surface, C.muted, C.line)}>แก้</button>
+                <button onClick={() => onEditTitle(node)} style={mini(C.surface, C.muted, C.line)}>แก้ชื่อ</button>
                 <button onClick={() => onDelete(node)} style={mini("#fbeeee", "#c0392b", "#eccdcd")}>ลบ</button>
+              </div>
+            )}
+            {names && p && (
+              <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 6 }}>
+                <button onClick={(e) => { e.stopPropagation(); onAssign(node); }} style={mini(C.soft, C.primaryDark)}>เปลี่ยน</button>
+                <button onClick={(e) => { e.stopPropagation(); onClearName(node); }} style={mini("#fbeeee", "#c0392b", "#eccdcd")}>ลบชื่อ</button>
               </div>
             )}
           </div>
@@ -1603,34 +1617,27 @@ function OrgTree({ nodes, pool, accent, editable, onAddChild, onEdit, onDelete }
       </li>
     );
   };
-  if (!nodes.length) return <Empty text="ยังไม่มีผัง" />;
+  if (!nodes.length) return <Empty text={structure ? "ยังไม่มีตำแหน่ง กด + เพิ่มหัวหน้าสูงสุด" : "ยังไม่มีผัง (สร้างโครงที่เมนู กำหนดหน้าที่)"} />;
   return <div className="orgtree" style={{ ["--tl"]: C.line }}><ul>{roots.map(renderLi)}</ul></div>;
 }
-function NodeForm({ node, pickPool, onClose, onSave }) {
-  const [personId, setPersonId] = useState(node?.personId || "");
+function NodeForm({ node, onClose, onSave }) {
   const [title, setTitle] = useState(node?.title || "");
-  const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff", marginBottom: 12 };
   return (
-    <Modal title={node ? "แก้ตำแหน่ง / บุคคล" : "เพิ่มรายชื่อ / ตำแหน่ง"} onClose={onClose}>
-      <Field label="ชื่อตำแหน่ง / หน้าที่" value={title} onChange={setTitle} placeholder="เช่น ประธาน, ผู้ช่วย" />
-      <span style={{ display: "block", fontSize: 13, color: C.muted, marginBottom: 5 }}>เลือกบุคคล (จากกรรมการ)</span>
-      <select value={personId} onChange={(e) => setPersonId(e.target.value)} style={selCss}>
-        <option value="">— เลือก —</option>
-        {pickPool.map((p) => <option key={p.id} value={p.id}>{fullName(p)} ({p.id})</option>)}
-      </select>
-      {pickPool.length === 0 && <p style={{ fontSize: 12, color: "#c0392b", marginTop: 0 }}>ยังไม่มีกรรมการ — ไปตั้งที่ บุคลากร → บัญชีผู้ใช้ ก่อน</p>}
-      <div style={{ display: "flex", gap: 8 }}><Btn onClick={() => onSave({ personId, title })} disabled={!personId || !title}>บันทึก</Btn><Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn></div>
+    <Modal title={node ? "แก้ชื่อตำแหน่ง" : "เพิ่มตำแหน่ง / หน้าที่"} onClose={onClose}>
+      <Field label="ชื่อตำแหน่ง / หน้าที่" value={title} onChange={setTitle} placeholder="เช่น ประธาน, รองประธาน, ผู้ช่วย" />
+      <p style={{ fontSize: 12, color: C.muted, marginTop: 0 }}>สร้างแค่ตำแหน่งก่อน (ยังไม่ต้องใส่ชื่อคน) — ไปลงชื่อที่เมนู "ผังองค์กร"</p>
+      <div style={{ display: "flex", gap: 8 }}><Btn onClick={() => onSave({ title })} disabled={!title}>บันทึก</Btn><Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn></div>
     </Modal>
   );
 }
-function OrgEditor({ which, pool, pickPool, db, setDb, ui, editable, committeeLabel }) {
+function OrgEditor({ which, pool, db, setDb, ui }) {
   const nodes = db[which];
   const accent = which === "orgTeacher" ? C.primary : C.gold;
-  const [form, setForm] = useState(null);       // { cat, parent } เพิ่ม | { node } แก้
+  const [form, setForm] = useState(null);
   const [confirmNode, setConfirmNode] = useState(null);
   const update = (fn) => setDb((p) => ({ ...p, [which]: fn(p[which]) }));
-  const addNode = ({ personId, title }, cat, parent) => ui.run("กำลังเพิ่ม...", () => { update((ns) => [...ns, { id: "n" + Date.now() + Math.random().toString(36).slice(2, 5), personId, title, cat, parent: parent || null }]); setForm(null); });
-  const editNode = (nodeId, { personId, title }) => ui.run("กำลังบันทึก...", () => { update((ns) => ns.map((n) => n.id === nodeId ? { ...n, personId, title } : n)); setForm(null); });
+  const addNode = ({ title }, cat, parent) => ui.run("กำลังเพิ่ม...", () => { update((ns) => [...ns, { id: "n" + Date.now() + Math.random().toString(36).slice(2, 5), personId: "", title, cat, parent: parent || null }]); setForm(null); });
+  const editNode = (nodeId, { title }) => ui.run("กำลังบันทึก...", () => { update((ns) => ns.map((n) => n.id === nodeId ? { ...n, title } : n)); setForm(null); });
   const delNode = (node) => ui.run("กำลังลบ...", () => {
     const all = db[which];
     const toDel = new Set([node.id]);
@@ -1646,31 +1653,31 @@ function OrgEditor({ which, pool, pickPool, db, setDb, ui, editable, committeeLa
       <Card style={{ padding: 14, overflowX: "auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 8 }}>
           <div style={{ fontWeight: 800, color: C.primaryDark }}>{label} <span style={{ fontSize: 12, fontWeight: 500, color: C.muted }}>({catNodes.length} ตำแหน่ง)</span></div>
-          {editable && <Btn small onClick={() => setForm({ cat, parent: null })}>+ เพิ่มหัวหน้าสูงสุด</Btn>}
+          <Btn small onClick={() => setForm({ cat, parent: null })}>+ เพิ่มหัวหน้าสูงสุด</Btn>
         </div>
-        <OrgTree nodes={catNodes} pool={pool} accent={accent} editable={editable}
-          onAddChild={(node) => setForm({ cat, parent: node.id })} onEdit={(node) => setForm({ node })} onDelete={(node) => setConfirmNode(node)} />
+        <OrgTree nodes={catNodes} pool={pool} accent={accent} mode="structure"
+          onAddChild={(node) => setForm({ cat, parent: node.id })} onEditTitle={(node) => setForm({ node })} onDelete={(node) => setConfirmNode(node)} />
       </Card>
     );
   };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {editable && <div style={{ fontSize: 12.5, color: C.muted }}>เลือกรายชื่อจาก{committeeLabel} ({(pickPool || []).length} คน) · กด "+ ลูกน้อง" ที่ชื่อใดเพื่อเพิ่มผู้ใต้บังคับบัญชาในแถวถัดไป (เส้นจะเชื่อมให้ถูกต้อง)</div>}
+      <div style={{ fontSize: 12.5, color: C.muted }}>สร้างโครงผัง: กด "+ เพิ่มหัวหน้าสูงสุด" แล้วกด "+ ลูกน้อง" ที่ตำแหน่งใดเพื่อแตกกิ่ง (ยังไม่ต้องใส่ชื่อคน)</div>
       {section("comp", "รายการแข่งขัน")}
       {section("act", "รายการกิจกรรม")}
-      {form && <NodeForm node={form.node} pickPool={pickPool || []} onClose={() => setForm(null)} onSave={(v) => form.node ? editNode(form.node.id, v) : addNode(v, form.cat, form.parent)} />}
-      {confirmNode && <ConfirmModal title="ยืนยันการลบ" message={`ลบ "${confirmNode.title}" และผู้ใต้บังคับบัญชาทั้งหมด? จะถูกเก็บในถังขยะ (กู้คืนได้)`} onConfirm={() => delNode(confirmNode)} onClose={() => setConfirmNode(null)} />}
+      {form && <NodeForm node={form.node} onClose={() => setForm(null)} onSave={(v) => form.node ? editNode(form.node.id, v) : addNode(v, form.cat, form.parent)} />}
+      {confirmNode && <ConfirmModal title="ยืนยันการลบ" message={`ลบตำแหน่ง "${confirmNode.title}" และตำแหน่งลูกทั้งหมด? เก็บในถังขยะ (กู้คืนได้)`} onConfirm={() => delNode(confirmNode)} onClose={() => setConfirmNode(null)} />}
     </div>
   );
 }
 
 /* ----- Competition manager ----- */
 function CompManager({ db, setDb, ui }) {
-  const [tab, setTab] = useState("comp");
+  const [tab, setTab] = useState("select");
   return (
     <div>
-      <PageHead title="รายการแข่งขัน & กิจกรรม" sub={`จำกัดตัวจริงต่อคน: ${db.settings.maxMain} รายการ`} />
-      <Tabs tabs={[{ key: "comp", label: "รายการแข่งขัน" }, { key: "act", label: "รายการกิจกรรม" }, { key: "select", label: "คัดเลือกผู้เข้าแข่ง" }, { key: "set", label: "ตั้งค่า" }]} active={tab} onChange={setTab} />
+      <PageHead title="การแข่งขัน & กิจกรรม" sub={`คัดเลือกผู้เข้าแข่ง · จำกัดตัวจริงต่อคน: ${db.settings.maxMain} รายการ (เพิ่ม/แก้รายการที่เมนู กำหนดหน้าที่)`} />
+      <Tabs tabs={[{ key: "select", label: "คัดเลือกผู้เข้าแข่ง" }, { key: "comp", label: "รายการแข่งขัน" }, { key: "act", label: "รายการกิจกรรม" }, { key: "set", label: "ตั้งค่า" }]} active={tab} onChange={setTab} />
       {tab === "comp" && <CompTable kind="แข่งขัน" db={db} setDb={setDb} ui={ui} />}
       {tab === "act" && <CompTable kind="กิจกรรม" db={db} setDb={setDb} ui={ui} />}
       {tab === "select" && <SelectionScreen db={db} setDb={setDb} ui={ui} />}
@@ -1740,7 +1747,7 @@ function JudgeAssign({ comp, cat, db, setDb, onClose }) {
   const update = (patch) => setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, ...patch } : c) }));
   const toggle = (arr, patchKey, nodeId) => update({ [patchKey]: arr.includes(nodeId) ? arr.filter((x) => x !== nodeId) : [...arr, nodeId] });
   const levelsOf = (allNodes) => {
-    const nodes = allNodes.filter((n) => (n.cat || "comp") === cat);
+    const nodes = allNodes.filter((n) => (n.cat || "comp") === cat && n.personId);
     const byId = {}; nodes.forEach((n) => { byId[n.id] = n; });
     const depth = (n) => { let d = 0, c = n, guard = 0; while (c && c.parent && byId[c.parent] && guard++ < 50) { d++; c = byId[c.parent]; } return d; };
     const groups = {}; nodes.forEach((n) => { const d = depth(n); (groups[d] = groups[d] || []).push(n); });
@@ -2428,13 +2435,7 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
 </script>
 <style>
-.toast {
-  position: fixed; z-index: 100; left: 50%; bottom: 0;
-  padding: 12px 14px; border-radius: 24px;
-  transform: translate(-50%, -24px); transition: transform 0.3s ease-out;
-  box-shadow: 0 2px 20px rgba(0,0,0,.2); animation: fade-in .3s ease-out;
-  background: rgba(24,38,53,.88); color: white; font-size: 14px;
-}
+.toast { position: fixed; z-index: 100; left: 50%; bottom: 0; padding: 12px 14px; border-radius: 24px; transform: translate(-50%, -24px); box-shadow: 0 2px 20px rgba(0,0,0,.2); animation: fade-in .3s ease-out; background: rgba(24,38,53,.88); color: white; font-size: 14px; }
 @keyframes fade-in { 0% { opacity: 0; } 100% { opacity: 1; } }
 </style>
 </body>
