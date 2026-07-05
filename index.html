@@ -2311,22 +2311,78 @@ function PromoCard({ db, setDb, ui }) {
 /* ============================================================
    COMMITTEE (teacher / student committee) — same screens
    ============================================================ */
-function CommitteeApp({ role, db, setDb, onExit }) {
-  const [view, setView] = useState("org");
+function CommitteeApp({ role, db, setDb, onExit, meId }) {
+  const [view, setView] = useState("duty");
   const ui = useUI();
+  if (role === "studentcom") { const me = db.students.find((s) => s.id === meId); if (me && !studentProfileComplete(me)) return (<><ProfileGate me={me} setDb={setDb} ui={ui} />{ui.loading && <LoadingModal label={ui.loading} />}{ui.toast && <Toast msg={ui.toast} />}</>); }
   const nav = [
+    { key: "duty", label: "หน้าที่ของฉัน", icon: "🧩" },
     { key: "org", label: "ผังองค์กร", icon: "🗂" },
-    { key: "results", label: "ลงผล", icon: "🏅" },
+    { key: "me", label: "ข้อมูลฉัน", icon: "🪪" },
     { key: "schedule", label: "ตารางแข่ง", icon: "📅" },
-    { key: "regfor", label: "สมัครแทน", icon: "✍️" },
   ];
   return (
     <Shell role={role} nav={nav} view={view} setView={setView} onExit={onExit} ui={ui}>
+      {view === "duty" && <MyDutyScreen role={role} meId={meId} db={db} setDb={setDb} ui={ui} />}
       {view === "org" && <OrgViewManager db={db} ui={ui} />}
-      {view === "results" && <ResultsScreen db={db} setDb={setDb} ui={ui} />}
-      {view === "schedule" && <ScheduleScreen db={db} setDb={setDb} ui={ui} editable />}
-      {view === "regfor" && <RegisterForStudent db={db} setDb={setDb} ui={ui} />}
+      {view === "me" && <CommitteeProfile role={role} meId={meId} db={db} setDb={setDb} ui={ui} />}
+      {view === "schedule" && <ScheduleScreen db={db} setDb={setDb} ui={ui} editable={false} />}
     </Shell>
+  );
+}
+function MyDutyScreen({ role, meId, db, setDb, ui }) {
+  const which = role === "teacher" ? "orgTeacher" : "orgStudent";
+  const judgeKey = role === "teacher" ? "judgeTeachers" : "judgeStudents";
+  const myNodeIds = db[which].filter((n) => n.personId === meId).map((n) => n.id);
+  const [kind, setKind] = useState("แข่งขัน");
+  const [pick, setPick] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const myComps = db.competitions.filter((c) => c.kind === kind && (c[judgeKey] || []).some((id) => myNodeIds.includes(id)));
+  const comp = myComps.find((c) => c.id === pick) || myComps[0];
+  const addStudent = (sid, status) => ui.run("กำลังเพิ่มผู้สมัคร...", () => setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, participants: [...c.participants, { sid, status, sel: undefined }] } : c) })));
+  return (
+    <div>
+      <PageHead title="หน้าที่ของฉัน" sub="รายการที่ฉันเป็นกรรมการ · คัดเลือกผู้เข้าแข่ง (คัดแล้ว/ยังไม่คัด)" />
+      <Tabs tabs={[{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }]} active={kind} onChange={(k) => { setKind(k); setPick(""); }} />
+      {myComps.length === 0 ? <Empty text={`ยังไม่ได้รับมอบหมายรายการ${kind} (แอดมินจัดกรรมการที่เมนูการแข่งขัน)`} /> : (
+        <>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+            <Select value={comp?.id || ""} onChange={setPick}>{myComps.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select>
+            {comp && <ItemStatusBadge c={comp} />}
+            {comp && <Btn small onClick={() => setAddOpen(true)}>+ เพิ่มผู้สมัครแทน</Btn>}
+          </div>
+          {comp && <ParticipantManager comp={comp} db={db} setDb={setDb} ui={ui} />}
+          {addOpen && comp && <AddApplicantModal comp={comp} db={db} onClose={() => setAddOpen(false)} onAdd={(sid, status) => addStudent(sid, status)} />}
+        </>
+      )}
+    </div>
+  );
+}
+function CommitteeProfile({ role, meId, db, setDb, ui }) {
+  if (role === "studentcom") { const me = db.students.find((s) => s.id === meId); return me ? <MyProfile me={me} db={db} setDb={setDb} ui={ui} /> : <Empty text="ไม่พบข้อมูล" />; }
+  const me = db.teachers.find((t) => t.id === meId) || db.teachers[0];
+  const [f, setF] = useState(me ? { pre: me.pre || "", first: me.first || "", last: me.last || "", phone: me.phone || "", password: me.password || "" } : null);
+  if (!me) return <Empty text="ไม่พบข้อมูลครู" />;
+  const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
+  return (
+    <div>
+      <PageHead title="ข้อมูลของฉัน" sub="กรรมการ (ครู)" />
+      <Card style={{ padding: 16, marginBottom: 14, display: "flex", gap: 14, alignItems: "center" }}>
+        <Avatar person={me} size={64} />
+        <div><div style={{ fontWeight: 700, color: C.ink, fontSize: 16 }}>{fullName(me)}</div><div style={{ fontSize: 13, color: C.muted }}>ผู้ใช้ {me.user || me.id}</div></div>
+      </Card>
+      <Card style={{ padding: 16, maxWidth: 460 }}>
+        <div style={{ fontWeight: 700, color: C.ink, marginBottom: 10 }}>แก้ไขข้อมูล</div>
+        <div className="md:grid md:grid-cols-2 md:gap-x-3">
+          <Field label="คำนำหน้า" value={f.pre} onChange={set("pre")} />
+          <Field label="เบอร์โทร" value={f.phone} onChange={set("phone")} type="tel" />
+          <Field label="ชื่อ" value={f.first} onChange={set("first")} />
+          <Field label="นามสกุล" value={f.last} onChange={set("last")} />
+        </div>
+        <Field label="รหัสผ่าน" value={f.password} onChange={set("password")} />
+        <Btn onClick={() => ui.run("กำลังบันทึก...", () => { setDb((p) => ({ ...p, teachers: p.teachers.map((t) => t.id === me.id ? { ...t, ...f } : t) })); ui.notify("บันทึกข้อมูลแล้ว"); })}>บันทึกข้อมูล</Btn>
+      </Card>
+    </div>
   );
 }
 function ResultsScreen({ db, setDb, ui }) {
@@ -2886,7 +2942,7 @@ function App() {
       {screen === "landing" && <Landing onLogin={() => setScreen("login")} announce={db.settings.announce} comps={db.competitions} />}
       {screen === "login" && <Login db={db} onEnter={(a) => { setAuth(a); setScreen("app"); }} onBack={() => setScreen("landing")} />}
       {screen === "app" && auth?.role === "admin" && <AdminApp db={db} setDb={setDb} onExit={exit} />}
-      {screen === "app" && (auth?.role === "teacher" || auth?.role === "studentcom") && <CommitteeApp role={auth.role} db={db} setDb={setDb} onExit={exit} />}
+      {screen === "app" && (auth?.role === "teacher" || auth?.role === "studentcom") && <CommitteeApp role={auth.role} db={db} setDb={setDb} onExit={exit} meId={auth.id} />}
       {screen === "app" && auth?.role === "student" && <StudentApp meId={auth.id} db={db} setDb={setDb} onExit={exit} />}
     </div>
   );
