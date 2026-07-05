@@ -939,12 +939,34 @@ function StatusBadge({ label, value, emptyText, emptyRed }) {
     </div>
   );
 }
+function dutyOf(db, kind, id) {
+  const which = kind === "teacher" ? "orgTeacher" : "orgStudent";
+  const nodes = (db[which] || []).filter((n) => n.personId === id);
+  const cats = new Set(nodes.map((n) => n.cat || "comp"));
+  const cred = kind === "teacher" ? !!(db.teachers.find((t) => t.id === id) || {}).user : !!(db.students.find((s) => s.id === id) || {}).committee;
+  return { isCom: nodes.length > 0 || cred, comp: cats.has("comp"), act: cats.has("act"), titles: nodes.map((n) => n.title) };
+}
+function CommitteeBadge({ d }) {
+  if (!d.isCom) return (
+    <div style={{ textAlign: "center", minWidth: 78 }}><div style={{ fontSize: 9.5, color: C.muted }}>กรรมการ</div><div style={{ fontSize: 11.5, fontWeight: 700, color: C.muted, background: C.soft, borderRadius: 12, padding: "2px 8px", marginTop: 2 }}>ไม่เป็น</div></div>
+  );
+  const roles = [d.comp && "แข่งขัน", d.act && "กิจกรรม"].filter(Boolean).join("/") || "ยังไม่ลงผัง";
+  return (
+    <div style={{ textAlign: "center", minWidth: 92 }}>
+      <div style={{ fontSize: 9.5, color: C.muted }}>กรรมการ · ดูแล</div>
+      <div style={{ fontSize: 11.5, fontWeight: 700, color: "#2f9e6b", background: "#e6f4ec", borderRadius: 12, padding: "2px 8px", marginTop: 2 }}>{roles}</div>
+      {d.titles.length > 0 && <div style={{ fontSize: 9.5, color: C.muted, marginTop: 1 }}>{d.titles.join(", ")}</div>}
+    </div>
+  );
+}
 function PersonList({ kind, db, setDb, ui }) {
   const key = kind === "student" ? "students" : "teachers";
   const list = db[key];
   const [grade, setGrade] = useState("");
   const [room, setRoom] = useState("");
   const [reg, setReg] = useState(""); // "" ทั้งหมด | "no" ยังไม่สมัคร | "yes" สมัครแล้ว
+  const [com, setCom] = useState(""); // กรรมการ: "" ทั้งหมด | "yes" | "no"
+  const [duty, setDuty] = useState(""); // "" ทั้งหมด | "comp" | "act"
   const [add, setAdd] = useState(false);
   const [edit, setEdit] = useState(null);
   const [rawRows, setRawRows] = useState(null);
@@ -953,17 +975,40 @@ function PersonList({ kind, db, setDb, ui }) {
 
   const grades = [...new Set(list.map((s) => s.grade).filter(Boolean))];
   const rooms = [...new Set(list.map((s) => s.room).filter(Boolean))];
-  const filtered = list.filter((s) => (!grade || s.grade === grade) && (!room || s.room === room) && (kind !== "student" || reg === "" || (reg === "no" ? regStatusOf(db, s.id) === "" : regStatusOf(db, s.id) !== "")));
+  const filtered = list.filter((s) => {
+    if (grade && s.grade !== grade) return false;
+    if (room && s.room !== room) return false;
+    if (kind === "student" && reg) { const has = regStatusOf(db, s.id) !== ""; if (reg === "no" ? has : !has) return false; }
+    if (com || duty) { const d = dutyOf(db, kind, s.id); if (com === "yes" && !d.isCom) return false; if (com === "no" && d.isCom) return false; if (duty === "comp" && !d.comp) return false; if (duty === "act" && !d.act) return false; }
+    return true;
+  });
   const printList = () => {
-    const rows = filtered.map((s) => `<tr><td>${s.id}</td><td>${fullName(s)}</td><td>${s.grade || ""}/${s.room || ""}</td><td>${s.phone || ""}</td><td>${regStatusOf(db, s.id) || "ยังไม่สมัคร"}</td><td>${selStatusOf(db, s.id) || "-"}</td></tr>`).join("");
+    const head = kind === "student"
+      ? ["รหัส", "ชื่อ", "ชั้น/ห้อง", "เบอร์", "สมัคร", "คัดเลือก", "กรรมการ", "หน้าที่"]
+      : ["รหัส/ผู้ใช้", "ชื่อ", "เบอร์", "กรรมการ", "ดูแล", "หน้าที่"];
+    const rowHtml = filtered.map((s) => {
+      const d = dutyOf(db, kind, s.id);
+      const roles = d.isCom ? ([d.comp && "แข่งขัน", d.act && "กิจกรรม"].filter(Boolean).join("/") || "-") : "-";
+      const cells = kind === "student"
+        ? [s.id, fullName(s), `${s.grade || ""}/${s.room || ""}`, s.phone || "", regStatusOf(db, s.id) || "ยังไม่สมัคร", selStatusOf(db, s.id) || "-", d.isCom ? "เป็น" : "ไม่เป็น", d.titles.join(", ")]
+        : [s.user || s.id, fullName(s), s.phone || "", d.isCom ? "เป็น" : "ไม่เป็น", roles, d.titles.join(", ")];
+      return `<tr>${cells.map((c) => `<td>${c}</td>`).join("")}</tr>`;
+    }).join("");
     const w = window.open("", "_blank"); if (!w) { ui.notify("เบราว์เซอร์บล็อกหน้าต่าง"); return; }
-    w.document.write(`<html><head><meta charset="utf-8"><title>รายชื่อ${kindLabel}</title><style>body{font-family:'Noto Sans Thai',sans-serif;padding:16px}h3{margin:0 0 10px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #999;padding:6px 8px;font-size:13px;text-align:left}th{background:#eee}@page{margin:8mm}</style></head><body><h3>รายชื่อ${kindLabel} (${filtered.length} คน)</h3><table><thead><tr><th>รหัส</th><th>ชื่อ</th><th>ชั้น/ห้อง</th><th>เบอร์</th><th>สถานะสมัคร</th><th>สถานะคัดเลือก</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
+    w.document.write(`<html><head><meta charset="utf-8"><title>รายชื่อ${kindLabel}</title><style>body{font-family:'Noto Sans Thai',sans-serif;padding:16px}h3{margin:0 0 10px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #999;padding:6px 8px;font-size:13px;text-align:left}th{background:#eee}@page{margin:8mm}</style></head><body><h3>รายชื่อ${kindLabel} (${filtered.length} คน)</h3><table><thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rowHtml}</tbody></table></body></html>`);
     w.document.close(); w.focus(); setTimeout(() => w.print(), 300);
   };
   const exportList = () => {
     try {
-      const aoa = [["รหัส", "คำนำหน้า", "ชื่อ", "นามสกุล", "ชั้น/ห้อง", "เบอร์โทร", "สถานะสมัคร", "สถานะคัดเลือก"]];
-      filtered.forEach((s) => aoa.push([s.id, s.pre || "", s.first, s.last, `${s.grade || ""}/${s.room || ""}`, s.phone || "", regStatusOf(db, s.id) || "ยังไม่สมัคร", selStatusOf(db, s.id) || "-"]));
+      const aoa = kind === "student"
+        ? [["รหัส", "คำนำหน้า", "ชื่อ", "นามสกุล", "ชั้น/ห้อง", "เบอร์โทร", "สถานะสมัคร", "สถานะคัดเลือก", "กรรมการ", "หน้าที่"]]
+        : [["รหัส/ผู้ใช้", "คำนำหน้า", "ชื่อ", "นามสกุล", "เบอร์โทร", "กรรมการ", "ดูแล", "หน้าที่"]];
+      filtered.forEach((s) => {
+        const d = dutyOf(db, kind, s.id);
+        const roles = d.isCom ? ([d.comp && "แข่งขัน", d.act && "กิจกรรม"].filter(Boolean).join("/") || "-") : "-";
+        if (kind === "student") aoa.push([s.id, s.pre || "", s.first, s.last, `${s.grade || ""}/${s.room || ""}`, s.phone || "", regStatusOf(db, s.id) || "ยังไม่สมัคร", selStatusOf(db, s.id) || "-", d.isCom ? "เป็น" : "ไม่เป็น", d.titles.join(", ")]);
+        else aoa.push([s.user || s.id, s.pre || "", s.first, s.last, s.phone || "", d.isCom ? "เป็น" : "ไม่เป็น", roles, d.titles.join(", ")]);
+      });
       const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "รายชื่อ"); XLSX.writeFile(wb, `รายชื่อ${kindLabel}.xlsx`);
     } catch (e) { ui.notify("ดาวน์โหลดไม่สำเร็จ (เปิดผ่านหน้าเว็บจริง)"); }
   };
@@ -1037,9 +1082,10 @@ function PersonList({ kind, db, setDb, ui }) {
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <input id={"xlsx-" + kind} type="file" accept=".xlsx,.xls,.csv" onChange={onFile} style={{ display: "none" }} />
           <Btn variant="ghost" small onClick={downloadTemplate}>แม่แบบ</Btn>
-          <Btn variant="ghost" small onClick={() => document.getElementById("xlsx-" + kind).click()}>นำเข้า Excel</Btn>
-          {kind === "student" && <Btn variant="ghost" small onClick={printList}>ปริ้น/PDF</Btn>}
-          {kind === "student" && <Btn variant="ghost" small onClick={exportList}>ดาวน์โหลด Excel</Btn>}
+          {kind === "student" && <Btn variant="ghost" small onClick={() => document.getElementById("xlsx-" + kind).click()}>นำเข้า Excel</Btn>}
+          {kind === "teacher" && <Btn variant="ghost" small onClick={() => document.getElementById("xlsx-" + kind).click()}>นำเข้า Excel</Btn>}
+          <Btn variant="ghost" small onClick={printList}>ปริ้น/PDF</Btn>
+          <Btn variant="ghost" small onClick={exportList}>ดาวน์โหลด Excel</Btn>
           <Btn small onClick={() => setAdd(true)}>+ เพิ่ม{kindLabel}</Btn>
         </div>
       </div>
@@ -1057,6 +1103,14 @@ function PersonList({ kind, db, setDb, ui }) {
           <Select value={grade} onChange={setGrade}><option value="">ทุกระดับชั้น</option>{grades.map((g) => <option key={g}>{g}</option>)}</Select>
           <Select value={room} onChange={setRoom}><option value="">ทุกห้อง</option>{rooms.map((r) => <option key={r} value={r}>ห้อง {r}</option>)}</Select>
           <Select value={reg} onChange={setReg}><option value="">ทุกสถานะสมัคร</option><option value="no">ยังไม่สมัคร</option><option value="yes">สมัครแล้ว</option></Select>
+          <Select value={com} onChange={setCom}><option value="">กรรมการ: ทั้งหมด</option><option value="yes">เป็นกรรมการ</option><option value="no">ไม่เป็นกรรมการ</option></Select>
+          <Select value={duty} onChange={setDuty}><option value="">ดูแล: ทั้งหมด</option><option value="comp">ดูแลแข่งขัน</option><option value="act">ดูแลกิจกรรม</option></Select>
+        </div>
+      )}
+      {kind === "teacher" && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <Select value={com} onChange={setCom}><option value="">กรรมการ: ทั้งหมด</option><option value="yes">เป็นกรรมการ</option><option value="no">ไม่เป็นกรรมการ</option></Select>
+          <Select value={duty} onChange={setDuty}><option value="">ดูแล: ทั้งหมด</option><option value="comp">ดูแลแข่งขัน</option><option value="act">ดูแลกิจกรรม</option></Select>
         </div>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1072,8 +1126,10 @@ function PersonList({ kind, db, setDb, ui }) {
               <div style={{ display: "flex", gap: 6 }}>
                 <StatusBadge label="สมัคร" value={regStatusOf(db, s.id)} emptyText="ยังไม่สมัคร" emptyRed />
                 <StatusBadge label="คัดเลือก" value={selStatusOf(db, s.id)} emptyText="ยังไม่คัด" />
+                <CommitteeBadge d={dutyOf(db, "student", s.id)} />
               </div>
             )}
+            {kind === "teacher" && <CommitteeBadge d={dutyOf(db, "teacher", s.id)} />}
             <div style={{ display: "flex", gap: 6 }}>
               <Btn variant="ghost" small onClick={() => setEdit(s)}>แก้ไข</Btn>
               <Btn variant="danger" small onClick={() => setConfirm({ ids: [s.id], msg: `ลบ ${fullName(s)} พร้อมตัดความเกี่ยวข้องและลบรูปใน Drive ?` })}>ลบ</Btn>
