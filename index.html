@@ -2018,11 +2018,15 @@ function OrgEditor({ which, pool, db, setDb, ui }) {
 /* ----- Competition manager ----- */
 function CompDisplay({ kind, db, ui }) {
   const list = db.competitions.filter((c) => c.kind === kind);
-  const jNames = (c, which, pool, orgKey) => (c[which] || []).map((nid) => { const node = db[orgKey].find((n) => n.id === nid); if (!node) return null; const p = pool.find((x) => x.id === node.personId); return p ? fullName(p) : null; }).filter(Boolean);
+  const cat = kind === "แข่งขัน" ? "comp" : "act";
+  // กรรมการดึงจากโครงสร้างผัง (ผู้ที่ลงชื่อในผังหมวดนี้) ไม่ใช่จากการจัดกรรมการรายรายการ
+  const orgNames = (orgKey, pool) => { const seen = new Set(); return db[orgKey].filter((n) => (n.cat || "comp") === cat && n.personId).map((n) => { const p = pool.find((x) => x.id === n.personId); if (!p || seen.has(p.id)) return null; seen.add(p.id); return `${p.first} ${p.last}`; }).filter(Boolean); };
+  const teacherJudges = orgNames("orgTeacher", db.teachers);
+  const studentJudges = orgNames("orgStudent", db.students);
   const partNames = (c, selVal) => c.participants.filter((x) => x.sel === selVal).map((x) => { const s = db.students.find((st) => st.id === x.sid); return s ? `${s.first} ${s.last} (${s.grade}/${s.room})` : null; }).filter(Boolean);
   const areaId = "compDisplayArea";
   const printTable = () => {
-    const rows = list.map((c) => `<tr><td>${c.name}</td><td>${gradesLabel(c)}</td><td>${jNames(c, "judgeTeachers", db.teachers, "orgTeacher").join("<br>") || "-"}</td><td>${jNames(c, "judgeStudents", db.students, "orgStudent").join("<br>") || "-"}</td><td>${partNames(c, "main").join("<br>") || "-"}</td><td>${partNames(c, "reserve").join("<br>") || "-"}</td></tr>`).join("");
+    const rows = list.map((c) => `<tr><td>${c.name}</td><td>${gradesLabel(c)}</td><td>${teacherJudges.join("<br>") || "-"}</td><td>${studentJudges.join("<br>") || "-"}</td><td>${partNames(c, "main").join("<br>") || "-"}</td><td>${partNames(c, "reserve").join("<br>") || "-"}</td></tr>`).join("");
     const w = window.open("", "_blank"); if (!w) { ui.notify("เบราว์เซอร์บล็อกหน้าต่าง"); return; }
     w.document.write(`<html><head><meta charset="utf-8"><title>รายการ${kind}</title><style>body{font-family:'Noto Sans Thai',sans-serif;padding:16px}h3{margin:0 0 10px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #999;padding:6px 8px;font-size:12.5px;text-align:left;vertical-align:top}th{background:#eee}@page{margin:8mm}</style></head><body><h3>รายการ${kind}</h3><table><thead><tr><th>รายการ</th><th>ชั้น</th><th>กรรมการครู</th><th>กรรมการนักเรียน</th><th>ตัวจริง</th><th>ตัวสำรอง</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
     w.document.close(); w.focus(); setTimeout(() => w.print(), 300);
@@ -2030,7 +2034,7 @@ function CompDisplay({ kind, db, ui }) {
   const exportExcel = () => {
     try {
       const aoa = [["รายการ", "ชั้น", "กรรมการครู", "กรรมการนักเรียน", "ตัวจริง", "ตัวสำรอง"]];
-      list.forEach((c) => aoa.push([c.name, gradesLabel(c), jNames(c, "judgeTeachers", db.teachers, "orgTeacher").join(", "), jNames(c, "judgeStudents", db.students, "orgStudent").join(", "), partNames(c, "main").join(", "), partNames(c, "reserve").join(", ")]));
+      list.forEach((c) => aoa.push([c.name, gradesLabel(c), teacherJudges.join(", "), studentJudges.join(", "), partNames(c, "main").join(", "), partNames(c, "reserve").join(", ")]));
       const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), kind); XLSX.writeFile(wb, `รายการ${kind}.xlsx`);
     } catch (e) { ui.notify("ดาวน์โหลดไม่สำเร็จ"); }
   };
@@ -2055,8 +2059,8 @@ function CompDisplay({ kind, db, ui }) {
               <ItemStatusBadge c={c} />
               <span style={{ fontSize: 11.5, color: C.muted }}>ชั้น {gradesLabel(c)}</span>
             </div>
-            {line("กรรมการครู", jNames(c, "judgeTeachers", db.teachers, "orgTeacher"), C.primary)}
-            {line("กรรมการนักเรียน", jNames(c, "judgeStudents", db.students, "orgStudent"), C.gold)}
+            {line("กรรมการครู", teacherJudges, C.primary)}
+            {line("กรรมการนักเรียน", studentJudges, C.gold)}
             {line("ตัวจริง", partNames(c, "main"), "#2f9e6b")}
             {line("ตัวสำรอง", partNames(c, "reserve"), "#c99a2e")}
           </Card>
@@ -2123,7 +2127,6 @@ function CompTable({ kind, db, setDb, ui }) {
               </div>
             </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              <Btn variant="ghost" small onClick={() => setJudge(c)}>จัดกรรมการ</Btn>
               <Btn variant="ghost" small onClick={() => setEdit(c)}>แก้ไข</Btn>
               <Btn variant="danger" small onClick={() => setConfirmDel(c)}>ลบ</Btn>
             </div>
@@ -2531,9 +2534,8 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
   const ui = useUI();
   if (role === "studentcom") { const me = db.students.find((s) => s.id === meId); if (me && !me.profileDone && !studentProfileComplete(me)) return (<><ProfileGate me={me} setDb={setDb} ui={ui} />{ui.loading && <LoadingModal label={ui.loading} />}{ui.toast && <Toast msg={ui.toast} />}</>); }
   const which = role === "teacher" ? "orgTeacher" : "orgStudent";
-  const judgeKey = role === "teacher" ? "judgeTeachers" : "judgeStudents";
-  const myNodeIds = db[which].filter((n) => n.personId === meId).map((n) => n.id);
-  const myCompIds = db.competitions.filter((c) => (c[judgeKey] || []).some((id) => myNodeIds.includes(id))).map((c) => c.id);
+  const myCats = new Set(db[which].filter((n) => n.personId === meId).map((n) => n.cat || "comp"));
+  const myCompIds = db.competitions.filter((c) => myCats.has(c.kind === "แข่งขัน" ? "comp" : "act")).map((c) => c.id);
   const nav = [
     { key: "me", label: "ข้อมูลฉัน", icon: "🪪" },
     { key: "org", label: "ผังองค์กร", icon: "🗂" },
@@ -2633,19 +2635,18 @@ function CommitteeRegister({ myCompIds, db, setDb, ui }) {
 }
 function MyDutyScreen({ role, meId, db, setDb, ui }) {
   const which = role === "teacher" ? "orgTeacher" : "orgStudent";
-  const judgeKey = role === "teacher" ? "judgeTeachers" : "judgeStudents";
-  const myNodeIds = db[which].filter((n) => n.personId === meId).map((n) => n.id);
+  const myCats = new Set(db[which].filter((n) => n.personId === meId).map((n) => n.cat || "comp"));
   const [kind, setKind] = useState("แข่งขัน");
   const [pick, setPick] = useState("");
   const [addOpen, setAddOpen] = useState(false);
-  const myComps = db.competitions.filter((c) => c.kind === kind && (c[judgeKey] || []).some((id) => myNodeIds.includes(id)));
+  const myComps = db.competitions.filter((c) => c.kind === kind && myCats.has(kind === "แข่งขัน" ? "comp" : "act"));
   const comp = myComps.find((c) => c.id === pick) || myComps[0];
   const addStudent = (sid, status) => ui.run("กำลังเพิ่มผู้สมัคร...", () => setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, participants: [...c.participants, { sid, status, sel: undefined }] } : c) })));
   return (
     <div>
       <PageHead title="หน้าที่ของฉัน" sub="รายการที่ฉันเป็นกรรมการ · คัดเลือกผู้เข้าแข่ง (บันทึกขึ้นส่วนกลางอัตโนมัติ)" />
       <Tabs tabs={[{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }]} active={kind} onChange={(k) => { setKind(k); setPick(""); }} />
-      {myComps.length === 0 ? <Empty text={`ยังไม่ได้รับมอบหมายรายการ${kind} (แอดมินจัดกรรมการที่เมนูการแข่งขัน)`} /> : (
+      {myComps.length === 0 ? <Empty text={`ยังไม่ได้รับมอบหมายรายการ${kind} (ผู้ที่ลงชื่อในผังหมวด${kind}จะดูแลรายการหมวดนี้)`} /> : (
         <>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
             <Select value={comp?.id || ""} onChange={setPick}>{myComps.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select>
