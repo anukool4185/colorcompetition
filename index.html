@@ -2473,7 +2473,7 @@ function PromoCard({ db, setDb, ui }) {
 function CommitteeApp({ role, db, setDb, onExit, meId }) {
   const [view, setView] = useState("me");
   const ui = useUI();
-  if (role === "studentcom") { const me = db.students.find((s) => s.id === meId); if (me && !studentProfileComplete(me)) return (<><ProfileGate me={me} setDb={setDb} ui={ui} />{ui.loading && <LoadingModal label={ui.loading} />}{ui.toast && <Toast msg={ui.toast} />}</>); }
+  if (role === "studentcom") { const me = db.students.find((s) => s.id === meId); if (me && !me.profileDone && !studentProfileComplete(me)) return (<><ProfileGate me={me} setDb={setDb} ui={ui} />{ui.loading && <LoadingModal label={ui.loading} />}{ui.toast && <Toast msg={ui.toast} />}</>); }
   const which = role === "teacher" ? "orgTeacher" : "orgStudent";
   const judgeKey = role === "teacher" ? "judgeTeachers" : "judgeStudents";
   const myNodeIds = db[which].filter((n) => n.personId === meId).map((n) => n.id);
@@ -2820,7 +2820,7 @@ function ProfileGate({ me, setDb, ui }) {
   const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
   const ok = f.phone && f.password && f.guardian && f.guardianPhone && f.guardianRelation;
   const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff", marginBottom: 12 };
-  const save = () => ui.run("กำลังบันทึกข้อมูล...", () => { setDb((p) => ({ ...p, students: p.students.map((s) => s.id === me.id ? { ...s, ...f, profileDone: true } : s) })); ui.notify("บันทึกข้อมูลแล้ว ยินดีต้อนรับ"); });
+  const save = () => ui.run("กำลังบันทึกข้อมูล...", () => { setDb((p) => ({ ...p, students: p.students.map((s) => s.id === me.id ? { ...s, ...f, profileDone: true } : s) })); ui.notify("บันทึกข้อมูลแล้ว ยินดีต้อนรับ"); setTimeout(() => { if (window.__forceSave) window.__forceSave(); }, 500); });
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(20,20,30,.6)", zIndex: 200, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" }}>
       <div style={{ background: C.surface, borderRadius: 18, padding: 22, maxWidth: 440, width: "100%", margin: "24px 0", boxShadow: "0 10px 40px rgba(0,0,0,.3)" }}>
@@ -2845,7 +2845,7 @@ function StudentApp({ db, setDb, onExit, meId }) {
   const me = db.students.find((s) => s.id === meId) || db.students[0];
   const [view, setView] = useState("home");
   const ui = useUI();
-  if (me && !studentProfileComplete(me)) return (<><ProfileGate me={me} setDb={setDb} ui={ui} />{ui.loading && <LoadingModal label={ui.loading} />}{ui.toast && <Toast msg={ui.toast} />}</>);
+  if (me && !me.profileDone && !studentProfileComplete(me)) return (<><ProfileGate me={me} setDb={setDb} ui={ui} />{ui.loading && <LoadingModal label={ui.loading} />}{ui.toast && <Toast msg={ui.toast} />}</>);
   const nav = [
     { key: "home", label: "หน้าแรก", icon: "🏠" },
     { key: "me", label: "ข้อมูลฉัน", icon: "🪪" },
@@ -2858,7 +2858,7 @@ function StudentApp({ db, setDb, onExit, meId }) {
       {view === "home" && <StudentSchedule me={me} db={db} ui={ui} />}
       {view === "me" && <MyProfile me={me} db={db} setDb={setDb} ui={ui} />}
       {view === "register" && <StudentRegister me={me} db={db} setDb={setDb} ui={ui} />}
-      {view === "results" && <StudentResults db={db} ui={ui} />}
+      {view === "results" && <StudentResults me={me} db={db} ui={ui} />}
       {view === "schedule" && <StudentSchedule me={me} db={db} ui={ui} />}
     </Shell>
   );
@@ -2976,31 +2976,54 @@ function StudentSchedule({ me, db, ui }) {
     </div>
   );
 }
-function StudentResults({ db, ui }) {
-  const [pick, setPick] = useState(db.competitions[0]?.id || "");
-  const comp = db.competitions.find((c) => c.id === pick);
+function StudentResults({ me, db, ui }) {
+  const cfg = db.settings.scoreConfig || {};
+  const [popup, setPopup] = useState(null);
+  const mine = db.competitions.filter((c) => c.participants.some((p) => p.sid === me.id));
+  const myScore = scoreStats(db)[me.id] || 0;
+  const myStatus = (c) => { const p = c.participants.find((x) => x.sid === me.id); return p ? (p.sel === "main" ? "ตัวจริง (คัดแล้ว)" : p.sel === "reserve" ? "สำรอง (คัดแล้ว)" : p.status === "main" ? "สมัครตัวจริง" : "สมัครสำรอง") : ""; };
+  const resultText = (c) => { const r = c.results[me.id] || {}; const parts = []; if (r.outcome) parts.push(r.outcome); if (r.medal) parts.push("เหรียญ" + r.medal); const sc = scoreOf(r, cfg); if (sc) parts.push(sc + " คะแนน"); return parts.length ? parts.join(" · ") : "ยังไม่มีผล"; };
   return (
     <div>
-      <PageHead title="ผลการแข่งขัน" sub="ดูอย่างเดียว" right={comp && <ExportBar run={ui.run} />} />
-      <div style={{ marginBottom: 12 }}><Select value={pick} onChange={setPick}>{db.competitions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select></div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {comp?.participants.filter((x) => x.status !== "rejected").map((x) => {
-          const s = db.students.find((st) => st.id === x.sid);
-          const r = comp.results[x.sid] || {};
-          if (!s) return null;
-          return (
-            <Card key={x.sid} style={{ padding: 12, display: "flex", gap: 12, alignItems: "center" }}>
-              <Avatar person={s} size={48} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, color: C.ink, fontSize: 14 }}>{fullName(s)}</div>
-                <div style={{ fontSize: 12, color: C.muted }}>{r.outcome || "ยังไม่มีผล"}{r.medal ? ` · เหรียญ${r.medal}` : ""}{r.rounds?.length ? ` · คะแนน ${r.rounds.map((rd) => rd.score).join("/")}` : ""}</div>
-              </div>
-              <Badge status={x.status} />
-            </Card>
-          );
-        })}
-        {!comp && <Empty text="ยังไม่มีรายการ" />}
+      <PageHead title="ผลการแข่งขันของฉัน" sub={`คะแนนสะสมรวม ${myScore} คะแนน`} />
+      <div style={{ display: "flex", gap: 8, marginBottom: 14, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ fontSize: 13, color: C.muted }}>ดูผลรายการอื่น:</span>
+        <Select value="" onChange={(v) => { const c = db.competitions.find((x) => x.id === v); if (c) setPopup(c); }}>
+          <option value="">— เลือกรายการ —</option>
+          {db.competitions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </Select>
       </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {mine.map((c) => (
+          <Card key={c.id} style={{ padding: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ fontWeight: 700, color: C.ink }}>{c.name} <span style={{ fontSize: 11, color: C.muted, fontWeight: 500 }}>({c.kind})</span></div>
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: C.primaryDark, background: C.soft, borderRadius: 12, padding: "2px 10px" }}>{myStatus(c)}</span>
+            </div>
+            <div style={{ fontSize: 13, color: C.ink, marginTop: 6 }}>ผลของฉัน: <b>{resultText(c)}</b></div>
+          </Card>
+        ))}
+        {mine.length === 0 && <Empty text="คุณยังไม่ได้เป็นผู้เข้าแข่งในรายการใด" />}
+      </div>
+      {popup && (
+        <Modal title={`ผล: ${popup.name}`} onClose={() => setPopup(null)} wide>
+          <div style={{ marginBottom: 8 }}><ItemStatusBadge c={popup} /></div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {popup.participants.filter((x) => x.sel === "main" || x.sel === "reserve").map((x) => {
+              const s = db.students.find((st) => st.id === x.sid); if (!s) return null;
+              const r = popup.results[x.sid] || {};
+              return (
+                <div key={x.sid} style={{ display: "flex", alignItems: "center", gap: 10, padding: 8, border: `1px solid ${C.line}`, borderRadius: 10 }}>
+                  <Avatar person={s} size={32} />
+                  <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 600, color: C.ink }}>{s.first} {s.last}</div><div style={{ fontSize: 11, color: C.muted }}>{s.grade}/{s.room} · {x.sel === "main" ? "ตัวจริง" : "สำรอง"}</div></div>
+                  <div style={{ fontSize: 12, color: C.ink, textAlign: "right" }}>{r.outcome || "-"}{r.medal ? ` · ${r.medal}` : ""}<div style={{ fontSize: 11, color: C.primary, fontWeight: 700 }}>{scoreOf(r, cfg) || 0} คะแนน</div></div>
+                </div>
+              );
+            })}
+            {popup.participants.filter((x) => x.sel).length === 0 && <Empty text="ยังไม่มีผู้ถูกคัดเลือก/ผล" />}
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -3120,6 +3143,7 @@ function App() {
   };
   const pushSave = () => { if (!loadedRef.current) return; doSave(); }; // ออโต้เซฟ: ทำเฉพาะเมื่อโหลดสำเร็จ (กันเขียนทับ)
   const saveNow = () => { clearTimeout(timerRef.current); doSave(); }; // กดเอง: บังคับบันทึกเสมอ
+  window.__forceSave = saveNow; // ให้หน้าจอย่อย (เช่น ลงข้อมูลครั้งแรก) สั่งบันทึกขึ้น Sheet ทันทีได้
   const retryLoad = () => { setSync("loading"); loadData(); };
 
   // โหลดข้อมูลจาก Google Sheet ตอนเปิดหน้า — ต้องสำเร็จก่อนถึงจะอนุญาตให้ออโต้เซฟ
