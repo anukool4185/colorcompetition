@@ -324,7 +324,10 @@ function Landing({ onLogin, announce, comps, db }) {
       <header style={{ background: C.surface, borderBottom: `1px solid ${C.line}` }}>
         <div style={{ maxWidth: 1080, margin: "0 auto", padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <Brand sub="ระบบจัดการแข่งขัน" />
-          <Btn onClick={onLogin} small>เข้าสู่ระบบ</Btn>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Btn onClick={onLogin} small>เข้าสู่ระบบ</Btn>
+            <button onClick={closeWin} aria-label="ปิดหน้าเว็บ" title="ปิดหน้าเว็บ" style={{ fontSize: 18, fontWeight: 700, color: "#c0392b", background: "none", border: `1px solid ${C.line}`, borderRadius: 8, width: 34, height: 34, cursor: "pointer", lineHeight: 1 }}>✕</button>
+          </div>
         </div>
       </header>
       <main style={{ maxWidth: 1080, margin: "0 auto", padding: 18, display: "flex", flexDirection: "column", gap: 16 }}>
@@ -443,10 +446,16 @@ function Login({ db, onEnter, onBack }) {
 }
 
 /* ---------------- Shell (nav) ---------------- */
+function closeWin() {
+  try { window.open("", "_self"); } catch (e) {}
+  try { window.close(); } catch (e) {}
+  setTimeout(() => { try { window.location.href = "about:blank"; } catch (e) {} }, 250);
+}
 function Shell({ role, nav, view, setView, onExit, children, ui }) {
   const roleLabel = { admin: "แอดมิน", teacher: "กรรมการ (ครู)", studentcom: "กรรมการ (นักเรียน)", student: "นักเรียน" }[role];
   const cur = nav.find((n) => n.key === view);
   const [confirmOut, setConfirmOut] = useState(false);
+  const [confirmClose, setConfirmClose] = useState(false);
   return (
     <div style={{ minHeight: "100vh", background: C.bg, display: "flex" }}>
       <aside className="hidden md:flex" style={{ width: 220, background: C.surface, borderRight: `1px solid ${C.line}`, flexDirection: "column", position: "sticky", top: 0, height: "100vh" }}>
@@ -458,6 +467,7 @@ function Shell({ role, nav, view, setView, onExit, children, ui }) {
             </button>
           ))}
           <button onClick={() => setConfirmOut(true)} style={{ width: "100%", textAlign: "left", padding: "10px 12px", border: "none", background: "transparent", color: C.muted, cursor: "pointer", fontSize: 14, marginTop: 2 }}>ออกจากระบบ</button>
+          <button onClick={() => setConfirmClose(true)} style={{ width: "100%", textAlign: "left", padding: "10px 12px", border: "none", background: "transparent", color: "#c0392b", cursor: "pointer", fontSize: 14 }}>✕ ปิดหน้าเว็บ</button>
         </nav>
       </aside>
 
@@ -467,7 +477,10 @@ function Shell({ role, nav, view, setView, onExit, children, ui }) {
             <div style={{ width: 32, height: 32, borderRadius: 9, background: C.primary, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14 }}>สี</div>
             <span style={{ fontWeight: 700, color: C.ink, fontSize: 15 }}>{cur?.label}</span>
           </div>
-          <button onClick={() => setConfirmOut(true)} style={{ fontSize: 13, fontWeight: 500, color: C.muted, background: "none", border: "none", padding: 0, cursor: "pointer" }}>ออกจากระบบ</button>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button onClick={() => setConfirmOut(true)} style={{ fontSize: 13, fontWeight: 500, color: C.muted, background: "none", border: "none", padding: 0, cursor: "pointer" }}>ออกจากระบบ</button>
+            <button onClick={() => setConfirmClose(true)} aria-label="ปิดหน้าเว็บ" style={{ fontSize: 16, fontWeight: 700, color: "#c0392b", background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1 }}>✕</button>
+          </div>
         </div>
         <div style={{ maxWidth: 960, margin: "0 auto", padding: 16 }}>{children}</div>
       </div>
@@ -481,6 +494,7 @@ function Shell({ role, nav, view, setView, onExit, children, ui }) {
       </nav>
 
       {confirmOut && <ConfirmModal title="ออกจากระบบ" message="ต้องการออกจากระบบใช่หรือไม่? ครั้งต่อไปต้องล็อกอินใหม่" confirmLabel="ออกจากระบบ" onConfirm={() => { setConfirmOut(false); onExit(); }} onClose={() => setConfirmOut(false)} />}
+      {confirmClose && <ConfirmModal title="ปิดหน้าเว็บ" message="ต้องการปิดหน้าเว็บนี้ใช่หรือไม่? (ระบบบันทึกข้อมูลขึ้น Sheet แล้ว)" confirmLabel="ปิดหน้าเว็บ" variant="danger" onConfirm={() => { setConfirmClose(false); closeWin(); }} onClose={() => setConfirmClose(false)} />}
       {ui.loading && <LoadingModal label={ui.loading} />}
       {ui.toast && <Toast msg={ui.toast} />}
     </div>
@@ -2551,8 +2565,10 @@ function CommitteeSchedule({ myCompIds, db, ui }) {
           <option value="">— เลือกรายการ —</option>
           {db.competitions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </Select>
+        <Btn small variant="ghost" onClick={() => printImageFromEl("commSchedArea", ui && ui.notify)}>ปริ้น</Btn>
+        <Btn small variant="ghost" onClick={() => pdfFromEl("commSchedArea", "portrait", "ตารางที่ฉันดูแล.pdf", ui && ui.notify)}>PDF</Btn>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div id="commSchedArea" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {mine.map((c) => (
           <Card key={c.id} style={{ padding: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
