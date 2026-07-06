@@ -259,7 +259,61 @@ function SearchPersonPopup({ pool, onPick, onClose, title, emptyText }) {
 }
 
 /* ---------------- Landing ---------------- */
-function Landing({ onLogin, announce, comps }) {
+function HouseDashboard({ db }) {
+  const houses = db.settings.houses || [];
+  const today = new Date().toISOString().slice(0, 10);
+  const stats = scoreStats(db);
+  const cfg = db.settings.scoreConfig || {};
+  const [more, setMore] = useState(null);
+  const houseOf = (sid) => (db.students.find((s) => s.id === sid) || {}).house;
+  const houseScore = (i) => db.students.filter((s) => s.house === i).reduce((sum, s) => sum + (stats[s.id] || 0), 0);
+  const compsForHouse = (i, f) => db.competitions.filter((c) => c.participants.some((p) => (p.sel === "main" || p.sel === "reserve") && houseOf(p.sid) === i) && (c.schedule || []).some(f));
+  const activityResultsForHouse = (i) => db.competitions.filter((c) => c.kind === "กิจกรรม").map((c) => {
+    const parts = c.participants.filter((p) => (p.sel === "main" || p.sel === "reserve") && houseOf(p.sid) === i);
+    const withRes = parts.filter((p) => c.results[p.sid] && (c.results[p.sid].outcome || c.results[p.sid].medal));
+    if (!withRes.length) return null;
+    return { c, items: withRes.map((p) => ({ s: db.students.find((st) => st.id === p.sid), r: c.results[p.sid] })) };
+  }).filter(Boolean);
+  const grid = (render) => (
+    <div style={{ display: "grid", gap: 10, padding: 10 }} className="grid-cols-2 md:grid-cols-4">
+      {houses.map((h, i) => (
+        <div key={i} style={{ border: `1px solid ${h.color}`, borderTop: `4px solid ${h.color}`, borderRadius: 12, padding: 10, background: C.surface, minHeight: 64 }}>
+          <div style={{ fontWeight: 800, color: h.color, fontSize: 13, marginBottom: 4 }}>{h.name}</div>
+          {render(i)}
+        </div>
+      ))}
+    </div>
+  );
+  if (houses.length === 0) return null;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <Card><BlockHead dot="#2f9e6b" title="แข่งวันนี้ (แต่ละสี)" />
+        {grid((i) => { const cs = compsForHouse(i, (s) => s.date === today); return cs.length ? cs.map((c) => <div key={c.id} style={{ fontSize: 12, color: C.ink }}>• {c.name}</div>) : <div style={{ fontSize: 12, color: C.muted }}>—</div>; })}
+      </Card>
+      <Card><BlockHead dot={C.gold} title="รอบต่อไป (แต่ละสี)" />
+        {grid((i) => { const cs = compsForHouse(i, (s) => s.date > today); return cs.length ? cs.slice(0, 3).map((c) => { const nx = (c.schedule || []).filter((s) => s.date > today).sort((a, b) => a.date.localeCompare(b.date))[0]; return <div key={c.id} style={{ fontSize: 12, color: C.ink }}>• {c.name} {nx ? <span style={{ color: C.muted }}>({nx.date} {nx.time || ""})</span> : ""}</div>; }) : <div style={{ fontSize: 12, color: C.muted }}>—</div>; })}
+      </Card>
+      <Card><BlockHead dot={C.primary} title="ผลกิจกรรมล่าสุด (แต่ละสี)" />
+        {grid((i) => { const ar = activityResultsForHouse(i); const latest = ar[ar.length - 1]; return latest ? (<div><div style={{ fontSize: 12, color: C.ink, fontWeight: 600 }}>• {latest.c.name}</div><div style={{ fontSize: 11, color: C.muted }}>{latest.items.map((it) => `${it.s.first}: ${it.r.outcome || ""}${it.r.medal ? " " + it.r.medal : ""}`).join(", ")}</div>{ar.length > 1 && <button onClick={() => setMore(i)} style={{ marginTop: 3, border: "none", background: "none", color: C.primary, fontSize: 11, fontWeight: 700, cursor: "pointer", padding: 0 }}>ดูเพิ่ม →</button>}</div>) : <div style={{ fontSize: 12, color: C.muted }}>—</div>; })}
+      </Card>
+      <Card><BlockHead dot="#a9702f" title="คะแนนรวม (แต่ละสี)" />
+        {grid((i) => <div style={{ fontSize: 26, fontWeight: 800, color: houses[i].color }}>{houseScore(i)}<span style={{ fontSize: 11, color: C.muted, fontWeight: 500 }}> คะแนน</span></div>)}
+      </Card>
+      {more !== null && (
+        <Modal title={`ผลกิจกรรมทั้งหมด · ${houses[more].name}`} onClose={() => setMore(null)} wide>
+          {activityResultsForHouse(more).map((ar, idx) => (
+            <div key={idx} style={{ padding: "8px 0", borderBottom: `1px dashed ${C.line}` }}>
+              <div style={{ fontWeight: 700, color: C.ink }}>{ar.c.name}</div>
+              {ar.items.map((it, j) => <div key={j} style={{ fontSize: 12.5, color: C.muted }}>{fullName(it.s)} — {it.r.outcome || ""}{it.r.medal ? ` · ${it.r.medal}` : ""} · {scoreOf(it.r, cfg)} คะแนน</div>)}
+            </div>
+          ))}
+          {activityResultsForHouse(more).length === 0 && <Empty text="ยังไม่มีผล" />}
+        </Modal>
+      )}
+    </div>
+  );
+}
+function Landing({ onLogin, announce, comps, db }) {
   const [speed, setSpeed] = useState(announce.speed);
   const [showSchedule, setShowSchedule] = useState(false);
   const allSch = comps.flatMap((c) => c.schedule.map((s) => ({ ...s, name: c.name })));
@@ -287,19 +341,7 @@ function Landing({ onLogin, announce, comps }) {
           </div>
           <button onClick={() => setShowSchedule(true)} style={{ width: "100%", padding: 12, background: C.soft, color: C.primaryDark, fontWeight: 700, border: "none", cursor: "pointer", fontSize: 14 }}>ดูกำหนดการแข่งขันทุกรายการ →</button>
         </Card>
-        <div style={{ display: "grid", gap: 16 }} className="md:grid-cols-2">
-          <Card>
-            <BlockHead dot="#2f9e6b" title="รายการแข่งขันวันนี้" />
-            <div style={{ padding: 8 }}>
-              {allSch.slice(0, 2).map((s, i) => <SchRow key={i} s={s} status="กำลังแข่ง" />)}
-              {allSch.length === 0 && <Empty text="ยังไม่มีรายการวันนี้" />}
-            </div>
-          </Card>
-          <Card>
-            <BlockHead dot={C.gold} title="รายการแข่งขันรอบต่อไป" />
-            <div style={{ padding: 8 }}>{allSch.slice(2).map((s, i) => <SchRow key={i} s={s} status="รอบต่อไป" />)}{allSch.length < 3 && <Empty text="ยังไม่มีรอบต่อไป" />}</div>
-          </Card>
-        </div>
+        {db && <HouseDashboard db={db} />}
       </main>
       {showSchedule && (
         <Modal title="กำหนดการแข่งขันทั้งหมด" onClose={() => setShowSchedule(false)} wide>
@@ -3206,7 +3248,7 @@ function App() {
         input, textarea, select { color: ${C.ink}; }
       `}</style>
       {API_URL && screen === "app" && <StatusBar status={sync} lastSaved={lastSaved} onSave={saveNow} onRetry={() => { if (loadedRef.current) saveNow(); else loadData(); }} />}
-      {screen === "landing" && <Landing onLogin={() => setScreen("login")} announce={db.settings.announce} comps={db.competitions} />}
+      {screen === "landing" && <Landing onLogin={() => setScreen("login")} announce={db.settings.announce} comps={db.competitions} db={db} />}
       {screen === "login" && <Login db={db} onEnter={(a) => { setAuth(a); setScreen("app"); }} onBack={() => setScreen("landing")} />}
       {screen === "app" && auth?.role === "admin" && <AdminApp db={db} setDb={setDb} onExit={exit} />}
       {screen === "app" && (auth?.role === "teacher" || auth?.role === "studentcom") && <CommitteeApp role={auth.role} db={db} setDb={setDb} onExit={exit} meId={auth.id} />}
