@@ -2222,10 +2222,10 @@ function CompSettings({ db, setDb, ui }) {
 function itemStatus(c) {
   const selMain = (c.participants || []).filter((p) => p.sel === "main").length;
   const q = Number(c.mainCount) || 0;
-  if (!q) return { key: "open", label: `คัดแล้ว ${selMain} (ไม่จำกัด)`, color: "#8a97a5", bg: "#eef0f2" };
+  if (!q) return { key: "open", label: `คัดเลือกแล้ว ${selMain} (ไม่จำกัด)`, color: "#8a97a5", bg: "#eef0f2" };
   if (selMain > q) return { key: "over", label: `เกิน ${selMain}/${q}`, color: "#c0392b", bg: "#fbeeee" };
-  if (selMain === q) return { key: "full", label: `ครบ ${selMain}/${q}`, color: "#2f9e6b", bg: "#e6f4ec" };
-  return { key: "partial", label: `ไม่ครบ ${selMain}/${q}`, color: "#c99a2e", bg: "#f7efd9" };
+  if (selMain === q) return { key: "full", label: `คัดเลือกแล้ว ${selMain}/${q}`, color: "#2f9e6b", bg: "#e6f4ec" };
+  return { key: "partial", label: `คัดเลือกแล้ว ${selMain}/${q}`, color: "#c0392b", bg: "#fbeeee" };
 }
 function ItemStatusBadge({ c }) {
   const st = itemStatus(c);
@@ -2604,7 +2604,7 @@ function CommitteeRegister({ myCompIds, db, setDb, ui }) {
   const remove = (sid) => ui.run("กำลังยกเลิก...", () => setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, participants: c.participants.filter((x) => x.sid !== sid) } : c) })));
   return (
     <div>
-      <PageHead title="สมัครแทนนักเรียน" sub="รายการที่ฉันดูแลขึ้นก่อน (★) · สมัครแทนในรายการอื่นได้ด้วย" />
+      <PageHead title="สมัครแทนนักเรียน" sub="รายการที่ฉันดูแลขึ้นก่อน (★) · สมัครแทนในรายการอื่นได้ด้วย · บันทึกขึ้นส่วนกลางอัตโนมัติ" />
       <Tabs tabs={[{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }]} active={kind} onChange={(k) => { setKind(k); setPick(""); }} />
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
         <Select value={comp?.id || ""} onChange={setPick}>{list.map((c) => <option key={c.id} value={c.id}>{myCompIds.includes(c.id) ? "★ " : ""}{c.name}</option>)}</Select>
@@ -2643,7 +2643,7 @@ function MyDutyScreen({ role, meId, db, setDb, ui }) {
   const addStudent = (sid, status) => ui.run("กำลังเพิ่มผู้สมัคร...", () => setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, participants: [...c.participants, { sid, status, sel: undefined }] } : c) })));
   return (
     <div>
-      <PageHead title="หน้าที่ของฉัน" sub="รายการที่ฉันเป็นกรรมการ · คัดเลือกผู้เข้าแข่ง (คัดแล้ว/ยังไม่คัด)" />
+      <PageHead title="หน้าที่ของฉัน" sub="รายการที่ฉันเป็นกรรมการ · คัดเลือกผู้เข้าแข่ง (บันทึกขึ้นส่วนกลางอัตโนมัติ)" />
       <Tabs tabs={[{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }]} active={kind} onChange={(k) => { setKind(k); setPick(""); }} />
       {myComps.length === 0 ? <Empty text={`ยังไม่ได้รับมอบหมายรายการ${kind} (แอดมินจัดกรรมการที่เมนูการแข่งขัน)`} /> : (
         <>
@@ -2701,7 +2701,7 @@ function ResultsScreen({ db, setDb, ui, restrict, title }) {
   );
   return (
     <div>
-      <PageHead title={title || "ลงผลการแข่งขัน"} sub="ลงผลรายรายการ · คะแนนแจกอัตโนมัติตามที่ตั้งไว้ (ตั้งค่า → คะแนน)" />
+      <PageHead title={title || "ลงผลการแข่งขัน"} sub="ลงผลรายรายการ · คะแนนแจกอัตโนมัติ · บันทึกขึ้นส่วนกลางอัตโนมัติ" />
       <Tabs tabs={[{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }]} active={kind} onChange={(k) => { setKind(k); setPick(""); }} />
       <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
         <Select value={comp?.id || ""} onChange={setPick}>{list.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</Select>
