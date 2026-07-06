@@ -88,6 +88,7 @@ const seed = {
   assistants: [],
   orgTeacher: [],
   orgStudent: [],
+  dutyList: [],
   competitions: [],
   archived: [],
   trash: [],
@@ -1683,15 +1684,44 @@ function CredForm({ kind, person, onClose, onSave }) {
 
 /* ----- Org manager ----- */
 function DutyManager({ db, setDb, ui }) {
-  const [tab, setTab] = useState("teacher");
+  const [tab, setTab] = useState("dutylist");
   return (
     <div>
-      <PageHead title="หน้าที่ กิจกรรมแข่งขัน" sub="สร้างโครงผัง (ตำแหน่ง ยังไม่ใส่ชื่อ) และรายการแข่ง/กิจกรรม · ไปลงชื่อในผังที่เมนู ผังองค์กร" />
-      <Tabs tabs={[{ key: "teacher", label: "โครงผังครู" }, { key: "student", label: "โครงผังนักเรียน" }, { key: "comp", label: "รายการแข่งขัน" }, { key: "act", label: "รายการกิจกรรม" }]} active={tab} onChange={setTab} />
+      <PageHead title="หน้าที่ กิจกรรมแข่งขัน" sub="กำหนดรายการหน้าที่ (นำทางระดับผัง) → สร้างโครงผัง → ไปลงชื่อที่เมนู ผังองค์กร" />
+      <Tabs tabs={[{ key: "dutylist", label: "รายการหน้าที่" }, { key: "teacher", label: "โครงสร้างผังครู" }, { key: "student", label: "โครงสร้างผังนักเรียน" }, { key: "comp", label: "รายการแข่งขัน" }, { key: "act", label: "รายการกิจกรรม" }]} active={tab} onChange={setTab} />
+      {tab === "dutylist" && <DutyListManager db={db} setDb={setDb} ui={ui} />}
       {tab === "teacher" && <OrgEditor which="orgTeacher" pool={db.teachers} db={db} setDb={setDb} ui={ui} />}
       {tab === "student" && <OrgEditor which="orgStudent" pool={db.students} db={db} setDb={setDb} ui={ui} />}
       {tab === "comp" && <CompTable kind="แข่งขัน" db={db} setDb={setDb} ui={ui} />}
       {tab === "act" && <CompTable kind="กิจกรรม" db={db} setDb={setDb} ui={ui} />}
+    </div>
+  );
+}
+function DutyListManager({ db, setDb, ui }) {
+  const list = db.dutyList || [];
+  const [name, setName] = useState("");
+  const add = () => { if (!name.trim()) return; ui.run("กำลังเพิ่มหน้าที่...", () => { setDb((p) => ({ ...p, dutyList: [...(p.dutyList || []), name.trim()] })); setName(""); }); };
+  const remove = (i) => ui.run("กำลังลบ...", () => setDb((p) => ({ ...p, dutyList: (p.dutyList || []).filter((_, j) => j !== i) })));
+  const move = (i, dir) => ui.run("กำลังจัดลำดับ...", () => setDb((p) => { const arr = [...(p.dutyList || [])]; const j = i + dir; if (j < 0 || j >= arr.length) return p; [arr[i], arr[j]] = [arr[j], arr[i]]; return { ...p, dutyList: arr }; }));
+  return (
+    <div style={{ maxWidth: 560 }}>
+      <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0 }}>กำหนดชื่อหน้าที่/ตำแหน่งไว้ล่วงหน้า (เช่น ประธาน, รองประธาน, หัวหน้ากรรมการ, กรรมการประจำรายการ) เพื่อใช้เลือกตอนสร้างโครงผัง — เรียงลำดับ = แนะนำระดับของต้นไม้จากบนลงล่าง</p>
+      <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+        <input value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") add(); }} placeholder="เช่น ประธานกรรมการ" style={{ flex: 1, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14 }} />
+        <Btn onClick={add} disabled={!name.trim()}>+ เพิ่ม</Btn>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {list.map((d, i) => (
+          <Card key={i} style={{ padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ width: 26, height: 26, borderRadius: 8, background: C.soft, color: C.primaryDark, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12 }}>{i + 1}</span>
+            <span style={{ flex: 1, fontWeight: 600, color: C.ink }}>{d}</span>
+            <button onClick={() => move(i, -1)} disabled={i === 0} style={{ border: `1px solid ${C.line}`, background: C.surface, borderRadius: 6, cursor: i === 0 ? "default" : "pointer", color: i === 0 ? C.line : C.primary, width: 28, height: 24 }}>▲</button>
+            <button onClick={() => move(i, 1)} disabled={i === list.length - 1} style={{ border: `1px solid ${C.line}`, background: C.surface, borderRadius: 6, cursor: i === list.length - 1 ? "default" : "pointer", color: i === list.length - 1 ? C.line : C.primary, width: 28, height: 24 }}>▼</button>
+            <button onClick={() => remove(i)} style={{ border: "none", background: "#fbeeee", color: "#c0392b", borderRadius: 8, padding: "4px 10px", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>ลบ</button>
+          </Card>
+        ))}
+        {list.length === 0 && <Empty text="ยังไม่มีรายการหน้าที่ — เพิ่มด้านบนก่อน" />}
+      </div>
     </div>
   );
 }
@@ -1964,11 +1994,15 @@ function OrgTree({ nodes, pool, accent, mode, onAddChild, onEditTitle, onDelete,
   if (!nodes.length) return <Empty text={structure ? "ยังไม่มีตำแหน่ง กด + เพิ่มหัวหน้าสูงสุด" : "ยังไม่มีผัง (สร้างโครงที่เมนู กำหนดหน้าที่)"} />;
   return <div className="orgtree" style={{ ["--tl"]: C.line }}><ul>{roots.map(renderLi)}</ul></div>;
 }
-function NodeForm({ node, onClose, onSave }) {
+function NodeForm({ node, dutyList, onClose, onSave }) {
   const [title, setTitle] = useState(node?.title || "");
+  const opts = dutyList || [];
   return (
     <Modal title={node ? "แก้ชื่อตำแหน่ง" : "เพิ่มตำแหน่ง / หน้าที่"} onClose={onClose}>
-      <Field label="ชื่อตำแหน่ง / หน้าที่" value={title} onChange={setTitle} placeholder="เช่น ประธาน, รองประธาน, ผู้ช่วย" />
+      <span style={{ display: "block", fontSize: 13, color: C.muted, marginBottom: 5 }}>ชื่อตำแหน่ง / หน้าที่ {opts.length > 0 ? "(เลือกจากรายการหน้าที่ หรือพิมพ์เอง)" : ""}</span>
+      <input list="dutyOptions" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="เช่น ประธาน, รองประธาน, กรรมการประจำรายการ" style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, marginBottom: 10 }} />
+      <datalist id="dutyOptions">{opts.map((d, i) => <option key={i} value={d} />)}</datalist>
+      {opts.length === 0 && <p style={{ fontSize: 12, color: C.muted, marginTop: 0 }}>แนะนำ: ไปกำหนด "รายการหน้าที่" ก่อน เพื่อเลือกได้สะดวก</p>}
       <p style={{ fontSize: 12, color: C.muted, marginTop: 0 }}>สร้างแค่ตำแหน่งก่อน (ยังไม่ต้องใส่ชื่อคน) — ไปลงชื่อที่เมนู "ผังองค์กร"</p>
       <div style={{ display: "flex", gap: 8 }}><Btn onClick={() => onSave({ title })} disabled={!title}>บันทึก</Btn><Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn></div>
     </Modal>
@@ -2009,24 +2043,31 @@ function OrgEditor({ which, pool, db, setDb, ui }) {
       <div style={{ fontSize: 12.5, color: C.muted }}>สร้างโครงผัง: กด "+ เพิ่มหัวหน้าสูงสุด" แล้วกด "+ ลูกน้อง" ที่ตำแหน่งใดเพื่อแตกกิ่ง (ยังไม่ต้องใส่ชื่อคน)</div>
       {section("comp", "รายการแข่งขัน")}
       {section("act", "รายการกิจกรรม")}
-      {form && <NodeForm node={form.node} onClose={() => setForm(null)} onSave={(v) => form.node ? editNode(form.node.id, v) : addNode(v, form.cat, form.parent)} />}
+      {form && <NodeForm node={form.node} dutyList={db.dutyList || []} onClose={() => setForm(null)} onSave={(v) => form.node ? editNode(form.node.id, v) : addNode(v, form.cat, form.parent)} />}
       {confirmNode && <ConfirmModal title="ยืนยันการลบ" message={`ลบตำแหน่ง "${confirmNode.title}" และตำแหน่งลูกทั้งหมด? เก็บในถังขยะ (กู้คืนได้)`} onConfirm={() => delNode(confirmNode)} onClose={() => setConfirmNode(null)} />}
     </div>
   );
 }
 
 /* ----- Competition manager ----- */
+function orgPathIds(nodes, nodeId) {
+  const byId = {}; (nodes || []).forEach((n) => { byId[n.id] = n; });
+  const ids = []; let cur = byId[nodeId], g = 0;
+  while (cur && g++ < 60) { ids.push(cur.id); cur = cur.parent ? byId[cur.parent] : null; }
+  return ids;
+}
+function orgPathNames(nodes, nodeId, pool) {
+  return orgPathIds(nodes, nodeId).map((id) => { const n = (nodes || []).find((x) => x.id === id); const p = n && pool.find((x) => x.id === n.personId); return p ? `${p.first} ${p.last}` : null; }).filter(Boolean);
+}
 function CompDisplay({ kind, db, ui }) {
   const list = db.competitions.filter((c) => c.kind === kind);
-  const cat = kind === "แข่งขัน" ? "comp" : "act";
-  // กรรมการดึงจากโครงสร้างผัง (ผู้ที่ลงชื่อในผังหมวดนี้) ไม่ใช่จากการจัดกรรมการรายรายการ
-  const orgNames = (orgKey, pool) => { const seen = new Set(); return db[orgKey].filter((n) => (n.cat || "comp") === cat && n.personId).map((n) => { const p = pool.find((x) => x.id === n.personId); if (!p || seen.has(p.id)) return null; seen.add(p.id); return `${p.first} ${p.last}`; }).filter(Boolean); };
-  const teacherJudges = orgNames("orgTeacher", db.teachers);
-  const studentJudges = orgNames("orgStudent", db.students);
+  // กรรมการของแต่ละรายการ = คนในตำแหน่งที่ผูกไว้ + สายบังคับบัญชาเหนือขึ้นไปถึงประธาน
+  const tJudges = (c) => c.orgNodeTeacher ? orgPathNames(db.orgTeacher, c.orgNodeTeacher, db.teachers) : [];
+  const sJudges = (c) => c.orgNodeStudent ? orgPathNames(db.orgStudent, c.orgNodeStudent, db.students) : [];
   const partNames = (c, selVal) => c.participants.filter((x) => x.sel === selVal).map((x) => { const s = db.students.find((st) => st.id === x.sid); return s ? `${s.first} ${s.last} (${s.grade}/${s.room})` : null; }).filter(Boolean);
   const areaId = "compDisplayArea";
   const printTable = () => {
-    const rows = list.map((c) => `<tr><td>${c.name}</td><td>${gradesLabel(c)}</td><td>${teacherJudges.join("<br>") || "-"}</td><td>${studentJudges.join("<br>") || "-"}</td><td>${partNames(c, "main").join("<br>") || "-"}</td><td>${partNames(c, "reserve").join("<br>") || "-"}</td></tr>`).join("");
+    const rows = list.map((c) => `<tr><td>${c.name}</td><td>${gradesLabel(c)}</td><td>${tJudges(c).join("<br>") || "-"}</td><td>${sJudges(c).join("<br>") || "-"}</td><td>${partNames(c, "main").join("<br>") || "-"}</td><td>${partNames(c, "reserve").join("<br>") || "-"}</td></tr>`).join("");
     const w = window.open("", "_blank"); if (!w) { ui.notify("เบราว์เซอร์บล็อกหน้าต่าง"); return; }
     w.document.write(`<html><head><meta charset="utf-8"><title>รายการ${kind}</title><style>body{font-family:'Noto Sans Thai',sans-serif;padding:16px}h3{margin:0 0 10px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #999;padding:6px 8px;font-size:12.5px;text-align:left;vertical-align:top}th{background:#eee}@page{margin:8mm}</style></head><body><h3>รายการ${kind}</h3><table><thead><tr><th>รายการ</th><th>ชั้น</th><th>กรรมการครู</th><th>กรรมการนักเรียน</th><th>ตัวจริง</th><th>ตัวสำรอง</th></tr></thead><tbody>${rows}</tbody></table></body></html>`);
     w.document.close(); w.focus(); setTimeout(() => w.print(), 300);
@@ -2034,7 +2075,7 @@ function CompDisplay({ kind, db, ui }) {
   const exportExcel = () => {
     try {
       const aoa = [["รายการ", "ชั้น", "กรรมการครู", "กรรมการนักเรียน", "ตัวจริง", "ตัวสำรอง"]];
-      list.forEach((c) => aoa.push([c.name, gradesLabel(c), teacherJudges.join(", "), studentJudges.join(", "), partNames(c, "main").join(", "), partNames(c, "reserve").join(", ")]));
+      list.forEach((c) => aoa.push([c.name, gradesLabel(c), tJudges(c).join(", "), sJudges(c).join(", "), partNames(c, "main").join(", "), partNames(c, "reserve").join(", ")]));
       const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), kind); XLSX.writeFile(wb, `รายการ${kind}.xlsx`);
     } catch (e) { ui.notify("ดาวน์โหลดไม่สำเร็จ"); }
   };
@@ -2059,8 +2100,8 @@ function CompDisplay({ kind, db, ui }) {
               <ItemStatusBadge c={c} />
               <span style={{ fontSize: 11.5, color: C.muted }}>ชั้น {gradesLabel(c)}</span>
             </div>
-            {line("กรรมการครู", teacherJudges, C.primary)}
-            {line("กรรมการนักเรียน", studentJudges, C.gold)}
+            {line("กรรมการครู", tJudges(c), C.primary)}
+            {line("กรรมการนักเรียน", sJudges(c), C.gold)}
             {line("ตัวจริง", partNames(c, "main"), "#2f9e6b")}
             {line("ตัวสำรอง", partNames(c, "reserve"), "#c99a2e")}
           </Card>
@@ -2134,7 +2175,7 @@ function CompTable({ kind, db, setDb, ui }) {
         </Card>
       ))}
       {list.length === 0 && <Empty text={`ยังไม่มีรายการ${kind}`} />}
-      {(add || edit) && <CompForm kind={kind} comp={edit} onClose={() => { setAdd(false); setEdit(null); }} onSave={save} />}
+      {(add || edit) && <CompForm kind={kind} comp={edit} db={db} onClose={() => { setAdd(false); setEdit(null); }} onSave={save} />}
       {judge && <JudgeAssign comp={judge} cat={kind === "แข่งขัน" ? "comp" : "act"} db={db} setDb={setDb} onClose={() => setJudge(null)} />}
       {confirmDel && <ConfirmModal title="ยืนยันการลบ" message={`ลบ "${confirmDel.name}" ? รายการจะถูกเก็บในถังขยะ (กู้คืนได้)`} onConfirm={() => remove(confirmDel)} onClose={() => setConfirmDel(null)} />}
     </div>
@@ -2187,11 +2228,16 @@ function JudgeAssign({ comp, cat, db, setDb, onClose }) {
     </Modal>
   );
 }
-function CompForm({ kind, comp, onClose, onSave }) {
-  const [f, setF] = useState(comp || { kind, name: "", mainCount: 0, reserveCount: 0, regStart: "", regEnd: "", grades: [] });
+function CompForm({ kind, comp, db, onClose, onSave }) {
+  const [f, setF] = useState(comp || { kind, name: "", mainCount: 0, reserveCount: 0, regStart: "", regEnd: "", grades: [], orgNodeTeacher: "", orgNodeStudent: "" });
   const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
   const gsel = f.grades || [];
   const toggleG = (g) => setF((p) => { const cur = p.grades || []; return { ...p, grades: cur.includes(g) ? cur.filter((x) => x !== g) : [...cur, g] }; });
+  const catV = kind === "แข่งขัน" ? "comp" : "act";
+  const tNodes = (db ? db.orgTeacher : []).filter((n) => (n.cat || "comp") === catV);
+  const sNodes = (db ? db.orgStudent : []).filter((n) => (n.cat || "comp") === catV);
+  const nodeLabel = (n, pool) => { const p = pool.find((x) => x.id === n.personId); return `${n.title}${p ? ` — ${p.first} ${p.last}` : " (ยังไม่ลงชื่อ)"}`; };
+  const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff", marginBottom: 12 };
   return (
     <Modal title={comp ? "แก้ไขรายการ" : `เพิ่มรายการ${kind}`} onClose={onClose}>
       <Field label="ชื่อรายการ" value={f.name} onChange={set("name")} />
@@ -2208,6 +2254,17 @@ function CompForm({ kind, comp, onClose, onSave }) {
           return <button key={g} onClick={() => toggleG(g)} style={{ padding: "5px 11px", borderRadius: 16, border: `1px solid ${on ? C.primary : C.line}`, background: on ? C.soft : C.surface, color: on ? C.primaryDark : C.ink, fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>{g}</button>;
         })}
       </div>
+      <span style={{ display: "block", fontSize: 13, color: C.muted, marginBottom: 5 }}>ผูกตำแหน่งกรรมการครูในผัง (กรรมการ = คนนี้ + สายเหนือขึ้นไปถึงประธาน)</span>
+      <select value={f.orgNodeTeacher || ""} onChange={(e) => set("orgNodeTeacher")(e.target.value)} style={selCss}>
+        <option value="">— ไม่ผูก —</option>
+        {tNodes.map((n) => <option key={n.id} value={n.id}>{nodeLabel(n, db.teachers)}</option>)}
+      </select>
+      <span style={{ display: "block", fontSize: 13, color: C.muted, marginBottom: 5 }}>ผูกตำแหน่งกรรมการนักเรียนในผัง</span>
+      <select value={f.orgNodeStudent || ""} onChange={(e) => set("orgNodeStudent")(e.target.value)} style={selCss}>
+        <option value="">— ไม่ผูก —</option>
+        {sNodes.map((n) => <option key={n.id} value={n.id}>{nodeLabel(n, db.students)}</option>)}
+      </select>
+      {(tNodes.length === 0 && sNodes.length === 0) && <p style={{ fontSize: 12, color: "#c0392b", marginTop: 0 }}>ยังไม่มีตำแหน่งในผังหมวดนี้ — ไปสร้างที่ โครงสร้างผัง ก่อน</p>}
       <div style={{ display: "flex", gap: 8 }}><Btn onClick={() => onSave(f, !!comp)} disabled={!f.name}>บันทึก</Btn><Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn></div>
     </Modal>
   );
@@ -2534,8 +2591,9 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
   const ui = useUI();
   if (role === "studentcom") { const me = db.students.find((s) => s.id === meId); if (me && !me.profileDone && !studentProfileComplete(me)) return (<><ProfileGate me={me} setDb={setDb} ui={ui} />{ui.loading && <LoadingModal label={ui.loading} />}{ui.toast && <Toast msg={ui.toast} />}</>); }
   const which = role === "teacher" ? "orgTeacher" : "orgStudent";
-  const myCats = new Set(db[which].filter((n) => n.personId === meId).map((n) => n.cat || "comp"));
-  const myCompIds = db.competitions.filter((c) => myCats.has(c.kind === "แข่งขัน" ? "comp" : "act")).map((c) => c.id);
+  const linkKey = role === "teacher" ? "orgNodeTeacher" : "orgNodeStudent";
+  const myNodeIds = db[which].filter((n) => n.personId === meId).map((n) => n.id);
+  const myCompIds = db.competitions.filter((c) => { const nid = c[linkKey]; return nid && orgPathIds(db[which], nid).some((id) => myNodeIds.includes(id)); }).map((c) => c.id);
   const nav = [
     { key: "me", label: "ข้อมูลฉัน", icon: "🪪" },
     { key: "org", label: "ผังองค์กร", icon: "🗂" },
@@ -2635,11 +2693,12 @@ function CommitteeRegister({ myCompIds, db, setDb, ui }) {
 }
 function MyDutyScreen({ role, meId, db, setDb, ui }) {
   const which = role === "teacher" ? "orgTeacher" : "orgStudent";
-  const myCats = new Set(db[which].filter((n) => n.personId === meId).map((n) => n.cat || "comp"));
+  const linkKey = role === "teacher" ? "orgNodeTeacher" : "orgNodeStudent";
+  const myNodeIds = db[which].filter((n) => n.personId === meId).map((n) => n.id);
   const [kind, setKind] = useState("แข่งขัน");
   const [pick, setPick] = useState("");
   const [addOpen, setAddOpen] = useState(false);
-  const myComps = db.competitions.filter((c) => c.kind === kind && myCats.has(kind === "แข่งขัน" ? "comp" : "act"));
+  const myComps = db.competitions.filter((c) => c.kind === kind && c[linkKey] && orgPathIds(db[which], c[linkKey]).some((id) => myNodeIds.includes(id)));
   const comp = myComps.find((c) => c.id === pick) || myComps[0];
   const addStudent = (sid, status) => ui.run("กำลังเพิ่มผู้สมัคร...", () => setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, participants: [...c.participants, { sid, status, sel: undefined }] } : c) })));
   return (
@@ -3104,6 +3163,7 @@ function mergeDb(loaded) {
     competitions: (loaded && loaded.competitions) || [],
     orgTeacher: (loaded && loaded.orgTeacher) || [],
     orgStudent: (loaded && loaded.orgStudent) || [],
+    dutyList: (loaded && loaded.dutyList) || [],
     archived: (loaded && loaded.archived) || [],
     trash: (loaded && loaded.trash) || [],
     settings: {
