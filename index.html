@@ -2067,10 +2067,15 @@ function orgPathIds(nodes, nodeId) {
 function orgPathNames(nodes, nodeId, pool) {
   return orgPathIds(nodes, nodeId).map((id) => { const n = (nodes || []).find((x) => x.id === id); const p = n && pool.find((x) => x.id === n.personId); return p ? `${p.first} ${p.last}` : null; }).filter(Boolean);
 }
+// เรียงจากประธาน (บนสุด) ลงมาถึงผู้ดูแล + ใส่ (ตำแหน่ง) ต่อท้ายชื่อ
+function orgLineNamed(nodes, nodeId, pool) {
+  const ids = orgPathIds(nodes, nodeId).slice().reverse();
+  return ids.map((id) => { const n = (nodes || []).find((x) => x.id === id); const p = n && pool.find((x) => x.id === n.personId); return p ? `${p.first} ${p.last} (${n.title})` : null; }).filter(Boolean);
+}
 function CompDisplay({ kind, db, ui }) {
   const list = db.competitions.filter((c) => c.kind === kind);
-  // กรรมการของแต่ละรายการ = คนในตำแหน่งที่ผูกรายการนี้ + สายบังคับบัญชาเหนือขึ้นไปถึงประธาน
-  const pathNamesUnion = (orgKey, pool, c) => { const seen = new Set(); const out = []; db[orgKey].filter((n) => n.compId === c.id).forEach((n) => orgPathNames(db[orgKey], n.id, pool).forEach((nm) => { if (!seen.has(nm)) { seen.add(nm); out.push(nm); } })); return out; };
+  // กรรมการของแต่ละรายการ = ประธานบนสุด → ลงมาถึงผู้ดูแลตำแหน่งที่ผูกรายการนี้
+  const pathNamesUnion = (orgKey, pool, c) => { const seen = new Set(); const out = []; db[orgKey].filter((n) => n.compId === c.id).forEach((n) => orgLineNamed(db[orgKey], n.id, pool).forEach((nm) => { if (!seen.has(nm)) { seen.add(nm); out.push(nm); } })); return out; };
   const tJudges = (c) => pathNamesUnion("orgTeacher", db.teachers, c);
   const sJudges = (c) => pathNamesUnion("orgStudent", db.students, c);
   const partNames = (c, selVal) => c.participants.filter((x) => x.sel === selVal).map((x) => { const s = db.students.find((st) => st.id === x.sid); return s ? `${s.first} ${s.last} (${s.grade}/${s.room})` : null; }).filter(Boolean);
@@ -2091,7 +2096,7 @@ function CompDisplay({ kind, db, ui }) {
   const line = (label, arr, color) => (
     <div style={{ marginTop: 6 }}>
       <span style={{ fontSize: 12, fontWeight: 700, color: color || C.primaryDark }}>{label}: </span>
-      <span style={{ fontSize: 12.5, color: arr.length ? C.ink : C.muted }}>{arr.length ? arr.join(" · ") : "-"}</span>
+      <span style={{ fontSize: 12.5, color: arr.length ? C.ink : C.muted }}>{arr.length ? arr.join(", ") : "-"}</span>
     </div>
   );
   return (
