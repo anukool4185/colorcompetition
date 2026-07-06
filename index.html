@@ -468,7 +468,6 @@ function Shell({ role, nav, view, setView, onExit, children, ui }) {
             </button>
           ))}
           <button onClick={() => setConfirmOut(true)} style={{ width: "100%", textAlign: "left", padding: "10px 12px", border: "none", background: "transparent", color: C.muted, cursor: "pointer", fontSize: 14, marginTop: 2 }}>ออกจากระบบ</button>
-          <button onClick={() => setConfirmClose(true)} style={{ width: "100%", textAlign: "left", padding: "10px 12px", border: "none", background: "transparent", color: "#c0392b", cursor: "pointer", fontSize: 14 }}>✕ ปิดหน้าเว็บ</button>
         </nav>
       </aside>
 
@@ -494,6 +493,7 @@ function Shell({ role, nav, view, setView, onExit, children, ui }) {
         ))}
       </nav>
 
+      <button className="hidden md:flex" onClick={() => setConfirmClose(true)} title="ปิดหน้าเว็บ" aria-label="ปิดหน้าเว็บ" style={{ position: "fixed", top: 12, right: 14, zIndex: 40, width: 36, height: 36, borderRadius: 10, border: `1px solid ${C.line}`, background: C.surface, color: "#c0392b", fontSize: 18, fontWeight: 700, cursor: "pointer", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 6px rgba(0,0,0,.08)" }}>✕</button>
       {confirmOut && <ConfirmModal title="ออกจากระบบ" message="ต้องการออกจากระบบใช่หรือไม่? ครั้งต่อไปต้องล็อกอินใหม่" confirmLabel="ออกจากระบบ" onConfirm={() => { setConfirmOut(false); onExit(); }} onClose={() => setConfirmOut(false)} />}
       {confirmClose && <ConfirmModal title="ปิดหน้าเว็บ" message="ต้องการปิดหน้าเว็บนี้ใช่หรือไม่? (ระบบบันทึกข้อมูลขึ้น Sheet แล้ว)" confirmLabel="ปิดหน้าเว็บ" variant="danger" onConfirm={() => { setConfirmClose(false); closeWin(); }} onClose={() => setConfirmClose(false)} />}
       {ui.loading && <LoadingModal label={ui.loading} />}
@@ -626,7 +626,7 @@ function AdminHome({ db, setDb, ui }) {
         <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 10, lineHeight: 1.6 }}>ลบรายชื่อนักเรียน/ครู รายการแข่ง ผังองค์กร และบัญชีทั้งหมด (คงไว้เฉพาะสีทีม/ประชาสัมพันธ์) ใช้เมื่ออยากเริ่มต้นใหม่ทั้งหมด</p>
         <Btn variant="danger" small onClick={() => setConfirmReset(true)}>ล้างข้อมูลทั้งหมด</Btn>
       </Card>
-      {confirmReset && <ConfirmModal title="ยืนยันล้างข้อมูลทั้งระบบ" message="จะลบข้อมูลทั้งหมด (นักเรียน ครู บัญชี รายการแข่ง ผังองค์กร) เหลือเฉพาะการตั้งค่าสีทีม/ประชาสัมพันธ์ — ย้อนกลับไม่ได้ ยืนยันหรือไม่?" onConfirm={() => ui.run("กำลังล้างข้อมูล...", () => { setDb((p) => ({ students: [], teachers: [], assistants: [], competitions: [], orgTeacher: [], orgStudent: [], archived: [], trash: [], settings: p.settings })); setConfirmReset(false); ui.notify("ล้างข้อมูลแล้ว"); })} onClose={() => setConfirmReset(false)} />}
+      {confirmReset && <ConfirmModal title="ยืนยันล้างข้อมูลทั้งระบบ" message="จะลบข้อมูลทั้งหมด (นักเรียน ครู บัญชี รายการแข่ง ผังองค์กร) เหลือเฉพาะการตั้งค่าสีทีม/ประชาสัมพันธ์ — ย้อนกลับไม่ได้ ยืนยันหรือไม่?" onConfirm={() => ui.run("กำลังล้างข้อมูล...", () => { setDb((p) => ({ students: [], teachers: [], assistants: [], competitions: [], orgTeacher: [], orgStudent: [], dutyList: [], archived: [], trash: [], settings: p.settings })); setConfirmReset(false); ui.notify("ล้างข้อมูลแล้ว"); })} onClose={() => setConfirmReset(false)} />}
     </div>
   );
 }
@@ -1700,9 +1700,9 @@ function DutyManager({ db, setDb, ui }) {
 function DutyListManager({ db, setDb, ui }) {
   const list = db.dutyList || [];
   const [name, setName] = useState("");
-  const add = () => { if (!name.trim()) return; ui.run("กำลังเพิ่มหน้าที่...", () => { setDb((p) => ({ ...p, dutyList: [...(p.dutyList || []), name.trim()] })); setName(""); }); };
-  const remove = (i) => ui.run("กำลังลบ...", () => setDb((p) => ({ ...p, dutyList: (p.dutyList || []).filter((_, j) => j !== i) })));
-  const move = (i, dir) => ui.run("กำลังจัดลำดับ...", () => setDb((p) => { const arr = [...(p.dutyList || [])]; const j = i + dir; if (j < 0 || j >= arr.length) return p; [arr[i], arr[j]] = [arr[j], arr[i]]; return { ...p, dutyList: arr }; }));
+  const add = () => { if (!name.trim()) return; ui.run("กำลังเพิ่มหน้าที่...", () => { setDb((p) => ({ ...p, dutyList: [...(p.dutyList || []), name.trim()] })); setName(""); setTimeout(() => window.__forceSave && window.__forceSave(), 500); }); };
+  const remove = (i) => ui.run("กำลังลบ...", () => { setDb((p) => ({ ...p, dutyList: (p.dutyList || []).filter((_, j) => j !== i) })); setTimeout(() => window.__forceSave && window.__forceSave(), 500); });
+  const move = (i, dir) => ui.run("กำลังจัดลำดับ...", () => { setDb((p) => { const arr = [...(p.dutyList || [])]; const j = i + dir; if (j < 0 || j >= arr.length) return p; [arr[i], arr[j]] = [arr[j], arr[i]]; return { ...p, dutyList: arr }; }); setTimeout(() => window.__forceSave && window.__forceSave(), 500); });
   return (
     <div style={{ maxWidth: 560 }}>
       <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0 }}>กำหนดชื่อหน้าที่/ตำแหน่งไว้ล่วงหน้า (เช่น ประธาน, รองประธาน, หัวหน้ากรรมการ, กรรมการประจำรายการ) เพื่อใช้เลือกตอนสร้างโครงผัง — เรียงลำดับ = แนะนำระดับของต้นไม้จากบนลงล่าง</p>
@@ -1851,7 +1851,7 @@ function CombinedOrg({ db, cat, ui }) {
 }
 function OrgViewManager({ db, setDb, ui, editable }) {
   const [cat, setCat] = useState("comp");
-  const [view, setView] = useState("combined"); // combined | teacher | student
+  const [view, setView] = useState("teacher"); // combined | teacher | student
   const [assign, setAssign] = useState(null);
   const which = view === "teacher" ? "orgTeacher" : "orgStudent";
   const pool = view === "teacher" ? db.teachers : db.students;
@@ -1862,9 +1862,9 @@ function OrgViewManager({ db, setDb, ui, editable }) {
   return (
     <div>
       <PageHead title="ผังองค์กร" sub={editable ? "ผังรวมครู+นักเรียน · หรือลงชื่อในตำแหน่ง (ค้นหาได้ ลงทันที)" : "ดูอย่างเดียว"} />
-      <Tabs tabs={[{ key: "comp", label: "ผังรวมแข่งขัน" }, { key: "act", label: "ผังรวมกิจกรรม" }]} active={cat} onChange={setCat} />
+      <Tabs tabs={[{ key: "comp", label: "ผังแข่งขัน" }, { key: "act", label: "ผังกิจกรรม" }]} active={cat} onChange={setCat} />
       <div style={{ marginBottom: 6 }}>
-        <Tabs tabs={[{ key: "combined", label: "ผังรวม (ครู+นักเรียน)" }, { key: "teacher", label: editable ? "ลงชื่อครู" : "ผังครู" }, { key: "student", label: editable ? "ลงชื่อนักเรียน" : "ผังนักเรียน" }]} active={view} onChange={setView} />
+        <Tabs tabs={[{ key: "teacher", label: editable ? "ลงชื่อครู" : "ผังครู" }, { key: "student", label: editable ? "ลงชื่อนักเรียน" : "ผังนักเรียน" }, { key: "combined", label: "ผังรวม (ครู+นักเรียน)" }]} active={view} onChange={setView} />
       </div>
       {view === "combined" && <Card style={{ padding: 16 }}><CombinedOrg db={db} cat={cat} ui={ui} /></Card>}
       {view !== "combined" && (
