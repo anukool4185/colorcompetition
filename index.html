@@ -40,6 +40,16 @@
   .orgtree.horiz > ul > li { padding-left: 0; }
   .orgtree.horiz > ul > li::before, .orgtree.horiz > ul > li::after { display: none; }
   .orgtree.horiz li > ul::before { content: ''; position: absolute; left: 0; top: 50%; width: 14px; height: 2px; background: var(--tl,#e5e0ec); border: 0; }
+  .orgtree.sp-tight ul { padding-top: 10px; }
+  .orgtree.sp-tight li { padding: 10px 4px 0; }
+  .orgtree.sp-tight ul ul::before { height: 10px; }
+  .orgtree.sp-tight li::before, .orgtree.sp-tight li::after { height: 10px; }
+  .orgtree.sp-loose ul { padding-top: 30px; }
+  .orgtree.sp-loose li { padding: 30px 16px 0; }
+  .orgtree.sp-loose ul ul::before { height: 30px; }
+  .orgtree.sp-loose li::before, .orgtree.sp-loose li::after { height: 30px; }
+  .orgtree.horiz.sp-tight li { padding: 3px 0 3px 18px; }
+  .orgtree.horiz.sp-loose li { padding: 8px 0 8px 40px; }
   .orgbox { display: inline-block; }
   @media (min-width: 768px) {
     .md\:flex { display: flex !important; }
@@ -1943,7 +1953,7 @@ async function printImageFromEl(elId, notify) {
         notify && notify("ปริ้นไม่สำเร็จ");
     }
 }
-async function pdfFromEl(elId, orientation, filename, notify) {
+async function pdfFromEl(elId, orientation, filename, notify, fitMode) {
     try {
         const canvas = await snapshotEl(elId);
         if (!canvas || !window.jspdf) {
@@ -1954,13 +1964,42 @@ async function pdfFromEl(elId, orientation, filename, notify) {
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF({ orientation, unit: "mm", format: "a4" });
         const PW = pdf.internal.pageSize.getWidth(), PH = pdf.internal.pageSize.getHeight();
-        const availW = PW - 12, availH = PH - 12;
-        let w = availW, h = canvas.height * (availW / canvas.width);
-        if (h > availH) {
+        const M = 6, availW = PW - M * 2, availH = PH - M * 2;
+        let w, h, x = M, y = M;
+        const mode = fitMode || "contain";
+        if (mode === "fill") {
+            w = availW;
+            h = availH;
+        }
+        else if (mode === "width") {
+            w = availW;
+            h = canvas.height * (availW / canvas.width);
+            if (h > availH)
+                h = availH ? h : h;
+            y = M;
+        }
+        else if (mode === "height") {
             h = availH;
             w = canvas.width * (availH / canvas.height);
+            if (w > availW)
+                w = availW;
+            x = (PW - w) / 2;
         }
-        pdf.addImage(img, "PNG", (PW - w) / 2, 6, w, h);
+        else {
+            w = availW;
+            h = canvas.height * (availW / canvas.width);
+            if (h > availH) {
+                h = availH;
+                w = canvas.width * (availH / canvas.height);
+            }
+            x = (PW - w) / 2;
+            y = (PH - h) / 2;
+        }
+        if (mode === "width") {
+            x = (PW - w) / 2;
+            y = M;
+        }
+        pdf.addImage(img, "PNG", x, y, w, h);
         pdf.save(filename);
     }
     catch (e) {
@@ -2061,6 +2100,8 @@ function OrgViewManager({ db, setDb, ui, editable, committee }) {
     const [confirmWd, setConfirmWd] = useState(null);
     const [confirmIn, setConfirmIn] = useState(null);
     const [horiz, setHoriz] = useState(false);
+    const [spacing, setSpacing] = useState("normal");
+    const [fitMode, setFitMode] = useState("contain");
     const which = view === "teacher" ? "orgTeacher" : "orgStudent";
     const pool = view === "teacher" ? db.teachers : db.students;
     const pickPool = view === "teacher" ? db.teachers.filter((t) => t.user) : db.students.filter((s) => s.committee);
@@ -2093,11 +2134,23 @@ function OrgViewManager({ db, setDb, ui, editable, committee }) {
         view === "combined" && React.createElement(Card, { style: { padding: 16 } },
             React.createElement(CombinedOrg, { db: db, cat: cat, ui: ui })),
         view !== "combined" && (React.createElement(Card, { style: { padding: 16, overflowX: "auto" } },
+            React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 6, flexWrap: "wrap", alignItems: "center" } },
+                React.createElement(Btn, { small: true, variant: horiz ? "soft" : "ghost", onClick: () => setHoriz((h) => !h) }, horiz ? "↕ แนวตั้ง" : "↔ แนวนอน"),
+                React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E23\u0E30\u0E22\u0E30\u0E2B\u0E48\u0E32\u0E07:"),
+                React.createElement(Select, { value: spacing, onChange: setSpacing },
+                    React.createElement("option", { value: "tight" }, "\u0E41\u0E19\u0E48\u0E19"),
+                    React.createElement("option", { value: "normal" }, "\u0E1B\u0E01\u0E15\u0E34"),
+                    React.createElement("option", { value: "loose" }, "\u0E42\u0E1B\u0E23\u0E48\u0E07")),
+                React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E1E\u0E2D\u0E14\u0E35\u0E2B\u0E19\u0E49\u0E32:"),
+                React.createElement(Select, { value: fitMode, onChange: setFitMode },
+                    React.createElement("option", { value: "contain" }, "\u0E1E\u0E2D\u0E14\u0E35\u0E17\u0E31\u0E49\u0E07\u0E1C\u0E31\u0E07"),
+                    React.createElement("option", { value: "width" }, "\u0E40\u0E15\u0E47\u0E21\u0E04\u0E27\u0E32\u0E21\u0E01\u0E27\u0E49\u0E32\u0E07"),
+                    React.createElement("option", { value: "height" }, "\u0E40\u0E15\u0E47\u0E21\u0E04\u0E27\u0E32\u0E21\u0E2A\u0E39\u0E07"),
+                    React.createElement("option", { value: "fill" }, "\u0E22\u0E37\u0E14\u0E40\u0E15\u0E47\u0E21\u0E2B\u0E19\u0E49\u0E32"))),
             React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" } },
-                React.createElement(Btn, { small: true, variant: horiz ? "soft" : "ghost", onClick: () => setHoriz((h) => !h) }, horiz ? "↕ แสดงแนวตั้ง" : "↔ แสดงแนวนอน (พอดีกระดาษ)"),
                 React.createElement(Btn, { small: true, variant: "ghost", onClick: () => printImageFromEl("orgTreeArea", ui && ui.notify) }, "\u0E1B\u0E23\u0E34\u0E49\u0E19 (\u0E23\u0E39\u0E1B\u0E15\u0E48\u0E2D\u0E40\u0E19\u0E37\u0E48\u0E2D\u0E07)"),
-                React.createElement(Btn, { small: true, variant: "ghost", onClick: () => pdfFromEl("orgTreeArea", horiz ? "landscape" : "portrait", `ผัง${view === "teacher" ? "ครู" : "นักเรียน"}.pdf`, ui && ui.notify) },
-                    "PDF (\u0E1E\u0E2D\u0E14\u0E35 A4 \u00B7 ",
+                React.createElement(Btn, { small: true, variant: "ghost", onClick: () => pdfFromEl("orgTreeArea", horiz ? "landscape" : "portrait", `ผัง${view === "teacher" ? "ครู" : "นักเรียน"}.pdf`, ui && ui.notify, fitMode) },
+                    "PDF (A4 \u00B7 ",
                     horiz ? "แนวนอน" : "แนวตั้ง",
                     ")")),
             React.createElement("div", { id: "orgTreeArea" },
@@ -2106,7 +2159,7 @@ function OrgViewManager({ db, setDb, ui, editable, committee }) {
                     " \u00B7 ",
                     view === "teacher" ? "ครู" : "นักเรียน",
                     canSelf ? " · ลงชื่อฉันในช่องว่างได้" : ""),
-                React.createElement(OrgTree, { nodes: nodes, pool: pool, accent: view === "teacher" ? C.primary : C.gold, mode: treeMode, comps: db.competitions, horiz: horiz, meId: committee ? committee.meId : undefined, pendingIds: (db.orgRequests || []).filter((r) => r.side === which && r.status === "pending").map((r) => r.nodeId), onAssign: (node) => setAssign(node), onClearName: clearName, onSelfAssign: selfAssign })))),
+                React.createElement(OrgTree, { nodes: nodes, pool: pool, accent: view === "teacher" ? C.primary : C.gold, mode: treeMode, comps: db.competitions, horiz: horiz, spacing: spacing, meId: committee ? committee.meId : undefined, pendingIds: (db.orgRequests || []).filter((r) => r.side === which && r.status === "pending").map((r) => r.nodeId), onAssign: (node) => setAssign(node), onClearName: clearName, onSelfAssign: selfAssign })))),
         assign && React.createElement(SearchPersonPopup, { title: `ลงชื่อในตำแหน่ง: ${assign.title}`, pool: pickPool, emptyText: `ยังไม่มี${view === "teacher" ? "กรรมการครู" : "กรรมการนักเรียน"} — ตั้งที่ บุคลากร → บัญชีผู้ใช้ ก่อน`, onClose: () => setAssign(null), onPick: (p) => setPerson(assign.id, p.id) }),
         confirmWd && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E01\u0E32\u0E23\u0E02\u0E2D\u0E16\u0E2D\u0E19\u0E15\u0E31\u0E27", message: `ต้องการส่งคำร้องขอถอนชื่อออกจากตำแหน่ง "${confirmWd.title}" ใช่หรือไม่? ประธาน/แอดมินจะเป็นผู้พิจารณาอนุญาต`, confirmLabel: "\u0E2A\u0E48\u0E07\u0E04\u0E33\u0E23\u0E49\u0E2D\u0E07\u0E02\u0E2D\u0E16\u0E2D\u0E19", variant: "danger", onConfirm: () => doWithdraw(confirmWd), onClose: () => setConfirmWd(null) }),
         confirmIn && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E01\u0E32\u0E23\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D", message: `ต้องการลงชื่อของคุณในตำแหน่ง "${confirmIn.title}"${confirmIn.compId ? ` (ดูแล ${(db.competitions.find((c) => c.id === confirmIn.compId) || {}).name || ""})` : ""} ใช่หรือไม่?`, confirmLabel: "\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D", onConfirm: () => doSignIn(confirmIn), onClose: () => setConfirmIn(null) })));
@@ -2172,7 +2225,7 @@ function pruneOrg(nodes, removedSet) {
     const ids = new Set(kept.map((n) => n.id));
     return kept.map((n) => (n.parent && !ids.has(n.parent)) ? { ...n, parent: null } : n);
 }
-function OrgTree({ nodes, pool, accent, mode, comps, onAddChild, onEditTitle, onDelete, onAssign, onClearName, onSelfAssign, meId, pendingIds, horiz, onMove, onReorder, onInsertParent }) {
+function OrgTree({ nodes, pool, accent, mode, comps, onAddChild, onEditTitle, onDelete, onAssign, onClearName, onSelfAssign, meId, pendingIds, horiz, spacing, onMove, onReorder, onInsertParent }) {
     const ids = new Set(nodes.map((n) => n.id));
     const roots = nodes.filter((n) => !n.parent || !ids.has(n.parent));
     const mini = (bg, col, brd) => ({ border: `1px solid ${brd || bg}`, background: bg, color: col, borderRadius: 14, padding: "3px 9px", fontSize: 11, fontWeight: 700, cursor: "pointer" });
@@ -2210,7 +2263,7 @@ function OrgTree({ nodes, pool, accent, mode, comps, onAddChild, onEditTitle, on
     };
     if (!nodes.length)
         return React.createElement(Empty, { text: structure ? "ยังไม่มีตำแหน่ง กด + เพิ่มหัวหน้าสูงสุด" : "ยังไม่มีผัง (สร้างโครงที่เมนู กำหนดหน้าที่)" });
-    return React.createElement("div", { className: "orgtree" + (horiz ? " horiz" : ""), style: { ["--tl"]: C.line } },
+    return React.createElement("div", { className: "orgtree" + (horiz ? " horiz" : "") + (spacing === "tight" ? " sp-tight" : spacing === "loose" ? " sp-loose" : ""), style: { ["--tl"]: C.line } },
         React.createElement("ul", null, roots.map(renderLi)));
 }
 function NodeForm({ node, dutyList, comps, onClose, onSave }) {
