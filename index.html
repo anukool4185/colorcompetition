@@ -2516,38 +2516,53 @@ function committeeNames(db, orgKey, pool, c, withGrade) {
     return out;
 }
 function selectedNames(db, c, sel) { return c.participants.filter((x) => x.sel === sel).map((x) => { const s = db.students.find((st) => String(st.id) === String(x.sid)); return s ? `${s.first} ${s.last} (${s.grade || ""}/${s.room || ""})` : null; }).filter(Boolean); }
+function structureData(db, kind) {
+    const cat = kind === "แข่งขัน" ? "comp" : "act";
+    const tNodes = (db.orgTeacher || []).filter((n) => (n.cat || "comp") === cat);
+    const byId = {};
+    tNodes.forEach((n) => { byId[n.id] = n; });
+    const sBy = {};
+    (db.orgStudent || []).forEach((n) => { sBy[n.id] = n; });
+    const childrenOf = (pid) => tNodes.filter((n) => (n.parent || null) === (pid || null));
+    const roots = tNodes.filter((n) => !n.parent || !byId[n.parent]);
+    const heads = [].concat(...roots.map((r) => childrenOf(r.id)));
+    const tName = (node) => { const p = node && db.teachers.find((x) => String(x.id) === String(node.personId)); return p ? `${p.first} ${p.last}` : ""; };
+    const sName = (id) => { const sn = sBy[id]; const p = sn && db.students.find((x) => String(x.id) === String(sn.personId)); return p ? `${p.first} ${p.last}${p.grade ? ` (${p.grade}${p.room ? "/" + p.room : ""})` : ""}` : ""; };
+    const subtree = (id) => { const out = [id]; const w = (p) => childrenOf(p).forEach((c) => { out.push(c.id); w(c.id); }); w(id); return out; };
+    const compByNode = {};
+    (db.competitions || []).filter((c) => c.kind === kind).forEach((c) => { tNodes.filter((n) => String(n.compId) === String(c.id)).forEach((n) => { (compByNode[n.id] = compByNode[n.id] || []).push(c); }); });
+    return { roots, heads, byId, childrenOf, subtree, tName, sName, compByNode };
+}
 function buildStructureHTML(db, kind) {
     const esc = (s) => String(s || "").replace(/[&<>]/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[m]));
     const dots = "................";
-    const COLS = 3;
+    const D = structureData(db, kind);
+    const boxTop = D.roots.length ? D.roots.map((r) => `<td style="border:1px solid #333;padding:8px;text-align:center;vertical-align:top"><b>${esc(r.title)}</b><br>ครู(${esc(r.title)}): ${esc(D.tName(r)) || dots}<br>นักเรียน(${esc(r.title)}): ${esc(D.sName(r.id)) || dots}</td>`).join("") : `<td style="padding:8px">(ยังไม่มีตำแหน่งบนสุด เช่น ประธาน/รองประธาน)</td>`;
     const sections = [["ต้น", "ม.ต้น"], ["ปลาย", "ม.ปลาย"]].map(([bk, bl]) => {
-        const comps = competitionsByBand(db, kind, bk);
-        if (!comps.length)
-            return `<h3 style="text-align:center;margin:6px 0">โครงสร้างของวิชาการสี — ${bl} (${esc(kind)})</h3><div style="text-align:center;color:#999">— ไม่มีรายการระดับนี้ —</div><div style="page-break-after:always"></div>`;
-        const cells = comps.map((c) => {
-            const ct = committeeNames(db, "orgTeacher", db.teachers, c, false);
-            const cs = committeeNames(db, "orgStudent", db.students, c, true);
-            const main = selectedNames(db, c, "main"), res = selectedNames(db, c, "reserve");
-            return `<td style="border:1px solid #333;padding:8px;vertical-align:top;width:${Math.floor(100 / COLS)}%">`
-                + `<div style="text-align:center;font-weight:bold;color:#b00;border-bottom:1px solid #ccc;padding-bottom:3px;margin-bottom:5px">${esc(c.name)}</div>`
-                + `<div><b>ครูกรรมการ:</b> ${ct.length ? esc(ct.join(", ")) : dots}</div>`
-                + `<div><b>นักเรียนกรรมการ:</b> ${cs.length ? esc(cs.join(", ")) : dots}</div>`
-                + `<div style="font-weight:bold;color:#c0392b;margin-top:5px">ผู้ผ่านการคัดเลือก — ตัวจริง</div>`
-                + (main.length ? main.map((n, i) => `<div>${i + 1}. ${esc(n)}</div>`).join("") : "<div>-</div>")
-                + `<div style="font-weight:bold;color:#2f6fb0;margin-top:5px">ผู้ผ่านการคัดเลือก — ตัวสำรอง</div>`
-                + (res.length ? res.map((n, i) => `<div>${i + 1}. ${esc(n)}</div>`).join("") : "<div>-</div>")
-                + `</td>`;
-        });
-        let rows = "";
-        for (let i = 0; i < cells.length; i += COLS) {
-            const chunk = cells.slice(i, i + COLS);
-            let r = chunk.join("");
-            for (let k = chunk.length; k < COLS; k++)
-                r += `<td style="border:0"></td>`;
-            rows += `<tr>${r}</tr>`;
-        }
+        const cols = D.heads.length ? D.heads.map((h) => {
+            let blocks = "";
+            D.subtree(h.id).forEach((id) => {
+                (D.compByNode[id] || []).forEach((c) => {
+                    if (!compBands(c).includes(bk))
+                        return;
+                    const node = D.byId[id];
+                    const main = selectedNames(db, c, "main"), res = selectedNames(db, c, "reserve");
+                    blocks += `<div style="border-top:1px dashed #bbb;padding-top:6px;margin-top:8px">`
+                        + `<div style="text-align:center;font-weight:bold">การแข่งขัน ${esc(c.name)}</div>`
+                        + `<div>ครู(ดูแล): ${esc(D.tName(node)) || dots}</div>`
+                        + `<div>นักเรียน(ดูแล): ${esc(D.sName(id)) || dots}</div>`
+                        + `<div style="text-align:center;font-weight:bold;color:#c0392b;margin-top:3px">ผู้ผ่านการคัดเลือก ตัวจริง (${bl})</div>`
+                        + (main.length ? main.map((n, i) => `<div>${i + 1}. ${esc(n)}</div>`).join("") : "<div>-</div>")
+                        + `<div style="text-align:center;font-weight:bold;color:#2f6fb0;margin-top:3px">ผู้ผ่านการคัดเลือก ตัวสำรอง (${bl})</div>`
+                        + (res.length ? res.map((n, i) => `<div>${i + 1}. ${esc(n)}</div>`).join("") : "<div>-</div>")
+                        + `</div>`;
+                });
+            });
+            return `<td style="border:1px solid #333;padding:8px;vertical-align:top;width:${Math.floor(100 / Math.max(1, D.heads.length))}%"><div style="text-align:center;font-weight:bold;background:#eee;padding:5px"><b>${esc(h.title)}</b><br><span style="font-weight:normal">ครู(หัวหน้า): ${esc(D.tName(h)) || "......"}<br>นักเรียน(หัวหน้า): ${esc(D.sName(h.id)) || "......"}</span></div>${blocks || "<div style='color:#999;text-align:center;margin-top:8px'>— ไม่มีรายการระดับนี้ —</div>"}</td>`;
+        }).join("") : `<td style="padding:8px">(ยังไม่มีหัวหน้าด้าน — สร้างตำแหน่งลูกของประธานในผังโครงสร้าง)</td>`;
         return `<h3 style="text-align:center;margin:6px 0">โครงสร้างของวิชาการสี — ${bl} (${esc(kind)})</h3>`
-            + `<table style="border-collapse:collapse;width:100%;font-size:11px">${rows}</table>`
+            + `<table style="border-collapse:collapse;width:100%;margin-bottom:8px"><tr>${boxTop}</tr></table>`
+            + `<table style="border-collapse:collapse;width:100%;font-size:11px"><tr style="vertical-align:top">${cols}</tr></table>`
             + `<div style="page-break-after:always"></div>`;
     }).join("");
     return `<div style="font-family:'Noto Sans Thai',sans-serif;font-size:12px">${sections}</div>`;
@@ -2582,11 +2597,11 @@ function wordStructure(db, kind, notify) {
 }
 function excelStructure(db, kind, notify) {
     try {
-        const aoa = [["ระดับ", "รายการ", "ครูกรรมการ", "นักเรียนกรรมการ", "ตัวจริง (ผ่านคัดเลือก)", "ตัวสำรอง (ผ่านคัดเลือก)"]];
+        const D = structureData(db, kind);
+        const aoa = [["ระดับ", "หัวหน้าด้าน", "รายการ", "ครู(ดูแล)", "นักเรียน(ดูแล)", "ตัวจริง (ผ่านคัดเลือก)", "ตัวสำรอง (ผ่านคัดเลือก)"]];
         [["ต้น", "ม.ต้น"], ["ปลาย", "ม.ปลาย"]].forEach(([bk, bl]) => {
-            competitionsByBand(db, kind, bk).forEach((c) => {
-                aoa.push([bl, c.name, committeeNames(db, "orgTeacher", db.teachers, c, false).join(", "), committeeNames(db, "orgStudent", db.students, c, true).join(", "), selectedNames(db, c, "main").join(", "), selectedNames(db, c, "reserve").join(", ")]);
-            });
+            D.heads.forEach((h) => { D.subtree(h.id).forEach((id) => { (D.compByNode[id] || []).forEach((c) => { if (!compBands(c).includes(bk))
+                return; const node = D.byId[id]; aoa.push([bl, h.title, c.name, D.tName(node), D.sName(id), selectedNames(db, c, "main").join(", "), selectedNames(db, c, "reserve").join(", ")]); }); }); });
         });
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "โครงสร้าง");
