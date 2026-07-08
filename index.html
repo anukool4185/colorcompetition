@@ -2063,25 +2063,31 @@ function HalfBlock({ person, title, comps, accent, side }) {
         comps && comps.length > 0 && React.createElement("div", { style: { fontSize: 9.5, color: C.muted, marginTop: 2 } }, comps.join(", "))));
 }
 function CombinedOrg({ db, cat, ui }) {
-    const kind = cat === "comp" ? "แข่งขัน" : "กิจกรรม";
     const tForest = buildForest(db.orgTeacher, cat);
-    const sForest = buildForest(db.orgStudent, cat);
-    const compsOf = (nodeId, which) => db.competitions.filter((c) => c.kind === kind && (c[which] || []).includes(nodeId)).map((c) => c.name);
-    const renderForest = (tF, sF) => {
-        const max = Math.max(tF.length, sF.length);
-        if (max === 0)
+    const sById = {};
+    (db.orgStudent || []).forEach((n) => { sById[n.id] = n; });
+    const itemName = (compId) => { if (!compId)
+        return []; const c = db.competitions.find((x) => String(x.id) === String(compId)); return c ? [c.name] : []; };
+    const renderForest = (tF) => {
+        if (!tF.length)
             return null;
-        return (React.createElement("ul", null, Array.from({ length: max }).map((_, i) => {
-            const t = tF[i], s = sF[i];
-            const tp = t ? db.teachers.find((x) => String(x.id) === String(t.node.personId)) : null;
-            const sp = s ? db.students.find((x) => String(x.id) === String(s.node.personId)) : null;
-            return (React.createElement("li", { key: i },
+        return (React.createElement("ul", null, tF.map((item) => {
+            const tn = item.node;
+            const sn = sById[tn.id]; // จับคู่ด้วย id ตำแหน่ง + รายการที่ดูแล (compId) ตรงกันเสมอ = กันพลาด
+            const tp = db.teachers.find((x) => String(x.id) === String(tn.personId));
+            const sp = sn ? db.students.find((x) => String(x.id) === String(sn.personId)) : null;
+            const items = itemName(tn.compId);
+            return (React.createElement("li", { key: tn.id },
                 React.createElement("div", { className: "orgbox" },
-                    React.createElement("div", { style: { border: `1.5px solid ${C.line}`, borderRadius: 12, background: C.surface, minWidth: 230, display: "flex", boxShadow: "0 1px 4px rgba(0,0,0,.06)", overflow: "hidden" } },
-                        React.createElement(HalfBlock, { person: tp, title: t && t.node.title, comps: t ? compsOf(t.node.id, "judgeTeachers") : [], accent: C.primary, side: "\u0E04\u0E23\u0E39" }),
-                        React.createElement("div", { style: { width: 0, alignSelf: "stretch", borderLeft: `1.5px dashed ${C.line}`, margin: "12px 0" } }),
-                        React.createElement(HalfBlock, { person: sp, title: s && s.node.title, comps: s ? compsOf(s.node.id, "judgeStudents") : [], accent: C.gold, side: "\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19" }))),
-                ((t && t.children.length) || (s && s.children.length)) ? renderForest(t ? t.children : [], s ? s.children : []) : null));
+                    React.createElement("div", { style: { border: `1.5px solid ${C.line}`, borderRadius: 12, background: C.surface, minWidth: 230, boxShadow: "0 1px 4px rgba(0,0,0,.06)", overflow: "hidden" } },
+                        React.createElement("div", { style: { display: "flex" } },
+                            React.createElement(HalfBlock, { person: tp, title: tn.title, comps: [], accent: C.primary, side: "\u0E04\u0E23\u0E39" }),
+                            React.createElement("div", { style: { width: 0, alignSelf: "stretch", borderLeft: `1.5px dashed ${C.line}`, margin: "12px 0" } }),
+                            React.createElement(HalfBlock, { person: sp, title: (sn && sn.title) || tn.title, comps: [], accent: C.gold, side: "\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19" })),
+                        items.length > 0 && React.createElement("div", { style: { fontSize: 10, color: C.muted, textAlign: "center", padding: "0 6px 8px" } },
+                            "\u25B9 \u0E14\u0E39\u0E41\u0E25: ",
+                            items.join(", ")))),
+                item.children.length ? renderForest(item.children) : null));
         })));
     };
     return (React.createElement("div", null,
@@ -2091,7 +2097,7 @@ function CombinedOrg({ db, cat, ui }) {
             React.createElement(Btn, { small: true, variant: "ghost", onClick: () => pdfFromEl("orgPrintArea", "landscape", "ผังองค์กร-แนวนอน.pdf", ui && ui.notify) }, "PDF \u0E41\u0E19\u0E27\u0E19\u0E2D\u0E19 (\u0E1E\u0E2D\u0E14\u0E35 A4)"),
             React.createElement(Btn, { small: true, variant: "ghost", onClick: () => exportOrgExcel(db) }, "\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 Excel")),
         React.createElement("div", { style: { overflowX: "auto" } },
-            React.createElement("div", { id: "orgPrintArea", className: "orgtree", style: { ["--tl"]: C.line } }, (tForest.length || sForest.length) ? renderForest(tForest, sForest) : React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E31\u0E07 (\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E42\u0E04\u0E23\u0E07\u0E17\u0E35\u0E48\u0E40\u0E21\u0E19\u0E39 \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48 \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19 \u0E41\u0E25\u0E49\u0E27\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E19\u0E1C\u0E31\u0E07)" })))));
+            React.createElement("div", { id: "orgPrintArea", className: "orgtree", style: { ["--tl"]: C.line } }, tForest.length ? renderForest(tForest) : React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E31\u0E07 (\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E42\u0E04\u0E23\u0E07\u0E17\u0E35\u0E48\u0E40\u0E21\u0E19\u0E39 \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48 \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19 \u0E41\u0E25\u0E49\u0E27\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E19\u0E1C\u0E31\u0E07)" })))));
 }
 function OrgViewManager({ db, setDb, ui, editable, committee }) {
     const [cat, setCat] = useState("comp");
