@@ -583,7 +583,7 @@ function AdminApp({ db, setDb, onExit }) {
   return (
     <Shell role="admin" nav={nav} view={view} setView={setView} onExit={onExit} ui={ui}>
       {view === "home" && <AdminHome db={db} setDb={setDb} ui={ui} />}
-      {view === "noti" && <NotificationCenter db={db} setDb={setDb} ui={ui} canApprove={true} />}
+      {view === "noti" && <NotificationCenter db={db} setDb={setDb} ui={ui} admin={true} />}
       {view === "people" && <PeopleManager db={db} setDb={setDb} ui={ui} />}
       {view === "duties" && <DutyManager db={db} setDb={setDb} ui={ui} />}
       {view === "org" && <OrgViewManager db={db} setDb={setDb} ui={ui} editable />}
@@ -2104,6 +2104,18 @@ function orgPathIds(nodes, nodeId) {
 function orgPathNames(nodes, nodeId, pool) {
   return orgPathIds(nodes, nodeId).map((id) => { const n = (nodes || []).find((x) => x.id === id); const p = n && pool.find((x) => x.id === n.personId); return p ? `${p.first} ${p.last}` : null; }).filter(Boolean);
 }
+// ใครบ้างที่มีสิทธิ์อนุญาตคำร้องถอนตัว = สายบังคับบัญชาเหนือผู้ร้อง + (กรณีนักเรียน) กรรมการครูของรายการนั้นย้อนขึ้นไป
+function reqApprovers(db, r) {
+  const teacherIds = new Set(), studentIds = new Set();
+  const path = orgPathIds(db[r.side] || [], r.nodeId).slice(1); // เหนือผู้ร้องขึ้นไป (ไม่รวมตัวเอง)
+  path.forEach((id) => { const n = (db[r.side] || []).find((x) => x.id === id); if (n && n.personId) (r.side === "orgTeacher" ? teacherIds : studentIds).add(n.personId); });
+  if (r.side === "orgStudent" && r.compId) {
+    (db.orgTeacher || []).filter((n) => n.compId === r.compId).forEach((tn) => {
+      orgPathIds(db.orgTeacher || [], tn.id).forEach((id) => { const n = db.orgTeacher.find((x) => x.id === id); if (n && n.personId) teacherIds.add(n.personId); });
+    });
+  }
+  return { teacherIds, studentIds };
+}
 // เรียงจากประธาน (บนสุด) ลงมาถึงผู้ดูแล + ใส่ (ตำแหน่ง) ต่อท้ายชื่อ
 function orgLineNamed(nodes, nodeId, pool) {
   const ids = orgPathIds(nodes, nodeId).slice().reverse();
@@ -2624,8 +2636,9 @@ function PromoCard({ db, setDb, ui }) {
 /* ============================================================
    COMMITTEE (teacher / student committee) — same screens
    ============================================================ */
-function NotificationCenter({ db, setDb, ui, sideFilter, canApprove }) {
-  const reqs = (db.orgRequests || []).filter((r) => !sideFilter || r.side === sideFilter).slice().sort((a, b) => b.at - a.at);
+function NotificationCenter({ db, setDb, ui, admin, viewerId, viewerRole }) {
+  const canApproveReq = (r) => { if (admin) return true; const a = reqApprovers(db, r); return viewerRole === "teacher" ? a.teacherIds.has(viewerId) : a.studentIds.has(viewerId); };
+  const reqs = (db.orgRequests || []).filter((r) => admin || canApproveReq(r) || r.personId === viewerId).slice().sort((a, b) => b.at - a.at);
   const sideLabel = (s) => s === "orgTeacher" ? "ครู" : "นักเรียน";
   const nodeFilled = (r) => { const n = (db[r.side] || []).find((x) => x.id === r.nodeId); return !!(n && n.personId); };
   const approve = (r) => ui.run("กำลังอนุญาต...", () => { setDb((p) => ({ ...p, [r.side]: p[r.side].map((n) => n.id === r.nodeId ? { ...n, personId: "" } : n), orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, status: "approved" } : x) })); ui.notify("อนุญาตแล้ว — ถอนชื่อออกจากตำแหน่ง"); setTimeout(() => window.__forceSave && window.__forceSave(), 500); });
@@ -2652,9 +2665,9 @@ function NotificationCenter({ db, setDb, ui, sideFilter, canApprove }) {
                   {r.status === "rejected" && <div style={{ fontSize: 12, fontWeight: 700, marginTop: 6, color: C.muted }}>● ไม่อนุญาตให้ถอน (คงอยู่ตำแหน่งเดิม)</div>}
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {r.status === "pending" && canApprove && <Btn small onClick={() => approve(r)}>อนุญาต</Btn>}
-                  {r.status === "pending" && canApprove && <Btn small variant="danger" onClick={() => deny(r)}>ไม่อนุญาต</Btn>}
-                  {r.status === "pending" && !canApprove && <span style={{ fontSize: 11.5, color: "#c99a2e", fontWeight: 700, alignSelf: "center" }}>รออนุญาต</span>}
+                  {r.status === "pending" && canApproveReq(r) && <Btn small onClick={() => approve(r)}>อนุญาต</Btn>}
+                  {r.status === "pending" && canApproveReq(r) && <Btn small variant="danger" onClick={() => deny(r)}>ไม่อนุญาต</Btn>}
+                  {r.status === "pending" && !canApproveReq(r) && <span style={{ fontSize: 11.5, color: "#c99a2e", fontWeight: 700, alignSelf: "center" }}>รออนุญาต</span>}
                   <Btn small variant="ghost" onClick={() => del(r)}>ลบแจ้งเตือน</Btn>
                 </div>
               </div>
@@ -2670,9 +2683,7 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
   const [view, setView] = useState("me");
   const ui = useUI();
   if (role === "studentcom") { const me = db.students.find((s) => s.id === meId); if (me && !me.profileDone && !studentProfileComplete(me)) return (<><ProfileGate me={me} setDb={setDb} ui={ui} />{ui.loading && <LoadingModal label={ui.loading} />}{ui.toast && <Toast msg={ui.toast} />}</>); }
-  const sideKey = role === "teacher" ? "orgTeacher" : "orgStudent";
-  const isPresident = (db[sideKey] || []).some((n) => n.personId === meId && !n.parent);
-  const pendingCount = (db.orgRequests || []).filter((r) => r.side === sideKey && r.status === "pending").length;
+  const pendingCount = (db.orgRequests || []).filter((r) => { if (r.status !== "pending") return false; const a = reqApprovers(db, r); return role === "teacher" ? a.teacherIds.has(meId) : a.studentIds.has(meId); }).length;
   const which = role === "teacher" ? "orgTeacher" : "orgStudent";
   const myNodeIds = db[which].filter((n) => n.personId === meId).map((n) => n.id);
   const managesComp = (c) => db[which].filter((n) => n.compId === c.id).some((n) => orgPathIds(db[which], n.id).some((id) => myNodeIds.includes(id)));
@@ -2688,7 +2699,7 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
   ];
   return (
     <Shell role={role} nav={nav} view={view} setView={setView} onExit={onExit} ui={ui}>
-      {view === "noti" && <NotificationCenter db={db} setDb={setDb} ui={ui} sideFilter={sideKey} canApprove={isPresident} />}
+      {view === "noti" && <NotificationCenter db={db} setDb={setDb} ui={ui} admin={false} viewerId={meId} viewerRole={role} />}
       {view === "me" && <CommitteeProfile role={role} meId={meId} db={db} setDb={setDb} ui={ui} />}
       {view === "org" && <OrgViewManager db={db} setDb={setDb} ui={ui} committee={{ role, meId }} />}
       {view === "select" && <MyDutyScreen role={role} meId={meId} db={db} setDb={setDb} ui={ui} />}
