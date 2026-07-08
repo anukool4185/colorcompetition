@@ -1857,7 +1857,7 @@ function CombinedOrg({ db, cat, ui }) {
     </div>
   );
 }
-function OrgViewManager({ db, setDb, ui, editable }) {
+function OrgViewManager({ db, setDb, ui, editable, committee }) {
   const [cat, setCat] = useState("comp");
   const [view, setView] = useState("teacher"); // combined | teacher | student
   const [assign, setAssign] = useState(null);
@@ -1867,9 +1867,14 @@ function OrgViewManager({ db, setDb, ui, editable }) {
   const nodes = db[which].filter((n) => (n.cat || "comp") === cat);
   const setPerson = (nodeId, personId) => ui.run("กำลังลงชื่อ...", () => { setDb((p) => ({ ...p, [which]: p[which].map((n) => n.id === nodeId ? { ...n, personId } : n) })); setAssign(null); });
   const clearName = (node) => ui.run("กำลังลบชื่อ...", () => setDb((p) => ({ ...p, [which]: p[which].map((n) => n.id === node.id ? { ...n, personId: "" } : n) })));
+  // ฝั่งกรรมการ: ลงชื่อตัวเองในช่องว่างของฝั่งตน (ครู→orgTeacher, นักเรียน→orgStudent)
+  const selfSide = committee ? (committee.role === "teacher" ? "teacher" : "student") : null;
+  const canSelf = committee && view === selfSide;
+  const selfAssign = (node, withdraw) => ui.run(withdraw ? "กำลังถอนชื่อ..." : "กำลังลงชื่อ...", () => { setDb((p) => ({ ...p, [which]: p[which].map((n) => n.id === node.id ? { ...n, personId: withdraw ? "" : committee.meId } : n) })); setTimeout(() => window.__forceSave && window.__forceSave(), 500); });
+  const treeMode = editable ? "names" : (canSelf ? "selfsignup" : "view");
   return (
     <div>
-      <PageHead title="ผังองค์กร" sub={editable ? "ผังรวมครู+นักเรียน · หรือลงชื่อในตำแหน่ง (ค้นหาได้ ลงทันที)" : "ดูอย่างเดียว"} />
+      <PageHead title="ผังองค์กร" sub={editable ? "ผังรวมครู+นักเรียน · หรือลงชื่อในตำแหน่ง (ค้นหาได้ ลงทันที)" : (committee ? "ช่องที่มีชื่อแล้ว = อ่านอย่างเดียว · ช่องว่างฝั่งคุณ = กดลงชื่อฉันได้" : "ดูอย่างเดียว")} />
       <Tabs tabs={[{ key: "comp", label: "ผังแข่งขัน" }, { key: "act", label: "ผังกิจกรรม" }]} active={cat} onChange={setCat} />
       <div style={{ marginBottom: 6 }}>
         <Tabs tabs={[{ key: "teacher", label: editable ? "ลงชื่อครู" : "ผังครู" }, { key: "student", label: editable ? "ลงชื่อนักเรียน" : "ผังนักเรียน" }, { key: "combined", label: "ผังรวม (ครู+นักเรียน)" }]} active={view} onChange={setView} />
@@ -1877,9 +1882,9 @@ function OrgViewManager({ db, setDb, ui, editable }) {
       {view === "combined" && <Card style={{ padding: 16 }}><CombinedOrg db={db} cat={cat} ui={ui} /></Card>}
       {view !== "combined" && (
         <Card style={{ padding: 16, overflowX: "auto" }}>
-          <div style={{ textAlign: "center", fontWeight: 800, color: view === "teacher" ? C.primary : C.gold, marginBottom: 14 }}>{cat === "comp" ? "รายการแข่งขัน" : "รายการกิจกรรม"} · {view === "teacher" ? "ครู" : "นักเรียน"}</div>
-          <OrgTree nodes={nodes} pool={pool} accent={view === "teacher" ? C.primary : C.gold} mode={editable ? "names" : "view"} comps={db.competitions}
-            onAssign={(node) => setAssign(node)} onClearName={clearName} />
+          <div style={{ textAlign: "center", fontWeight: 800, color: view === "teacher" ? C.primary : C.gold, marginBottom: 14 }}>{cat === "comp" ? "รายการแข่งขัน" : "รายการกิจกรรม"} · {view === "teacher" ? "ครู" : "นักเรียน"}{canSelf ? " · ลงชื่อฉันในช่องว่างได้" : ""}</div>
+          <OrgTree nodes={nodes} pool={pool} accent={view === "teacher" ? C.primary : C.gold} mode={treeMode} comps={db.competitions} meId={committee ? committee.meId : undefined}
+            onAssign={(node) => setAssign(node)} onClearName={clearName} onSelfAssign={selfAssign} />
         </Card>
       )}
       {assign && <SearchPersonPopup title={`ลงชื่อในตำแหน่ง: ${assign.title}`} pool={pickPool} emptyText={`ยังไม่มี${view === "teacher" ? "กรรมการครู" : "กรรมการนักเรียน"} — ตั้งที่ บุคลากร → บัญชีผู้ใช้ ก่อน`} onClose={() => setAssign(null)} onPick={(p) => setPerson(assign.id, p.id)} />}
@@ -1965,20 +1970,22 @@ function pruneOrg(nodes, removedSet) {
   const ids = new Set(kept.map((n) => n.id));
   return kept.map((n) => (n.parent && !ids.has(n.parent)) ? { ...n, parent: null } : n);
 }
-function OrgTree({ nodes, pool, accent, mode, comps, onAddChild, onEditTitle, onDelete, onAssign, onClearName }) {
+function OrgTree({ nodes, pool, accent, mode, comps, onAddChild, onEditTitle, onDelete, onAssign, onClearName, onSelfAssign, meId }) {
   const ids = new Set(nodes.map((n) => n.id));
   const roots = nodes.filter((n) => !n.parent || !ids.has(n.parent));
   const mini = (bg, col, brd) => ({ border: `1px solid ${brd || bg}`, background: bg, color: col, borderRadius: 14, padding: "3px 9px", fontSize: 11, fontWeight: 700, cursor: "pointer" });
-  const structure = mode === "structure", names = mode === "names";
+  const structure = mode === "structure", names = mode === "names", self = mode === "selfsignup";
   const renderLi = (node) => {
     const p = pool.find((x) => x.id === node.personId);
     const kids = nodes.filter((n) => n.parent === node.id);
+    const clickable = names || (self && !p);
+    const isMe = p && meId && p.id === meId;
     return (
       <li key={node.id}>
         <div className="orgbox">
-          <div onClick={names ? () => onAssign(node) : undefined} style={{ border: `1.5px ${(!p && names) ? "dashed" : "solid"} ${accent}66`, borderRadius: 12, padding: "8px 10px", background: C.surface, minWidth: 110, boxShadow: "0 1px 4px rgba(0,0,0,.05)", cursor: names ? "pointer" : "default" }}>
+          <div onClick={names ? () => onAssign(node) : (self && !p ? () => onSelfAssign(node) : undefined)} style={{ border: `1.5px ${(!p && (names || self)) ? "dashed" : "solid"} ${isMe ? "#2f9e6b" : accent + "66"}`, borderRadius: 12, padding: "8px 10px", background: isMe ? "#f0faf4" : C.surface, minWidth: 110, boxShadow: "0 1px 4px rgba(0,0,0,.05)", cursor: clickable ? "pointer" : "default" }}>
             <div style={{ display: "flex", justifyContent: "center" }}><Avatar person={p || { first: "", last: "" }} size={42} /></div>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: p ? C.ink : C.muted, textAlign: "center", marginTop: 4, lineHeight: 1.2 }}>{p ? `${p.first} ${p.last}` : (names ? "＋ เพิ่มชื่อ" : "(ยังไม่ลงชื่อ)")}</div>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: p ? C.ink : C.muted, textAlign: "center", marginTop: 4, lineHeight: 1.2 }}>{p ? `${p.first} ${p.last}` : (names ? "＋ เพิ่มชื่อ" : (self ? "＋ ลงชื่อฉัน" : "(ยังไม่ลงชื่อ)"))}</div>
             <div style={{ fontSize: 11, color: accent, textAlign: "center", fontWeight: 600 }}>{node.title}</div>
             {node.compId && comps && (() => { const cc = comps.find((x) => x.id === node.compId); return cc ? <div style={{ fontSize: 10, color: C.muted, textAlign: "center", marginTop: 1 }}>▹ {cc.name}</div> : null; })()}
             {structure && (
@@ -1992,6 +1999,11 @@ function OrgTree({ nodes, pool, accent, mode, comps, onAddChild, onEditTitle, on
               <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 6 }}>
                 <button onClick={(e) => { e.stopPropagation(); onAssign(node); }} style={mini(C.soft, C.primaryDark)}>เปลี่ยน</button>
                 <button onClick={(e) => { e.stopPropagation(); onClearName(node); }} style={mini("#fbeeee", "#c0392b", "#eccdcd")}>ลบชื่อ</button>
+              </div>
+            )}
+            {self && isMe && (
+              <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 6 }}>
+                <button onClick={(e) => { e.stopPropagation(); onSelfAssign(node, true); }} style={mini("#fbeeee", "#c0392b", "#eccdcd")}>ถอนชื่อฉัน</button>
               </div>
             )}
           </div>
@@ -2614,7 +2626,7 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
   return (
     <Shell role={role} nav={nav} view={view} setView={setView} onExit={onExit} ui={ui}>
       {view === "me" && <CommitteeProfile role={role} meId={meId} db={db} setDb={setDb} ui={ui} />}
-      {view === "org" && <OrgViewManager db={db} ui={ui} />}
+      {view === "org" && <OrgViewManager db={db} setDb={setDb} ui={ui} committee={{ role, meId }} />}
       {view === "select" && <MyDutyScreen role={role} meId={meId} db={db} setDb={setDb} ui={ui} />}
       {view === "results" && <ResultsScreen db={db} setDb={setDb} ui={ui} restrict={myCompIds} title="ส่งผล (รายการที่ฉันดูแล)" />}
       {view === "schedule" && <CommitteeSchedule myCompIds={myCompIds} db={db} ui={ui} />}
