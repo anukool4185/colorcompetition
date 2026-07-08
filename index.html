@@ -2431,6 +2431,19 @@ function CompDisplay({ kind, db, ui }) {
             label,
             ": "),
         React.createElement("span", { style: { fontSize: 12.5, color: arr.length ? C.ink : C.muted } }, arr.length ? arr.join(", ") : "-")));
+    const judgeLine = (label, arr, color, orgKey, c) => {
+        if (arr.length)
+            return line(label, arr, color);
+        const linked = db[orgKey].filter((n) => String(n.compId) === String(c.id));
+        const hint = linked.length === 0
+            ? "⚠ ยังไม่ผูกตำแหน่งในผังกับรายการนี้ (ไปที่ ผังโครงสร้าง → แก้ตำแหน่ง → เลือกรายการที่ดูแล)"
+            : `⚠ ผูกไว้ ${linked.length} ตำแหน่งแล้ว แต่ยังไม่มีคนลงชื่อในตำแหน่งนั้นหรือสายเหนือขึ้นไป (ไปที่ ผังองค์กร → ${orgKey === "orgTeacher" ? "ลงชื่อครู" : "ลงชื่อนักเรียน"})`;
+        return (React.createElement("div", { style: { marginTop: 6 } },
+            React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: color || C.primaryDark } },
+                label,
+                ": "),
+            React.createElement("span", { style: { fontSize: 11.5, color: "#c0392b" } }, hint)));
+    };
     return (React.createElement("div", null,
         React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" } },
             React.createElement(Btn, { small: true, onClick: printTable }, "\u0E1B\u0E23\u0E34\u0E49\u0E19"),
@@ -2444,8 +2457,8 @@ function CompDisplay({ kind, db, ui }) {
                     React.createElement("span", { style: { fontSize: 11.5, color: C.muted } },
                         "\u0E0A\u0E31\u0E49\u0E19 ",
                         gradesLabel(c))),
-                line("กรรมการครู", tJudges(c), C.primary),
-                line("กรรมการนักเรียน", sJudges(c), C.gold),
+                judgeLine("กรรมการครู", tJudges(c), C.primary, "orgTeacher", c),
+                judgeLine("กรรมการนักเรียน", sJudges(c), C.gold, "orgStudent", c),
                 line("ตัวจริง", partNames(c, "main"), "#2f9e6b"),
                 line("ตัวสำรอง", partNames(c, "reserve"), "#c99a2e")))),
             list.length === 0 && React.createElement(Empty, { text: `ยังไม่มีรายการ${kind}` }))));
