@@ -2019,7 +2019,7 @@ function HalfBlock({ person, title, comps, accent, side }) {
         React.createElement("div", { style: { fontSize: 9.5, color: accent, fontWeight: 700 } }, side),
         React.createElement("div", { style: { display: "flex", justifyContent: "center", marginTop: 2 } },
             React.createElement(Avatar, { person: person || { first: "", last: "" }, size: 38 })),
-        React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: person ? C.ink : C.muted, marginTop: 3, lineHeight: 1.2 } }, person ? `${person.first} ${person.last}` : "(ยังไม่ลงชื่อ)"),
+        React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: person ? C.ink : C.muted, marginTop: 3, lineHeight: 1.2 } }, person ? `${person.first} ${person.last}${person.grade ? ` (${person.grade}${person.room ? "/" + person.room : ""})` : ""}` : "(ยังไม่ลงชื่อ)"),
         React.createElement("div", { style: { fontSize: 10.5, color: accent, fontWeight: 600 } }, title || "—"),
         comps && comps.length > 0 && React.createElement("div", { style: { fontSize: 9.5, color: C.muted, marginTop: 2 } }, comps.join(", "))));
 }
@@ -2034,8 +2034,8 @@ function CombinedOrg({ db, cat, ui }) {
             return null;
         return (React.createElement("ul", null, Array.from({ length: max }).map((_, i) => {
             const t = tF[i], s = sF[i];
-            const tp = t ? db.teachers.find((x) => x.id === t.node.personId) : null;
-            const sp = s ? db.students.find((x) => x.id === s.node.personId) : null;
+            const tp = t ? db.teachers.find((x) => String(x.id) === String(t.node.personId)) : null;
+            const sp = s ? db.students.find((x) => String(x.id) === String(s.node.personId)) : null;
             return (React.createElement("li", { key: i },
                 React.createElement("div", { className: "orgbox" },
                     React.createElement("div", { style: { border: `1.5px solid ${C.line}`, borderRadius: 12, background: C.surface, minWidth: 230, display: "flex", boxShadow: "0 1px 4px rgba(0,0,0,.06)", overflow: "hidden" } },
@@ -2187,9 +2187,9 @@ function OrgTree({ nodes, pool, accent, mode, comps, onAddChild, onEditTitle, on
                 React.createElement("div", { onClick: names ? () => onAssign(node) : (self && !p ? () => onSelfAssign(node) : undefined), style: { border: `1.5px ${(!p && (names || self)) ? "dashed" : "solid"} ${isMe ? "#2f9e6b" : accent + "66"}`, borderRadius: 12, padding: "8px 10px", background: isMe ? "#f0faf4" : C.surface, minWidth: 110, boxShadow: "0 1px 4px rgba(0,0,0,.05)", cursor: clickable ? "pointer" : "default" } },
                     React.createElement("div", { style: { display: "flex", justifyContent: "center" } },
                         React.createElement(Avatar, { person: p || { first: "", last: "" }, size: 42 })),
-                    React.createElement("div", { style: { fontSize: 12.5, fontWeight: 700, color: p ? C.ink : C.muted, textAlign: "center", marginTop: 4, lineHeight: 1.2 } }, p ? `${p.first} ${p.last}` : (names ? "＋ เพิ่มชื่อ" : (self ? "＋ ลงชื่อฉัน" : "(ยังไม่ลงชื่อ)"))),
+                    React.createElement("div", { style: { fontSize: 12.5, fontWeight: 700, color: p ? C.ink : C.muted, textAlign: "center", marginTop: 4, lineHeight: 1.2 } }, p ? `${p.first} ${p.last}${p.grade ? ` (${p.grade}${p.room ? "/" + p.room : ""})` : ""}` : (names ? "＋ เพิ่มชื่อ" : (self ? "＋ ลงชื่อฉัน" : "(ยังไม่ลงชื่อ)"))),
                     React.createElement("div", { style: { fontSize: 11, color: accent, textAlign: "center", fontWeight: 600 } }, node.title),
-                    node.compId && comps && (() => { const cc = comps.find((x) => x.id === node.compId); return cc ? React.createElement("div", { style: { fontSize: 10, color: C.muted, textAlign: "center", marginTop: 1 } },
+                    node.compId && comps && (() => { const cc = comps.find((x) => String(x.id) === String(node.compId)); return cc ? React.createElement("div", { style: { fontSize: 10, color: C.muted, textAlign: "center", marginTop: 1 } },
                         "\u25B9 ",
                         cc.name) : null; })(),
                     structure && (React.createElement("div", { style: { display: "flex", gap: 4, justifyContent: "center", marginTop: 6, flexWrap: "wrap" } },
@@ -2381,12 +2381,13 @@ function reqApprovers(db, r) {
 // เรียงจากประธาน (บนสุด) ลงมาถึงผู้ดูแล + ใส่ (ตำแหน่ง) ต่อท้ายชื่อ
 function orgLineNamed(nodes, nodeId, pool) {
     const ids = orgPathIds(nodes, nodeId).slice().reverse();
-    return ids.map((id) => { const n = (nodes || []).find((x) => x.id === id); const p = n && pool.find((x) => String(x.id) === String(n.personId)); return p ? `${p.first} ${p.last} (${n.title})` : null; }).filter(Boolean);
+    return ids.map((id) => { const n = (nodes || []).find((x) => x.id === id); const p = n && pool.find((x) => String(x.id) === String(n.personId)); if (!p)
+        return null; const gr = p.grade ? ` ${p.grade}${p.room ? "/" + p.room : ""}` : ""; return `${p.first} ${p.last}${gr} (${n.title})`; }).filter(Boolean);
 }
 function CompDisplay({ kind, db, ui }) {
     const list = db.competitions.filter((c) => c.kind === kind);
     // กรรมการของแต่ละรายการ = ประธานบนสุด → ลงมาถึงผู้ดูแลตำแหน่งที่ผูกรายการนี้
-    const pathNamesUnion = (orgKey, pool, c) => { const seen = new Set(); const out = []; db[orgKey].filter((n) => n.compId === c.id).forEach((n) => orgLineNamed(db[orgKey], n.id, pool).forEach((nm) => { if (!seen.has(nm)) {
+    const pathNamesUnion = (orgKey, pool, c) => { const seen = new Set(); const out = []; db[orgKey].filter((n) => String(n.compId) === String(c.id)).forEach((n) => orgLineNamed(db[orgKey], n.id, pool).forEach((nm) => { if (!seen.has(nm)) {
         seen.add(nm);
         out.push(nm);
     } })); return out; };
@@ -2978,7 +2979,7 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
         return false; const a = reqApprovers(db, r); return role === "teacher" ? a.teacherIds.has(meId) : a.studentIds.has(meId); }).length;
     const which = role === "teacher" ? "orgTeacher" : "orgStudent";
     const myNodeIds = db[which].filter((n) => String(n.personId) === String(meId)).map((n) => n.id);
-    const managesComp = (c) => db[which].filter((n) => n.compId === c.id).some((n) => orgPathIds(db[which], n.id).some((id) => myNodeIds.includes(id)));
+    const managesComp = (c) => db[which].filter((n) => String(n.compId) === String(c.id)).some((n) => orgPathIds(db[which], n.id).some((id) => myNodeIds.includes(id)));
     const myCompIds = db.competitions.filter(managesComp).map((c) => c.id);
     const nav = [
         { key: "noti", label: pendingCount ? `แจ้งเตือน (${pendingCount})` : "แจ้งเตือน", icon: "🔔" },
@@ -3164,7 +3165,7 @@ function MyDutyScreen({ role, meId, db, setDb, ui }) {
     const [kind, setKind] = useState("แข่งขัน");
     const [pick, setPick] = useState("");
     const [addOpen, setAddOpen] = useState(false);
-    const myComps = db.competitions.filter((c) => c.kind === kind && db[which].filter((n) => n.compId === c.id).some((n) => orgPathIds(db[which], n.id).some((id) => myNodeIds.includes(id))));
+    const myComps = db.competitions.filter((c) => c.kind === kind && db[which].filter((n) => String(n.compId) === String(c.id)).some((n) => orgPathIds(db[which], n.id).some((id) => myNodeIds.includes(id))));
     const comp = myComps.find((c) => c.id === pick) || myComps[0];
     const addStudent = (sid, status) => ui.run("กำลังเพิ่มผู้สมัคร...", () => setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, participants: [...c.participants, { sid, status, sel: undefined }] } : c) })));
     return (React.createElement("div", null,
