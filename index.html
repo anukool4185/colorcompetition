@@ -1998,7 +1998,7 @@ function exportOrgExcel(db, ui) {
             const order = [];
             ["comp", "act"].forEach((cat) => { const walk = (arr) => arr.forEach((x) => { order.push(x.node); walk(x.children); }); walk(buildForest(db[which], cat)); });
             order.forEach((n) => {
-                const p = pool.find((x) => x.id === n.personId);
+                const p = pool.find((x) => String(x.id) === String(n.personId));
                 const comps = db.competitions.filter((c) => c.kind === "แข่งขัน" && (c[judgeKey] || []).includes(n.id)).map((c) => c.name).join(", ");
                 const acts = db.competitions.filter((c) => c.kind === "กิจกรรม" && (c[judgeKey] || []).includes(n.id)).map((c) => c.name).join(", ");
                 rows.push([p ? `${p.first} ${p.last}` : "(ยังไม่ลงชื่อ)", (p && p.phone) || "", n.title, comps, acts]);
@@ -2083,7 +2083,7 @@ function OrgViewManager({ db, setDb, ui, editable, committee }) {
         setConfirmIn(node);
     };
     const doSignIn = (node) => { ui.run("กำลังลงชื่อ...", () => { setDb((p) => ({ ...p, [which]: p[which].map((n) => n.id === node.id ? { ...n, personId: committee.meId } : n) })); ui.notify("ลงชื่อในตำแหน่งแล้ว"); setTimeout(() => window.__forceSave && window.__forceSave(), 500); }); setConfirmIn(null); };
-    const doWithdraw = (node) => { const person = pool.find((x) => x.id === committee.meId); ui.run("กำลังส่งคำร้องขอถอน...", () => { setDb((p) => ({ ...p, orgRequests: [...(p.orgRequests || []), { id: "r" + Date.now() + Math.random().toString(36).slice(2, 5), side: which, nodeId: node.id, personId: committee.meId, name: person ? `${person.first} ${person.last}` : "", title: node.title, compId: node.compId || "", at: Date.now(), status: "pending" }] })); ui.notify("ส่งคำร้องขอถอนชื่อแล้ว รอประธาน/แอดมินอนุญาต"); setTimeout(() => window.__forceSave && window.__forceSave(), 500); }); setConfirmWd(null); };
+    const doWithdraw = (node) => { const person = pool.find((x) => String(x.id) === String(committee.meId)); ui.run("กำลังส่งคำร้องขอถอน...", () => { setDb((p) => ({ ...p, orgRequests: [...(p.orgRequests || []), { id: "r" + Date.now() + Math.random().toString(36).slice(2, 5), side: which, nodeId: node.id, personId: committee.meId, name: person ? `${person.first} ${person.last}` : "", title: node.title, compId: node.compId || "", at: Date.now(), status: "pending" }] })); ui.notify("ส่งคำร้องขอถอนชื่อแล้ว รอประธาน/แอดมินอนุญาต"); setTimeout(() => window.__forceSave && window.__forceSave(), 500); }); setConfirmWd(null); };
     const treeMode = editable ? "names" : (canSelf ? "selfsignup" : "view");
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23", sub: editable ? "ผังรวมครู+นักเรียน · หรือลงชื่อในตำแหน่ง (ค้นหาได้ ลงทันที)" : (committee ? "ช่องที่มีชื่อแล้ว = อ่านอย่างเดียว · ช่องว่างฝั่งคุณ = กดลงชื่อฉันได้" : "ดูอย่างเดียว") }),
@@ -2133,7 +2133,7 @@ function TreeChart({ rows, pool, accent }) {
         React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center", width: "100%" } },
             r.people.length === 0 && React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u2014"),
             r.people.map((id) => {
-                const p = pool.find((x) => x.id === id);
+                const p = pool.find((x) => String(x.id) === String(id));
                 if (!p)
                     return null;
                 return (React.createElement("div", { key: id, style: { display: "flex", flexDirection: "column", alignItems: "center", width: 100, padding: 8, border: `1px solid ${accent}55`, borderRadius: 12, background: C.surface } },
@@ -2178,10 +2178,10 @@ function OrgTree({ nodes, pool, accent, mode, comps, onAddChild, onEditTitle, on
     const mini = (bg, col, brd) => ({ border: `1px solid ${brd || bg}`, background: bg, color: col, borderRadius: 14, padding: "3px 9px", fontSize: 11, fontWeight: 700, cursor: "pointer" });
     const structure = mode === "structure", names = mode === "names", self = mode === "selfsignup";
     const renderLi = (node) => {
-        const p = pool.find((x) => x.id === node.personId);
+        const p = pool.find((x) => String(x.id) === String(node.personId));
         const kids = nodes.filter((n) => n.parent === node.id);
         const clickable = names || (self && !p);
-        const isMe = p && meId && p.id === meId;
+        const isMe = p && meId && String(p.id) === String(meId);
         return (React.createElement("li", { key: node.id },
             React.createElement("div", { className: "orgbox" },
                 React.createElement("div", { onClick: names ? () => onAssign(node) : (self && !p ? () => onSelfAssign(node) : undefined), style: { border: `1.5px ${(!p && (names || self)) ? "dashed" : "solid"} ${isMe ? "#2f9e6b" : accent + "66"}`, borderRadius: 12, padding: "8px 10px", background: isMe ? "#f0faf4" : C.surface, minWidth: 110, boxShadow: "0 1px 4px rgba(0,0,0,.05)", cursor: clickable ? "pointer" : "default" } },
@@ -2362,7 +2362,7 @@ function orgPathIds(nodes, nodeId) {
     return ids;
 }
 function orgPathNames(nodes, nodeId, pool) {
-    return orgPathIds(nodes, nodeId).map((id) => { const n = (nodes || []).find((x) => x.id === id); const p = n && pool.find((x) => x.id === n.personId); return p ? `${p.first} ${p.last}` : null; }).filter(Boolean);
+    return orgPathIds(nodes, nodeId).map((id) => { const n = (nodes || []).find((x) => x.id === id); const p = n && pool.find((x) => String(x.id) === String(n.personId)); return p ? `${p.first} ${p.last}` : null; }).filter(Boolean);
 }
 // ใครบ้างที่มีสิทธิ์อนุญาตคำร้องถอนตัว = สายบังคับบัญชาเหนือผู้ร้อง + (กรณีนักเรียน) กรรมการครูของรายการนั้นย้อนขึ้นไป
 function reqApprovers(db, r) {
@@ -2381,7 +2381,7 @@ function reqApprovers(db, r) {
 // เรียงจากประธาน (บนสุด) ลงมาถึงผู้ดูแล + ใส่ (ตำแหน่ง) ต่อท้ายชื่อ
 function orgLineNamed(nodes, nodeId, pool) {
     const ids = orgPathIds(nodes, nodeId).slice().reverse();
-    return ids.map((id) => { const n = (nodes || []).find((x) => x.id === id); const p = n && pool.find((x) => x.id === n.personId); return p ? `${p.first} ${p.last} (${n.title})` : null; }).filter(Boolean);
+    return ids.map((id) => { const n = (nodes || []).find((x) => x.id === id); const p = n && pool.find((x) => String(x.id) === String(n.personId)); return p ? `${p.first} ${p.last} (${n.title})` : null; }).filter(Boolean);
 }
 function CompDisplay({ kind, db, ui }) {
     const list = db.competitions.filter((c) => c.kind === kind);
@@ -2557,7 +2557,7 @@ function JudgeAssign({ comp, cat, db, setDb, onClose }) {
                         lv.level),
                     React.createElement("button", { onClick: () => update({ [patchKey]: [...new Set([...selected, ...lv.nodes.map((n) => n.id)])] }), style: { border: "none", background: C.soft, color: C.primaryDark, borderRadius: 16, padding: "4px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" } }, "+ \u0E17\u0E31\u0E49\u0E07\u0E23\u0E30\u0E14\u0E31\u0E1A")),
                 React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } }, lv.nodes.map((n) => {
-                    const p = pool.find((x) => x.id === n.personId);
+                    const p = pool.find((x) => String(x.id) === String(n.personId));
                     const on = selected.includes(n.id);
                     return React.createElement("button", { key: n.id, onClick: () => toggle(selected, patchKey, n.id), style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 10px 5px 5px", borderRadius: 20, border: `1px solid ${on ? C.primary : C.line}`, background: on ? C.soft : C.surface, color: on ? C.primaryDark : C.ink, cursor: "pointer", fontSize: 13, fontWeight: on ? 700 : 500 } },
                         React.createElement(Avatar, { person: p, size: 26 }),
@@ -2977,7 +2977,7 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
     const pendingCount = (db.orgRequests || []).filter((r) => { if (r.status !== "pending")
         return false; const a = reqApprovers(db, r); return role === "teacher" ? a.teacherIds.has(meId) : a.studentIds.has(meId); }).length;
     const which = role === "teacher" ? "orgTeacher" : "orgStudent";
-    const myNodeIds = db[which].filter((n) => n.personId === meId).map((n) => n.id);
+    const myNodeIds = db[which].filter((n) => String(n.personId) === String(meId)).map((n) => n.id);
     const managesComp = (c) => db[which].filter((n) => n.compId === c.id).some((n) => orgPathIds(db[which], n.id).some((id) => myNodeIds.includes(id)));
     const myCompIds = db.competitions.filter(managesComp).map((c) => c.id);
     const nav = [
@@ -3160,7 +3160,7 @@ function CommitteeRegister({ myCompIds, db, setDb, ui, role, meId }) {
 }
 function MyDutyScreen({ role, meId, db, setDb, ui }) {
     const which = role === "teacher" ? "orgTeacher" : "orgStudent";
-    const myNodeIds = db[which].filter((n) => n.personId === meId).map((n) => n.id);
+    const myNodeIds = db[which].filter((n) => String(n.personId) === String(meId)).map((n) => n.id);
     const [kind, setKind] = useState("แข่งขัน");
     const [pick, setPick] = useState("");
     const [addOpen, setAddOpen] = useState(false);
