@@ -89,6 +89,7 @@ const seed = {
   orgTeacher: [],
   orgStudent: [],
   dutyList: [],
+  orgRequests: [],
   competitions: [],
   archived: [],
   trash: [],
@@ -567,8 +568,10 @@ function nextGrade(g) {
 function AdminApp({ db, setDb, onExit }) {
   const [view, setView] = useState("home");
   const ui = useUI();
+  const adminPending = (db.orgRequests || []).filter((r) => r.status === "pending").length;
   const nav = [
     { key: "home", label: "ภาพรวม", icon: "▦" },
+    { key: "noti", label: adminPending ? `แจ้งเตือน (${adminPending})` : "แจ้งเตือน", icon: "🔔" },
     { key: "people", label: "บุคลากร", icon: "👥" },
     { key: "duties", label: "หน้าที่ กิจกรรมแข่งขัน", icon: "🧩" },
     { key: "org", label: "ผังองค์กร", icon: "🗂" },
@@ -580,6 +583,7 @@ function AdminApp({ db, setDb, onExit }) {
   return (
     <Shell role="admin" nav={nav} view={view} setView={setView} onExit={onExit} ui={ui}>
       {view === "home" && <AdminHome db={db} setDb={setDb} ui={ui} />}
+      {view === "noti" && <NotificationCenter db={db} setDb={setDb} ui={ui} canApprove={true} />}
       {view === "people" && <PeopleManager db={db} setDb={setDb} ui={ui} />}
       {view === "duties" && <DutyManager db={db} setDb={setDb} ui={ui} />}
       {view === "org" && <OrgViewManager db={db} setDb={setDb} ui={ui} editable />}
@@ -626,7 +630,7 @@ function AdminHome({ db, setDb, ui }) {
         <p style={{ fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 10, lineHeight: 1.6 }}>ลบรายชื่อนักเรียน/ครู รายการแข่ง ผังองค์กร และบัญชีทั้งหมด (คงไว้เฉพาะสีทีม/ประชาสัมพันธ์) ใช้เมื่ออยากเริ่มต้นใหม่ทั้งหมด</p>
         <Btn variant="danger" small onClick={() => setConfirmReset(true)}>ล้างข้อมูลทั้งหมด</Btn>
       </Card>
-      {confirmReset && <ConfirmModal title="ยืนยันล้างข้อมูลทั้งระบบ" message="จะลบข้อมูลทั้งหมด (นักเรียน ครู บัญชี รายการแข่ง ผังองค์กร) เหลือเฉพาะการตั้งค่าสีทีม/ประชาสัมพันธ์ — ย้อนกลับไม่ได้ ยืนยันหรือไม่?" onConfirm={() => ui.run("กำลังล้างข้อมูล...", () => { setDb((p) => ({ students: [], teachers: [], assistants: [], competitions: [], orgTeacher: [], orgStudent: [], dutyList: [], archived: [], trash: [], settings: p.settings })); setConfirmReset(false); ui.notify("ล้างข้อมูลแล้ว"); })} onClose={() => setConfirmReset(false)} />}
+      {confirmReset && <ConfirmModal title="ยืนยันล้างข้อมูลทั้งระบบ" message="จะลบข้อมูลทั้งหมด (นักเรียน ครู บัญชี รายการแข่ง ผังองค์กร) เหลือเฉพาะการตั้งค่าสีทีม/ประชาสัมพันธ์ — ย้อนกลับไม่ได้ ยืนยันหรือไม่?" onConfirm={() => ui.run("กำลังล้างข้อมูล...", () => { setDb((p) => ({ students: [], teachers: [], assistants: [], competitions: [], orgTeacher: [], orgStudent: [], dutyList: [], orgRequests: [], archived: [], trash: [], settings: p.settings })); setConfirmReset(false); ui.notify("ล้างข้อมูลแล้ว"); })} onClose={() => setConfirmReset(false)} />}
     </div>
   );
 }
@@ -1870,7 +1874,16 @@ function OrgViewManager({ db, setDb, ui, editable, committee }) {
   // ฝั่งกรรมการ: ลงชื่อตัวเองในช่องว่างของฝั่งตน (ครู→orgTeacher, นักเรียน→orgStudent)
   const selfSide = committee ? (committee.role === "teacher" ? "teacher" : "student") : null;
   const canSelf = committee && view === selfSide;
-  const selfAssign = (node, withdraw) => ui.run(withdraw ? "กำลังถอนชื่อ..." : "กำลังลงชื่อ...", () => { setDb((p) => ({ ...p, [which]: p[which].map((n) => n.id === node.id ? { ...n, personId: withdraw ? "" : committee.meId } : n) })); setTimeout(() => window.__forceSave && window.__forceSave(), 500); });
+  const selfAssign = (node, withdraw) => {
+    if (withdraw) {
+      const exists = (db.orgRequests || []).some((r) => r.nodeId === node.id && r.personId === committee.meId && r.status === "pending");
+      if (exists) { ui.notify("ส่งคำร้องแล้ว รอประธาน/แอดมินอนุญาต"); return; }
+      const person = pool.find((x) => x.id === committee.meId);
+      ui.run("กำลังส่งคำร้องขอถอน...", () => { setDb((p) => ({ ...p, orgRequests: [...(p.orgRequests || []), { id: "r" + Date.now() + Math.random().toString(36).slice(2, 5), side: which, nodeId: node.id, personId: committee.meId, name: person ? `${person.first} ${person.last}` : "", title: node.title, compId: node.compId || "", at: Date.now(), status: "pending" }] })); ui.notify("ส่งคำร้องขอถอนชื่อแล้ว รอประธาน/แอดมินอนุญาต"); setTimeout(() => window.__forceSave && window.__forceSave(), 500); });
+      return;
+    }
+    ui.run("กำลังลงชื่อ...", () => { setDb((p) => ({ ...p, [which]: p[which].map((n) => n.id === node.id ? { ...n, personId: committee.meId } : n) })); setTimeout(() => window.__forceSave && window.__forceSave(), 500); });
+  };
   const treeMode = editable ? "names" : (canSelf ? "selfsignup" : "view");
   return (
     <div>
@@ -1883,7 +1896,7 @@ function OrgViewManager({ db, setDb, ui, editable, committee }) {
       {view !== "combined" && (
         <Card style={{ padding: 16, overflowX: "auto" }}>
           <div style={{ textAlign: "center", fontWeight: 800, color: view === "teacher" ? C.primary : C.gold, marginBottom: 14 }}>{cat === "comp" ? "รายการแข่งขัน" : "รายการกิจกรรม"} · {view === "teacher" ? "ครู" : "นักเรียน"}{canSelf ? " · ลงชื่อฉันในช่องว่างได้" : ""}</div>
-          <OrgTree nodes={nodes} pool={pool} accent={view === "teacher" ? C.primary : C.gold} mode={treeMode} comps={db.competitions} meId={committee ? committee.meId : undefined}
+          <OrgTree nodes={nodes} pool={pool} accent={view === "teacher" ? C.primary : C.gold} mode={treeMode} comps={db.competitions} meId={committee ? committee.meId : undefined} pendingIds={(db.orgRequests || []).filter((r) => r.side === which && r.status === "pending").map((r) => r.nodeId)}
             onAssign={(node) => setAssign(node)} onClearName={clearName} onSelfAssign={selfAssign} />
         </Card>
       )}
@@ -1970,7 +1983,7 @@ function pruneOrg(nodes, removedSet) {
   const ids = new Set(kept.map((n) => n.id));
   return kept.map((n) => (n.parent && !ids.has(n.parent)) ? { ...n, parent: null } : n);
 }
-function OrgTree({ nodes, pool, accent, mode, comps, onAddChild, onEditTitle, onDelete, onAssign, onClearName, onSelfAssign, meId }) {
+function OrgTree({ nodes, pool, accent, mode, comps, onAddChild, onEditTitle, onDelete, onAssign, onClearName, onSelfAssign, meId, pendingIds }) {
   const ids = new Set(nodes.map((n) => n.id));
   const roots = nodes.filter((n) => !n.parent || !ids.has(n.parent));
   const mini = (bg, col, brd) => ({ border: `1px solid ${brd || bg}`, background: bg, color: col, borderRadius: 14, padding: "3px 9px", fontSize: 11, fontWeight: 700, cursor: "pointer" });
@@ -2003,7 +2016,9 @@ function OrgTree({ nodes, pool, accent, mode, comps, onAddChild, onEditTitle, on
             )}
             {self && isMe && (
               <div style={{ display: "flex", gap: 4, justifyContent: "center", marginTop: 6 }}>
-                <button onClick={(e) => { e.stopPropagation(); onSelfAssign(node, true); }} style={mini("#fbeeee", "#c0392b", "#eccdcd")}>ถอนชื่อฉัน</button>
+                {(pendingIds || []).includes(node.id)
+                  ? <span style={{ fontSize: 10.5, color: "#c99a2e", fontWeight: 700 }}>รออนุญาตถอน…</span>
+                  : <button onClick={(e) => { e.stopPropagation(); onSelfAssign(node, true); }} style={mini("#fbeeee", "#c0392b", "#eccdcd")}>ขอถอนชื่อ</button>}
               </div>
             )}
           </div>
@@ -2607,15 +2622,58 @@ function PromoCard({ db, setDb, ui }) {
 /* ============================================================
    COMMITTEE (teacher / student committee) — same screens
    ============================================================ */
+function NotificationCenter({ db, setDb, ui, sideFilter, canApprove }) {
+  const reqs = (db.orgRequests || []).filter((r) => !sideFilter || r.side === sideFilter).slice().sort((a, b) => b.at - a.at);
+  const sideLabel = (s) => s === "orgTeacher" ? "ครู" : "นักเรียน";
+  const nodeFilled = (r) => { const n = (db[r.side] || []).find((x) => x.id === r.nodeId); return !!(n && n.personId); };
+  const approve = (r) => ui.run("กำลังอนุญาต...", () => { setDb((p) => ({ ...p, [r.side]: p[r.side].map((n) => n.id === r.nodeId ? { ...n, personId: "" } : n), orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, status: "approved" } : x) })); ui.notify("อนุญาตแล้ว — ถอนชื่อออกจากตำแหน่ง"); setTimeout(() => window.__forceSave && window.__forceSave(), 500); });
+  const del = (r) => ui.run("กำลังลบ...", () => { setDb((p) => ({ ...p, orgRequests: p.orgRequests.filter((x) => x.id !== r.id) })); setTimeout(() => window.__forceSave && window.__forceSave(), 500); });
+  const compName = (id) => { const c = db.competitions.find((x) => x.id === id); return c ? c.name : ""; };
+  return (
+    <div>
+      <PageHead title="แจ้งเตือน / คำร้อง" sub="คำร้องขอถอนชื่อจากผัง · อนุญาตแล้วชื่อจะหายจากตำแหน่ง · ติดตามว่ามีคนมาแทนหรือยัง" />
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        {reqs.map((r) => {
+          const filled = nodeFilled(r);
+          return (
+            <Card key={r.id} style={{ padding: 14 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, color: C.ink }}>{r.name} <span style={{ fontSize: 12, color: C.muted, fontWeight: 500 }}>ขอถอนจากตำแหน่ง</span></div>
+                  <div style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }}>{r.title} · ฝั่ง{sideLabel(r.side)}{r.compId ? ` · ▹ ${compName(r.compId)}` : ""}</div>
+                  {r.status === "approved" && (
+                    <div style={{ fontSize: 12, fontWeight: 700, marginTop: 6, color: filled ? "#2f9e6b" : "#c0392b" }}>
+                      {filled ? "● มีคนมาแทนตำแหน่งแล้ว" : "● ตำแหน่งยังว่าง (รอคนมาแทน)"}
+                    </div>
+                  )}
+                </div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {r.status === "pending" && canApprove && <Btn small onClick={() => approve(r)}>อนุญาต</Btn>}
+                  {r.status === "pending" && <span style={{ fontSize: 11.5, color: "#c99a2e", fontWeight: 700, alignSelf: "center" }}>รออนุญาต</span>}
+                  <Btn small variant="ghost" onClick={() => del(r)}>ลบแจ้งเตือน</Btn>
+                </div>
+              </div>
+            </Card>
+          );
+        })}
+        {reqs.length === 0 && <Empty text="ยังไม่มีคำร้อง/แจ้งเตือน" />}
+      </div>
+    </div>
+  );
+}
 function CommitteeApp({ role, db, setDb, onExit, meId }) {
   const [view, setView] = useState("me");
   const ui = useUI();
   if (role === "studentcom") { const me = db.students.find((s) => s.id === meId); if (me && !me.profileDone && !studentProfileComplete(me)) return (<><ProfileGate me={me} setDb={setDb} ui={ui} />{ui.loading && <LoadingModal label={ui.loading} />}{ui.toast && <Toast msg={ui.toast} />}</>); }
+  const sideKey = role === "teacher" ? "orgTeacher" : "orgStudent";
+  const isPresident = (db[sideKey] || []).some((n) => n.personId === meId && !n.parent);
+  const pendingCount = (db.orgRequests || []).filter((r) => r.side === sideKey && r.status === "pending").length;
   const which = role === "teacher" ? "orgTeacher" : "orgStudent";
   const myNodeIds = db[which].filter((n) => n.personId === meId).map((n) => n.id);
   const managesComp = (c) => db[which].filter((n) => n.compId === c.id).some((n) => orgPathIds(db[which], n.id).some((id) => myNodeIds.includes(id)));
   const myCompIds = db.competitions.filter(managesComp).map((c) => c.id);
   const nav = [
+    { key: "noti", label: pendingCount ? `แจ้งเตือน (${pendingCount})` : "แจ้งเตือน", icon: "🔔" },
     { key: "me", label: "ข้อมูลฉัน", icon: "🪪" },
     { key: "org", label: "ผังองค์กร", icon: "🗂" },
     { key: "select", label: "คัดเลือก", icon: "✅" },
@@ -2625,6 +2683,7 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
   ];
   return (
     <Shell role={role} nav={nav} view={view} setView={setView} onExit={onExit} ui={ui}>
+      {view === "noti" && <NotificationCenter db={db} setDb={setDb} ui={ui} sideFilter={sideKey} canApprove={isPresident} />}
       {view === "me" && <CommitteeProfile role={role} meId={meId} db={db} setDb={setDb} ui={ui} />}
       {view === "org" && <OrgViewManager db={db} setDb={setDb} ui={ui} committee={{ role, meId }} />}
       {view === "select" && <MyDutyScreen role={role} meId={meId} db={db} setDb={setDb} ui={ui} />}
@@ -3184,6 +3243,7 @@ function mergeDb(loaded) {
     orgTeacher: (loaded && loaded.orgTeacher) || [],
     orgStudent: (loaded && loaded.orgStudent) || [],
     dutyList: (loaded && loaded.dutyList) || [],
+    orgRequests: (loaded && loaded.orgRequests) || [],
     archived: (loaded && loaded.archived) || [],
     trash: (loaded && loaded.trash) || [],
     settings: {
