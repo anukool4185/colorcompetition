@@ -265,21 +265,24 @@ function SearchPersonPopup({ pool, onPick, onClose, title, emptyText }) {
 function HouseDashboard({ db }) {
   const houses = db.settings.houses || [];
   const today = new Date().toISOString().slice(0, 10);
-  const stats = scoreStats(db);
   const cfg = db.settings.scoreConfig || {};
   const [more, setMore] = useState(null);
-  const houseOf = (sid) => (db.students.find((s) => s.id === sid) || {}).house;
-  const houseScore = (i) => db.students.filter((s) => s.house === i).reduce((sum, s) => sum + (stats[s.id] || 0), 0);
-  const compsForHouse = (i, f) => db.competitions.filter((c) => c.participants.some((p) => (p.sel === "main" || p.sel === "reserve") && houseOf(p.sid) === i) && (c.schedule || []).some(f));
+  const hOf = new Map(db.students.map((s) => [s.id, s.house]));
+  const sById = new Map(db.students.map((s) => [s.id, s]));
+  const stats = scoreStats(db);
+  const houseOf = (sid) => hOf.get(sid);
+  const houseScore = (i) => db.students.reduce((sum, s) => s.house === i ? sum + (stats[s.id] || 0) : sum, 0);
+  const compsForHouse = (i, f) => db.competitions.filter((c) => (c.schedule || []).some(f) && c.participants.some((p) => (p.sel === "main" || p.sel === "reserve") && hOf.get(p.sid) === i));
   const activityResultsForHouse = (i) => db.competitions.filter((c) => c.kind === "กิจกรรม").map((c) => {
-    const parts = c.participants.filter((p) => (p.sel === "main" || p.sel === "reserve") && houseOf(p.sid) === i);
+    const parts = c.participants.filter((p) => (p.sel === "main" || p.sel === "reserve") && hOf.get(p.sid) === i);
     const withRes = parts.filter((p) => c.results[p.sid] && (c.results[p.sid].outcome || c.results[p.sid].medal));
     if (!withRes.length) return null;
-    return { c, items: withRes.map((p) => ({ s: db.students.find((st) => st.id === p.sid), r: c.results[p.sid] })) };
+    return { c, items: withRes.map((p) => ({ s: sById.get(p.sid), r: c.results[p.sid] })) };
   }).filter(Boolean);
+  const memberHouses = houses.map((h, i) => ({ h, i })).filter(({ i }) => db.students.some((s) => s.house === i));
   const grid = (render) => (
     <div style={{ display: "grid", gap: 10, padding: 10 }} className="grid-cols-2 md:grid-cols-4">
-      {houses.map((h, i) => (
+      {memberHouses.map(({ h, i }) => (
         <div key={i} style={{ border: `1px solid ${h.color}`, borderTop: `4px solid ${h.color}`, borderRadius: 12, padding: 10, background: C.surface, minHeight: 64 }}>
           <div style={{ fontWeight: 800, color: h.color, fontSize: 13, marginBottom: 4 }}>{h.name}</div>
           {render(i)}
@@ -287,9 +290,7 @@ function HouseDashboard({ db }) {
       ))}
     </div>
   );
-  if (houses.length === 0) return null;
-  const hasMembers = houses.some((_, i) => db.students.some((s) => s.house === i));
-  if (!hasMembers) return null;
+  if (houses.length === 0 || memberHouses.length === 0) return null;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <Card><BlockHead dot="#2f9e6b" title="แข่งวันนี้ (แต่ละสี)" />
@@ -297,6 +298,9 @@ function HouseDashboard({ db }) {
       </Card>
       <Card><BlockHead dot={C.gold} title="รอบต่อไป (แต่ละสี)" />
         {grid((i) => { const cs = compsForHouse(i, (s) => s.date > today); return cs.length ? cs.slice(0, 3).map((c) => { const nx = (c.schedule || []).filter((s) => s.date > today).sort((a, b) => a.date.localeCompare(b.date))[0]; return <div key={c.id} style={{ fontSize: 12, color: C.ink }}>• {c.name} {nx ? <span style={{ color: C.muted }}>({nx.date} {nx.time || ""})</span> : ""}</div>; }) : <div style={{ fontSize: 12, color: C.muted }}>—</div>; })}
+      </Card>
+      <Card><BlockHead dot="#7a5cc0" title="กำหนดการฝึกซ้อม (แต่ละสี)" />
+        {grid((i) => { const ts = (db.training || []).filter((t) => t.house === i || t.house === "" || t.house === undefined || t.house === null).slice().sort((a, b) => (a.date || "").localeCompare(b.date || "")); return ts.length ? ts.map((t) => <div key={t.id} style={{ fontSize: 12, color: C.ink }}>• {t.title} {(t.date || t.time) ? <span style={{ color: C.muted }}>({t.date || ""} {t.time || ""})</span> : ""}{t.place ? <span style={{ color: C.muted }}> · {t.place}</span> : ""}</div>) : <div style={{ fontSize: 12, color: C.muted }}>—</div>; })}
       </Card>
       <Card><BlockHead dot={C.primary} title="ผลกิจกรรมล่าสุด (แต่ละสี)" />
         {grid((i) => { const ar = activityResultsForHouse(i); const latest = ar[ar.length - 1]; return latest ? (<div><div style={{ fontSize: 12, color: C.ink, fontWeight: 600 }}>• {latest.c.name}</div><div style={{ fontSize: 11, color: C.muted }}>{latest.items.map((it) => `${it.s.first}: ${it.r.outcome || ""}${it.r.medal ? " " + it.r.medal : ""}`).join(", ")}</div>{ar.length > 1 && <button onClick={() => setMore(i)} style={{ marginTop: 3, border: "none", background: "none", color: C.primary, fontSize: 11, fontWeight: 700, cursor: "pointer", padding: 0 }}>ดูเพิ่ม →</button>}</div>) : <div style={{ fontSize: 12, color: C.muted }}>—</div>; })}
@@ -368,7 +372,6 @@ function Landing({ onLogin, announce, comps, db }) {
           <button onClick={() => setShowSchedule(true)} style={{ width: "100%", padding: 12, background: C.soft, color: C.primaryDark, fontWeight: 700, border: "none", cursor: "pointer", fontSize: 14 }}>ดูกำหนดการแข่งขันทุกรายการ →</button>
         </Card>
         {db && <HouseDashboard db={db} />}
-        {db && <TrainingBlock db={db} />}
       </main>
       {showSchedule && (
         <Modal title="กำหนดการแข่งขันทั้งหมด" onClose={() => setShowSchedule(false)} wide>
@@ -2531,12 +2534,15 @@ function ParticipantManager({ comp, db, setDb, ui }) {
   );
 }
 function TrainingManager({ db, setDb, ui }) {
+  const houses = db.settings.houses || [];
   const list = db.training || [];
-  const [f, setF] = useState({ title: "", date: "", time: "", place: "", note: "" });
+  const [f, setF] = useState({ title: "", date: "", time: "", place: "", note: "", house: "" });
   const [edit, setEdit] = useState(null);
   const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
-  const save = () => { if (!f.title.trim()) return; ui.run("กำลังบันทึก...", () => { setDb((p) => { const cur = p.training || []; if (edit) return { ...p, training: cur.map((t) => t.id === edit ? { ...t, ...f } : t) }; return { ...p, training: [...cur, { id: "tr" + Date.now(), ...f }] }; }); setF({ title: "", date: "", time: "", place: "", note: "" }); setEdit(null); setTimeout(() => window.__forceSave && window.__forceSave(), 500); }); };
-  const startEdit = (t) => { setEdit(t.id); setF({ title: t.title || "", date: t.date || "", time: t.time || "", place: t.place || "", note: t.note || "" }); };
+  const houseLabel = (h) => h === "" || h === undefined || h === null ? "ทุกสี" : (houses[h] ? houses[h].name : "ทุกสี");
+  const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff", marginBottom: 12 };
+  const save = () => { if (!f.title.trim()) return; ui.run("กำลังบันทึก...", () => { setDb((p) => { const cur = p.training || []; if (edit) return { ...p, training: cur.map((t) => t.id === edit ? { ...t, ...f } : t) }; return { ...p, training: [...cur, { id: "tr" + Date.now(), ...f }] }; }); setF({ title: "", date: "", time: "", place: "", note: "", house: "" }); setEdit(null); setTimeout(() => window.__forceSave && window.__forceSave(), 500); }); };
+  const startEdit = (t) => { setEdit(t.id); setF({ title: t.title || "", date: t.date || "", time: t.time || "", place: t.place || "", note: t.note || "", house: t.house === undefined || t.house === null ? "" : t.house }); };
   const del = (id) => ui.run("กำลังลบ...", () => { setDb((p) => ({ ...p, training: (p.training || []).filter((t) => t.id !== id) })); setTimeout(() => window.__forceSave && window.__forceSave(), 500); });
   const sorted = [...list].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
   return (
@@ -2544,6 +2550,11 @@ function TrainingManager({ db, setDb, ui }) {
       <Card style={{ padding: 16, marginBottom: 14 }}>
         <div style={{ fontWeight: 700, color: C.ink, marginBottom: 10 }}>{edit ? "แก้ไขกำหนดการฝึกซ้อม" : "เพิ่มกำหนดการฝึกซ้อม"}</div>
         <Field label="หัวข้อ/รายการฝึกซ้อม" value={f.title} onChange={set("title")} placeholder="เช่น ซ้อมเชียร์รวมสี, ซ้อมกีฬาสี" />
+        <span style={{ display: "block", fontSize: 13, color: C.muted, marginBottom: 5 }}>สังกัดสี</span>
+        <select value={f.house} onChange={(e) => set("house")(e.target.value === "" ? "" : Number(e.target.value))} style={selCss}>
+          <option value="">ทุกสี</option>
+          {houses.map((h, i) => <option key={i} value={i}>{h.name}</option>)}
+        </select>
         <div className="md:grid md:grid-cols-2 md:gap-x-3">
           <Field label="วันที่" value={f.date} onChange={set("date")} type="date" />
           <Field label="เวลา" value={f.time} onChange={set("time")} placeholder="เช่น 15:30-17:00" />
@@ -2552,14 +2563,14 @@ function TrainingManager({ db, setDb, ui }) {
         <Field label="หมายเหตุ" value={f.note} onChange={set("note")} placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)" />
         <div style={{ display: "flex", gap: 8 }}>
           <Btn onClick={save} disabled={!f.title.trim()}>{edit ? "บันทึกการแก้ไข" : "+ เพิ่ม"}</Btn>
-          {edit && <Btn variant="ghost" onClick={() => { setEdit(null); setF({ title: "", date: "", time: "", place: "", note: "" }); }}>ยกเลิก</Btn>}
+          {edit && <Btn variant="ghost" onClick={() => { setEdit(null); setF({ title: "", date: "", time: "", place: "", note: "", house: "" }); }}>ยกเลิก</Btn>}
         </div>
       </Card>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {sorted.map((t) => (
           <Card key={t.id} style={{ padding: 12, display: "flex", alignItems: "flex-start", gap: 10 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 700, color: C.ink }}>{t.title}</div>
+              <div style={{ fontWeight: 700, color: C.ink }}>{t.title} <span style={{ fontSize: 11, fontWeight: 600, color: C.muted }}>· {houseLabel(t.house)}</span></div>
               <div style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }}>{t.date || "-"} {t.time ? `· ${t.time}` : ""} {t.place ? `· ${t.place}` : ""}</div>
               {t.note && <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{t.note}</div>}
             </div>
