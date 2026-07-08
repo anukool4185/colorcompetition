@@ -2302,7 +2302,7 @@ function OrgStructureEditor({ db, setDb, ui }) {
             React.createElement(Btn, { small: true, onClick: reconcile }, "\u0E0B\u0E34\u0E07\u0E01\u0E4C\u0E42\u0E04\u0E23\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07 (\u0E04\u0E23\u0E39 \u2194 \u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19)")),
         section("comp", "รายการแข่งขัน"),
         section("act", "รายการกิจกรรม"),
-        form && React.createElement(NodeForm, { node: form.node, dutyList: db.dutyList || [], comps: db.competitions.filter((c) => (c.kind === "แข่งขัน" ? "comp" : "act") === (form.node ? form.node.cat : form.cat)), onClose: () => setForm(null), onSave: (v) => form.node ? editNode(form.node.id, v) : addNode(v, form.cat, form.parent) }),
+        form && React.createElement(NodeForm, { node: form.node, dutyList: db.dutyList || [], comps: db.competitions.filter((c) => (c.kind === "แข่งขัน" ? "comp" : "act") === (form.node ? (form.node.cat || "comp") : (form.cat || "comp"))), onClose: () => setForm(null), onSave: (v) => form.node ? editNode(form.node.id, v) : addNode(v, form.cat, form.parent) }),
         confirmNode && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E01\u0E32\u0E23\u0E25\u0E1A", message: `ลบตำแหน่ง "${confirmNode.title}" และตำแหน่งลูกทั้งหมด (ทั้งฝั่งครูและนักเรียน)? เก็บในถังขยะ กู้คืนได้`, onConfirm: () => delNode(confirmNode), onClose: () => setConfirmNode(null) })));
 }
 function OrgEditor({ which, pool, db, setDb, ui }) {
@@ -2346,7 +2346,7 @@ function OrgEditor({ which, pool, db, setDb, ui }) {
         React.createElement("div", { style: { fontSize: 12.5, color: C.muted } }, "\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E42\u0E04\u0E23\u0E07\u0E1C\u0E31\u0E07: \u0E01\u0E14 \"+ \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E2A\u0E39\u0E07\u0E2A\u0E38\u0E14\" \u0E41\u0E25\u0E49\u0E27\u0E01\u0E14 \"+ \u0E25\u0E39\u0E01\u0E19\u0E49\u0E2D\u0E07\" \u0E17\u0E35\u0E48\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E43\u0E14\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E41\u0E15\u0E01\u0E01\u0E34\u0E48\u0E07 (\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E2A\u0E48\u0E0A\u0E37\u0E48\u0E2D\u0E04\u0E19)"),
         section("comp", "รายการแข่งขัน"),
         section("act", "รายการกิจกรรม"),
-        form && React.createElement(NodeForm, { node: form.node, dutyList: db.dutyList || [], comps: db.competitions.filter((c) => (c.kind === "แข่งขัน" ? "comp" : "act") === (form.node ? form.node.cat : form.cat)), onClose: () => setForm(null), onSave: (v) => form.node ? editNode(form.node.id, v) : addNode(v, form.cat, form.parent) }),
+        form && React.createElement(NodeForm, { node: form.node, dutyList: db.dutyList || [], comps: db.competitions.filter((c) => (c.kind === "แข่งขัน" ? "comp" : "act") === (form.node ? (form.node.cat || "comp") : (form.cat || "comp"))), onClose: () => setForm(null), onSave: (v) => form.node ? editNode(form.node.id, v) : addNode(v, form.cat, form.parent) }),
         confirmNode && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E01\u0E32\u0E23\u0E25\u0E1A", message: `ลบตำแหน่ง "${confirmNode.title}" และตำแหน่งลูกทั้งหมด? เก็บในถังขยะ (กู้คืนได้)`, onConfirm: () => delNode(confirmNode), onClose: () => setConfirmNode(null) })));
 }
 /* ----- Competition manager ----- */
