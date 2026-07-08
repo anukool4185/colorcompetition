@@ -2533,54 +2533,66 @@ function structureData(db, kind) {
     (db.competitions || []).filter((c) => c.kind === kind).forEach((c) => { tNodes.filter((n) => String(n.compId) === String(c.id)).forEach((n) => { (compByNode[n.id] = compByNode[n.id] || []).push(c); }); });
     return { roots, heads, byId, childrenOf, subtree, tName, sName, compByNode };
 }
-function buildStructureHTML(db, kind) {
+function buildStructureHTML(db, kind, cols) {
     const esc = (s) => String(s || "").replace(/[&<>]/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[m]));
     const dots = "................";
     const D = structureData(db, kind);
-    const boxTop = D.roots.length ? D.roots.map((r) => `<td style="border:1px solid #333;padding:8px;text-align:center;vertical-align:top"><b>${esc(r.title)}</b><br>ครู(${esc(r.title)}): ${esc(D.tName(r)) || dots}<br>นักเรียน(${esc(r.title)}): ${esc(D.sName(r.id)) || dots}</td>`).join("") : `<td style="padding:8px">(ยังไม่มีตำแหน่งบนสุด เช่น ประธาน/รองประธาน)</td>`;
-    const sections = [["ต้น", "ม.ต้น"], ["ปลาย", "ม.ปลาย"]].map(([bk, bl]) => {
-        const cols = D.heads.length ? D.heads.map((h) => {
-            let blocks = "";
-            D.subtree(h.id).forEach((id) => {
-                (D.compByNode[id] || []).forEach((c) => {
-                    if (!compBands(c).includes(bk))
-                        return;
-                    const node = D.byId[id];
-                    const main = selectedNames(db, c, "main"), res = selectedNames(db, c, "reserve");
-                    blocks += `<div style="border-top:1px dashed #bbb;padding-top:6px;margin-top:8px">`
-                        + `<div style="text-align:center;font-weight:bold">การแข่งขัน ${esc(c.name)}</div>`
-                        + `<div>ครู(ดูแล): ${esc(D.tName(node)) || dots}</div>`
-                        + `<div>นักเรียน(ดูแล): ${esc(D.sName(id)) || dots}</div>`
-                        + `<div style="text-align:center;font-weight:bold;color:#c0392b;margin-top:3px">ผู้ผ่านการคัดเลือก ตัวจริง (${bl})</div>`
-                        + (main.length ? main.map((n, i) => `<div>${i + 1}. ${esc(n)}</div>`).join("") : "<div>-</div>")
-                        + `<div style="text-align:center;font-weight:bold;color:#2f6fb0;margin-top:3px">ผู้ผ่านการคัดเลือก ตัวสำรอง (${bl})</div>`
-                        + (res.length ? res.map((n, i) => `<div>${i + 1}. ${esc(n)}</div>`).join("") : "<div>-</div>")
-                        + `</div>`;
-                });
+    const colW = Math.floor(100 / cols);
+    const listL = (arr) => arr.length ? `<div style="text-align:left">${arr.map((n, i) => `${i + 1}. ${esc(n)}`).join("<br>")}</div>` : `<div>-</div>`;
+    const colHTML = (h) => {
+        let blocks = "";
+        D.subtree(h.id).forEach((id) => {
+            (D.compByNode[id] || []).forEach((c) => {
+                const node = D.byId[id];
+                const main = selectedNames(db, c, "main"), res = selectedNames(db, c, "reserve");
+                blocks += `<div style="border-top:1px dashed #999;margin-top:10px;padding-top:6px">`
+                    + `<div style="font-weight:bold">การแข่งขัน ${esc(c.name)}</div>`
+                    + `<div>ครู(ดูแล): ${esc(D.tName(node)) || dots}</div>`
+                    + `<div>นักเรียน(ดูแล): ${esc(D.sName(id)) || dots}</div>`
+                    + `<div style="font-weight:bold;margin-top:3px">ผู้ผ่านการคัดเลือก ตัวจริง</div>${listL(main)}`
+                    + `<div style="font-weight:bold;margin-top:3px">ผู้ผ่านการคัดเลือก ตัวสำรอง</div>${listL(res)}`
+                    + `</div>`;
             });
-            return `<td style="border:1px solid #333;padding:8px;vertical-align:top;width:${Math.floor(100 / Math.max(1, D.heads.length))}%"><div style="text-align:center;font-weight:bold;background:#eee;padding:5px"><b>${esc(h.title)}</b><br><span style="font-weight:normal">ครู(หัวหน้า): ${esc(D.tName(h)) || "......"}<br>นักเรียน(หัวหน้า): ${esc(D.sName(h.id)) || "......"}</span></div>${blocks || "<div style='color:#999;text-align:center;margin-top:8px'>— ไม่มีรายการระดับนี้ —</div>"}</td>`;
-        }).join("") : `<td style="padding:8px">(ยังไม่มีหัวหน้าด้าน — สร้างตำแหน่งลูกของประธานในผังโครงสร้าง)</td>`;
-        return `<h3 style="text-align:center;margin:6px 0">โครงสร้างของวิชาการสี — ${bl} (${esc(kind)})</h3>`
-            + `<table style="border-collapse:collapse;width:100%;margin-bottom:8px"><tr>${boxTop}</tr></table>`
-            + `<table style="border-collapse:collapse;width:100%;font-size:11px"><tr style="vertical-align:top">${cols}</tr></table>`
-            + `<div style="page-break-after:always"></div>`;
-    }).join("");
-    return `<div style="font-family:'Noto Sans Thai',sans-serif;font-size:12px">${sections}</div>`;
+        });
+        return `<td style="border:1px solid #333;padding:8px;vertical-align:top;text-align:center;width:${colW}%">`
+            + `<div style="font-weight:bold">${esc(h.title)}</div>`
+            + `<div>ครู(หัวหน้า): ${esc(D.tName(h)) || dots}</div>`
+            + `<div>นักเรียน(หัวหน้า): ${esc(D.sName(h.id)) || dots}</div>`
+            + `${blocks || "<div style='color:#999;margin-top:8px'>— ไม่มีรายการ —</div>"}</td>`;
+    };
+    const heads = D.heads;
+    if (!heads.length)
+        return `<div style="font-family:'TH SarabunPSK','Sarabun',sans-serif;font-size:16pt;text-align:center;color:#999">ยังไม่มีหัวหน้าด้าน (สร้างตำแหน่งลูกของประธานในผังโครงสร้าง)</div>`;
+    let sets = "";
+    for (let i = 0; i < heads.length; i += cols) {
+        const chunk = heads.slice(i, i + cols);
+        let tds = chunk.map(colHTML).join("");
+        for (let k = chunk.length; k < cols; k++)
+            tds += `<td style="border:0;width:${colW}%"></td>`;
+        sets += `<table style="border-collapse:collapse;width:100%;table-layout:fixed"><tr style="vertical-align:top">${tds}</tr></table>`;
+        if (i + cols < heads.length)
+            sets += `<div style="page-break-after:always"></div>`;
+    }
+    return `<div style="font-family:'TH SarabunPSK','TH Sarabun New','Sarabun',sans-serif;font-size:16pt;line-height:1.25">${sets}</div>`;
 }
-function printStructure(db, kind, notify) {
+function printStructure(db, kind, layout, notify) {
+    const cols = layout === "l4" ? 4 : 3;
+    const orient = layout === "l4" ? "landscape" : "portrait";
     const w = window.open("", "_blank");
     if (!w) {
         notify && notify("เบราว์เซอร์บล็อกหน้าต่าง");
         return;
     }
-    w.document.write(`<html><head><meta charset="utf-8"><title>โครงสร้าง${kind}</title><style>@page{size:A4 landscape;margin:8mm}body{margin:0}</style><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet"></head><body>${buildStructureHTML(db, kind)}</body></html>`);
+    w.document.write(`<html><head><meta charset="utf-8"><title>โครงสร้าง${kind}</title><style>@page{size:A4 ${orient};margin:8mm}body{margin:0;font-family:'TH SarabunPSK','Sarabun',sans-serif}</style><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet"></head><body>${buildStructureHTML(db, kind, cols)}</body></html>`);
     w.document.close();
     w.focus();
     setTimeout(() => w.print(), 500);
 }
-function wordStructure(db, kind, notify) {
+function wordStructure(db, kind, layout, notify) {
+    const cols = layout === "l4" ? 4 : 3;
+    const orient = layout === "l4" ? "landscape" : "portrait";
     try {
-        const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]--><style>@page{size:A4 landscape}</style></head><body>${buildStructureHTML(db, kind)}</body></html>`;
+        const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]--><style>@page{size:A4 ${orient}}body{font-family:'TH SarabunPSK','TH Sarabun New','Sarabun',sans-serif;font-size:16pt}</style></head><body>${buildStructureHTML(db, kind, cols)}</body></html>`;
         const blob = new Blob(["\ufeff" + html], { type: "application/msword" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -2598,11 +2610,8 @@ function wordStructure(db, kind, notify) {
 function excelStructure(db, kind, notify) {
     try {
         const D = structureData(db, kind);
-        const aoa = [["ระดับ", "หัวหน้าด้าน", "รายการ", "ครู(ดูแล)", "นักเรียน(ดูแล)", "ตัวจริง (ผ่านคัดเลือก)", "ตัวสำรอง (ผ่านคัดเลือก)"]];
-        [["ต้น", "ม.ต้น"], ["ปลาย", "ม.ปลาย"]].forEach(([bk, bl]) => {
-            D.heads.forEach((h) => { D.subtree(h.id).forEach((id) => { (D.compByNode[id] || []).forEach((c) => { if (!compBands(c).includes(bk))
-                return; const node = D.byId[id]; aoa.push([bl, h.title, c.name, D.tName(node), D.sName(id), selectedNames(db, c, "main").join(", "), selectedNames(db, c, "reserve").join(", ")]); }); }); });
-        });
+        const aoa = [["หัวหน้าด้าน", "รายการ", "ครู(ดูแล)", "นักเรียน(ดูแล)", "ตัวจริง (ผ่านคัดเลือก)", "ตัวสำรอง (ผ่านคัดเลือก)"]];
+        D.heads.forEach((h) => { D.subtree(h.id).forEach((id) => { (D.compByNode[id] || []).forEach((c) => { const node = D.byId[id]; aoa.push([h.title, c.name, D.tName(node), D.sName(id), selectedNames(db, c, "main").join(", "), selectedNames(db, c, "reserve").join(", ")]); }); }); });
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "โครงสร้าง");
         XLSX.writeFile(wb, `โครงสร้าง${kind}.xlsx`);
@@ -2619,6 +2628,7 @@ function CompDisplayTabs({ db, ui }) {
         React.createElement(CompDisplay, { kind: kind, db: db, ui: ui })));
 }
 function CompDisplay({ kind, db, ui }) {
+    const [docLayout, setDocLayout] = useState("p3");
     const list = db.competitions.filter((c) => c.kind === kind);
     // กรรมการของแต่ละรายการ = ประธานบนสุด → ลงมาถึงผู้ดูแลตำแหน่งที่ผูกรายการนี้
     const pathNamesUnion = (orgKey, pool, c) => { const seen = new Set(); const out = []; db[orgKey].filter((n) => String(n.compId) === String(c.id)).forEach((n) => orgLineNamed(db[orgKey], n.id, pool).forEach((nm) => { if (!seen.has(nm)) {
@@ -2677,9 +2687,12 @@ function CompDisplay({ kind, db, ui }) {
             React.createElement(Btn, { small: true, variant: "ghost", onClick: () => pdfFromEl(areaId, "portrait", `รายการ${kind}.pdf`, ui && ui.notify) }, "PDF (\u0E15\u0E32\u0E23\u0E32\u0E07)"),
             React.createElement(Btn, { small: true, variant: "ghost", onClick: exportExcel }, "Excel (\u0E15\u0E32\u0E23\u0E32\u0E07)")),
         React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" } },
-            React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: C.primaryDark } }, "\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E42\u0E04\u0E23\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07 (\u0E15\u0E32\u0E21\u0E1C\u0E31\u0E07 \u00B7 \u0E41\u0E22\u0E01 \u0E21.\u0E15\u0E49\u0E19/\u0E21.\u0E1B\u0E25\u0E32\u0E22):"),
-            React.createElement(Btn, { small: true, variant: "ghost", onClick: () => printStructure(db, kind, ui && ui.notify) }, "\u0E1B\u0E23\u0E34\u0E49\u0E19 / PDF"),
-            React.createElement(Btn, { small: true, variant: "ghost", onClick: () => wordStructure(db, kind, ui && ui.notify) }, "Word"),
+            React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: C.primaryDark } }, "\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E42\u0E04\u0E23\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07 (1 \u0E04\u0E2D\u0E25\u0E31\u0E21\u0E19\u0E4C = 1 \u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32):"),
+            React.createElement(Select, { value: docLayout, onChange: setDocLayout },
+                React.createElement("option", { value: "p3" }, "\u0E41\u0E19\u0E27\u0E15\u0E31\u0E49\u0E07 3 \u0E04\u0E2D\u0E25\u0E31\u0E21\u0E19\u0E4C"),
+                React.createElement("option", { value: "l4" }, "\u0E41\u0E19\u0E27\u0E19\u0E2D\u0E19 4 \u0E04\u0E2D\u0E25\u0E31\u0E21\u0E19\u0E4C")),
+            React.createElement(Btn, { small: true, variant: "ghost", onClick: () => printStructure(db, kind, docLayout, ui && ui.notify) }, "\u0E1B\u0E23\u0E34\u0E49\u0E19 / PDF"),
+            React.createElement(Btn, { small: true, variant: "ghost", onClick: () => wordStructure(db, kind, docLayout, ui && ui.notify) }, "Word"),
             React.createElement(Btn, { small: true, variant: "ghost", onClick: () => excelStructure(db, kind, ui && ui.notify) }, "Excel")),
         React.createElement("div", { id: areaId, style: { display: "flex", flexDirection: "column", gap: 10 } },
             list.map((c) => (React.createElement(Card, { key: c.id, style: { padding: 14 } },
