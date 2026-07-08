@@ -1018,6 +1018,14 @@ function CommitteeBadge({ d }) {
     </div>
   );
 }
+function OrgDot({ db, kind, id }) {
+  const d = dutyOf(db, kind, id);
+  const dots = [];
+  if (d.comp) dots.push(["#1b7a4b", "ลงผังแข่งขัน"]);
+  if (d.act) dots.push(["#8fd6a8", "ลงผังกิจกรรม"]);
+  if (dots.length === 0) dots.push(["#c0392b", "ยังไม่ลงผัง"]);
+  return <>{dots.map(([c, t], i) => <span key={i} title={t} style={{ display: "inline-block", width: 9, height: 9, borderRadius: "50%", background: c, marginLeft: 5, verticalAlign: "middle" }} />)}</>;
+}
 function PersonList({ kind, db, setDb, ui }) {
   const key = kind === "student" ? "students" : "teachers";
   const list = db[key];
@@ -1038,7 +1046,7 @@ function PersonList({ kind, db, setDb, ui }) {
     if (grade && s.grade !== grade) return false;
     if (room && s.room !== room) return false;
     if (kind === "student" && reg) { const has = regStatusOf(db, s.id) !== ""; if (reg === "no" ? has : !has) return false; }
-    if (com || duty) { const d = dutyOf(db, kind, s.id); if (com === "yes" && !d.isCom) return false; if (com === "no" && d.isCom) return false; if (duty === "comp" && !d.comp) return false; if (duty === "act" && !d.act) return false; }
+    if (com || duty) { const d = dutyOf(db, kind, s.id); const inOrg = (db[kind === "teacher" ? "orgTeacher" : "orgStudent"] || []).some((n) => n.personId === s.id); if (com === "yes" && !d.isCom) return false; if (com === "no" && d.isCom) return false; if (duty === "comp" && !d.comp) return false; if (duty === "act" && !d.act) return false; if (duty === "none" && inOrg) return false; }
     return true;
   });
   const printList = () => {
@@ -1163,13 +1171,13 @@ function PersonList({ kind, db, setDb, ui }) {
           <Select value={room} onChange={setRoom}><option value="">ทุกห้อง</option>{rooms.map((r) => <option key={r} value={r}>ห้อง {r}</option>)}</Select>
           <Select value={reg} onChange={setReg}><option value="">ทุกสถานะสมัคร</option><option value="no">ยังไม่สมัคร</option><option value="yes">สมัครแล้ว</option></Select>
           <Select value={com} onChange={setCom}><option value="">กรรมการ: ทั้งหมด</option><option value="yes">เป็นกรรมการ</option><option value="no">ไม่เป็นกรรมการ</option></Select>
-          <Select value={duty} onChange={setDuty}><option value="">ดูแล: ทั้งหมด</option><option value="comp">ดูแลแข่งขัน</option><option value="act">ดูแลกิจกรรม</option></Select>
+          <Select value={duty} onChange={setDuty}><option value="">ดูแล: ทั้งหมด</option><option value="comp">ดูแลแข่งขัน</option><option value="act">ดูแลกิจกรรม</option><option value="none">ยังไม่ลงผัง</option></Select>
         </div>
       )}
       {kind === "teacher" && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Select value={com} onChange={setCom}><option value="">กรรมการ: ทั้งหมด</option><option value="yes">เป็นกรรมการ</option><option value="no">ไม่เป็นกรรมการ</option></Select>
-          <Select value={duty} onChange={setDuty}><option value="">ดูแล: ทั้งหมด</option><option value="comp">ดูแลแข่งขัน</option><option value="act">ดูแลกิจกรรม</option></Select>
+          <Select value={duty} onChange={setDuty}><option value="">ดูแล: ทั้งหมด</option><option value="comp">ดูแลแข่งขัน</option><option value="act">ดูแลกิจกรรม</option><option value="none">ยังไม่ลงผัง</option></Select>
         </div>
       )}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1178,7 +1186,7 @@ function PersonList({ kind, db, setDb, ui }) {
             <input type="checkbox" checked={selSet.has(s.id)} onChange={() => toggle(s.id)} style={{ width: 17, height: 17, flexShrink: 0 }} />
             <Avatar person={s} />
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 700, color: C.ink, fontSize: 14 }}>{fullName(s)}</div>
+              <div style={{ fontWeight: 700, color: C.ink, fontSize: 14 }}>{fullName(s)}<OrgDot db={db} kind={kind} id={s.id} /></div>
               <div style={{ fontSize: 12, color: C.muted }}>รหัส {s.id}{s.grade ? ` · ${s.grade}/${s.room}` : ""} · {s.phone}</div>
             </div>
             {kind === "student" && (
@@ -2321,9 +2329,10 @@ function SelectionScreen({ db, setDb, ui }) {
 function AddApplicantModal({ comp, db, onClose, onAdd }) {
   const [q, setQ] = useState("");
   const enrolled = new Set(comp.participants.map((p) => p.sid));
-  const pool = db.students.filter((s) => !enrolled.has(s.id) && (fullName(s) + s.id).includes(q));
+  const pool = db.students.filter((s) => !enrolled.has(s.id) && eligibleForGrade(comp, s.grade) && (fullName(s) + s.id).includes(q));
   return (
     <Modal title={`เพิ่มผู้สมัคร: ${comp.name}`} onClose={onClose}>
+      <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>รับเฉพาะระดับชั้น: {gradesLabel(comp)}</div>
       <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="ค้นหาชื่อ / รหัส" style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, marginBottom: 12, fontSize: 14 }} />
       <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 340, overflowY: "auto" }}>
         {pool.slice(0, 60).map((s) => (
@@ -2349,9 +2358,9 @@ function ParticipantManager({ comp, db, setDb, ui }) {
   const cur = db.competitions.find((c) => c.id === comp.id) || comp;
   const P = cur.participants;
   const mini = (bg, col, onClick, label) => <button onClick={onClick} style={{ border: "none", background: bg, color: col, borderRadius: 14, padding: "4px 9px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>{label}</button>;
-  const block = (title, items, actions, accent) => (
+  const block = (title, items, actions, accent, quota) => (
     <div style={{ flex: 1, minWidth: 170, border: `1px solid ${C.line}`, borderRadius: 12, padding: 10, background: C.surface }}>
-      <div style={{ fontSize: 12.5, fontWeight: 700, color: accent || C.ink, marginBottom: 6 }}>{title} ({items.length})</div>
+      <div style={{ fontSize: 12.5, fontWeight: 700, color: accent || C.ink, marginBottom: 6 }}>{title} ({items.length}{quota ? `/${quota}` : ""})</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {items.length === 0 && <div style={{ fontSize: 12, color: C.muted }}>—</div>}
         {items.map((x) => {
@@ -2373,6 +2382,7 @@ function ParticipantManager({ comp, db, setDb, ui }) {
   const selectedRes = P.filter((x) => x.sel === "reserve");
   const appliedMain = P.filter((x) => !x.sel && x.status === "main");
   const appliedRes = P.filter((x) => !x.sel && x.status !== "main");
+  const mainQ = Number(cur.mainCount) || 0, resQ = Number(cur.reserveCount) || 0;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div>
@@ -2380,15 +2390,15 @@ function ParticipantManager({ comp, db, setDb, ui }) {
           <div style={{ fontWeight: 800, color: "#2f9e6b" }}>โซนคัดเลือกแล้ว</div><ItemStatusBadge c={cur} />
         </div>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          {block("บล็อกตัวจริง", selectedMain, (x) => [mini(C.soft, C.primaryDark, () => setSel(x.sid, "reserve"), "→ สำรอง"), mini("#eef0f2", C.muted, () => setSel(x.sid, undefined), "ยกเลิกคัด"), mini("#fbeeee", "#c0392b", () => remove(x.sid), "ลบออก")], "#2f9e6b")}
-          {block("บล็อกตัวสำรอง", selectedRes, (x) => [mini(C.soft, C.primaryDark, () => setSel(x.sid, "main"), "→ ตัวจริง"), mini("#eef0f2", C.muted, () => setSel(x.sid, undefined), "ยกเลิกคัด"), mini("#fbeeee", "#c0392b", () => remove(x.sid), "ลบออก")], "#c99a2e")}
+          {block("คัดเลือกเป็นตัวจริง", selectedMain, (x) => [mini(C.soft, C.primaryDark, () => setSel(x.sid, "reserve"), "→ สำรอง"), mini("#eef0f2", C.muted, () => setSel(x.sid, undefined), "ยกเลิกคัด"), mini("#fbeeee", "#c0392b", () => remove(x.sid), "ลบออก")], "#2f9e6b", mainQ)}
+          {block("คัดเลือกเป็นตัวสำรอง", selectedRes, (x) => [mini(C.soft, C.primaryDark, () => setSel(x.sid, "main"), "→ ตัวจริง"), mini("#eef0f2", C.muted, () => setSel(x.sid, undefined), "ยกเลิกคัด"), mini("#fbeeee", "#c0392b", () => remove(x.sid), "ลบออก")], "#c99a2e", resQ)}
         </div>
       </div>
       <div>
         <div style={{ fontWeight: 800, color: C.muted, marginBottom: 8 }}>โซนยังไม่คัดเลือก (ผู้สมัคร)</div>
         <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-          {block("สมัครเป็นตัวจริง", appliedMain, (x) => [mini("#e6f4ec", "#2f9e6b", () => setSel(x.sid, "main"), "คัดตัวจริง"), mini(C.soft, C.primaryDark, () => setSel(x.sid, "reserve"), "คัดสำรอง"), mini("#fbeeee", "#c0392b", () => remove(x.sid), "ไม่ผ่าน")])}
-          {block("สมัครเป็นตัวสำรอง", appliedRes, (x) => [mini("#e6f4ec", "#2f9e6b", () => setSel(x.sid, "main"), "คัดตัวจริง"), mini(C.soft, C.primaryDark, () => setSel(x.sid, "reserve"), "คัดสำรอง"), mini("#fbeeee", "#c0392b", () => remove(x.sid), "ไม่ผ่าน")])}
+          {block("สมัครเป็นตัวจริง", appliedMain, (x) => [mini("#e6f4ec", "#2f9e6b", () => setSel(x.sid, "main"), "คัดตัวจริง"), mini(C.soft, C.primaryDark, () => setSel(x.sid, "reserve"), "คัดสำรอง"), mini("#fbeeee", "#c0392b", () => remove(x.sid), "ไม่ผ่าน")], null, mainQ)}
+          {block("สมัครเป็นตัวสำรอง", appliedRes, (x) => [mini("#e6f4ec", "#2f9e6b", () => setSel(x.sid, "main"), "คัดตัวจริง"), mini(C.soft, C.primaryDark, () => setSel(x.sid, "reserve"), "คัดสำรอง"), mini("#fbeeee", "#c0392b", () => remove(x.sid), "ไม่ผ่าน")], null, resQ)}
         </div>
       </div>
       {P.length === 0 && <Empty text="ยังไม่มีผู้สมัครในรายการนี้" />}
