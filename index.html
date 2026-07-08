@@ -1865,6 +1865,7 @@ function OrgViewManager({ db, setDb, ui, editable, committee }) {
   const [cat, setCat] = useState("comp");
   const [view, setView] = useState("teacher"); // combined | teacher | student
   const [assign, setAssign] = useState(null);
+  const [confirmWd, setConfirmWd] = useState(null);
   const which = view === "teacher" ? "orgTeacher" : "orgStudent";
   const pool = view === "teacher" ? db.teachers : db.students;
   const pickPool = view === "teacher" ? db.teachers.filter((t) => t.user) : db.students.filter((s) => s.committee);
@@ -1878,12 +1879,12 @@ function OrgViewManager({ db, setDb, ui, editable, committee }) {
     if (withdraw) {
       const exists = (db.orgRequests || []).some((r) => r.nodeId === node.id && r.personId === committee.meId && r.status === "pending");
       if (exists) { ui.notify("ส่งคำร้องแล้ว รอประธาน/แอดมินอนุญาต"); return; }
-      const person = pool.find((x) => x.id === committee.meId);
-      ui.run("กำลังส่งคำร้องขอถอน...", () => { setDb((p) => ({ ...p, orgRequests: [...(p.orgRequests || []), { id: "r" + Date.now() + Math.random().toString(36).slice(2, 5), side: which, nodeId: node.id, personId: committee.meId, name: person ? `${person.first} ${person.last}` : "", title: node.title, compId: node.compId || "", at: Date.now(), status: "pending" }] })); ui.notify("ส่งคำร้องขอถอนชื่อแล้ว รอประธาน/แอดมินอนุญาต"); setTimeout(() => window.__forceSave && window.__forceSave(), 500); });
+      setConfirmWd(node);
       return;
     }
     ui.run("กำลังลงชื่อ...", () => { setDb((p) => ({ ...p, [which]: p[which].map((n) => n.id === node.id ? { ...n, personId: committee.meId } : n) })); setTimeout(() => window.__forceSave && window.__forceSave(), 500); });
   };
+  const doWithdraw = (node) => { const person = pool.find((x) => x.id === committee.meId); ui.run("กำลังส่งคำร้องขอถอน...", () => { setDb((p) => ({ ...p, orgRequests: [...(p.orgRequests || []), { id: "r" + Date.now() + Math.random().toString(36).slice(2, 5), side: which, nodeId: node.id, personId: committee.meId, name: person ? `${person.first} ${person.last}` : "", title: node.title, compId: node.compId || "", at: Date.now(), status: "pending" }] })); ui.notify("ส่งคำร้องขอถอนชื่อแล้ว รอประธาน/แอดมินอนุญาต"); setTimeout(() => window.__forceSave && window.__forceSave(), 500); }); setConfirmWd(null); };
   const treeMode = editable ? "names" : (canSelf ? "selfsignup" : "view");
   return (
     <div>
@@ -1901,6 +1902,7 @@ function OrgViewManager({ db, setDb, ui, editable, committee }) {
         </Card>
       )}
       {assign && <SearchPersonPopup title={`ลงชื่อในตำแหน่ง: ${assign.title}`} pool={pickPool} emptyText={`ยังไม่มี${view === "teacher" ? "กรรมการครู" : "กรรมการนักเรียน"} — ตั้งที่ บุคลากร → บัญชีผู้ใช้ ก่อน`} onClose={() => setAssign(null)} onPick={(p) => setPerson(assign.id, p.id)} />}
+      {confirmWd && <ConfirmModal title="ยืนยันการขอถอนตัว" message={`ต้องการส่งคำร้องขอถอนชื่อออกจากตำแหน่ง "${confirmWd.title}" ใช่หรือไม่? ประธาน/แอดมินจะเป็นผู้พิจารณาอนุญาต`} confirmLabel="ส่งคำร้องขอถอน" variant="danger" onConfirm={() => doWithdraw(confirmWd)} onClose={() => setConfirmWd(null)} />}
     </div>
   );
 }
