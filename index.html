@@ -2172,7 +2172,7 @@ function pruneOrg(nodes, removedSet) {
     const ids = new Set(kept.map((n) => n.id));
     return kept.map((n) => (n.parent && !ids.has(n.parent)) ? { ...n, parent: null } : n);
 }
-function OrgTree({ nodes, pool, accent, mode, comps, onAddChild, onEditTitle, onDelete, onAssign, onClearName, onSelfAssign, meId, pendingIds, horiz }) {
+function OrgTree({ nodes, pool, accent, mode, comps, onAddChild, onEditTitle, onDelete, onAssign, onClearName, onSelfAssign, meId, pendingIds, horiz, onMove, onReorder, onInsertParent }) {
     const ids = new Set(nodes.map((n) => n.id));
     const roots = nodes.filter((n) => !n.parent || !ids.has(n.parent));
     const mini = (bg, col, brd) => ({ border: `1px solid ${brd || bg}`, background: bg, color: col, borderRadius: 14, padding: "3px 9px", fontSize: 11, fontWeight: 700, cursor: "pointer" });
@@ -2195,6 +2195,10 @@ function OrgTree({ nodes, pool, accent, mode, comps, onAddChild, onEditTitle, on
                     structure && (React.createElement("div", { style: { display: "flex", gap: 4, justifyContent: "center", marginTop: 6, flexWrap: "wrap" } },
                         React.createElement("button", { onClick: () => onAddChild(node), style: mini(C.soft, C.primaryDark) }, "+ \u0E25\u0E39\u0E01\u0E19\u0E49\u0E2D\u0E07"),
                         React.createElement("button", { onClick: () => onEditTitle(node), style: mini(C.surface, C.muted, C.line) }, "\u0E41\u0E01\u0E49\u0E0A\u0E37\u0E48\u0E2D"),
+                        onInsertParent && React.createElement("button", { onClick: () => onInsertParent(node), style: mini(C.surface, C.muted, C.line) }, "\u0E41\u0E17\u0E23\u0E01\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32"),
+                        onMove && React.createElement("button", { onClick: () => onMove(node), style: mini(C.surface, C.muted, C.line) }, "\u0E22\u0E49\u0E32\u0E22"),
+                        onReorder && React.createElement("button", { onClick: () => onReorder(node, -1), style: mini(C.surface, C.muted, C.line), title: "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E02\u0E36\u0E49\u0E19/\u0E0B\u0E49\u0E32\u0E22" }, "\u2191"),
+                        onReorder && React.createElement("button", { onClick: () => onReorder(node, 1), style: mini(C.surface, C.muted, C.line), title: "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E25\u0E07/\u0E02\u0E27\u0E32" }, "\u2193"),
                         React.createElement("button", { onClick: () => onDelete(node), style: mini("#fbeeee", "#c0392b", "#eccdcd") }, "\u0E25\u0E1A"))),
                     names && p && (React.createElement("div", { style: { display: "flex", gap: 4, justifyContent: "center", marginTop: 6 } },
                         React.createElement("button", { onClick: (e) => { e.stopPropagation(); onAssign(node); }, style: mini(C.soft, C.primaryDark) }, "\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19"),
@@ -2234,7 +2238,15 @@ function flattenForest(forest) { const out = []; const walk = (arr) => arr.forEa
 function OrgStructureEditor({ db, setDb, ui }) {
     const [form, setForm] = useState(null);
     const [confirmNode, setConfirmNode] = useState(null);
+    const [moveTarget, setMoveTarget] = useState(null);
     const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 500);
+    const descendantIds = (nodes, id) => { const set = new Set([id]); let ch = true; while (ch) {
+        ch = false;
+        nodes.forEach((n) => { if (n.parent && set.has(n.parent) && !set.has(n.id)) {
+            set.add(n.id);
+            ch = true;
+        } });
+    } return set; };
     const addNode = ({ title, compId }, cat, parent) => ui.run("กำลังเพิ่มตำแหน่ง...", () => {
         const node = { id: "n" + Date.now() + Math.random().toString(36).slice(2, 5), personId: "", title, compId: compId || "", cat, parent: parent || null };
         setDb((p) => ({ ...p, orgTeacher: [...p.orgTeacher, { ...node }], orgStudent: [...p.orgStudent, { ...node }] }));
@@ -2244,6 +2256,41 @@ function OrgStructureEditor({ db, setDb, ui }) {
     const editNode = (nodeId, { title, compId }) => ui.run("กำลังบันทึก...", () => {
         setDb((p) => ({ ...p, orgTeacher: p.orgTeacher.map((n) => n.id === nodeId ? { ...n, title, compId: compId || "" } : n), orgStudent: p.orgStudent.map((n) => n.id === nodeId ? { ...n, title, compId: compId || "" } : n) }));
         setForm(null);
+        save();
+    });
+    // ย้ายตำแหน่ง (เปลี่ยนหัวหน้า) — ทั้งกิ่ง ทั้งครูและนักเรียน
+    const moveNode = (nodeId, val) => ui.run("กำลังย้ายตำแหน่ง...", () => {
+        const parent = (!val || val === "__root") ? null : val;
+        setDb((p) => ({ ...p, orgTeacher: p.orgTeacher.map((n) => n.id === nodeId ? { ...n, parent } : n), orgStudent: p.orgStudent.map((n) => n.id === nodeId ? { ...n, parent } : n) }));
+        setMoveTarget(null);
+        ui.notify("ย้ายตำแหน่งแล้ว");
+        save();
+    });
+    // สลับลำดับพี่น้อง (ซ้าย/ขวา) — dir -1 = ก่อนหน้า, 1 = ถัดไป
+    const reorder = (node, dir) => ui.run("กำลังจัดลำดับ...", () => {
+        const reArr = (arr) => {
+            const sibs = arr.filter((n) => (n.parent || null) === (node.parent || null) && (n.cat || "comp") === (node.cat || "comp"));
+            const pos = sibs.findIndex((n) => n.id === node.id);
+            const tgt = sibs[pos + dir];
+            if (!tgt)
+                return arr;
+            const i = arr.findIndex((n) => n.id === node.id), j = arr.findIndex((n) => n.id === tgt.id);
+            if (i < 0 || j < 0)
+                return arr;
+            const copy = [...arr];
+            [copy[i], copy[j]] = [copy[j], copy[i]];
+            return copy;
+        };
+        setDb((p) => ({ ...p, orgTeacher: reArr(p.orgTeacher), orgStudent: reArr(p.orgStudent) }));
+        save();
+    });
+    // แทรกหัวหน้าเหนือตำแหน่ง — สร้างตำแหน่งใหม่คั่นระหว่างตำแหน่งกับหัวหน้าเดิม
+    const doInsertParent = (node, { title, compId }) => ui.run("กำลังแทรกหัวหน้า...", () => {
+        const npId = "n" + Date.now() + Math.random().toString(36).slice(2, 5);
+        const np = { id: npId, personId: "", title, compId: compId || "", cat: node.cat || "comp", parent: node.parent || null };
+        setDb((p) => ({ ...p, orgTeacher: [...p.orgTeacher.map((n) => n.id === node.id ? { ...n, parent: npId } : n), { ...np }], orgStudent: [...p.orgStudent.map((n) => n.id === node.id ? { ...n, parent: npId } : n), { ...np }] }));
+        setForm(null);
+        ui.notify("แทรกหัวหน้าแล้ว");
         save();
     });
     const delNode = (node) => ui.run("กำลังลบตำแหน่ง...", () => {
@@ -2293,16 +2340,28 @@ function OrgStructureEditor({ db, setDb, ui }) {
                         catNodes.length,
                         " \u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07)")),
                 React.createElement(Btn, { small: true, onClick: () => setForm({ cat, parent: null }) }, "+ \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E2A\u0E39\u0E07\u0E2A\u0E38\u0E14")),
-            React.createElement(OrgTree, { nodes: catNodes, pool: db.teachers, accent: C.primary, mode: "structure", comps: db.competitions, onAddChild: (node) => setForm({ cat, parent: node.id }), onEditTitle: (node) => setForm({ node }), onDelete: (node) => setConfirmNode(node) })));
+            React.createElement(OrgTree, { nodes: catNodes, pool: db.teachers, accent: C.primary, mode: "structure", comps: db.competitions, onAddChild: (node) => setForm({ cat, parent: node.id }), onEditTitle: (node) => setForm({ node }), onDelete: (node) => setConfirmNode(node), onMove: (node) => setMoveTarget(node), onReorder: (node, dir) => reorder(node, dir), onInsertParent: (node) => setForm({ insertAbove: node, cat: node.cat || "comp" }) })));
     };
     return (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 16 } },
-        React.createElement("div", { style: { fontSize: 12.5, color: C.muted } }, "\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E42\u0E04\u0E23\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E04\u0E23\u0E31\u0E49\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27 (\u0E43\u0E0A\u0E49\u0E23\u0E48\u0E27\u0E21\u0E17\u0E31\u0E49\u0E07\u0E04\u0E23\u0E39\u0E41\u0E25\u0E30\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19) \u00B7 \u0E41\u0E22\u0E01\u0E04\u0E23\u0E39/\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E15\u0E2D\u0E19\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E17\u0E35\u0E48\u0E40\u0E21\u0E19\u0E39 \"\u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23\" \u00B7 \u0E2A\u0E23\u0E49\u0E32\u0E07\u0E41\u0E04\u0E48\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E2A\u0E48\u0E0A\u0E37\u0E48\u0E2D"),
+        React.createElement("div", { style: { fontSize: 12.5, color: C.muted } }, "\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E42\u0E04\u0E23\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E04\u0E23\u0E31\u0E49\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27 (\u0E43\u0E0A\u0E49\u0E23\u0E48\u0E27\u0E21\u0E17\u0E31\u0E49\u0E07\u0E04\u0E23\u0E39\u0E41\u0E25\u0E30\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19) \u00B7 \u0E41\u0E22\u0E01\u0E04\u0E23\u0E39/\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E15\u0E2D\u0E19\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E17\u0E35\u0E48\u0E40\u0E21\u0E19\u0E39 \"\u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23\" \u00B7 \u0E1B\u0E38\u0E48\u0E21\u0E43\u0E19\u0E41\u0E15\u0E48\u0E25\u0E30\u0E01\u0E25\u0E48\u0E2D\u0E07: + \u0E25\u0E39\u0E01\u0E19\u0E49\u0E2D\u0E07 \u00B7 \u0E41\u0E01\u0E49\u0E0A\u0E37\u0E48\u0E2D \u00B7 \u0E41\u0E17\u0E23\u0E01\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32 \u00B7 \u0E22\u0E49\u0E32\u0E22 \u00B7 \u2191\u2193 \u0E2A\u0E25\u0E31\u0E1A\u0E25\u0E33\u0E14\u0E31\u0E1A \u00B7 \u0E25\u0E1A"),
         React.createElement(Card, { style: { padding: 12, background: "#f7f5fc", border: `1px solid ${C.line}` } },
             React.createElement("div", { style: { fontSize: 12.5, color: C.ink, marginBottom: 8 } }, "\u0E16\u0E49\u0E32\u0E40\u0E04\u0E22\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E1C\u0E31\u0E07\u0E04\u0E23\u0E39/\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E41\u0E22\u0E01\u0E01\u0E31\u0E19\u0E44\u0E27\u0E49\u0E01\u0E48\u0E2D\u0E19 \u0E01\u0E14 \"\u0E0B\u0E34\u0E07\u0E01\u0E4C\u0E42\u0E04\u0E23\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\" \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E43\u0E2B\u0E49\u0E17\u0E31\u0E49\u0E07\u0E2A\u0E2D\u0E07\u0E1D\u0E31\u0E48\u0E07\u0E43\u0E0A\u0E49\u0E42\u0E04\u0E23\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19 (\u0E40\u0E01\u0E47\u0E1A\u0E0A\u0E37\u0E48\u0E2D\u0E04\u0E23\u0E39\u0E41\u0E25\u0E30\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E40\u0E14\u0E34\u0E21\u0E15\u0E32\u0E21\u0E25\u0E33\u0E14\u0E31\u0E1A\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07) \u2014 \u0E41\u0E19\u0E30\u0E19\u0E33\u0E2A\u0E33\u0E23\u0E2D\u0E07 JSON \u0E01\u0E48\u0E2D\u0E19"),
             React.createElement(Btn, { small: true, onClick: reconcile }, "\u0E0B\u0E34\u0E07\u0E01\u0E4C\u0E42\u0E04\u0E23\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07 (\u0E04\u0E23\u0E39 \u2194 \u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19)")),
         section("comp", "รายการแข่งขัน"),
         section("act", "รายการกิจกรรม"),
-        form && React.createElement(NodeForm, { node: form.node, dutyList: db.dutyList || [], comps: db.competitions.filter((c) => (c.kind === "แข่งขัน" ? "comp" : "act") === (form.node ? (form.node.cat || "comp") : (form.cat || "comp"))), onClose: () => setForm(null), onSave: (v) => form.node ? editNode(form.node.id, v) : addNode(v, form.cat, form.parent) }),
+        form && React.createElement(NodeForm, { node: form.node, dutyList: db.dutyList || [], comps: db.competitions.filter((c) => (c.kind === "แข่งขัน" ? "comp" : "act") === (form.node ? (form.node.cat || "comp") : (form.cat || "comp"))), onClose: () => setForm(null), onSave: (v) => form.insertAbove ? doInsertParent(form.insertAbove, v) : (form.node ? editNode(form.node.id, v) : addNode(v, form.cat, form.parent)) }),
+        moveTarget && (() => {
+            const bad = descendantIds(db.orgTeacher, moveTarget.id);
+            const opts = db.orgTeacher.filter((n) => (n.cat || "comp") === (moveTarget.cat || "comp") && !bad.has(n.id));
+            return (React.createElement(Modal, { title: `ย้ายตำแหน่ง: ${moveTarget.title}`, onClose: () => setMoveTarget(null) },
+                React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 6 } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E43\u0E2B\u0E21\u0E48 (\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E25\u0E39\u0E01\u0E08\u0E30\u0E22\u0E49\u0E32\u0E22\u0E15\u0E32\u0E21\u0E44\u0E1B\u0E14\u0E49\u0E27\u0E22)"),
+                React.createElement("select", { defaultValue: "", onChange: (e) => { if (e.target.value)
+                        moveNode(moveTarget.id, e.target.value); }, style: { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, background: "#fbfaff", marginBottom: 12 } },
+                    React.createElement("option", { value: "", disabled: true }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E43\u0E2B\u0E21\u0E48 \u2014"),
+                    React.createElement("option", { value: "__root" }, "\u2605 \u0E40\u0E1B\u0E47\u0E19\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E2A\u0E39\u0E07\u0E2A\u0E38\u0E14 (\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32)"),
+                    opts.map((n) => React.createElement("option", { key: n.id, value: n.id }, n.title))),
+                React.createElement(Btn, { variant: "ghost", onClick: () => setMoveTarget(null) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01")));
+        })(),
         confirmNode && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E01\u0E32\u0E23\u0E25\u0E1A", message: `ลบตำแหน่ง "${confirmNode.title}" และตำแหน่งลูกทั้งหมด (ทั้งฝั่งครูและนักเรียน)? เก็บในถังขยะ กู้คืนได้`, onConfirm: () => delNode(confirmNode), onClose: () => setConfirmNode(null) })));
 }
 function OrgEditor({ which, pool, db, setDb, ui }) {
