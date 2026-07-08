@@ -2525,13 +2525,27 @@ function structureData(db, kind) {
     (db.orgStudent || []).forEach((n) => { sBy[n.id] = n; });
     const childrenOf = (pid) => tNodes.filter((n) => (n.parent || null) === (pid || null));
     const roots = tNodes.filter((n) => !n.parent || !byId[n.parent]);
-    const heads = [].concat(...roots.map((r) => childrenOf(r.id)));
     const tName = (node) => { const p = node && db.teachers.find((x) => String(x.id) === String(node.personId)); return p ? `${p.first} ${p.last}` : ""; };
     const sName = (id) => { const sn = sBy[id]; const p = sn && db.students.find((x) => String(x.id) === String(sn.personId)); return p ? `${p.first} ${p.last}${p.grade ? ` (${p.grade}${p.room ? "/" + p.room : ""})` : ""}` : ""; };
     const subtree = (id) => { const out = [id]; const w = (p) => childrenOf(p).forEach((c) => { out.push(c.id); w(c.id); }); w(id); return out; };
+    const kindCompIds = new Set((db.competitions || []).filter((c) => c.kind === kind).map((c) => String(c.id)));
     const compByNode = {};
     (db.competitions || []).filter((c) => c.kind === kind).forEach((c) => { tNodes.filter((n) => String(n.compId) === String(c.id)).forEach((n) => { (compByNode[n.id] = compByNode[n.id] || []).push(c); }); });
-    return { roots, heads, byId, childrenOf, subtree, tName, sName, compByNode };
+    const headIdOf = (n) => (n.parent && byId[n.parent]) ? n.parent : n.id;
+    const headOrder = [];
+    const seenH = new Set();
+    tNodes.forEach((n) => { if (n.compId && kindCompIds.has(String(n.compId))) {
+        const hid = headIdOf(n);
+        if (!seenH.has(hid)) {
+            seenH.add(hid);
+            headOrder.push(hid);
+        }
+    } });
+    const heads = headOrder.map((id) => byId[id]).filter(Boolean);
+    const compsForHead = (headId) => { const out = []; tNodes.forEach((n) => { if (n.compId && kindCompIds.has(String(n.compId)) && headIdOf(n) === headId) {
+        (compByNode[n.id] || []).forEach((c) => out.push({ c, node: n, id: n.id }));
+    } }); return out; };
+    return { roots, heads, byId, childrenOf, subtree, tName, sName, compByNode, compsForHead };
 }
 function buildStructureHTML(db, kind, cols) {
     const esc = (s) => String(s || "").replace(/[&<>]/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[m]));
@@ -2542,20 +2556,16 @@ function buildStructureHTML(db, kind, cols) {
     const box = (inner) => `<div style="border:1px solid #333;padding:6px 8px;margin-bottom:8px;page-break-inside:avoid;break-inside:avoid">${inner}</div>`;
     const colHTML = (h) => {
         let blocks = box(`<div style="font-weight:bold">${esc(h.title)}</div><div>ครู(หัวหน้า): ${esc(D.tName(h)) || dots}</div><div>นักเรียน(หัวหน้า): ${esc(D.sName(h.id)) || dots}</div>`);
-        let has = false;
-        D.subtree(h.id).forEach((id) => {
-            (D.compByNode[id] || []).forEach((c) => {
-                has = true;
-                const node = D.byId[id];
-                const main = selectedNames(db, c, "main"), res = selectedNames(db, c, "reserve");
-                blocks += box(`<div style="font-weight:bold">การแข่งขัน ${esc(c.name)}</div>`
-                    + `<div>ครู(ดูแล): ${esc(D.tName(node)) || dots}</div>`
-                    + `<div>นักเรียน(ดูแล): ${esc(D.sName(id)) || dots}</div>`
-                    + `<div style="font-weight:bold;margin-top:3px">ผู้ผ่านการคัดเลือก ตัวจริง</div>${listL(main)}`
-                    + `<div style="font-weight:bold;margin-top:3px">ผู้ผ่านการคัดเลือก ตัวสำรอง</div>${listL(res)}`);
-            });
+        const comps = D.compsForHead(h.id);
+        comps.forEach(({ c, node, id }) => {
+            const main = selectedNames(db, c, "main"), res = selectedNames(db, c, "reserve");
+            blocks += box(`<div style="font-weight:bold">การแข่งขัน ${esc(c.name)}</div>`
+                + `<div>ครู(ดูแล): ${esc(D.tName(node)) || dots}</div>`
+                + `<div>นักเรียน(ดูแล): ${esc(D.sName(id)) || dots}</div>`
+                + `<div style="font-weight:bold;margin-top:3px">ผู้ผ่านการคัดเลือก ตัวจริง</div>${listL(main)}`
+                + `<div style="font-weight:bold;margin-top:3px">ผู้ผ่านการคัดเลือก ตัวสำรอง</div>${listL(res)}`);
         });
-        if (!has)
+        if (!comps.length)
             blocks += `<div style="color:#999">— ไม่มีรายการ —</div>`;
         return `<td style="padding:0 5px;vertical-align:top;text-align:center;width:${colW}%">${blocks}</td>`;
     };
@@ -2649,7 +2659,7 @@ function excelStructure(db, kind, notify) {
     try {
         const D = structureData(db, kind);
         const aoa = [["หัวหน้าด้าน", "รายการ", "ครู(ดูแล)", "นักเรียน(ดูแล)", "ตัวจริง (ผ่านคัดเลือก)", "ตัวสำรอง (ผ่านคัดเลือก)"]];
-        D.heads.forEach((h) => { D.subtree(h.id).forEach((id) => { (D.compByNode[id] || []).forEach((c) => { const node = D.byId[id]; aoa.push([h.title, c.name, D.tName(node), D.sName(id), selectedNames(db, c, "main").join(", "), selectedNames(db, c, "reserve").join(", ")]); }); }); });
+        D.heads.forEach((h) => { D.compsForHead(h.id).forEach(({ c, node, id }) => { aoa.push([h.title, c.name, D.tName(node), D.sName(id), selectedNames(db, c, "main").join(", "), selectedNames(db, c, "reserve").join(", ")]); }); });
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "โครงสร้าง");
         XLSX.writeFile(wb, `โครงสร้าง${kind}.xlsx`);
