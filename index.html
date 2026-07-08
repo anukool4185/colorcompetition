@@ -1700,12 +1700,11 @@ function DutyManager({ db, setDb, ui }) {
   return (
     <div>
       <PageHead title="หน้าที่ กิจกรรมแข่งขัน" sub="กำหนดรายการหน้าที่ (นำทางระดับผัง) → สร้างโครงผัง → ไปลงชื่อที่เมนู ผังองค์กร" />
-      <Tabs tabs={[{ key: "dutylist", label: "รายการหน้าที่" }, { key: "comp", label: "รายการแข่งขัน" }, { key: "act", label: "รายการกิจกรรม" }, { key: "teacher", label: "โครงสร้างผังครู" }, { key: "student", label: "โครงสร้างผังนักเรียน" }]} active={tab} onChange={setTab} />
+      <Tabs tabs={[{ key: "dutylist", label: "รายการหน้าที่" }, { key: "comp", label: "รายการแข่งขัน" }, { key: "act", label: "รายการกิจกรรม" }, { key: "structure", label: "ผังโครงสร้าง" }]} active={tab} onChange={setTab} />
       {tab === "dutylist" && <DutyListManager db={db} setDb={setDb} ui={ui} />}
-      {tab === "teacher" && <OrgEditor which="orgTeacher" pool={db.teachers} db={db} setDb={setDb} ui={ui} />}
-      {tab === "student" && <OrgEditor which="orgStudent" pool={db.students} db={db} setDb={setDb} ui={ui} />}
       {tab === "comp" && <CompTable kind="แข่งขัน" db={db} setDb={setDb} ui={ui} />}
       {tab === "act" && <CompTable kind="กิจกรรม" db={db} setDb={setDb} ui={ui} />}
+      {tab === "structure" && <OrgStructureEditor db={db} setDb={setDb} ui={ui} />}
     </div>
   );
 }
@@ -1866,6 +1865,7 @@ function OrgViewManager({ db, setDb, ui, editable, committee }) {
   const [view, setView] = useState("teacher"); // combined | teacher | student
   const [assign, setAssign] = useState(null);
   const [confirmWd, setConfirmWd] = useState(null);
+  const [confirmIn, setConfirmIn] = useState(null);
   const which = view === "teacher" ? "orgTeacher" : "orgStudent";
   const pool = view === "teacher" ? db.teachers : db.students;
   const pickPool = view === "teacher" ? db.teachers.filter((t) => t.user) : db.students.filter((s) => s.committee);
@@ -1882,8 +1882,9 @@ function OrgViewManager({ db, setDb, ui, editable, committee }) {
       setConfirmWd(node);
       return;
     }
-    ui.run("กำลังลงชื่อ...", () => { setDb((p) => ({ ...p, [which]: p[which].map((n) => n.id === node.id ? { ...n, personId: committee.meId } : n) })); setTimeout(() => window.__forceSave && window.__forceSave(), 500); });
+    setConfirmIn(node);
   };
+  const doSignIn = (node) => { ui.run("กำลังลงชื่อ...", () => { setDb((p) => ({ ...p, [which]: p[which].map((n) => n.id === node.id ? { ...n, personId: committee.meId } : n) })); ui.notify("ลงชื่อในตำแหน่งแล้ว"); setTimeout(() => window.__forceSave && window.__forceSave(), 500); }); setConfirmIn(null); };
   const doWithdraw = (node) => { const person = pool.find((x) => x.id === committee.meId); ui.run("กำลังส่งคำร้องขอถอน...", () => { setDb((p) => ({ ...p, orgRequests: [...(p.orgRequests || []), { id: "r" + Date.now() + Math.random().toString(36).slice(2, 5), side: which, nodeId: node.id, personId: committee.meId, name: person ? `${person.first} ${person.last}` : "", title: node.title, compId: node.compId || "", at: Date.now(), status: "pending" }] })); ui.notify("ส่งคำร้องขอถอนชื่อแล้ว รอประธาน/แอดมินอนุญาต"); setTimeout(() => window.__forceSave && window.__forceSave(), 500); }); setConfirmWd(null); };
   const treeMode = editable ? "names" : (canSelf ? "selfsignup" : "view");
   return (
@@ -1903,6 +1904,7 @@ function OrgViewManager({ db, setDb, ui, editable, committee }) {
       )}
       {assign && <SearchPersonPopup title={`ลงชื่อในตำแหน่ง: ${assign.title}`} pool={pickPool} emptyText={`ยังไม่มี${view === "teacher" ? "กรรมการครู" : "กรรมการนักเรียน"} — ตั้งที่ บุคลากร → บัญชีผู้ใช้ ก่อน`} onClose={() => setAssign(null)} onPick={(p) => setPerson(assign.id, p.id)} />}
       {confirmWd && <ConfirmModal title="ยืนยันการขอถอนตัว" message={`ต้องการส่งคำร้องขอถอนชื่อออกจากตำแหน่ง "${confirmWd.title}" ใช่หรือไม่? ประธาน/แอดมินจะเป็นผู้พิจารณาอนุญาต`} confirmLabel="ส่งคำร้องขอถอน" variant="danger" onConfirm={() => doWithdraw(confirmWd)} onClose={() => setConfirmWd(null)} />}
+      {confirmIn && <ConfirmModal title="ยืนยันการลงชื่อ" message={`ต้องการลงชื่อของคุณในตำแหน่ง "${confirmIn.title}"${confirmIn.compId ? ` (ดูแล ${(db.competitions.find((c) => c.id === confirmIn.compId) || {}).name || ""})` : ""} ใช่หรือไม่?`} confirmLabel="ลงชื่อ" onConfirm={() => doSignIn(confirmIn)} onClose={() => setConfirmIn(null)} />}
     </div>
   );
 }
@@ -2051,6 +2053,65 @@ function NodeForm({ node, dutyList, comps, onClose, onSave }) {
       <p style={{ fontSize: 12, color: C.muted, marginTop: 0 }}>ยังไม่ต้องใส่ชื่อคน — ไปลงชื่อที่เมนู "ผังองค์กร"</p>
       <div style={{ display: "flex", gap: 8 }}><Btn onClick={() => onSave({ title, compId })} disabled={!title}>บันทึก</Btn><Btn variant="ghost" onClick={onClose}>ยกเลิก</Btn></div>
     </Modal>
+  );
+}
+function flattenForest(forest) { const out = []; const walk = (arr) => arr.forEach((it) => { out.push(it.node); walk(it.children); }); walk(forest); return out; }
+function OrgStructureEditor({ db, setDb, ui }) {
+  const [form, setForm] = useState(null);
+  const [confirmNode, setConfirmNode] = useState(null);
+  const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 500);
+  const addNode = ({ title, compId }, cat, parent) => ui.run("กำลังเพิ่มตำแหน่ง...", () => {
+    const node = { id: "n" + Date.now() + Math.random().toString(36).slice(2, 5), personId: "", title, compId: compId || "", cat, parent: parent || null };
+    setDb((p) => ({ ...p, orgTeacher: [...p.orgTeacher, { ...node }], orgStudent: [...p.orgStudent, { ...node }] })); setForm(null); save();
+  });
+  const editNode = (nodeId, { title, compId }) => ui.run("กำลังบันทึก...", () => {
+    setDb((p) => ({ ...p, orgTeacher: p.orgTeacher.map((n) => n.id === nodeId ? { ...n, title, compId: compId || "" } : n), orgStudent: p.orgStudent.map((n) => n.id === nodeId ? { ...n, title, compId: compId || "" } : n) })); setForm(null); save();
+  });
+  const delNode = (node) => ui.run("กำลังลบตำแหน่ง...", () => {
+    const all = db.orgTeacher; const toDel = new Set([node.id]); let changed = true;
+    while (changed) { changed = false; all.forEach((n) => { if (n.parent && toDel.has(n.parent) && !toDel.has(n.id)) { toDel.add(n.id); changed = true; } }); }
+    const remT = db.orgTeacher.filter((n) => toDel.has(n.id)); const remS = db.orgStudent.filter((n) => toDel.has(n.id));
+    setDb((p) => ({ ...p, orgTeacher: p.orgTeacher.filter((n) => !toDel.has(n.id)), orgStudent: p.orgStudent.filter((n) => !toDel.has(n.id)), trash: [makeTrash("orgNodes", `ผังครู: ${node.title} (${remT.length})`, remT, { which: "orgTeacher" }), makeTrash("orgNodes", `ผังนักเรียน: ${node.title} (${remS.length})`, remS, { which: "orgStudent" }), ...(p.trash || [])] }));
+    setConfirmNode(null); save();
+  });
+  const reconcile = () => ui.run("กำลังซิงก์โครงสร้าง...", () => {
+    setDb((p) => {
+      const ot = p.orgTeacher || [];
+      const newOS = ot.map((n) => ({ id: n.id, personId: "", title: n.title, compId: n.compId || "", cat: n.cat || "comp", parent: n.parent || null }));
+      ["comp", "act"].forEach((cat) => {
+        const tD = flattenForest(buildForest(ot, cat));
+        const sD = flattenForest(buildForest(p.orgStudent || [], cat));
+        tD.forEach((tn, i) => { const sNode = sD[i]; if (sNode) { const tgt = newOS.find((x) => x.id === tn.id); if (tgt) tgt.personId = sNode.personId || ""; } });
+      });
+      return { ...p, orgStudent: newOS };
+    });
+    ui.notify("ซิงก์แล้ว — ผังนักเรียนใช้โครงเดียวกับครู เก็บชื่อนักเรียนเดิมตามลำดับ"); save();
+  });
+  const section = (cat, label) => {
+    const catNodes = db.orgTeacher.filter((n) => (n.cat || "comp") === cat);
+    return (
+      <Card style={{ padding: 14, overflowX: "auto" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 8 }}>
+          <div style={{ fontWeight: 800, color: C.primaryDark }}>{label} <span style={{ fontSize: 12, fontWeight: 500, color: C.muted }}>({catNodes.length} ตำแหน่ง)</span></div>
+          <Btn small onClick={() => setForm({ cat, parent: null })}>+ เพิ่มหัวหน้าสูงสุด</Btn>
+        </div>
+        <OrgTree nodes={catNodes} pool={db.teachers} accent={C.primary} mode="structure" comps={db.competitions}
+          onAddChild={(node) => setForm({ cat, parent: node.id })} onEditTitle={(node) => setForm({ node })} onDelete={(node) => setConfirmNode(node)} />
+      </Card>
+    );
+  };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ fontSize: 12.5, color: C.muted }}>สร้างโครงสร้างครั้งเดียว (ใช้ร่วมทั้งครูและนักเรียน) · แยกครู/นักเรียนตอนลงชื่อที่เมนู "ผังองค์กร" · สร้างแค่ตำแหน่ง ยังไม่ต้องใส่ชื่อ</div>
+      <Card style={{ padding: 12, background: "#f7f5fc", border: `1px solid ${C.line}` }}>
+        <div style={{ fontSize: 12.5, color: C.ink, marginBottom: 8 }}>ถ้าเคยลงชื่อผังครู/นักเรียนแยกกันไว้ก่อน กด "ซิงก์โครงสร้าง" เพื่อให้ทั้งสองฝั่งใช้โครงเดียวกัน (เก็บชื่อครูและนักเรียนเดิมตามลำดับตำแหน่ง) — แนะนำสำรอง JSON ก่อน</div>
+        <Btn small onClick={reconcile}>ซิงก์โครงสร้าง (ครู ↔ นักเรียน)</Btn>
+      </Card>
+      {section("comp", "รายการแข่งขัน")}
+      {section("act", "รายการกิจกรรม")}
+      {form && <NodeForm node={form.node} dutyList={db.dutyList || []} comps={db.competitions.filter((c) => (c.kind === "แข่งขัน" ? "comp" : "act") === (form.node ? form.node.cat : form.cat))} onClose={() => setForm(null)} onSave={(v) => form.node ? editNode(form.node.id, v) : addNode(v, form.cat, form.parent)} />}
+      {confirmNode && <ConfirmModal title="ยืนยันการลบ" message={`ลบตำแหน่ง "${confirmNode.title}" และตำแหน่งลูกทั้งหมด (ทั้งฝั่งครูและนักเรียน)? เก็บในถังขยะ กู้คืนได้`} onConfirm={() => delNode(confirmNode)} onClose={() => setConfirmNode(null)} />}
+    </div>
   );
 }
 function OrgEditor({ which, pool, db, setDb, ui }) {
