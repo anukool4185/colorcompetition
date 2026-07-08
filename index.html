@@ -2384,6 +2384,13 @@ function orgLineNamed(nodes, nodeId, pool) {
     return ids.map((id) => { const n = (nodes || []).find((x) => x.id === id); const p = n && pool.find((x) => String(x.id) === String(n.personId)); if (!p)
         return null; const gr = p.grade ? ` ${p.grade}${p.room ? "/" + p.room : ""}` : ""; return `${p.first} ${p.last}${gr} (${n.title})`; }).filter(Boolean);
 }
+function CompDisplayTabs({ db, ui }) {
+    const [kind, setKind] = useState("แข่งขัน");
+    return (React.createElement("div", null,
+        React.createElement(PageHead, { title: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19 / \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21", sub: "\u0E14\u0E39\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u00B7 \u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E15\u0E32\u0E21\u0E40\u0E2A\u0E49\u0E19 (\u0E1B\u0E23\u0E30\u0E18\u0E32\u0E19\u2192\u0E1C\u0E39\u0E49\u0E14\u0E39\u0E41\u0E25) \u00B7 \u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07/\u0E15\u0E31\u0E27\u0E2A\u0E33\u0E23\u0E2D\u0E07 \u00B7 \u0E1B\u0E23\u0E34\u0E49\u0E19/PDF/Excel \u0E44\u0E14\u0E49" }),
+        React.createElement(Tabs, { tabs: [{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }], active: kind, onChange: setKind }),
+        React.createElement(CompDisplay, { kind: kind, db: db, ui: ui })));
+}
 function CompDisplay({ kind, db, ui }) {
     const list = db.competitions.filter((c) => c.kind === kind);
     // กรรมการของแต่ละรายการ = ประธานบนสุด → ลงมาถึงผู้ดูแลตำแหน่งที่ผูกรายการนี้
@@ -2986,8 +2993,9 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
         { key: "me", label: "ข้อมูลฉัน", icon: "🪪" },
         { key: "org", label: "ผังองค์กร", icon: "🗂" },
         { key: "select", label: "คัดเลือก", icon: "✅" },
-        { key: "results", label: "ส่งผล", icon: "🏅" },
         { key: "schedule", label: "ตารางแข่ง", icon: "📅" },
+        { key: "items", label: "รายการแข่งขัน", icon: "🏆" },
+        { key: "results", label: "ส่งผล", icon: "🏅" },
         { key: "register", label: "สมัคร", icon: "✍️" },
     ];
     return (React.createElement(Shell, { role: role, nav: nav, view: view, setView: setView, onExit: onExit, ui: ui },
@@ -2997,6 +3005,7 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
         view === "select" && React.createElement(MyDutyScreen, { role: role, meId: meId, db: db, setDb: setDb, ui: ui }),
         view === "results" && React.createElement(ResultsScreen, { db: db, setDb: setDb, ui: ui, restrict: myCompIds, title: "\u0E2A\u0E48\u0E07\u0E1C\u0E25 (\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E09\u0E31\u0E19\u0E14\u0E39\u0E41\u0E25)" }),
         view === "schedule" && React.createElement(CommitteeSchedule, { myCompIds: myCompIds, db: db, ui: ui, me: role === "studentcom" ? db.students.find((s) => s.id === meId) : null }),
+        view === "items" && React.createElement(CompDisplayTabs, { db: db, ui: ui }),
         view === "register" && React.createElement(CommitteeRegister, { myCompIds: myCompIds, db: db, setDb: setDb, ui: ui, role: role, meId: meId })));
 }
 function CommitteeSchedule({ myCompIds, db, ui, me }) {
