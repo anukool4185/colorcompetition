@@ -246,7 +246,8 @@ function HouseDashboard({ db }) {
         return { c, items: withRes.map((p) => ({ s: sById.get(p.sid), r: c.results[p.sid] })) };
     }).filter(Boolean);
     const memberHouses = houses.map((h, i) => ({ h, i })).filter(({ i }) => db.students.some((s) => s.house === i));
-    const grid = (render) => (React.createElement("div", { style: { display: "grid", gap: 10, padding: 10 }, className: "grid-cols-2 md:grid-cols-4" }, memberHouses.map(({ h, i }) => (React.createElement("div", { key: i, style: { border: `1px solid ${h.color}`, borderTop: `4px solid ${h.color}`, borderRadius: 12, padding: 10, background: C.surface, minHeight: 64 } },
+    const cols = Math.max(1, memberHouses.length);
+    const grid = (render) => (React.createElement("div", { style: { display: "grid", gap: 10, padding: 10, gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` } }, memberHouses.map(({ h, i }) => (React.createElement("div", { key: i, style: { border: `1px solid ${h.color}`, borderTop: `4px solid ${h.color}`, borderRadius: 12, padding: 10, background: C.surface, minHeight: 64 } },
         React.createElement("div", { style: { fontWeight: 800, color: h.color, fontSize: 13, marginBottom: 4 } }, h.name),
         render(i))))));
     if (houses.length === 0 || memberHouses.length === 0)
