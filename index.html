@@ -2288,6 +2288,11 @@ function NodeForm({ node, dutyList, comps, onClose, onSave }) {
             React.createElement(Btn, { variant: "ghost", onClick: onClose }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"))));
 }
 function flattenForest(forest) { const out = []; const walk = (arr) => arr.forEach((it) => { out.push(it.node); walk(it.children); }); walk(forest); return out; }
+function syncStudentToTeacher(ot, os) {
+    const sBy = {};
+    (os || []).forEach((n) => { sBy[n.id] = n; });
+    return (ot || []).map((n) => ({ id: n.id, personId: (sBy[n.id] && sBy[n.id].personId) || "", title: n.title, compId: n.compId || "", cat: n.cat || "comp", parent: n.parent || null }));
+}
 function OrgStructureEditor({ db, setDb, ui }) {
     const [form, setForm] = useState(null);
     const [confirmNode, setConfirmNode] = useState(null);
@@ -2302,24 +2307,23 @@ function OrgStructureEditor({ db, setDb, ui }) {
     } return set; };
     const addNode = ({ title, compId }, cat, parent) => ui.run("กำลังเพิ่มตำแหน่ง...", () => {
         const node = { id: "n" + Date.now() + Math.random().toString(36).slice(2, 5), personId: "", title, compId: compId || "", cat, parent: parent || null };
-        setDb((p) => ({ ...p, orgTeacher: [...p.orgTeacher, { ...node }], orgStudent: [...p.orgStudent, { ...node }] }));
+        setDb((p) => { const ot = [...p.orgTeacher, { ...node }]; return { ...p, orgTeacher: ot, orgStudent: syncStudentToTeacher(ot, p.orgStudent) }; });
         setForm(null);
         save();
     });
     const editNode = (nodeId, { title, compId }) => ui.run("กำลังบันทึก...", () => {
-        setDb((p) => ({ ...p, orgTeacher: p.orgTeacher.map((n) => n.id === nodeId ? { ...n, title, compId: compId || "" } : n), orgStudent: p.orgStudent.map((n) => n.id === nodeId ? { ...n, title, compId: compId || "" } : n) }));
+        setDb((p) => { const ot = p.orgTeacher.map((n) => n.id === nodeId ? { ...n, title, compId: compId || "" } : n); return { ...p, orgTeacher: ot, orgStudent: syncStudentToTeacher(ot, p.orgStudent) }; });
         setForm(null);
         save();
     });
     // ย้ายตำแหน่ง (เปลี่ยนหัวหน้า) — ทั้งกิ่ง ทั้งครูและนักเรียน
     const moveNode = (nodeId, val) => ui.run("กำลังย้ายตำแหน่ง...", () => {
         const parent = (!val || val === "__root") ? null : val;
-        setDb((p) => ({ ...p, orgTeacher: p.orgTeacher.map((n) => n.id === nodeId ? { ...n, parent } : n), orgStudent: p.orgStudent.map((n) => n.id === nodeId ? { ...n, parent } : n) }));
+        setDb((p) => { const ot = p.orgTeacher.map((n) => n.id === nodeId ? { ...n, parent } : n); return { ...p, orgTeacher: ot, orgStudent: syncStudentToTeacher(ot, p.orgStudent) }; });
         setMoveTarget(null);
         ui.notify("ย้ายตำแหน่งแล้ว");
         save();
     });
-    // สลับลำดับพี่น้อง (ซ้าย/ขวา) — dir -1 = ก่อนหน้า, 1 = ถัดไป
     const reorder = (node, dir) => ui.run("กำลังจัดลำดับ...", () => {
         const reArr = (arr) => {
             const sibs = arr.filter((n) => (n.parent || null) === (node.parent || null) && (n.cat || "comp") === (node.cat || "comp"));
@@ -2334,14 +2338,13 @@ function OrgStructureEditor({ db, setDb, ui }) {
             [copy[i], copy[j]] = [copy[j], copy[i]];
             return copy;
         };
-        setDb((p) => ({ ...p, orgTeacher: reArr(p.orgTeacher), orgStudent: reArr(p.orgStudent) }));
+        setDb((p) => { const ot = reArr(p.orgTeacher); return { ...p, orgTeacher: ot, orgStudent: syncStudentToTeacher(ot, p.orgStudent) }; });
         save();
     });
-    // แทรกหัวหน้าเหนือตำแหน่ง — สร้างตำแหน่งใหม่คั่นระหว่างตำแหน่งกับหัวหน้าเดิม
     const doInsertParent = (node, { title, compId }) => ui.run("กำลังแทรกหัวหน้า...", () => {
         const npId = "n" + Date.now() + Math.random().toString(36).slice(2, 5);
         const np = { id: npId, personId: "", title, compId: compId || "", cat: node.cat || "comp", parent: node.parent || null };
-        setDb((p) => ({ ...p, orgTeacher: [...p.orgTeacher.map((n) => n.id === node.id ? { ...n, parent: npId } : n), { ...np }], orgStudent: [...p.orgStudent.map((n) => n.id === node.id ? { ...n, parent: npId } : n), { ...np }] }));
+        setDb((p) => { const ot = [...p.orgTeacher.map((n) => n.id === node.id ? { ...n, parent: npId } : n), { ...np }]; return { ...p, orgTeacher: ot, orgStudent: syncStudentToTeacher(ot, p.orgStudent) }; });
         setForm(null);
         ui.notify("แทรกหัวหน้าแล้ว");
         save();
@@ -2359,26 +2362,13 @@ function OrgStructureEditor({ db, setDb, ui }) {
         }
         const remT = db.orgTeacher.filter((n) => toDel.has(n.id));
         const remS = db.orgStudent.filter((n) => toDel.has(n.id));
-        setDb((p) => ({ ...p, orgTeacher: p.orgTeacher.filter((n) => !toDel.has(n.id)), orgStudent: p.orgStudent.filter((n) => !toDel.has(n.id)), trash: [makeTrash("orgNodes", `ผังครู: ${node.title} (${remT.length})`, remT, { which: "orgTeacher" }), makeTrash("orgNodes", `ผังนักเรียน: ${node.title} (${remS.length})`, remS, { which: "orgStudent" }), ...(p.trash || [])] }));
+        setDb((p) => { const ot = p.orgTeacher.filter((n) => !toDel.has(n.id)); return { ...p, orgTeacher: ot, orgStudent: syncStudentToTeacher(ot, p.orgStudent), trash: [makeTrash("orgNodes", `ผังครู: ${node.title} (${remT.length})`, remT, { which: "orgTeacher" }), makeTrash("orgNodes", `ผังนักเรียน: ${node.title} (${remS.length})`, remS, { which: "orgStudent" }), ...(p.trash || [])] }; });
         setConfirmNode(null);
         save();
     });
-    const reconcile = () => ui.run("กำลังซิงก์โครงสร้าง...", () => {
-        setDb((p) => {
-            const ot = p.orgTeacher || [];
-            const newOS = ot.map((n) => ({ id: n.id, personId: "", title: n.title, compId: n.compId || "", cat: n.cat || "comp", parent: n.parent || null }));
-            ["comp", "act"].forEach((cat) => {
-                const tD = flattenForest(buildForest(ot, cat));
-                const sD = flattenForest(buildForest(p.orgStudent || [], cat));
-                tD.forEach((tn, i) => { const sNode = sD[i]; if (sNode) {
-                    const tgt = newOS.find((x) => x.id === tn.id);
-                    if (tgt)
-                        tgt.personId = sNode.personId || "";
-                } });
-            });
-            return { ...p, orgStudent: newOS };
-        });
-        ui.notify("ซิงก์แล้ว — ผังนักเรียนใช้โครงเดียวกับครู เก็บชื่อนักเรียนเดิมตามลำดับ");
+    const reconcile = () => ui.run("กำลังจัดตำแหน่งให้ตรงกัน...", () => {
+        setDb((p) => ({ ...p, orgStudent: syncStudentToTeacher(p.orgTeacher, p.orgStudent) }));
+        ui.notify("จัดตำแหน่งครู↔นักเรียนให้ตรงกันแล้ว (เก็บชื่อนักเรียนเดิมตาม id ตำแหน่ง ไม่เลื่อน)");
         save();
     });
     const section = (cat, label) => {
@@ -2398,8 +2388,8 @@ function OrgStructureEditor({ db, setDb, ui }) {
     return (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 16 } },
         React.createElement("div", { style: { fontSize: 12.5, color: C.muted } }, "\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E42\u0E04\u0E23\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E04\u0E23\u0E31\u0E49\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27 (\u0E43\u0E0A\u0E49\u0E23\u0E48\u0E27\u0E21\u0E17\u0E31\u0E49\u0E07\u0E04\u0E23\u0E39\u0E41\u0E25\u0E30\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19) \u00B7 \u0E41\u0E22\u0E01\u0E04\u0E23\u0E39/\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E15\u0E2D\u0E19\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E17\u0E35\u0E48\u0E40\u0E21\u0E19\u0E39 \"\u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23\" \u00B7 \u0E1B\u0E38\u0E48\u0E21\u0E43\u0E19\u0E41\u0E15\u0E48\u0E25\u0E30\u0E01\u0E25\u0E48\u0E2D\u0E07: + \u0E25\u0E39\u0E01\u0E19\u0E49\u0E2D\u0E07 \u00B7 \u0E41\u0E01\u0E49\u0E0A\u0E37\u0E48\u0E2D \u00B7 \u0E41\u0E17\u0E23\u0E01\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32 \u00B7 \u0E22\u0E49\u0E32\u0E22 \u00B7 \u2191\u2193 \u0E2A\u0E25\u0E31\u0E1A\u0E25\u0E33\u0E14\u0E31\u0E1A \u00B7 \u0E25\u0E1A"),
         React.createElement(Card, { style: { padding: 12, background: "#f7f5fc", border: `1px solid ${C.line}` } },
-            React.createElement("div", { style: { fontSize: 12.5, color: C.ink, marginBottom: 8 } }, "\u0E16\u0E49\u0E32\u0E40\u0E04\u0E22\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E1C\u0E31\u0E07\u0E04\u0E23\u0E39/\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E41\u0E22\u0E01\u0E01\u0E31\u0E19\u0E44\u0E27\u0E49\u0E01\u0E48\u0E2D\u0E19 \u0E01\u0E14 \"\u0E0B\u0E34\u0E07\u0E01\u0E4C\u0E42\u0E04\u0E23\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\" \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E43\u0E2B\u0E49\u0E17\u0E31\u0E49\u0E07\u0E2A\u0E2D\u0E07\u0E1D\u0E31\u0E48\u0E07\u0E43\u0E0A\u0E49\u0E42\u0E04\u0E23\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19 (\u0E40\u0E01\u0E47\u0E1A\u0E0A\u0E37\u0E48\u0E2D\u0E04\u0E23\u0E39\u0E41\u0E25\u0E30\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E40\u0E14\u0E34\u0E21\u0E15\u0E32\u0E21\u0E25\u0E33\u0E14\u0E31\u0E1A\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07) \u2014 \u0E41\u0E19\u0E30\u0E19\u0E33\u0E2A\u0E33\u0E23\u0E2D\u0E07 JSON \u0E01\u0E48\u0E2D\u0E19"),
-            React.createElement(Btn, { small: true, onClick: reconcile }, "\u0E0B\u0E34\u0E07\u0E01\u0E4C\u0E42\u0E04\u0E23\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07 (\u0E04\u0E23\u0E39 \u2194 \u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19)")),
+            React.createElement("div", { style: { fontSize: 12.5, color: C.ink, marginBottom: 8 } }, "\u0E1B\u0E38\u0E48\u0E21\u0E19\u0E35\u0E49\u0E08\u0E31\u0E14\u0E1C\u0E31\u0E07\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E43\u0E2B\u0E49 \"\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A\u0E04\u0E23\u0E39\" \u0E42\u0E14\u0E22\u0E08\u0E31\u0E1A\u0E04\u0E39\u0E48\u0E14\u0E49\u0E27\u0E22 id \u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07 (\u0E40\u0E01\u0E47\u0E1A\u0E0A\u0E37\u0E48\u0E2D\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E40\u0E14\u0E34\u0E21\u0E44\u0E27\u0E49\u0E15\u0E32\u0E21\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07 \u0E44\u0E21\u0E48\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E1B\u0E25\u0E07\u0E1C\u0E34\u0E14\u0E0A\u0E48\u0E2D\u0E07) \u00B7 \u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E17\u0E35\u0E48\u0E04\u0E23\u0E39\u0E21\u0E35\u0E41\u0E15\u0E48\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 \u0E08\u0E30\u0E40\u0E1B\u0E47\u0E19\u0E0A\u0E48\u0E2D\u0E07\u0E27\u0E48\u0E32\u0E07\u0E02\u0E2D\u0E07\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 \u00B7 \u0E1B\u0E01\u0E15\u0E34\u0E44\u0E21\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E14 \u0E40\u0E1E\u0E23\u0E32\u0E30\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E31\u0E14\u0E43\u0E2B\u0E49\u0E15\u0E23\u0E07\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34\u0E17\u0E38\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07\u0E17\u0E35\u0E48\u0E40\u0E1E\u0E34\u0E48\u0E21/\u0E22\u0E49\u0E32\u0E22/\u0E25\u0E1A"),
+            React.createElement(Btn, { small: true, onClick: reconcile }, "\u0E08\u0E31\u0E14\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E04\u0E23\u0E39 \u2194 \u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 \u0E43\u0E2B\u0E49\u0E15\u0E23\u0E07\u0E01\u0E31\u0E19")),
         section("comp", "รายการแข่งขัน"),
         section("act", "รายการกิจกรรม"),
         form && React.createElement(NodeForm, { node: form.node, dutyList: db.dutyList || [], comps: db.competitions.filter((c) => (c.kind === "แข่งขัน" ? "comp" : "act") === (form.node ? (form.node.cat || "comp") : (form.cat || "comp"))), onClose: () => setForm(null), onSave: (v) => form.insertAbove ? doInsertParent(form.insertAbove, v) : (form.node ? editNode(form.node.id, v) : addNode(v, form.cat, form.parent)) }),
