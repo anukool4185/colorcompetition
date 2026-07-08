@@ -2539,26 +2539,25 @@ function buildStructureHTML(db, kind, cols) {
     const D = structureData(db, kind);
     const colW = Math.floor(100 / cols);
     const listL = (arr) => arr.length ? `<div style="text-align:left">${arr.map((n, i) => `${i + 1}. ${esc(n)}`).join("<br>")}</div>` : `<div>-</div>`;
+    const box = (inner) => `<div style="border:1px solid #333;padding:6px 8px;margin-bottom:8px;page-break-inside:avoid;break-inside:avoid">${inner}</div>`;
     const colHTML = (h) => {
-        let blocks = "";
+        let blocks = box(`<div style="font-weight:bold">${esc(h.title)}</div><div>ครู(หัวหน้า): ${esc(D.tName(h)) || dots}</div><div>นักเรียน(หัวหน้า): ${esc(D.sName(h.id)) || dots}</div>`);
+        let has = false;
         D.subtree(h.id).forEach((id) => {
             (D.compByNode[id] || []).forEach((c) => {
+                has = true;
                 const node = D.byId[id];
                 const main = selectedNames(db, c, "main"), res = selectedNames(db, c, "reserve");
-                blocks += `<div style="border-top:1px dashed #999;margin-top:10px;padding-top:6px">`
-                    + `<div style="font-weight:bold">การแข่งขัน ${esc(c.name)}</div>`
+                blocks += box(`<div style="font-weight:bold">การแข่งขัน ${esc(c.name)}</div>`
                     + `<div>ครู(ดูแล): ${esc(D.tName(node)) || dots}</div>`
                     + `<div>นักเรียน(ดูแล): ${esc(D.sName(id)) || dots}</div>`
                     + `<div style="font-weight:bold;margin-top:3px">ผู้ผ่านการคัดเลือก ตัวจริง</div>${listL(main)}`
-                    + `<div style="font-weight:bold;margin-top:3px">ผู้ผ่านการคัดเลือก ตัวสำรอง</div>${listL(res)}`
-                    + `</div>`;
+                    + `<div style="font-weight:bold;margin-top:3px">ผู้ผ่านการคัดเลือก ตัวสำรอง</div>${listL(res)}`);
             });
         });
-        return `<td style="border:1px solid #333;padding:8px;vertical-align:top;text-align:center;width:${colW}%">`
-            + `<div style="font-weight:bold">${esc(h.title)}</div>`
-            + `<div>ครู(หัวหน้า): ${esc(D.tName(h)) || dots}</div>`
-            + `<div>นักเรียน(หัวหน้า): ${esc(D.sName(h.id)) || dots}</div>`
-            + `${blocks || "<div style='color:#999;margin-top:8px'>— ไม่มีรายการ —</div>"}</td>`;
+        if (!has)
+            blocks += `<div style="color:#999">— ไม่มีรายการ —</div>`;
+        return `<td style="padding:0 5px;vertical-align:top;text-align:center;width:${colW}%">${blocks}</td>`;
     };
     const heads = D.heads;
     if (!heads.length)
@@ -2568,12 +2567,51 @@ function buildStructureHTML(db, kind, cols) {
         const chunk = heads.slice(i, i + cols);
         let tds = chunk.map(colHTML).join("");
         for (let k = chunk.length; k < cols; k++)
-            tds += `<td style="border:0;width:${colW}%"></td>`;
+            tds += `<td style="width:${colW}%"></td>`;
         sets += `<table style="border-collapse:collapse;width:100%;table-layout:fixed"><tr style="vertical-align:top">${tds}</tr></table>`;
         if (i + cols < heads.length)
             sets += `<div style="page-break-after:always"></div>`;
     }
     return `<div style="font-family:'TH SarabunPSK','TH Sarabun New','Sarabun',sans-serif;font-size:16pt;line-height:1.25">${sets}</div>`;
+}
+async function pdfStructure(db, kind, layout, notify) {
+    const cols = layout === "l4" ? 4 : 3;
+    const orient = layout === "l4" ? "landscape" : "portrait";
+    if (typeof html2canvas === "undefined" || !window.jspdf) {
+        notify && notify("ต้องเปิดผ่านเว็บจริง (มีอินเทอร์เน็ต)");
+        return;
+    }
+    const holder = document.createElement("div");
+    holder.style.cssText = `position:fixed;left:-99999px;top:0;background:#fff;padding:24px;width:${orient === "landscape" ? 1122 : 794}px`;
+    holder.innerHTML = buildStructureHTML(db, kind, cols);
+    document.body.appendChild(holder);
+    try {
+        const canvas = await html2canvas(holder, { scale: 2, backgroundColor: "#ffffff" });
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ orientation: orient, unit: "mm", format: "a4" });
+        const PW = pdf.internal.pageSize.getWidth(), PH = pdf.internal.pageSize.getHeight();
+        const pageSrcH = Math.floor(canvas.width * (PH / PW));
+        let y = 0, page = 0;
+        while (y < canvas.height) {
+            const sliceH = Math.min(pageSrcH, canvas.height - y);
+            const c2 = document.createElement("canvas");
+            c2.width = canvas.width;
+            c2.height = sliceH;
+            c2.getContext("2d").drawImage(canvas, 0, y, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+            if (page > 0)
+                pdf.addPage();
+            pdf.addImage(c2.toDataURL("image/png"), "PNG", 0, 0, PW, sliceH * (PW / canvas.width));
+            y += sliceH;
+            page++;
+        }
+        pdf.save(`โครงสร้าง${kind}.pdf`);
+    }
+    catch (e) {
+        notify && notify("สร้าง PDF ไม่สำเร็จ — ลองใช้ปุ่มปริ้นแล้ว Save as PDF");
+    }
+    finally {
+        holder.remove();
+    }
 }
 function printStructure(db, kind, layout, notify) {
     const cols = layout === "l4" ? 4 : 3;
@@ -2691,7 +2729,8 @@ function CompDisplay({ kind, db, ui }) {
             React.createElement(Select, { value: docLayout, onChange: setDocLayout },
                 React.createElement("option", { value: "p3" }, "\u0E41\u0E19\u0E27\u0E15\u0E31\u0E49\u0E07 3 \u0E04\u0E2D\u0E25\u0E31\u0E21\u0E19\u0E4C"),
                 React.createElement("option", { value: "l4" }, "\u0E41\u0E19\u0E27\u0E19\u0E2D\u0E19 4 \u0E04\u0E2D\u0E25\u0E31\u0E21\u0E19\u0E4C")),
-            React.createElement(Btn, { small: true, variant: "ghost", onClick: () => printStructure(db, kind, docLayout, ui && ui.notify) }, "\u0E1B\u0E23\u0E34\u0E49\u0E19 / PDF"),
+            React.createElement(Btn, { small: true, variant: "ghost", onClick: () => printStructure(db, kind, docLayout, ui && ui.notify) }, "\u0E1B\u0E23\u0E34\u0E49\u0E19"),
+            React.createElement(Btn, { small: true, variant: "ghost", onClick: () => pdfStructure(db, kind, docLayout, ui && ui.notify) }, "PDF"),
             React.createElement(Btn, { small: true, variant: "ghost", onClick: () => wordStructure(db, kind, docLayout, ui && ui.notify) }, "Word"),
             React.createElement(Btn, { small: true, variant: "ghost", onClick: () => excelStructure(db, kind, ui && ui.notify) }, "Excel")),
         React.createElement("div", { id: areaId, style: { display: "flex", flexDirection: "column", gap: 10 } },
