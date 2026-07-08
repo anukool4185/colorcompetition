@@ -2627,6 +2627,7 @@ function NotificationCenter({ db, setDb, ui, sideFilter, canApprove }) {
   const sideLabel = (s) => s === "orgTeacher" ? "ครู" : "นักเรียน";
   const nodeFilled = (r) => { const n = (db[r.side] || []).find((x) => x.id === r.nodeId); return !!(n && n.personId); };
   const approve = (r) => ui.run("กำลังอนุญาต...", () => { setDb((p) => ({ ...p, [r.side]: p[r.side].map((n) => n.id === r.nodeId ? { ...n, personId: "" } : n), orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, status: "approved" } : x) })); ui.notify("อนุญาตแล้ว — ถอนชื่อออกจากตำแหน่ง"); setTimeout(() => window.__forceSave && window.__forceSave(), 500); });
+  const deny = (r) => ui.run("กำลังปฏิเสธคำร้อง...", () => { setDb((p) => ({ ...p, orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, status: "rejected" } : x) })); ui.notify("ไม่อนุญาตให้ถอน — คงอยู่ตำแหน่งเดิม"); setTimeout(() => window.__forceSave && window.__forceSave(), 500); });
   const del = (r) => ui.run("กำลังลบ...", () => { setDb((p) => ({ ...p, orgRequests: p.orgRequests.filter((x) => x.id !== r.id) })); setTimeout(() => window.__forceSave && window.__forceSave(), 500); });
   const compName = (id) => { const c = db.competitions.find((x) => x.id === id); return c ? c.name : ""; };
   return (
@@ -2646,10 +2647,12 @@ function NotificationCenter({ db, setDb, ui, sideFilter, canApprove }) {
                       {filled ? "● มีคนมาแทนตำแหน่งแล้ว" : "● ตำแหน่งยังว่าง (รอคนมาแทน)"}
                     </div>
                   )}
+                  {r.status === "rejected" && <div style={{ fontSize: 12, fontWeight: 700, marginTop: 6, color: C.muted }}>● ไม่อนุญาตให้ถอน (คงอยู่ตำแหน่งเดิม)</div>}
                 </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {r.status === "pending" && canApprove && <Btn small onClick={() => approve(r)}>อนุญาต</Btn>}
-                  {r.status === "pending" && <span style={{ fontSize: 11.5, color: "#c99a2e", fontWeight: 700, alignSelf: "center" }}>รออนุญาต</span>}
+                  {r.status === "pending" && canApprove && <Btn small variant="danger" onClick={() => deny(r)}>ไม่อนุญาต</Btn>}
+                  {r.status === "pending" && !canApprove && <span style={{ fontSize: 11.5, color: "#c99a2e", fontWeight: 700, alignSelf: "center" }}>รออนุญาต</span>}
                   <Btn small variant="ghost" onClick={() => del(r)}>ลบแจ้งเตือน</Btn>
                 </div>
               </div>
