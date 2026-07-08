@@ -2253,12 +2253,13 @@ function OrgTree({ nodes, pool, accent, mode, comps, onAddChild, onEditTitle, on
                         cc.name) : null; })(),
                     structure && (React.createElement("div", { style: { display: "flex", gap: 4, justifyContent: "center", marginTop: 6, flexWrap: "wrap" } },
                         React.createElement("button", { onClick: () => onAddChild(node), style: mini(C.soft, C.primaryDark) }, "+ \u0E25\u0E39\u0E01\u0E19\u0E49\u0E2D\u0E07"),
-                        React.createElement("button", { onClick: () => onEditTitle(node), style: mini(C.surface, C.muted, C.line) }, "\u0E41\u0E01\u0E49\u0E0A\u0E37\u0E48\u0E2D"),
-                        onInsertParent && React.createElement("button", { onClick: () => onInsertParent(node), style: mini(C.surface, C.muted, C.line) }, "\u0E41\u0E17\u0E23\u0E01\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32"),
-                        onMove && React.createElement("button", { onClick: () => onMove(node), style: mini(C.surface, C.muted, C.line) }, "\u0E22\u0E49\u0E32\u0E22"),
-                        onReorder && React.createElement("button", { onClick: () => onReorder(node, -1), style: mini(C.surface, C.muted, C.line), title: "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E02\u0E36\u0E49\u0E19/\u0E0B\u0E49\u0E32\u0E22" }, "\u2191"),
-                        onReorder && React.createElement("button", { onClick: () => onReorder(node, 1), style: mini(C.surface, C.muted, C.line), title: "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E25\u0E07/\u0E02\u0E27\u0E32" }, "\u2193"),
-                        React.createElement("button", { onClick: () => onDelete(node), style: mini("#fbeeee", "#c0392b", "#eccdcd") }, "\u0E25\u0E1A"))),
+                        React.createElement("button", { onClick: () => onEditTitle(node), style: mini(C.surface, C.muted, C.line) },
+                            "\u0E41\u0E01\u0E49\u0E44\u0E02/\u0E1C\u0E39\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23/button>",
+                            onInsertParent && React.createElement("button", { onClick: () => onInsertParent(node), style: mini(C.surface, C.muted, C.line) }, "\u0E41\u0E17\u0E23\u0E01\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32"),
+                            onMove && React.createElement("button", { onClick: () => onMove(node), style: mini(C.surface, C.muted, C.line) }, "\u0E22\u0E49\u0E32\u0E22"),
+                            onReorder && React.createElement("button", { onClick: () => onReorder(node, -1), style: mini(C.surface, C.muted, C.line), title: "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E02\u0E36\u0E49\u0E19/\u0E0B\u0E49\u0E32\u0E22" }, "\u2191"),
+                            onReorder && React.createElement("button", { onClick: () => onReorder(node, 1), style: mini(C.surface, C.muted, C.line), title: "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E25\u0E07/\u0E02\u0E27\u0E32" }, "\u2193"),
+                            React.createElement("button", { onClick: () => onDelete(node), style: mini("#fbeeee", "#c0392b", "#eccdcd") }, "\u0E25\u0E1A")))),
                     names && p && (React.createElement("div", { style: { display: "flex", gap: 4, justifyContent: "center", marginTop: 6 } },
                         React.createElement("button", { onClick: (e) => { e.stopPropagation(); onAssign(node); }, style: mini(C.soft, C.primaryDark) }, "\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19"),
                         React.createElement("button", { onClick: (e) => { e.stopPropagation(); onClearName(node); }, style: mini("#fbeeee", "#c0392b", "#eccdcd") }, "\u0E25\u0E1A\u0E0A\u0E37\u0E48\u0E2D"))),
@@ -2297,7 +2298,7 @@ function flattenForest(forest) { const out = []; const walk = (arr) => arr.forEa
 function syncStudentToTeacher(ot, os) {
     const sBy = {};
     (os || []).forEach((n) => { sBy[n.id] = n; });
-    return (ot || []).map((n) => ({ id: n.id, personId: (sBy[n.id] && sBy[n.id].personId) || "", title: n.title, compId: n.compId || "", cat: n.cat || "comp", parent: n.parent || null }));
+    return (ot || []).map((n) => ({ id: n.id, personId: (sBy[n.id] && sBy[n.id].personId) || "", title: n.title, compId: n.compId || (sBy[n.id] && sBy[n.id].compId) || "", cat: n.cat || "comp", parent: n.parent || null }));
 }
 function OrgStructureEditor({ db, setDb, ui }) {
     const [form, setForm] = useState(null);
@@ -2479,7 +2480,7 @@ function reqApprovers(db, r) {
     path.forEach((id) => { const n = (db[r.side] || []).find((x) => x.id === id); if (n && n.personId)
         (r.side === "orgTeacher" ? teacherIds : studentIds).add(n.personId); });
     if (r.side === "orgStudent" && r.compId) {
-        (db.orgTeacher || []).filter((n) => n.compId === r.compId).forEach((tn) => {
+        (db.orgTeacher || []).filter((n) => String(n.compId) === String(r.compId)).forEach((tn) => {
             orgPathIds(db.orgTeacher || [], tn.id).forEach((id) => { const n = db.orgTeacher.find((x) => x.id === id); if (n && n.personId)
                 teacherIds.add(n.personId); });
         });
@@ -2491,6 +2492,102 @@ function orgLineNamed(nodes, nodeId, pool) {
     const ids = orgPathIds(nodes, nodeId).slice().reverse();
     return ids.map((id) => { const n = (nodes || []).find((x) => x.id === id); const p = n && pool.find((x) => String(x.id) === String(n.personId)); if (!p)
         return null; const gr = p.grade ? ` ${p.grade}${p.room ? "/" + p.room : ""}` : ""; return `${p.first} ${p.last}${gr} (${n.title})`; }).filter(Boolean);
+}
+function bandOfGrade(g) { return /ม\.(4|5|6)/.test(g || "") ? "ปลาย" : "ต้น"; }
+function compBands(c) { const gs = c.grades || []; if (!gs.length)
+    return ["ต้น", "ปลาย"]; return [...new Set(gs.map(bandOfGrade))]; }
+function structureData(db, kind) {
+    const cat = kind === "แข่งขัน" ? "comp" : "act";
+    const tNodes = (db.orgTeacher || []).filter((n) => (n.cat || "comp") === cat);
+    const byId = {};
+    tNodes.forEach((n) => { byId[n.id] = n; });
+    const sBy = {};
+    (db.orgStudent || []).forEach((n) => { sBy[n.id] = n; });
+    const childrenOf = (pid) => tNodes.filter((n) => (n.parent || null) === (pid || null));
+    const roots = tNodes.filter((n) => !n.parent || !byId[n.parent]);
+    const tName = (n) => { const p = n && db.teachers.find((x) => String(x.id) === String(n.personId)); return p ? `${p.first} ${p.last}` : ""; };
+    const sName = (id) => { const sn = sBy[id]; const p = sn && db.students.find((x) => String(x.id) === String(sn.personId)); return p ? `${p.first} ${p.last}${p.grade ? ` (${p.grade}${p.room ? "/" + p.room : ""})` : ""}` : ""; };
+    const subtree = (id) => { const out = [id]; const w = (p) => childrenOf(p).forEach((c) => { out.push(c.id); w(c.id); }); w(id); return out; };
+    const compByNode = {};
+    (db.competitions || []).filter((c) => c.kind === kind).forEach((c) => { tNodes.filter((n) => String(n.compId) === String(c.id)).forEach((n) => { (compByNode[n.id] = compByNode[n.id] || []).push(c); }); });
+    const partList = (c, sel) => c.participants.filter((x) => x.sel === sel).map((x) => { const s = db.students.find((st) => String(st.id) === String(x.sid)); return s ? `${s.first} ${s.last} (${s.grade || ""}/${s.room || ""})` : null; }).filter(Boolean);
+    return { roots, childrenOf, tName, sName, subtree, byId, compByNode, partList };
+}
+function buildStructureHTML(db, kind) {
+    const D = structureData(db, kind);
+    const heads = [].concat(...D.roots.map((r) => D.childrenOf(r.id)));
+    const esc = (s) => String(s || "").replace(/[&<>]/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[m]));
+    const dots = "................................";
+    const boxTop = D.roots.map((r) => `<td style="border:1px solid #333;padding:6px;vertical-align:top;text-align:center"><b>${esc(r.title)}</b><br>ครู ${esc(D.tName(r)) || dots}<br>นักเรียน ${esc(D.sName(r.id)) || dots}</td>`).join("") || `<td style="padding:6px">(ยังไม่มีผังหัวหน้าสูงสุด)</td>`;
+    const sections = [["ต้น", "ม.ต้น"], ["ปลาย", "ม.ปลาย"]].map(([bk, bl]) => {
+        const cols = heads.map((h) => {
+            let blocks = "";
+            D.subtree(h.id).forEach((id) => {
+                (D.compByNode[id] || []).forEach((c) => {
+                    if (!compBands(c).includes(bk))
+                        return;
+                    const node = D.byId[id];
+                    const main = D.partList(c, "main"), res = D.partList(c, "reserve");
+                    blocks += `<div style="margin-bottom:10px"><div style="color:#b00;font-weight:bold">ผู้รับผิดชอบ${esc(c.name)} (${bl})</div>`
+                        + `<div>ครู ${esc(D.tName(node)) || dots}</div><div>นักเรียน ${esc(D.sName(id)) || dots}</div>`
+                        + `<div style="font-weight:bold;margin-top:3px;color:#c0392b">ผู้เข้าแข่งขันตัวจริง (${bl})</div>`
+                        + (main.length ? main.map((n, i) => `<div>${i + 1}. ${esc(n)}</div>`).join("") : "<div>-</div>")
+                        + `<div style="font-weight:bold;margin-top:3px;color:#2f6fb0">ผู้เข้าแข่งขันตัวสำรอง (${bl})</div>`
+                        + (res.length ? res.map((n, i) => `<div>${i + 1}. ${esc(n)}</div>`).join("") : "<div>-</div>")
+                        + `</div>`;
+                });
+            });
+            return `<td style="border:1px solid #333;padding:6px;vertical-align:top;width:${Math.floor(100 / Math.max(1, heads.length))}%"><div style="text-align:center;font-weight:bold;background:#eee;padding:4px;margin-bottom:6px">${esc(h.title)}<br><span style="font-weight:normal">ครู ${esc(D.tName(h)) || "......"}<br>นักเรียน ${esc(D.sName(h.id)) || "......"}</span></div>${blocks || "<div style='color:#999'>-</div>"}</td>`;
+        }).join("") || `<td style="padding:6px">(ยังไม่มีหัวหน้าด้าน)</td>`;
+        return `<h3 style="text-align:center;margin:6px 0">โครงสร้างของวิชาการสี — ${bl} (${esc(kind)})</h3>`
+            + `<table style="border-collapse:collapse;width:100%;margin-bottom:6px"><tr>${boxTop}</tr></table>`
+            + `<table style="border-collapse:collapse;width:100%;font-size:11px"><tr>${cols}</tr></table>`
+            + `<div style="page-break-after:always"></div>`;
+    }).join("");
+    return `<div style="font-family:'Noto Sans Thai',sans-serif;font-size:12px">${sections}</div>`;
+}
+function printStructure(db, kind, notify) {
+    const w = window.open("", "_blank");
+    if (!w) {
+        notify && notify("เบราว์เซอร์บล็อกหน้าต่าง");
+        return;
+    }
+    w.document.write(`<html><head><meta charset="utf-8"><title>โครงสร้าง${kind}</title><style>@page{size:A4 landscape;margin:8mm}body{margin:0}</style><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet"></head><body>${buildStructureHTML(db, kind)}</body></html>`);
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 500);
+}
+function wordStructure(db, kind, notify) {
+    try {
+        const html = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><!--[if gte mso 9]><xml><w:WordDocument><w:View>Print</w:View></w:WordDocument></xml><![endif]--><style>@page{size:A4 landscape}</style></head><body>${buildStructureHTML(db, kind)}</body></html>`;
+        const blob = new Blob(["\ufeff" + html], { type: "application/msword" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `โครงสร้าง${kind}.doc`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    }
+    catch (e) {
+        notify && notify("ดาวน์โหลด Word ไม่สำเร็จ");
+    }
+}
+function excelStructure(db, kind, notify) {
+    try {
+        const D = structureData(db, kind);
+        const heads = [].concat(...D.roots.map((r) => D.childrenOf(r.id)));
+        const aoa = [["ระดับ", "หัวหน้าด้าน", "รายการ", "ครูผู้รับผิดชอบ", "นักเรียนผู้รับผิดชอบ", "ตัวจริง", "ตัวสำรอง"]];
+        [["ต้น", "ม.ต้น"], ["ปลาย", "ม.ปลาย"]].forEach(([bk, bl]) => { heads.forEach((h) => { D.subtree(h.id).forEach((id) => { (D.compByNode[id] || []).forEach((c) => { if (!compBands(c).includes(bk))
+            return; const node = D.byId[id]; aoa.push([bl, h.title, c.name, D.tName(node), D.sName(id), D.partList(c, "main").join(", "), D.partList(c, "reserve").join(", ")]); }); }); }); });
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "โครงสร้าง");
+        XLSX.writeFile(wb, `โครงสร้าง${kind}.xlsx`);
+    }
+    catch (e) {
+        notify && notify("ดาวน์โหลด Excel ไม่สำเร็จ");
+    }
 }
 function CompDisplayTabs({ db, ui }) {
     const [kind, setKind] = useState("แข่งขัน");
@@ -2553,10 +2650,15 @@ function CompDisplay({ kind, db, ui }) {
             React.createElement("span", { style: { fontSize: 11.5, color: "#c0392b" } }, hint)));
     };
     return (React.createElement("div", null,
-        React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" } },
-            React.createElement(Btn, { small: true, onClick: printTable }, "\u0E1B\u0E23\u0E34\u0E49\u0E19"),
-            React.createElement(Btn, { small: true, variant: "ghost", onClick: () => pdfFromEl(areaId, "portrait", `รายการ${kind}.pdf`, ui && ui.notify) }, "\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 PDF"),
-            React.createElement(Btn, { small: true, variant: "ghost", onClick: exportExcel }, "\u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 Excel")),
+        React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 6, flexWrap: "wrap" } },
+            React.createElement(Btn, { small: true, onClick: printTable }, "\u0E1B\u0E23\u0E34\u0E49\u0E19 (\u0E15\u0E32\u0E23\u0E32\u0E07)"),
+            React.createElement(Btn, { small: true, variant: "ghost", onClick: () => pdfFromEl(areaId, "portrait", `รายการ${kind}.pdf`, ui && ui.notify) }, "PDF (\u0E15\u0E32\u0E23\u0E32\u0E07)"),
+            React.createElement(Btn, { small: true, variant: "ghost", onClick: exportExcel }, "Excel (\u0E15\u0E32\u0E23\u0E32\u0E07)")),
+        React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" } },
+            React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: C.primaryDark } }, "\u0E40\u0E2D\u0E01\u0E2A\u0E32\u0E23\u0E42\u0E04\u0E23\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07 (\u0E15\u0E32\u0E21\u0E1C\u0E31\u0E07 \u00B7 \u0E41\u0E22\u0E01 \u0E21.\u0E15\u0E49\u0E19/\u0E21.\u0E1B\u0E25\u0E32\u0E22):"),
+            React.createElement(Btn, { small: true, variant: "ghost", onClick: () => printStructure(db, kind, ui && ui.notify) }, "\u0E1B\u0E23\u0E34\u0E49\u0E19 / PDF"),
+            React.createElement(Btn, { small: true, variant: "ghost", onClick: () => wordStructure(db, kind, ui && ui.notify) }, "Word"),
+            React.createElement(Btn, { small: true, variant: "ghost", onClick: () => excelStructure(db, kind, ui && ui.notify) }, "Excel")),
         React.createElement("div", { id: areaId, style: { display: "flex", flexDirection: "column", gap: 10 } },
             list.map((c) => (React.createElement(Card, { key: c.id, style: { padding: 14 } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
@@ -2583,11 +2685,43 @@ function CompManager({ db, setDb, ui }) {
         tab === "stats" && React.createElement(ScoreStatsScreen, { db: db, ui: ui }),
         tab === "set" && React.createElement(CompSettings, { db: db, setDb: setDb, ui: ui })));
 }
+function LinkPositionsModal({ comp, cat, db, setDb, ui, onClose }) {
+    const nodes = db.orgTeacher.filter((n) => (n.cat || "comp") === cat);
+    const itemName = (id) => { const c = db.competitions.find((x) => String(x.id) === String(id)); return c ? c.name : ""; };
+    const toggle = (nodeId, checked) => ui.run("กำลังผูกตำแหน่ง...", () => {
+        setDb((p) => { const ot = p.orgTeacher.map((n) => n.id === nodeId ? { ...n, compId: checked ? comp.id : "" } : n); return { ...p, orgTeacher: ot, orgStudent: syncStudentToTeacher(ot, p.orgStudent) }; });
+        setTimeout(() => window.__forceSave && window.__forceSave(), 500);
+    });
+    return (React.createElement(Modal, { title: `ผูกตำแหน่งกรรมการ: ${comp.name}`, onClose: onClose },
+        React.createElement("div", { style: { fontSize: 12, color: C.muted, marginBottom: 10 } },
+            "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E43\u0E19\u0E1C\u0E31\u0E07 (\u0E2B\u0E21\u0E27\u0E14",
+            cat === "comp" ? "แข่งขัน" : "กิจกรรม",
+            ") \u0E17\u0E35\u0E48\u0E14\u0E39\u0E41\u0E25\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49 \u00B7 \u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23 = \u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01 + \u0E2A\u0E32\u0E22\u0E1A\u0E31\u0E07\u0E04\u0E31\u0E1A\u0E1A\u0E31\u0E0D\u0E0A\u0E32\u0E40\u0E2B\u0E19\u0E37\u0E2D\u0E02\u0E36\u0E49\u0E19\u0E44\u0E1B\u0E16\u0E36\u0E07\u0E1B\u0E23\u0E30\u0E18\u0E32\u0E19 \u00B7 1 \u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E14\u0E39\u0E41\u0E25\u0E44\u0E14\u0E49 1 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u00B7 \u0E1C\u0E39\u0E01\u0E17\u0E35\u0E48\u0E1C\u0E31\u0E07\u0E04\u0E23\u0E39 \u0E41\u0E25\u0E49\u0E27\u0E1C\u0E31\u0E07\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19\u0E08\u0E30\u0E14\u0E39\u0E41\u0E25\u0E14\u0E49\u0E27\u0E22\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34"),
+        nodes.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E43\u0E19\u0E1C\u0E31\u0E07\u0E2B\u0E21\u0E27\u0E14\u0E19\u0E35\u0E49 \u2014 \u0E2A\u0E23\u0E49\u0E32\u0E07\u0E17\u0E35\u0E48 \u0E1C\u0E31\u0E07\u0E42\u0E04\u0E23\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07 \u0E01\u0E48\u0E2D\u0E19" }),
+        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6, maxHeight: 360, overflowY: "auto" } }, nodes.map((n) => {
+            const linkedHere = String(n.compId) === String(comp.id);
+            const other = n.compId && !linkedHere ? itemName(n.compId) : "";
+            const tp = db.teachers.find((x) => String(x.id) === String(n.personId));
+            return (React.createElement("label", { key: n.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", border: `1px solid ${linkedHere ? C.primary : C.line}`, borderRadius: 10, background: linkedHere ? C.soft : C.surface, cursor: "pointer" } },
+                React.createElement("input", { type: "checkbox", checked: linkedHere, onChange: (e) => toggle(n.id, e.target.checked), style: { width: 18, height: 18 } }),
+                React.createElement("div", { style: { minWidth: 0 } },
+                    React.createElement("div", { style: { fontWeight: 700, color: C.ink, fontSize: 13 } },
+                        n.title,
+                        tp ? ` · ${tp.first} ${tp.last}` : ""),
+                    other && React.createElement("div", { style: { fontSize: 11, color: "#c0392b" } },
+                        "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E14\u0E39\u0E41\u0E25: ",
+                        other,
+                        " (\u0E15\u0E34\u0E4A\u0E01\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E22\u0E49\u0E32\u0E22\u0E21\u0E32\u0E14\u0E39\u0E41\u0E25\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49\u0E41\u0E17\u0E19)"))));
+        })),
+        React.createElement("div", { style: { marginTop: 12 } },
+            React.createElement(Btn, { onClick: onClose }, "\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E2A\u0E34\u0E49\u0E19"))));
+}
 function CompTable({ kind, db, setDb, ui }) {
     const list = db.competitions.filter((c) => c.kind === kind);
     const [add, setAdd] = useState(false);
     const [edit, setEdit] = useState(null);
     const [judge, setJudge] = useState(null);
+    const [linkComp, setLinkComp] = useState(null);
     const [confirmDel, setConfirmDel] = useState(null);
     const remove = (c) => ui.run("กำลังลบรายการ...", () => { setDb((p) => ({ ...p, competitions: p.competitions.filter((x) => x.id !== c.id), trash: [makeTrash("competition", `รายการ${kind}: ${c.name}`, c), ...(p.trash || [])] })); setConfirmDel(null); });
     const move = (id, dir) => ui.run("กำลังจัดลำดับ...", () => setDb((p) => {
@@ -2639,15 +2773,15 @@ function CompTable({ kind, db, setDb, ui }) {
                         React.createElement("div", { style: { fontSize: 12, color: C.muted } },
                             "\u0E1C\u0E39\u0E49\u0E2A\u0E21\u0E31\u0E04\u0E23 ",
                             c.participants.length,
-                            " \u0E04\u0E19 \u00B7 \u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E04\u0E23\u0E39 ",
-                            (c.judgeTeachers || []).length,
-                            " \u00B7 \u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 ",
-                            (c.judgeStudents || []).length))),
+                            " \u0E04\u0E19 \u00B7 \u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E43\u0E19\u0E1C\u0E31\u0E07\u0E17\u0E35\u0E48\u0E14\u0E39\u0E41\u0E25\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49 ",
+                            (db.orgTeacher || []).filter((n) => String(n.compId) === String(c.id)).length))),
                 React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" } },
+                    React.createElement(Btn, { variant: "soft", small: true, onClick: () => setLinkComp(c) }, "\u0E1C\u0E39\u0E01\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07"),
                     React.createElement(Btn, { variant: "ghost", small: true, onClick: () => setEdit(c) }, "\u0E41\u0E01\u0E49\u0E44\u0E02"),
                     React.createElement(Btn, { variant: "danger", small: true, onClick: () => setConfirmDel(c) }, "\u0E25\u0E1A")))))),
         list.length === 0 && React.createElement(Empty, { text: `ยังไม่มีรายการ${kind}` }),
         (add || edit) && React.createElement(CompForm, { kind: kind, comp: edit, db: db, onClose: () => { setAdd(false); setEdit(null); }, onSave: save }),
+        linkComp && React.createElement(LinkPositionsModal, { comp: linkComp, cat: kind === "แข่งขัน" ? "comp" : "act", db: db, setDb: setDb, ui: ui, onClose: () => setLinkComp(null) }),
         judge && React.createElement(JudgeAssign, { comp: judge, cat: kind === "แข่งขัน" ? "comp" : "act", db: db, setDb: setDb, onClose: () => setJudge(null) }),
         confirmDel && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E01\u0E32\u0E23\u0E25\u0E1A", message: `ลบ "${confirmDel.name}" ? รายการจะถูกเก็บในถังขยะ (กู้คืนได้)`, onConfirm: () => remove(confirmDel), onClose: () => setConfirmDel(null) })));
 }
