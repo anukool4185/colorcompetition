@@ -90,6 +90,7 @@ const seed = {
   orgStudent: [],
   dutyList: [],
   orgRequests: [],
+  training: [],
   competitions: [],
   archived: [],
   trash: [],
@@ -317,6 +318,24 @@ function HouseDashboard({ db }) {
     </div>
   );
 }
+function TrainingBlock({ db }) {
+  const list = (db.training || []).slice().sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+  if (list.length === 0) return null;
+  return (
+    <Card style={{ marginTop: 16 }}>
+      <BlockHead dot="#7a5cc0" title="กำหนดการฝึกซ้อม" />
+      <div style={{ padding: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+        {list.map((t) => (
+          <div key={t.id} style={{ border: `1px solid ${C.line}`, borderLeft: "4px solid #7a5cc0", borderRadius: 10, padding: "8px 12px", background: C.surface }}>
+            <div style={{ fontWeight: 700, color: C.ink, fontSize: 13.5 }}>{t.title}</div>
+            <div style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }}>{t.date || "-"} {t.time ? `· ${t.time}` : ""} {t.place ? `· ${t.place}` : ""}</div>
+            {t.note && <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{t.note}</div>}
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
 function Landing({ onLogin, announce, comps, db }) {
   const [speed, setSpeed] = useState(announce.speed);
   const [showSchedule, setShowSchedule] = useState(false);
@@ -349,6 +368,7 @@ function Landing({ onLogin, announce, comps, db }) {
           <button onClick={() => setShowSchedule(true)} style={{ width: "100%", padding: 12, background: C.soft, color: C.primaryDark, fontWeight: 700, border: "none", cursor: "pointer", fontSize: 14 }}>ดูกำหนดการแข่งขันทุกรายการ →</button>
         </Card>
         {db && <HouseDashboard db={db} />}
+        {db && <TrainingBlock db={db} />}
       </main>
       {showSchedule && (
         <Modal title="กำหนดการแข่งขันทั้งหมด" onClose={() => setShowSchedule(false)} wide>
@@ -2510,15 +2530,58 @@ function ParticipantManager({ comp, db, setDb, ui }) {
     </div>
   );
 }
+function TrainingManager({ db, setDb, ui }) {
+  const list = db.training || [];
+  const [f, setF] = useState({ title: "", date: "", time: "", place: "", note: "" });
+  const [edit, setEdit] = useState(null);
+  const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
+  const save = () => { if (!f.title.trim()) return; ui.run("กำลังบันทึก...", () => { setDb((p) => { const cur = p.training || []; if (edit) return { ...p, training: cur.map((t) => t.id === edit ? { ...t, ...f } : t) }; return { ...p, training: [...cur, { id: "tr" + Date.now(), ...f }] }; }); setF({ title: "", date: "", time: "", place: "", note: "" }); setEdit(null); setTimeout(() => window.__forceSave && window.__forceSave(), 500); }); };
+  const startEdit = (t) => { setEdit(t.id); setF({ title: t.title || "", date: t.date || "", time: t.time || "", place: t.place || "", note: t.note || "" }); };
+  const del = (id) => ui.run("กำลังลบ...", () => { setDb((p) => ({ ...p, training: (p.training || []).filter((t) => t.id !== id) })); setTimeout(() => window.__forceSave && window.__forceSave(), 500); });
+  const sorted = [...list].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+  return (
+    <div style={{ maxWidth: 640 }}>
+      <Card style={{ padding: 16, marginBottom: 14 }}>
+        <div style={{ fontWeight: 700, color: C.ink, marginBottom: 10 }}>{edit ? "แก้ไขกำหนดการฝึกซ้อม" : "เพิ่มกำหนดการฝึกซ้อม"}</div>
+        <Field label="หัวข้อ/รายการฝึกซ้อม" value={f.title} onChange={set("title")} placeholder="เช่น ซ้อมเชียร์รวมสี, ซ้อมกีฬาสี" />
+        <div className="md:grid md:grid-cols-2 md:gap-x-3">
+          <Field label="วันที่" value={f.date} onChange={set("date")} type="date" />
+          <Field label="เวลา" value={f.time} onChange={set("time")} placeholder="เช่น 15:30-17:00" />
+        </div>
+        <Field label="สถานที่" value={f.place} onChange={set("place")} placeholder="เช่น สนามหน้าเสาธง" />
+        <Field label="หมายเหตุ" value={f.note} onChange={set("note")} placeholder="รายละเอียดเพิ่มเติม (ถ้ามี)" />
+        <div style={{ display: "flex", gap: 8 }}>
+          <Btn onClick={save} disabled={!f.title.trim()}>{edit ? "บันทึกการแก้ไข" : "+ เพิ่ม"}</Btn>
+          {edit && <Btn variant="ghost" onClick={() => { setEdit(null); setF({ title: "", date: "", time: "", place: "", note: "" }); }}>ยกเลิก</Btn>}
+        </div>
+      </Card>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {sorted.map((t) => (
+          <Card key={t.id} style={{ padding: 12, display: "flex", alignItems: "flex-start", gap: 10 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, color: C.ink }}>{t.title}</div>
+              <div style={{ fontSize: 12.5, color: C.muted, marginTop: 2 }}>{t.date || "-"} {t.time ? `· ${t.time}` : ""} {t.place ? `· ${t.place}` : ""}</div>
+              {t.note && <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{t.note}</div>}
+            </div>
+            <Btn small variant="ghost" onClick={() => startEdit(t)}>แก้ไข</Btn>
+            <Btn small variant="danger" onClick={() => del(t.id)}>ลบ</Btn>
+          </Card>
+        ))}
+        {list.length === 0 && <Empty text="ยังไม่มีกำหนดการฝึกซ้อม" />}
+      </div>
+    </div>
+  );
+}
 function SettingsManager({ db, setDb, ui }) {
   const [tab, setTab] = useState("theme");
   return (
     <div>
       <PageHead title="ตั้งค่า" sub="ธีมสี & สีทีม · ประชาสัมพันธ์ · กำหนดการแข่งขัน" />
-      <Tabs tabs={[{ key: "theme", label: "ธีม & สีทีม" }, { key: "promo", label: "ประชาสัมพันธ์" }, { key: "schedule", label: "กำหนดการแข่งขัน" }, { key: "score", label: "คะแนน" }]} active={tab} onChange={setTab} />
+      <Tabs tabs={[{ key: "theme", label: "ธีม & สีทีม" }, { key: "promo", label: "ประชาสัมพันธ์" }, { key: "schedule", label: "กำหนดการแข่งขัน" }, { key: "training", label: "กำหนดการฝึกซ้อม" }, { key: "score", label: "คะแนน" }]} active={tab} onChange={setTab} />
       {tab === "theme" && <ThemeCard db={db} setDb={setDb} ui={ui} />}
       {tab === "promo" && <PromoCard db={db} setDb={setDb} ui={ui} />}
       {tab === "schedule" && <ScheduleSettings db={db} setDb={setDb} ui={ui} />}
+      {tab === "training" && <TrainingManager db={db} setDb={setDb} ui={ui} />}
       {tab === "score" && <ScoreSettings db={db} setDb={setDb} ui={ui} />}
     </div>
   );
@@ -3323,6 +3386,7 @@ function mergeDb(loaded) {
     orgStudent: (loaded && loaded.orgStudent) || [],
     dutyList: (loaded && loaded.dutyList) || [],
     orgRequests: (loaded && loaded.orgRequests) || [],
+    training: (loaded && loaded.training) || [],
     archived: (loaded && loaded.archived) || [],
     trash: (loaded && loaded.trash) || [],
     settings: {
