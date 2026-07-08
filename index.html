@@ -287,6 +287,8 @@ function HouseDashboard({ db }) {
     </div>
   );
   if (houses.length === 0) return null;
+  const hasMembers = houses.some((_, i) => db.students.some((s) => s.house === i));
+  if (!hasMembers) return null;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <Card><BlockHead dot="#2f9e6b" title="แข่งวันนี้ (แต่ละสี)" />
