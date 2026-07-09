@@ -2135,10 +2135,21 @@ function OrgViewManager({ db, setDb, ui, editable, committee }) {
         }
         setConfirmIn(node);
     };
-    const doSignIn = (node) => { ui.run("กำลังลงชื่อ...", () => { const apply = (p) => ({ ...p, [which]: p[which].map((n) => n.id === node.id ? { ...n, personId: committee.meId } : n) }); if (window.__commitRemote)
-        window.__commitRemote(apply);
-    else
-        setDb(apply); ui.notify("ลงชื่อในตำแหน่งแล้ว (บันทึกขึ้นส่วนกลาง)"); }); setConfirmIn(null); };
+    const doSignIn = (node) => {
+        const apply = (p) => {
+            const cur = (p[which] || []).find((n) => n.id === node.id);
+            if (cur && cur.personId && String(cur.personId) !== String(committee.meId))
+                return null; // มีคนลงไปก่อนแล้ว → ไม่ทับ
+            return { ...p, [which]: p[which].map((n) => n.id === node.id ? { ...n, personId: committee.meId } : n) };
+        };
+        if (window.__commitRemote)
+            window.__commitRemote(apply, { onAbort: () => ui.notify("⚠ ตำแหน่งนี้มีคนลงชื่อไปก่อนแล้ว — อัปเดตให้แล้ว"), onDone: () => ui.notify("ลงชื่อในตำแหน่งแล้ว ✓") });
+        else {
+            setDb(apply);
+            ui.notify("ลงชื่อในตำแหน่งแล้ว ✓");
+        }
+        setConfirmIn(null);
+    };
     const doWithdraw = (node) => { const person = pool.find((x) => String(x.id) === String(committee.meId)); ui.run("กำลังส่งคำร้องขอถอน...", () => { const apply = (p) => ({ ...p, orgRequests: [...(p.orgRequests || []), { id: "r" + Date.now() + Math.random().toString(36).slice(2, 5), side: which, nodeId: node.id, personId: committee.meId, name: person ? `${person.first} ${person.last}` : "", title: node.title, compId: node.compId || "", at: Date.now(), status: "pending" }] }); if (window.__commitRemote)
         window.__commitRemote(apply);
     else
@@ -4154,9 +4165,18 @@ function App() {
     } clearTimeout(timerRef.current); doSave(); }; // กดเอง: บันทึกเมื่อโหลดสำเร็จแล้วเท่านั้น (กันทับด้วยข้อมูลที่ยังไม่โหลด)
     window.__forceSave = saveNow; // ให้หน้าจอย่อยสั่งบันทึกขึ้น Sheet ทันทีได้
     // อ่านข้อมูลล่าสุดจาก Sheet ก่อน แล้วแก้เฉพาะจุด แล้วบันทึก (กันการลงชื่อ/ถอน/อนุมัติ ของหลายคนทับกัน)
-    window.__commitRemote = (mutator) => {
+    // mutator(latest) คืน db ใหม่ ถ้าคืน null/undefined = ยกเลิก (เช่น ตำแหน่งถูกลงไปแล้ว) จะไม่บันทึกทับ แต่จะอัปเดตหน้าจอเป็นข้อมูลล่าสุด
+    window.__commitRemote = (mutator, opts) => {
+        opts = opts || {};
         if (!API_URL) {
-            setDb(mutator);
+            const next = mutator(dbRef.current);
+            if (next == null) {
+                opts.onAbort && opts.onAbort(dbRef.current);
+            }
+            else {
+                setDb(next);
+                opts.onDone && opts.onDone(next);
+            }
             return;
         }
         fetch(API_URL).then((r) => r.text()).then((t) => {
@@ -4169,13 +4189,25 @@ function App() {
                 latest = dbRef.current;
             }
             const next = mutator(latest);
+            if (next == null) {
+                dbRef.current = latest;
+                loadedRef.current = true;
+                justLoaded.current = true;
+                setDb(latest);
+                opts.onAbort && opts.onAbort(latest);
+                return;
+            }
             dbRef.current = next;
             loadedRef.current = true;
             justLoaded.current = true;
             setDb(next);
             doSave();
-        }).catch(() => { const next = mutator(dbRef.current); dbRef.current = next; setDb(next); if (loadedRef.current)
-            doSave(); });
+            opts.onDone && opts.onDone(next);
+        }).catch(() => { const next = mutator(dbRef.current); if (next == null) {
+            opts.onAbort && opts.onAbort(dbRef.current);
+            return;
+        } dbRef.current = next; setDb(next); if (loadedRef.current)
+            doSave(); opts.onDone && opts.onDone(next); });
     };
     const retryLoad = () => { setSync("loading"); loadData(); };
     // โหลดข้อมูลจาก Google Sheet ตอนเปิดหน้า — ต้องสำเร็จก่อนถึงจะอนุญาตให้ออโต้เซฟ
@@ -4235,7 +4267,7 @@ function App() {
         window.addEventListener("pagehide", flush);
         return () => { window.removeEventListener("beforeunload", flush); window.removeEventListener("pagehide", flush); };
     }, []);
-    // ดึงข้อมูลล่าสุดอัตโนมัติทุก ~12 วิ (เห็นการลงชื่อ/แก้ไขของคนอื่นโดยไม่ต้องรีเฟรช) — ข้ามถ้ากำลังแก้/บันทึกอยู่ กันทับงานที่ยังไม่บันทึก
+    // ดึงข้อมูลล่าสุดอัตโนมัติทุก ~4 วิ (เห็นการลงชื่อ/แก้ไขของคนอื่นเกือบทันที) — ข้ามถ้ากำลังแก้/บันทึกอยู่ กันทับงานที่ยังไม่บันทึก
     useEffect(() => {
         if (!API_URL)
             return;
@@ -4252,7 +4284,7 @@ function App() {
                     setLastSaved(Date.now());
                 }
             }).catch(() => { });
-        }, 12000);
+        }, 4000);
         return () => clearInterval(iv);
     }, []);
     // ธีมสี: แอดมินใช้สีธีมที่ตั้งไว้ · ครู/กรรมการ/นักเรียน ใช้สีทีมของตัวเอง
