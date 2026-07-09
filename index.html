@@ -3801,7 +3801,7 @@ function StudentApp({ db, setDb, onExit, meId }) {
         view === "me" && React.createElement(MyProfile, { me: me, db: db, setDb: setDb, ui: ui }),
         view === "register" && React.createElement(StudentRegister, { me: me, db: db, setDb: setDb, ui: ui }),
         view === "results" && React.createElement(StudentResults, { me: me, db: db, ui: ui }),
-        view === "schedule" && React.createElement(StudentSchedule, { me: me, db: db, ui: ui })));
+        view === "schedule" && React.createElement(StudentAllSchedule, { db: db, ui: ui })));
 }
 function MyProfile({ me, db, setDb, ui }) {
     const rels = ["บิดา", "มารดา", "ปู่", "ย่า", "ตา", "ยาย", "ลุง", "ป้า", "น้า", "อา", "พี่", "ผู้ปกครองอื่น ๆ"];
@@ -3882,17 +3882,10 @@ function StudentRegister({ me, db, setDb, ui }) {
             list.length === 0 && React.createElement(Empty, { text: `ยังไม่มีรายการ${kind}` }))));
 }
 function StudentSchedule({ me, db, ui }) {
-    const [popup, setPopup] = useState(null);
     const mine = db.competitions.filter((c) => c.participants.some((p) => p.sid === me.id));
     const statusText = (c) => { const p = c.participants.find((x) => x.sid === me.id); return p ? (p.sel === "main" ? "ตัวจริง (คัดแล้ว)" : p.sel === "reserve" ? "สำรอง (คัดแล้ว)" : p.status === "main" ? "สมัครตัวจริง" : "สมัครสำรอง") : ""; };
     return (React.createElement("div", null,
-        React.createElement(PageHead, { title: "\u0E15\u0E32\u0E23\u0E32\u0E07\u0E41\u0E02\u0E48\u0E07\u0E02\u0E2D\u0E07\u0E09\u0E31\u0E19", sub: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E09\u0E31\u0E19\u0E2A\u0E21\u0E31\u0E04\u0E23/\u0E16\u0E39\u0E01\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01 \u0E41\u0E25\u0E30\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22" }),
-        React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 14, alignItems: "center", flexWrap: "wrap" } },
-            React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u0E14\u0E39\u0E15\u0E32\u0E23\u0E32\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E2D\u0E37\u0E48\u0E19:"),
-            React.createElement(Select, { value: "", onChange: (v) => { const c = db.competitions.find((x) => x.id === v); if (c)
-                    setPopup(c); } },
-                React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2014"),
-                db.competitions.map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name)))),
+        React.createElement(PageHead, { title: "\u0E15\u0E32\u0E23\u0E32\u0E07\u0E41\u0E02\u0E48\u0E07\u0E02\u0E2D\u0E07\u0E09\u0E31\u0E19", sub: "\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E09\u0E31\u0E19\u0E2A\u0E21\u0E31\u0E04\u0E23/\u0E16\u0E39\u0E01\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01 \u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22" }),
         React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
             mine.map((c) => (React.createElement(Card, { key: c.id, style: { padding: 14 } },
                 React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" } },
@@ -3915,20 +3908,31 @@ function StudentSchedule({ me, db, ui }) {
                         " ",
                         s.place ? `· ${s.place}` : "")),
                     (!c.schedule || c.schedule.length === 0) && React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22"))))),
-            mine.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E14" })),
-        popup && (React.createElement(Modal, { title: `ตาราง: ${popup.name}`, onClose: () => setPopup(null) },
-            React.createElement("div", { style: { marginBottom: 8 } },
-                React.createElement(ItemStatusBadge, { c: popup })),
-            (popup.schedule || []).map((s, i) => React.createElement("div", { key: i, style: { fontSize: 13, color: C.ink, padding: "6px 0", borderBottom: `1px dashed ${C.line}` } },
-                "\u2022 ",
-                s.round || "นัดหมาย",
-                " \u2014 ",
-                s.date,
-                " ",
-                s.time,
-                " ",
-                s.place ? `· ${s.place}` : "")),
-            (!popup.schedule || popup.schedule.length === 0) && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22" })))));
+            mine.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E14 \u2014 \u0E44\u0E1B\u0E17\u0E35\u0E48\u0E40\u0E21\u0E19\u0E39 \u0E2A\u0E21\u0E31\u0E04\u0E23\u0E41\u0E02\u0E48\u0E07" }))));
+}
+function StudentAllSchedule({ db, ui }) {
+    const [kind, setKind] = useState("แข่งขัน");
+    const list = db.competitions.filter((c) => c.kind === kind);
+    return (React.createElement("div", null,
+        React.createElement(PageHead, { title: "\u0E15\u0E32\u0E23\u0E32\u0E07\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14", sub: "\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u0E40\u0E23\u0E35\u0E22\u0E07\u0E25\u0E07\u0E21\u0E32 \u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22" }),
+        React.createElement(Tabs, { tabs: [{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }], active: kind, onChange: setKind }),
+        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
+            list.map((c) => (React.createElement(Card, { key: c.id, style: { padding: 14 } },
+                React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+                    React.createElement("div", { style: { fontWeight: 700, color: C.ink } }, c.name),
+                    React.createElement(ItemStatusBadge, { c: c })),
+                React.createElement("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 5 } },
+                    (c.schedule || []).map((s, i) => React.createElement("div", { key: i, style: { fontSize: 12.5, color: C.ink } },
+                        "\u2022 ",
+                        s.round || "นัดหมาย",
+                        " \u2014 ",
+                        s.date,
+                        " ",
+                        s.time,
+                        " ",
+                        s.place ? `· ${s.place}` : "")),
+                    (!c.schedule || c.schedule.length === 0) && React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22"))))),
+            list.length === 0 && React.createElement(Empty, { text: `ยังไม่มีรายการ${kind}` }))));
 }
 function StudentResults({ me, db, ui }) {
     const cfg = db.settings.scoreConfig || {};
