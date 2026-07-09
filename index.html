@@ -3089,7 +3089,8 @@ function ParticipantManager({ comp, db, setDb, ui }) {
                             React.createElement("div", { style: { fontSize: 11, color: C.muted } },
                                 s.grade,
                                 "/",
-                                s.room))),
+                                s.room,
+                                s.phone ? ` · ☎ ${s.phone}` : ""))),
                     React.createElement("div", { style: { display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" } }, actions(x))));
             }))));
     const selectedMain = P.filter((x) => x.sel === "main");
@@ -3445,7 +3446,31 @@ function CommitteeSchedule({ myCompIds, db, ui, me }) {
                         s.time,
                         " ",
                         s.place ? `· ${s.place}` : "")),
-                    (!c.schedule || c.schedule.length === 0) && React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22"))))),
+                    (!c.schedule || c.schedule.length === 0) && React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22")),
+                ["main", "reserve"].map((val) => {
+                    const arr = c.participants.filter((x) => x.sel === val);
+                    if (!arr.length)
+                        return null;
+                    return (React.createElement("div", { key: val, style: { marginTop: 8 } },
+                        React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: val === "main" ? "#c0392b" : "#2f6fb0" } },
+                            "\u0E1C\u0E39\u0E49\u0E1C\u0E48\u0E32\u0E19\u0E01\u0E32\u0E23\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01 \u2014 ",
+                            val === "main" ? "ตัวจริง" : "ตัวสำรอง"),
+                        arr.map((x, i) => { const s = db.students.find((st) => String(st.id) === String(x.sid)); if (!s)
+                            return null; return React.createElement("div", { key: x.sid, style: { fontSize: 12, color: C.ink } },
+                            i + 1,
+                            ". ",
+                            s.first,
+                            " ",
+                            s.last,
+                            " ",
+                            React.createElement("span", { style: { color: C.muted } },
+                                "(",
+                                s.grade,
+                                "/",
+                                s.room,
+                                ")",
+                                s.phone ? ` · ☎ ${s.phone}` : "")); })));
+                })))),
             mine.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E21\u0E2D\u0E1A\u0E2B\u0E21\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23" })),
         popup && (React.createElement(Modal, { title: `ตาราง: ${popup.name}`, onClose: () => setPopup(null) },
             React.createElement("div", { style: { marginBottom: 8 } },
