@@ -337,6 +337,29 @@ function TrainingBlock({ db }) {
                 t.place ? `· ${t.place}` : ""),
             t.note && React.createElement("div", { style: { fontSize: 12, color: C.muted, marginTop: 2 } }, t.note)))))));
 }
+function CompTrainingBlock({ db }) {
+    const withT = (db.competitions || []).filter((c) => (c.training || []).length > 0);
+    if (!withT.length)
+        return null;
+    return (React.createElement(Card, { style: { marginTop: 16 } },
+        React.createElement(BlockHead, { dot: "#2f9e6b", title: "\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21 (\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)" }),
+        React.createElement("div", { style: { padding: 10, display: "flex", flexDirection: "column", gap: 10 } }, withT.map((c) => (React.createElement("div", { key: c.id, style: { border: `1px solid ${C.line}`, borderLeft: "4px solid #2f9e6b", borderRadius: 10, padding: "8px 12px", background: C.surface } },
+            React.createElement("div", { style: { fontWeight: 700, color: C.ink, fontSize: 13.5 } },
+                c.name,
+                " ",
+                React.createElement("span", { style: { fontSize: 11, color: C.muted, fontWeight: 500 } },
+                    "(",
+                    c.kind,
+                    ")")),
+            trainingSorted(c).map((t) => React.createElement("div", { key: t.id, style: { fontSize: 12.5, color: C.muted, marginTop: 2 } },
+                "\uD83D\uDCC5 ",
+                t.date,
+                " ",
+                t.time ? `· ${t.time}` : "",
+                " ",
+                t.place ? `· ${t.place}` : "",
+                t.note ? ` · ${t.note}` : ""))))))));
+}
 function Landing({ onLogin, announce, comps, db }) {
     const [speed, setSpeed] = useState(announce.speed);
     const [showSchedule, setShowSchedule] = useState(false);
@@ -361,7 +384,8 @@ function Landing({ onLogin, announce, comps, db }) {
                         "\u2022 ",
                         n)))),
                 React.createElement("button", { onClick: () => setShowSchedule(true), style: { width: "100%", padding: 12, background: C.soft, color: C.primaryDark, fontWeight: 700, border: "none", cursor: "pointer", fontSize: 14 } }, "\u0E14\u0E39\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2192")),
-            db && React.createElement(HouseDashboard, { db: db })),
+            db && React.createElement(HouseDashboard, { db: db }),
+            db && React.createElement(CompTrainingBlock, { db: db })),
         showSchedule && (React.createElement(Modal, { title: "\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14", onClose: () => setShowSchedule(false), wide: true },
             allSch.map((s, i) => React.createElement(SchRow, { key: i, s: s, status: "\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23" })),
             allSch.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23" })))));
@@ -2198,7 +2222,7 @@ function OrgViewManager({ db, setDb, ui, editable, committee }) {
                     canSelf ? " · ลงชื่อฉันในช่องว่างได้" : ""),
                 React.createElement(OrgTree, { nodes: nodes, pool: pool, accent: view === "teacher" ? C.primary : C.gold, mode: treeMode, comps: db.competitions, horiz: horiz, spacing: spacing, meId: committee ? committee.meId : undefined, pendingIds: (db.orgRequests || []).filter((r) => r.side === which && r.status === "pending").map((r) => r.nodeId), onAssign: (node) => setAssign(node), onClearName: clearName, onSelfAssign: selfAssign })))),
         assign && React.createElement(SearchPersonPopup, { title: `ลงชื่อในตำแหน่ง: ${assign.title}`, pool: pickPool, emptyText: `ยังไม่มี${view === "teacher" ? "กรรมการครู" : "กรรมการนักเรียน"} — ตั้งที่ บุคลากร → บัญชีผู้ใช้ ก่อน`, onClose: () => setAssign(null), onPick: (p) => setPerson(assign.id, p.id) }),
-        wdPick && React.createElement(ReplacementPicker, { title: `ขอถอนจากตำแหน่ง "${wdPick.title}" — เลือกผู้มาแทน`, note: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E04\u0E19\u0E17\u0E35\u0E48\u0E08\u0E30\u0E21\u0E32\u0E41\u0E17\u0E19\u0E04\u0E38\u0E13 \u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19\u0E43\u0E2B\u0E49\u0E40\u0E02\u0E32\u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A \u0E41\u0E25\u0E30\u0E41\u0E08\u0E49\u0E07\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E15\u0E32\u0E21\u0E2A\u0E32\u0E22\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15 (\u0E0A\u0E37\u0E48\u0E2D\u0E04\u0E38\u0E13\u0E08\u0E30\u0E22\u0E31\u0E07\u0E2D\u0E22\u0E39\u0E48\u0E08\u0E19\u0E01\u0E27\u0E48\u0E32\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A \u0E2B\u0E23\u0E37\u0E2D\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15)", pool: pool.filter((x) => String(x.id) !== String(committee.meId)), onPick: (s) => doWithdraw(wdPick, s), onClose: () => setWdPick(null) }),
+        wdPick && React.createElement(ReplacementPicker, { title: `ขอถอนจากตำแหน่ง "${wdPick.title}" — เลือกผู้มาแทน`, note: "\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 \u00B7 \u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19\u0E43\u0E2B\u0E49\u0E40\u0E02\u0E32\u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A \u0E41\u0E25\u0E30\u0E41\u0E08\u0E49\u0E07\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E15\u0E32\u0E21\u0E2A\u0E32\u0E22\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15 (\u0E0A\u0E37\u0E48\u0E2D\u0E04\u0E38\u0E13\u0E08\u0E30\u0E22\u0E31\u0E07\u0E2D\u0E22\u0E39\u0E48\u0E08\u0E19\u0E01\u0E27\u0E48\u0E32\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A \u0E2B\u0E23\u0E37\u0E2D\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15)", pool: pool.filter((x) => String(x.id) !== String(committee.meId) && (which === "orgStudent" ? x.committee : true)), onPick: (s) => doWithdraw(wdPick, s), onClose: () => setWdPick(null) }),
         confirmIn && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E01\u0E32\u0E23\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D", message: `ต้องการลงชื่อของคุณในตำแหน่ง "${confirmIn.title}"${confirmIn.compId ? ` (ดูแล ${(db.competitions.find((c) => c.id === confirmIn.compId) || {}).name || ""})` : ""} ใช่หรือไม่?`, confirmLabel: "\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D", onConfirm: () => doSignIn(confirmIn), onClose: () => setConfirmIn(null) })));
 }
 function OrgManager({ db, setDb, ui, editable }) {
@@ -3343,7 +3367,7 @@ function NotificationCenter({ db, setDb, ui, admin, viewerId, viewerRole }) {
     const isRequester = (r) => viewerId != null && String(r.personId) === String(viewerId);
     const [approvePick, setApprovePick] = useState(null);
     // ผู้มาแทนกดยอมรับ → เข้าแทนตำแหน่งทันที (ถ้ายังไม่มีใครมาก่อน)
-    const accept = (r) => ui.run("กำลังยอมรับ...", () => { const apply = (p) => ({ ...p, [r.side]: p[r.side].map((n) => n.id === r.nodeId ? { ...n, personId: r.replacementId } : n), orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, status: "approved", replacementStatus: "accepted" } : x) }); if (window.__commitRemote)
+    const accept = (r) => ui.run("กำลังยอมรับ...", () => { const apply = (p) => ({ ...p, [r.side]: p[r.side].map((n) => n.id === r.nodeId ? { ...n, personId: r.replacementId } : n), orgRequests: p.orgRequests.filter((x) => x.id !== r.id) }); if (window.__commitRemote)
         window.__commitRemote(apply);
     else
         setDb(apply); ui.notify("ยอมรับและเข้าแทนตำแหน่งแล้ว ✓"); });
@@ -3352,14 +3376,14 @@ function NotificationCenter({ db, setDb, ui, admin, viewerId, viewerRole }) {
     else
         setDb(apply); ui.notify("ปฏิเสธการมาแทนแล้ว — แจ้งผู้ขอและหัวหน้า"); });
     // หัวหน้า/แอดมินกดอนุญาต → ต้องเลือกผู้มาแทนก่อน แล้วจึงถอนผู้ขอออก
-    const doApprove = (r, rep) => ui.run("กำลังอนุญาต...", () => { const rid = rep.id || rep.user || ""; const apply = (p) => ({ ...p, [r.side]: p[r.side].map((n) => n.id === r.nodeId ? { ...n, personId: rid } : n), orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, status: "approved", replacementStatus: "accepted", replacementId: rid, replacementName: fullName(rep) } : x) }); if (window.__commitRemote)
+    const doApprove = (r, rep) => ui.run("กำลังอนุญาต...", () => { const rid = rep.id || rep.user || ""; const apply = (p) => ({ ...p, [r.side]: p[r.side].map((n) => n.id === r.nodeId ? { ...n, personId: rid } : n), orgRequests: p.orgRequests.filter((x) => x.id !== r.id) }); if (window.__commitRemote)
         window.__commitRemote(apply);
     else
         setDb(apply); ui.notify("อนุญาต + ตั้งผู้มาแทนแล้ว ✓"); setApprovePick(null); });
-    const deny = (r) => ui.run("กำลังปฏิเสธคำร้อง...", () => { const apply = (p) => ({ ...p, orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, status: "rejected" } : x) }); if (window.__commitRemote)
+    const deny = (r) => ui.run("กำลังปฏิเสธคำร้อง...", () => { const apply = (p) => ({ ...p, orgRequests: p.orgRequests.filter((x) => x.id !== r.id) }); if (window.__commitRemote)
         window.__commitRemote(apply);
     else
-        setDb(apply); ui.notify("ไม่อนุญาต — คงชื่อเดิม และแจ้งกลับผู้ขอแล้ว"); });
+        setDb(apply); ui.notify("ไม่อนุญาต — คงชื่อเดิม และลบแจ้งเตือนนี้ให้ทุกคน"); });
     const del = (r) => ui.run("กำลังลบ...", () => { const apply = (p) => ({ ...p, orgRequests: p.orgRequests.filter((x) => x.id !== r.id) }); if (window.__commitRemote)
         window.__commitRemote(apply);
     else
@@ -3382,13 +3406,6 @@ function NotificationCenter({ db, setDb, ui, admin, viewerId, viewerRole }) {
                                 " \u00B7 \u0E1D\u0E31\u0E48\u0E07",
                                 sideLabel(r.side),
                                 r.compId ? ` · ▹ ${compName(r.compId)}` : ""),
-                            (() => { const pool = r.side === "orgStudent" ? db.students : db.teachers; const s = pool.find((x) => String(x.id) === String(r.personId)); if (!s)
-                                return null; return React.createElement("div", { style: { fontSize: 12.5, color: C.ink, marginTop: 3 } },
-                                "\u0E15\u0E34\u0E14\u0E15\u0E48\u0E2D: ",
-                                s.grade ? `${s.grade}/${s.room || ""} · ` : "",
-                                s.phone ? React.createElement("a", { href: `tel:${s.phone}`, style: { color: C.primary, textDecoration: "none", fontWeight: 700 } },
-                                    "\u260E ",
-                                    s.phone) : React.createElement("span", { style: { color: C.muted } }, "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23")); })(),
                             (() => { const s = personOf(r.side, r.personId); if (!s)
                                 return null; return React.createElement("div", { style: { fontSize: 12.5, color: C.ink, marginTop: 3 } },
                                 "\u0E1C\u0E39\u0E49\u0E02\u0E2D: ",
@@ -3396,19 +3413,14 @@ function NotificationCenter({ db, setDb, ui, admin, viewerId, viewerRole }) {
                                 s.phone ? React.createElement("a", { href: `tel:${s.phone}`, style: { color: C.primary, textDecoration: "none", fontWeight: 700 } },
                                     "\u260E ",
                                     s.phone) : React.createElement("span", { style: { color: C.muted } }, "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23")); })(),
-                            r.replacementName && (() => { const rep = personOf(r.side, r.replacementId); const st = r.replacementStatus === "accepted" ? "✓ ยอมรับแล้ว" : r.replacementStatus === "declined" ? "✗ ปฏิเสธ" : "… รอยอมรับ"; const stc = r.replacementStatus === "accepted" ? "#2f9e6b" : r.replacementStatus === "declined" ? "#c0392b" : "#c99a2e"; return React.createElement("div", { style: { fontSize: 12.5, color: C.ink, marginTop: 3 } },
+                            r.replacementName && (() => { const st = r.replacementStatus === "accepted" ? "ยอมรับแล้ว" : r.replacementStatus === "declined" ? "ไม่ยอมรับ" : "รอการยอมรับ"; const stc = r.replacementStatus === "accepted" ? "#2f9e6b" : r.replacementStatus === "declined" ? "#c0392b" : "#c99a2e"; return React.createElement("div", { style: { fontSize: 12.5, color: C.ink, marginTop: 3 } },
                                 "\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E17\u0E35\u0E48\u0E40\u0E2A\u0E19\u0E2D: ",
                                 React.createElement("b", null, r.replacementName),
                                 " ",
                                 React.createElement("span", { style: { color: stc, fontWeight: 700 } },
                                     "(",
                                     st,
-                                    ")"),
-                                rep && rep.phone ? React.createElement(React.Fragment, null,
-                                    " \u00B7 ",
-                                    React.createElement("a", { href: `tel:${rep.phone}`, style: { color: C.primary, textDecoration: "none", fontWeight: 700 } },
-                                        "\u260E ",
-                                        rep.phone)) : ""); })(),
+                                    ")")); })(),
                             r.status === "approved" && (React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginTop: 6, color: filled ? "#2f9e6b" : "#c0392b" } }, filled ? "● มีคนมาแทนตำแหน่งแล้ว" : "● ตำแหน่งยังว่าง (รอคนมาแทน)")),
                             r.status === "rejected" && React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginTop: 6, color: C.muted } },
                                 "\u25CF \u0E44\u0E21\u0E48\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15\u0E43\u0E2B\u0E49\u0E16\u0E2D\u0E19 (\u0E04\u0E07\u0E2D\u0E22\u0E39\u0E48\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E40\u0E14\u0E34\u0E21)",
@@ -3422,7 +3434,7 @@ function NotificationCenter({ db, setDb, ui, admin, viewerId, viewerRole }) {
                             React.createElement(Btn, { small: true, variant: "ghost", onClick: () => del(r) }, "\u0E25\u0E1A\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19")))));
             }),
             reqs.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E33\u0E23\u0E49\u0E2D\u0E07/\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19" })),
-        approvePick && React.createElement(ReplacementPicker, { title: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E01\u0E48\u0E2D\u0E19\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15", note: "\u0E15\u0E49\u0E2D\u0E07\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E01\u0E48\u0E2D\u0E19 \u0E08\u0E36\u0E07\u0E08\u0E30\u0E16\u0E2D\u0E19\u0E1C\u0E39\u0E49\u0E02\u0E2D\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E44\u0E14\u0E49 (\u0E41\u0E19\u0E30\u0E19\u0E33\u0E1C\u0E39\u0E49\u0E17\u0E35\u0E48\u0E1C\u0E39\u0E49\u0E02\u0E2D\u0E40\u0E2A\u0E19\u0E2D \u0E2B\u0E23\u0E37\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E43\u0E2B\u0E21\u0E48)", pool: (approvePick.side === "orgStudent" ? db.students : db.teachers).filter((x) => String(x.id) !== String(approvePick.personId)), onPick: (s) => doApprove(approvePick, s), onClose: () => setApprovePick(null) })));
+        approvePick && React.createElement(ReplacementPicker, { title: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E01\u0E48\u0E2D\u0E19\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15", note: "\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 \u00B7 \u0E15\u0E49\u0E2D\u0E07\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E01\u0E48\u0E2D\u0E19\u0E08\u0E36\u0E07\u0E08\u0E30\u0E16\u0E2D\u0E19\u0E1C\u0E39\u0E49\u0E02\u0E2D\u0E2D\u0E2D\u0E01\u0E44\u0E14\u0E49 (\u0E41\u0E19\u0E30\u0E19\u0E33\u0E1C\u0E39\u0E49\u0E17\u0E35\u0E48\u0E1C\u0E39\u0E49\u0E02\u0E2D\u0E40\u0E2A\u0E19\u0E2D \u0E2B\u0E23\u0E37\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E43\u0E2B\u0E21\u0E48)", pool: (approvePick.side === "orgStudent" ? db.students : db.teachers).filter((x) => String(x.id) !== String(approvePick.personId) && (approvePick.side === "orgStudent" ? x.committee : true)), onPick: (s) => doApprove(approvePick, s), onClose: () => setApprovePick(null) })));
 }
 function CommitteeApp({ role, db, setDb, onExit, meId }) {
     const [view, setView] = useState("me");
@@ -3457,12 +3469,47 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
         view === "org" && React.createElement(OrgViewManager, { db: db, setDb: setDb, ui: ui, committee: { role, meId } }),
         view === "select" && React.createElement(MyDutyScreen, { role: role, meId: meId, db: db, setDb: setDb, ui: ui }),
         view === "results" && React.createElement(ResultsScreen, { db: db, setDb: setDb, ui: ui, restrict: myCompIds, title: "\u0E2A\u0E48\u0E07\u0E1C\u0E25 (\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E09\u0E31\u0E19\u0E14\u0E39\u0E41\u0E25)" }),
-        view === "schedule" && React.createElement(CommitteeSchedule, { myCompIds: myCompIds, db: db, ui: ui, me: role === "studentcom" ? db.students.find((s) => s.id === meId) : null }),
+        view === "schedule" && React.createElement(CommitteeSchedule, { myCompIds: myCompIds, db: db, setDb: setDb, ui: ui, me: role === "studentcom" ? db.students.find((s) => s.id === meId) : null }),
         view === "items" && React.createElement(CompDisplayTabs, { db: db, ui: ui }),
         view === "register" && React.createElement(CommitteeRegister, { myCompIds: myCompIds, db: db, setDb: setDb, ui: ui, role: role, meId: meId })));
 }
-function CommitteeSchedule({ myCompIds, db, ui, me }) {
+function trainingSorted(c) { return (c.training || []).slice().sort((a, b) => ((a.date || "") + (a.time || "")).localeCompare((b.date || "") + (b.time || ""))); }
+function TrainingModal({ comp, db, setDb, ui, onClose }) {
+    const [f, setF] = useState({ date: "", time: "", place: "", note: "" });
+    const list = trainingSorted(comp);
+    const commit = (mut) => { if (window.__commitRemote)
+        window.__commitRemote(mut);
+    else
+        setDb(mut); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
+    const add = () => { if (!f.date) {
+        ui.notify("กรุณาใส่วันที่ฝึกซ้อม");
+        return;
+    } commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, training: [...(c.training || []), { id: "tr" + Date.now() + Math.random().toString(36).slice(2, 5), date: f.date, time: f.time, place: f.place, note: f.note }] } : c) })); setF({ date: "", time: "", place: "", note: "" }); ui.notify("เพิ่มนัดฝึกซ้อมแล้ว"); };
+    const del = (tid) => commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, training: (c.training || []).filter((t) => t.id !== tid) } : c) }));
+    return (React.createElement(Modal, { title: `กำหนดวันฝึกซ้อม: ${comp.name}`, onClose: onClose },
+        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 } },
+            list.map((t) => (React.createElement("div", { key: t.id, style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, border: `1px solid ${C.line}`, borderRadius: 8, padding: "6px 10px" } },
+                React.createElement("div", { style: { fontSize: 12.5, color: C.ink } },
+                    "\uD83D\uDCC5 ",
+                    t.date,
+                    " ",
+                    t.time,
+                    " ",
+                    t.place ? `· ${t.place}` : "",
+                    t.note ? ` · ${t.note}` : ""),
+                React.createElement("button", { onClick: () => del(t.id), style: { background: "#fbeeee", color: "#c0392b", border: "1px solid #eccdcd", borderRadius: 8, padding: "3px 10px", fontSize: 12, cursor: "pointer" } }, "\u0E25\u0E1A")))),
+            list.length === 0 && React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E14\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21")),
+        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
+            React.createElement(Field, { label: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21", type: "date", value: f.date, onChange: (v) => setF({ ...f, date: v }) }),
+            React.createElement(Field, { label: "\u0E40\u0E27\u0E25\u0E32", type: "time", value: f.time, onChange: (v) => setF({ ...f, time: v }) })),
+        React.createElement(Field, { label: "\u0E2A\u0E16\u0E32\u0E19\u0E17\u0E35\u0E48", value: f.place, onChange: (v) => setF({ ...f, place: v }), placeholder: "\u0E40\u0E0A\u0E48\u0E19 \u0E2B\u0E49\u0E2D\u0E07\u0E1B\u0E23\u0E30\u0E0A\u0E38\u0E21 1" }),
+        React.createElement(Field, { label: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", value: f.note, onChange: (v) => setF({ ...f, note: v }), placeholder: "(\u0E44\u0E21\u0E48\u0E1A\u0E31\u0E07\u0E04\u0E31\u0E1A)" }),
+        React.createElement("div", { style: { marginTop: 8 } },
+            React.createElement(Btn, { onClick: add }, "\uFF0B \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E19\u0E31\u0E14\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21"))));
+}
+function CommitteeSchedule({ myCompIds, db, setDb, ui, me }) {
     const [popup, setPopup] = useState(null);
+    const [trainModal, setTrainModal] = useState(null);
     const mine = db.competitions.filter((c) => myCompIds.includes(c.id));
     const cfg = db.settings.scoreConfig || {};
     const myOwn = me ? db.competitions.filter((c) => c.participants.some((p) => p.sid === me.id)) : [];
@@ -3508,55 +3555,70 @@ function CommitteeSchedule({ myCompIds, db, ui, me }) {
             React.createElement(Btn, { small: true, variant: "ghost", onClick: () => pdfFromEl("commSchedArea", "portrait", "ตารางที่ฉันดูแล.pdf", ui && ui.notify) }, "PDF")),
         React.createElement("div", { id: "commSchedArea", style: { display: "flex", flexDirection: "column", gap: 10 } },
             mine.map((c) => (React.createElement(Card, { key: c.id, style: { padding: 14 } },
-                React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" } },
-                    React.createElement("div", { style: { fontWeight: 700, color: C.ink } },
-                        c.name,
-                        " ",
-                        React.createElement("span", { style: { fontSize: 11, color: C.muted, fontWeight: 500 } },
-                            "(",
-                            c.kind,
-                            ")")),
-                    React.createElement(ItemStatusBadge, { c: c })),
-                React.createElement("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 5 } },
-                    (c.schedule || []).map((s, i) => React.createElement("div", { key: i, style: { fontSize: 12.5, color: C.ink } },
-                        "\u2022 ",
-                        s.round || "นัดหมาย",
-                        " \u2014 ",
-                        s.date,
-                        " ",
-                        s.time,
-                        " ",
-                        s.place ? `· ${s.place}` : "")),
-                    (!c.schedule || c.schedule.length === 0) && React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22")),
-                ["main", "reserve"].map((val) => {
-                    const arr = c.participants.filter((x) => x.sel === val);
-                    if (!arr.length)
-                        return null;
-                    return (React.createElement("div", { key: val, style: { marginTop: 8 } },
-                        React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: val === "main" ? "#c0392b" : "#2f6fb0" } },
-                            "\u0E1C\u0E39\u0E49\u0E1C\u0E48\u0E32\u0E19\u0E01\u0E32\u0E23\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01 \u2014 ",
-                            val === "main" ? "ตัวจริง" : "ตัวสำรอง"),
-                        arr.map((x, i) => { const s = db.students.find((st) => String(st.id) === String(x.sid)); if (!s)
-                            return null; return React.createElement("div", { key: x.sid, style: { fontSize: 12, color: C.ink } },
-                            i + 1,
-                            ". ",
-                            s.first,
-                            " ",
-                            s.last,
-                            " ",
-                            React.createElement("span", { style: { color: C.muted } },
-                                "(",
-                                s.grade,
-                                "/",
-                                s.room,
-                                ")"),
-                            s.phone ? React.createElement(React.Fragment, null,
-                                " \u00B7 ",
-                                React.createElement("a", { href: `tel:${s.phone}`, style: { color: C.primary, textDecoration: "none", fontWeight: 700 } },
-                                    "\u260E ",
-                                    s.phone)) : ""); })));
-                })))),
+                React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap" } },
+                    React.createElement("div", { style: { flex: "1 1 300px", minWidth: 0 } },
+                        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+                            React.createElement("div", { style: { fontWeight: 700, color: C.ink } },
+                                c.name,
+                                " ",
+                                React.createElement("span", { style: { fontSize: 11, color: C.muted, fontWeight: 500 } },
+                                    "(",
+                                    c.kind,
+                                    ")")),
+                            React.createElement(ItemStatusBadge, { c: c })),
+                        React.createElement("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 5 } },
+                            (c.schedule || []).map((s, i) => React.createElement("div", { key: i, style: { fontSize: 12.5, color: C.ink } },
+                                "\u2022 ",
+                                s.round || "นัดหมาย",
+                                " \u2014 ",
+                                s.date,
+                                " ",
+                                s.time,
+                                " ",
+                                s.place ? `· ${s.place}` : "")),
+                            (!c.schedule || c.schedule.length === 0) && React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22\u0E41\u0E02\u0E48\u0E07")),
+                        ["main", "reserve"].map((val) => {
+                            const arr = c.participants.filter((x) => x.sel === val);
+                            if (!arr.length)
+                                return null;
+                            return (React.createElement("div", { key: val, style: { marginTop: 8 } },
+                                React.createElement("div", { style: { fontSize: 12, fontWeight: 700, color: val === "main" ? "#c0392b" : "#2f6fb0" } },
+                                    "\u0E1C\u0E39\u0E49\u0E1C\u0E48\u0E32\u0E19\u0E01\u0E32\u0E23\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01 \u2014 ",
+                                    val === "main" ? "ตัวจริง" : "ตัวสำรอง"),
+                                arr.map((x, i) => { const s = db.students.find((st) => String(st.id) === String(x.sid)); if (!s)
+                                    return null; return React.createElement("div", { key: x.sid, style: { fontSize: 12, color: C.ink } },
+                                    i + 1,
+                                    ". ",
+                                    s.first,
+                                    " ",
+                                    s.last,
+                                    " ",
+                                    React.createElement("span", { style: { color: C.muted } },
+                                        "(",
+                                        s.grade,
+                                        "/",
+                                        s.room,
+                                        ")"),
+                                    s.phone ? React.createElement(React.Fragment, null,
+                                        " \u00B7 ",
+                                        React.createElement("a", { href: `tel:${s.phone}`, style: { color: C.primary, textDecoration: "none", fontWeight: 700 } },
+                                            "\u260E ",
+                                            s.phone)) : ""); })));
+                        })),
+                    React.createElement("div", { style: { flex: "0 0 220px", borderLeft: `1px solid ${C.line}`, paddingLeft: 12 } },
+                        React.createElement("div", { style: { fontWeight: 700, color: C.primaryDark, fontSize: 13, marginBottom: 6 } }, "\uD83C\uDFCB \u0E19\u0E31\u0E14\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21"),
+                        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 } },
+                            trainingSorted(c).map((t) => React.createElement("div", { key: t.id, style: { fontSize: 12, color: C.ink } },
+                                "\uD83D\uDCC5 ",
+                                t.date,
+                                " ",
+                                t.time,
+                                t.place ? ` · ${t.place}` : "",
+                                t.note ? ` · ${t.note}` : "")),
+                            trainingSorted(c).length === 0 && React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E14\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21")),
+                        React.createElement(Btn, { small: true, onClick: () => setTrainModal(c) }, "\uFF0B \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E27\u0E31\u0E19\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21")))))),
             mine.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E21\u0E2D\u0E1A\u0E2B\u0E21\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23" })),
+        trainModal && React.createElement(TrainingModal, { comp: db.competitions.find((c) => c.id === trainModal.id) || trainModal, db: db, setDb: setDb, ui: ui, onClose: () => setTrainModal(null) }),
         popup && (React.createElement(Modal, { title: `ตาราง: ${popup.name}`, onClose: () => setPopup(null) },
             React.createElement("div", { style: { marginBottom: 8 } },
                 React.createElement(ItemStatusBadge, { c: popup })),
@@ -4059,7 +4121,31 @@ function StudentSchedule({ me, db, ui }) {
                         " ",
                         s.place ? `· ${s.place}` : "")),
                     (!c.schedule || c.schedule.length === 0) && React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22"))))),
-            mine.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E14 \u2014 \u0E44\u0E1B\u0E17\u0E35\u0E48\u0E40\u0E21\u0E19\u0E39 \u0E2A\u0E21\u0E31\u0E04\u0E23\u0E41\u0E02\u0E48\u0E07" }))));
+            mine.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E14 \u2014 \u0E44\u0E1B\u0E17\u0E35\u0E48\u0E40\u0E21\u0E19\u0E39 \u0E2A\u0E21\u0E31\u0E04\u0E23\u0E41\u0E02\u0E48\u0E07" })),
+        (() => {
+            const rows = [];
+            mine.forEach((c) => trainingSorted(c).forEach((t) => rows.push({ c, t })));
+            rows.sort((a, b) => ((a.t.date || "") + (a.t.time || "")).localeCompare((b.t.date || "") + (b.t.time || "")));
+            return (React.createElement("div", { style: { marginTop: 18 } },
+                React.createElement("div", { style: { fontWeight: 800, color: "#2f9e6b", marginBottom: 8 } }, "\uD83C\uDFCB \u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21\u0E02\u0E2D\u0E07\u0E09\u0E31\u0E19"),
+                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
+                    rows.map(({ c, t }) => (React.createElement(Card, { key: c.id + t.id, style: { padding: "10px 14px" } },
+                        React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: C.ink } },
+                            c.name,
+                            " ",
+                            React.createElement("span", { style: { fontSize: 11, color: C.muted, fontWeight: 500 } },
+                                "(",
+                                c.kind,
+                                ")")),
+                        React.createElement("div", { style: { fontSize: 12.5, color: C.ink, marginTop: 2 } },
+                            "\uD83D\uDCC5 ",
+                            t.date,
+                            " ",
+                            t.time,
+                            t.place ? ` · ${t.place}` : "",
+                            t.note ? ` · ${t.note}` : "")))),
+                    rows.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21" }))));
+        })()));
 }
 function StudentAllSchedule({ db, ui }) {
     const [kind, setKind] = useState("แข่งขัน");
