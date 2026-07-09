@@ -2111,6 +2111,7 @@ function OrgViewManager({ db, setDb, ui, editable, committee }) {
     const [view, setView] = useState("teacher"); // combined | teacher | student
     const [assign, setAssign] = useState(null);
     const [confirmWd, setConfirmWd] = useState(null);
+    const [wdPick, setWdPick] = useState(null);
     const [confirmIn, setConfirmIn] = useState(null);
     const [horiz, setHoriz] = useState(false);
     const [spacing, setSpacing] = useState("normal");
@@ -2132,12 +2133,12 @@ function OrgViewManager({ db, setDb, ui, editable, committee }) {
     const canSelf = committee && view === selfSide;
     const selfAssign = (node, withdraw) => {
         if (withdraw) {
-            const exists = (db.orgRequests || []).some((r) => r.nodeId === node.id && r.personId === committee.meId && r.status === "pending");
+            const exists = (db.orgRequests || []).some((r) => r.nodeId === node.id && String(r.personId) === String(committee.meId) && r.status === "pending");
             if (exists) {
-                ui.notify("ส่งคำร้องแล้ว รอประธาน/แอดมินอนุญาต");
+                ui.notify("ส่งคำร้องแล้ว รอผู้มาแทนยอมรับ หรือหัวหน้าอนุญาต");
                 return;
             }
-            setConfirmWd(node);
+            setWdPick(node);
             return;
         }
         setConfirmIn(node);
@@ -2157,10 +2158,10 @@ function OrgViewManager({ db, setDb, ui, editable, committee }) {
         }
         setConfirmIn(null);
     };
-    const doWithdraw = (node) => { const person = pool.find((x) => String(x.id) === String(committee.meId)); ui.run("กำลังส่งคำร้องขอถอน...", () => { const apply = (p) => ({ ...p, orgRequests: [...(p.orgRequests || []), { id: "r" + Date.now() + Math.random().toString(36).slice(2, 5), side: which, nodeId: node.id, personId: committee.meId, name: person ? `${person.first} ${person.last}` : "", title: node.title, compId: node.compId || "", at: Date.now(), status: "pending" }] }); if (window.__commitRemote)
+    const doWithdraw = (node, rep) => { const person = pool.find((x) => String(x.id) === String(committee.meId)); ui.run("กำลังส่งคำร้องขอถอน...", () => { const apply = (p) => ({ ...p, orgRequests: [...(p.orgRequests || []), { id: "r" + Date.now() + Math.random().toString(36).slice(2, 5), side: which, nodeId: node.id, personId: committee.meId, name: person ? `${person.first} ${person.last}` : "", title: node.title, compId: node.compId || "", replacementId: rep ? (rep.id || rep.user || "") : "", replacementName: rep ? fullName(rep) : "", replacementStatus: "pending", at: Date.now(), status: "pending" }] }); if (window.__commitRemote)
         window.__commitRemote(apply);
     else
-        setDb(apply); ui.notify("ส่งคำร้องขอถอนชื่อแล้ว รอประธาน/แอดมินอนุญาต"); }); setConfirmWd(null); };
+        setDb(apply); ui.notify("ส่งคำร้องแล้ว — เชิญผู้มาแทน + แจ้งหัวหน้าตามสาย"); }); setWdPick(null); };
     const treeMode = editable ? "names" : (canSelf ? "selfsignup" : "view");
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23", sub: editable ? "ผังรวมครู+นักเรียน · หรือลงชื่อในตำแหน่ง (ค้นหาได้ ลงทันที)" : (committee ? "ช่องที่มีชื่อแล้ว = อ่านอย่างเดียว · ช่องว่างฝั่งคุณ = กดลงชื่อฉันได้" : "ดูอย่างเดียว") }),
@@ -2197,7 +2198,7 @@ function OrgViewManager({ db, setDb, ui, editable, committee }) {
                     canSelf ? " · ลงชื่อฉันในช่องว่างได้" : ""),
                 React.createElement(OrgTree, { nodes: nodes, pool: pool, accent: view === "teacher" ? C.primary : C.gold, mode: treeMode, comps: db.competitions, horiz: horiz, spacing: spacing, meId: committee ? committee.meId : undefined, pendingIds: (db.orgRequests || []).filter((r) => r.side === which && r.status === "pending").map((r) => r.nodeId), onAssign: (node) => setAssign(node), onClearName: clearName, onSelfAssign: selfAssign })))),
         assign && React.createElement(SearchPersonPopup, { title: `ลงชื่อในตำแหน่ง: ${assign.title}`, pool: pickPool, emptyText: `ยังไม่มี${view === "teacher" ? "กรรมการครู" : "กรรมการนักเรียน"} — ตั้งที่ บุคลากร → บัญชีผู้ใช้ ก่อน`, onClose: () => setAssign(null), onPick: (p) => setPerson(assign.id, p.id) }),
-        confirmWd && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E01\u0E32\u0E23\u0E02\u0E2D\u0E16\u0E2D\u0E19\u0E15\u0E31\u0E27", message: `ต้องการส่งคำร้องขอถอนชื่อออกจากตำแหน่ง "${confirmWd.title}" ใช่หรือไม่? ประธาน/แอดมินจะเป็นผู้พิจารณาอนุญาต`, confirmLabel: "\u0E2A\u0E48\u0E07\u0E04\u0E33\u0E23\u0E49\u0E2D\u0E07\u0E02\u0E2D\u0E16\u0E2D\u0E19", variant: "danger", onConfirm: () => doWithdraw(confirmWd), onClose: () => setConfirmWd(null) }),
+        wdPick && React.createElement(ReplacementPicker, { title: `ขอถอนจากตำแหน่ง "${wdPick.title}" — เลือกผู้มาแทน`, note: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E04\u0E19\u0E17\u0E35\u0E48\u0E08\u0E30\u0E21\u0E32\u0E41\u0E17\u0E19\u0E04\u0E38\u0E13 \u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19\u0E43\u0E2B\u0E49\u0E40\u0E02\u0E32\u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A \u0E41\u0E25\u0E30\u0E41\u0E08\u0E49\u0E07\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E15\u0E32\u0E21\u0E2A\u0E32\u0E22\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15 (\u0E0A\u0E37\u0E48\u0E2D\u0E04\u0E38\u0E13\u0E08\u0E30\u0E22\u0E31\u0E07\u0E2D\u0E22\u0E39\u0E48\u0E08\u0E19\u0E01\u0E27\u0E48\u0E32\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A \u0E2B\u0E23\u0E37\u0E2D\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15)", pool: pool.filter((x) => String(x.id) !== String(committee.meId)), onPick: (s) => doWithdraw(wdPick, s), onClose: () => setWdPick(null) }),
         confirmIn && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E01\u0E32\u0E23\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D", message: `ต้องการลงชื่อของคุณในตำแหน่ง "${confirmIn.title}"${confirmIn.compId ? ` (ดูแล ${(db.competitions.find((c) => c.id === confirmIn.compId) || {}).name || ""})` : ""} ใช่หรือไม่?`, confirmLabel: "\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D", onConfirm: () => doSignIn(confirmIn), onClose: () => setConfirmIn(null) })));
 }
 function OrgManager({ db, setDb, ui, editable }) {
@@ -3034,6 +3035,28 @@ function SelectionScreen({ db, setDb, ui }) {
         comp ? React.createElement(ParticipantManager, { comp: comp, db: db, setDb: setDb, ui: ui }) : React.createElement(Empty, { text: `ยังไม่มีรายการ${kind}` }),
         addOpen && comp && React.createElement(AddApplicantModal, { comp: comp, db: db, onClose: () => setAddOpen(false), onAdd: (sid, status) => { addStudent(sid, status); } })));
 }
+function ReplacementPicker({ title, note, pool, onPick, onClose }) {
+    const [q, setQ] = useState("");
+    const list = pool.filter((s) => (fullName(s) + (s.id || "")).includes(q));
+    return (React.createElement(Modal, { title: title, onClose: onClose },
+        note && React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 8 } }, note),
+        React.createElement("input", { autoFocus: true, value: q, onChange: (e) => setQ(e.target.value), placeholder: "\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E0A\u0E37\u0E48\u0E2D / \u0E23\u0E2B\u0E31\u0E2A", style: { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, marginBottom: 12, fontSize: 14 } }),
+        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6, maxHeight: 340, overflowY: "auto" } },
+            list.slice(0, 60).map((s) => (React.createElement("div", { key: s.id || s.user, style: { display: "flex", alignItems: "center", gap: 10, padding: 8, borderRadius: 10, border: `1px solid ${C.line}` } },
+                React.createElement(Avatar, { person: s, size: 34 }),
+                React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                    React.createElement("div", { style: { fontSize: 13, fontWeight: 600, color: C.ink } },
+                        fullName(s),
+                        s.id ? React.createElement("span", { style: { fontSize: 11, color: C.muted } },
+                            " (",
+                            s.id,
+                            ")") : ""),
+                    React.createElement("div", { style: { fontSize: 11, color: C.muted } },
+                        s.grade ? `${s.grade}/${s.room || ""} · ` : "",
+                        s.phone || "ไม่มีเบอร์")),
+                React.createElement(Btn, { small: true, onClick: () => onPick(s) }, "\u0E40\u0E25\u0E37\u0E2D\u0E01")))),
+            list.length === 0 && React.createElement("div", { style: { textAlign: "center", color: C.muted, padding: 16, fontSize: 13 } }, "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D"))));
+}
 function AddApplicantModal({ comp, db, onClose, onAdd }) {
     const [q, setQ] = useState("");
     const enrolled = new Set(comp.participants.map((p) => p.sid));
@@ -3312,17 +3335,31 @@ function PromoCard({ db, setDb, ui }) {
 function NotificationCenter({ db, setDb, ui, admin, viewerId, viewerRole }) {
     const canApproveReq = (r) => { if (admin)
         return true; const a = reqApprovers(db, r); return viewerRole === "teacher" ? a.teacherIds.has(viewerId) : a.studentIds.has(viewerId); };
-    const reqs = (db.orgRequests || []).filter((r) => admin || canApproveReq(r) || r.personId === viewerId).slice().sort((a, b) => b.at - a.at);
+    const reqs = (db.orgRequests || []).filter((r) => admin || canApproveReq(r) || String(r.personId) === String(viewerId) || String(r.replacementId || "") === String(viewerId)).slice().sort((a, b) => b.at - a.at);
     const sideLabel = (s) => s === "orgTeacher" ? "ครู" : "นักเรียน";
     const nodeFilled = (r) => { const n = (db[r.side] || []).find((x) => x.id === r.nodeId); return !!(n && n.personId); };
-    const approve = (r) => ui.run("กำลังอนุญาต...", () => { const apply = (p) => ({ ...p, [r.side]: p[r.side].map((n) => n.id === r.nodeId ? { ...n, personId: "" } : n), orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, status: "approved" } : x) }); if (window.__commitRemote)
+    const personOf = (side, id) => (side === "orgStudent" ? db.students : db.teachers).find((x) => String(x.id) === String(id));
+    const isReplacement = (r) => viewerId != null && String(r.replacementId || "") === String(viewerId);
+    const isRequester = (r) => viewerId != null && String(r.personId) === String(viewerId);
+    const [approvePick, setApprovePick] = useState(null);
+    // ผู้มาแทนกดยอมรับ → เข้าแทนตำแหน่งทันที (ถ้ายังไม่มีใครมาก่อน)
+    const accept = (r) => ui.run("กำลังยอมรับ...", () => { const apply = (p) => ({ ...p, [r.side]: p[r.side].map((n) => n.id === r.nodeId ? { ...n, personId: r.replacementId } : n), orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, status: "approved", replacementStatus: "accepted" } : x) }); if (window.__commitRemote)
         window.__commitRemote(apply);
     else
-        setDb(apply); ui.notify("อนุญาตแล้ว — ถอนชื่อออกจากตำแหน่ง"); });
+        setDb(apply); ui.notify("ยอมรับและเข้าแทนตำแหน่งแล้ว ✓"); });
+    const declineRep = (r) => ui.run("กำลังปฏิเสธ...", () => { const apply = (p) => ({ ...p, orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, replacementStatus: "declined" } : x) }); if (window.__commitRemote)
+        window.__commitRemote(apply);
+    else
+        setDb(apply); ui.notify("ปฏิเสธการมาแทนแล้ว — แจ้งผู้ขอและหัวหน้า"); });
+    // หัวหน้า/แอดมินกดอนุญาต → ต้องเลือกผู้มาแทนก่อน แล้วจึงถอนผู้ขอออก
+    const doApprove = (r, rep) => ui.run("กำลังอนุญาต...", () => { const rid = rep.id || rep.user || ""; const apply = (p) => ({ ...p, [r.side]: p[r.side].map((n) => n.id === r.nodeId ? { ...n, personId: rid } : n), orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, status: "approved", replacementStatus: "accepted", replacementId: rid, replacementName: fullName(rep) } : x) }); if (window.__commitRemote)
+        window.__commitRemote(apply);
+    else
+        setDb(apply); ui.notify("อนุญาต + ตั้งผู้มาแทนแล้ว ✓"); setApprovePick(null); });
     const deny = (r) => ui.run("กำลังปฏิเสธคำร้อง...", () => { const apply = (p) => ({ ...p, orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, status: "rejected" } : x) }); if (window.__commitRemote)
         window.__commitRemote(apply);
     else
-        setDb(apply); ui.notify("ไม่อนุญาตให้ถอน — คงอยู่ตำแหน่งเดิม"); });
+        setDb(apply); ui.notify("ไม่อนุญาต — คงชื่อเดิม และแจ้งกลับผู้ขอแล้ว"); });
     const del = (r) => ui.run("กำลังลบ...", () => { const apply = (p) => ({ ...p, orgRequests: p.orgRequests.filter((x) => x.id !== r.id) }); if (window.__commitRemote)
         window.__commitRemote(apply);
     else
@@ -3352,15 +3389,40 @@ function NotificationCenter({ db, setDb, ui, admin, viewerId, viewerRole }) {
                                 s.phone ? React.createElement("a", { href: `tel:${s.phone}`, style: { color: C.primary, textDecoration: "none", fontWeight: 700 } },
                                     "\u260E ",
                                     s.phone) : React.createElement("span", { style: { color: C.muted } }, "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23")); })(),
+                            (() => { const s = personOf(r.side, r.personId); if (!s)
+                                return null; return React.createElement("div", { style: { fontSize: 12.5, color: C.ink, marginTop: 3 } },
+                                "\u0E1C\u0E39\u0E49\u0E02\u0E2D: ",
+                                s.grade ? `${s.grade}/${s.room || ""} · ` : "",
+                                s.phone ? React.createElement("a", { href: `tel:${s.phone}`, style: { color: C.primary, textDecoration: "none", fontWeight: 700 } },
+                                    "\u260E ",
+                                    s.phone) : React.createElement("span", { style: { color: C.muted } }, "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23")); })(),
+                            r.replacementName && (() => { const rep = personOf(r.side, r.replacementId); const st = r.replacementStatus === "accepted" ? "✓ ยอมรับแล้ว" : r.replacementStatus === "declined" ? "✗ ปฏิเสธ" : "… รอยอมรับ"; const stc = r.replacementStatus === "accepted" ? "#2f9e6b" : r.replacementStatus === "declined" ? "#c0392b" : "#c99a2e"; return React.createElement("div", { style: { fontSize: 12.5, color: C.ink, marginTop: 3 } },
+                                "\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E17\u0E35\u0E48\u0E40\u0E2A\u0E19\u0E2D: ",
+                                React.createElement("b", null, r.replacementName),
+                                " ",
+                                React.createElement("span", { style: { color: stc, fontWeight: 700 } },
+                                    "(",
+                                    st,
+                                    ")"),
+                                rep && rep.phone ? React.createElement(React.Fragment, null,
+                                    " \u00B7 ",
+                                    React.createElement("a", { href: `tel:${rep.phone}`, style: { color: C.primary, textDecoration: "none", fontWeight: 700 } },
+                                        "\u260E ",
+                                        rep.phone)) : ""); })(),
                             r.status === "approved" && (React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginTop: 6, color: filled ? "#2f9e6b" : "#c0392b" } }, filled ? "● มีคนมาแทนตำแหน่งแล้ว" : "● ตำแหน่งยังว่าง (รอคนมาแทน)")),
-                            r.status === "rejected" && React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginTop: 6, color: C.muted } }, "\u25CF \u0E44\u0E21\u0E48\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15\u0E43\u0E2B\u0E49\u0E16\u0E2D\u0E19 (\u0E04\u0E07\u0E2D\u0E22\u0E39\u0E48\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E40\u0E14\u0E34\u0E21)")),
+                            r.status === "rejected" && React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginTop: 6, color: C.muted } },
+                                "\u25CF \u0E44\u0E21\u0E48\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15\u0E43\u0E2B\u0E49\u0E16\u0E2D\u0E19 (\u0E04\u0E07\u0E2D\u0E22\u0E39\u0E48\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E40\u0E14\u0E34\u0E21)",
+                                isRequester(r) ? " — คำร้องของคุณถูกปฏิเสธ" : "")),
                         React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } },
-                            r.status === "pending" && canApproveReq(r) && React.createElement(Btn, { small: true, onClick: () => approve(r) }, "\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15"),
+                            r.status === "pending" && isReplacement(r) && r.replacementStatus !== "declined" && React.createElement(Btn, { small: true, onClick: () => accept(r) }, "\u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A\u0E21\u0E32\u0E41\u0E17\u0E19"),
+                            r.status === "pending" && isReplacement(r) && r.replacementStatus !== "declined" && React.createElement(Btn, { small: true, variant: "danger", onClick: () => declineRep(r) }, "\u0E44\u0E21\u0E48\u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A"),
+                            r.status === "pending" && canApproveReq(r) && React.createElement(Btn, { small: true, onClick: () => setApprovePick(r) }, "\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15 (\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1C\u0E39\u0E49\u0E41\u0E17\u0E19)"),
                             r.status === "pending" && canApproveReq(r) && React.createElement(Btn, { small: true, variant: "danger", onClick: () => deny(r) }, "\u0E44\u0E21\u0E48\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15"),
-                            r.status === "pending" && !canApproveReq(r) && React.createElement("span", { style: { fontSize: 11.5, color: "#c99a2e", fontWeight: 700, alignSelf: "center" } }, "\u0E23\u0E2D\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15"),
+                            r.status === "pending" && !canApproveReq(r) && !isReplacement(r) && React.createElement("span", { style: { fontSize: 11.5, color: "#c99a2e", fontWeight: 700, alignSelf: "center" } }, "\u0E23\u0E2D\u0E14\u0E33\u0E40\u0E19\u0E34\u0E19\u0E01\u0E32\u0E23"),
                             React.createElement(Btn, { small: true, variant: "ghost", onClick: () => del(r) }, "\u0E25\u0E1A\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19")))));
             }),
-            reqs.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E33\u0E23\u0E49\u0E2D\u0E07/\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19" }))));
+            reqs.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E33\u0E23\u0E49\u0E2D\u0E07/\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19" })),
+        approvePick && React.createElement(ReplacementPicker, { title: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E01\u0E48\u0E2D\u0E19\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15", note: "\u0E15\u0E49\u0E2D\u0E07\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E01\u0E48\u0E2D\u0E19 \u0E08\u0E36\u0E07\u0E08\u0E30\u0E16\u0E2D\u0E19\u0E1C\u0E39\u0E49\u0E02\u0E2D\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E44\u0E14\u0E49 (\u0E41\u0E19\u0E30\u0E19\u0E33\u0E1C\u0E39\u0E49\u0E17\u0E35\u0E48\u0E1C\u0E39\u0E49\u0E02\u0E2D\u0E40\u0E2A\u0E19\u0E2D \u0E2B\u0E23\u0E37\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E43\u0E2B\u0E21\u0E48)", pool: (approvePick.side === "orgStudent" ? db.students : db.teachers).filter((x) => String(x.id) !== String(approvePick.personId)), onPick: (s) => doApprove(approvePick, s), onClose: () => setApprovePick(null) })));
 }
 function CommitteeApp({ role, db, setDb, onExit, meId }) {
     const [view, setView] = useState("me");
@@ -3374,7 +3436,7 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
                 ui.toast && React.createElement(Toast, { msg: ui.toast })));
     }
     const pendingCount = (db.orgRequests || []).filter((r) => { if (r.status !== "pending")
-        return false; const a = reqApprovers(db, r); return role === "teacher" ? a.teacherIds.has(meId) : a.studentIds.has(meId); }).length;
+        return false; const a = reqApprovers(db, r); const canApp = role === "teacher" ? a.teacherIds.has(meId) : a.studentIds.has(meId); const isRep = String(r.replacementId || "") === String(meId) && r.replacementStatus !== "declined"; return canApp || isRep; }).length;
     const which = role === "teacher" ? "orgTeacher" : "orgStudent";
     const myNodeIds = db[which].filter((n) => String(n.personId) === String(meId)).map((n) => n.id);
     const managesComp = (c) => db[which].filter((n) => String(n.compId) === String(c.id)).some((n) => orgPathIds(db[which], n.id).some((id) => myNodeIds.includes(id)));
