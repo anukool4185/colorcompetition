@@ -3090,7 +3090,11 @@ function ParticipantManager({ comp, db, setDb, ui }) {
                                 s.grade,
                                 "/",
                                 s.room,
-                                s.phone ? ` · ☎ ${s.phone}` : ""))),
+                                s.phone ? React.createElement(React.Fragment, null,
+                                    " \u00B7 ",
+                                    React.createElement("a", { href: `tel:${s.phone}`, style: { color: C.primary, textDecoration: "none", fontWeight: 700 } },
+                                        "\u260E ",
+                                        s.phone)) : ""))),
                     React.createElement("div", { style: { display: "flex", gap: 4, marginTop: 6, flexWrap: "wrap" } }, actions(x))));
             }))));
     const selectedMain = P.filter((x) => x.sel === "main");
@@ -3468,8 +3472,12 @@ function CommitteeSchedule({ myCompIds, db, ui, me }) {
                                 s.grade,
                                 "/",
                                 s.room,
-                                ")",
-                                s.phone ? ` · ☎ ${s.phone}` : "")); })));
+                                ")"),
+                            s.phone ? React.createElement(React.Fragment, null,
+                                " \u00B7 ",
+                                React.createElement("a", { href: `tel:${s.phone}`, style: { color: C.primary, textDecoration: "none", fontWeight: 700 } },
+                                    "\u260E ",
+                                    s.phone)) : ""); })));
                 })))),
             mine.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E21\u0E2D\u0E1A\u0E2B\u0E21\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23" })),
         popup && (React.createElement(Modal, { title: `ตาราง: ${popup.name}`, onClose: () => setPopup(null) },
