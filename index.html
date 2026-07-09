@@ -2112,8 +2112,14 @@ function OrgViewManager({ db, setDb, ui, editable, committee }) {
     const pool = view === "teacher" ? db.teachers : db.students;
     const pickPool = view === "teacher" ? db.teachers.filter((t) => t.user) : db.students.filter((s) => s.committee);
     const nodes = db[which].filter((n) => (n.cat || "comp") === cat);
-    const setPerson = (nodeId, personId) => ui.run("กำลังลงชื่อ...", () => { setDb((p) => ({ ...p, [which]: p[which].map((n) => n.id === nodeId ? { ...n, personId } : n) })); setAssign(null); });
-    const clearName = (node) => ui.run("กำลังลบชื่อ...", () => setDb((p) => ({ ...p, [which]: p[which].map((n) => n.id === node.id ? { ...n, personId: "" } : n) })));
+    const setPerson = (nodeId, personId) => ui.run("กำลังลงชื่อ...", () => { const apply = (p) => ({ ...p, [which]: p[which].map((n) => n.id === nodeId ? { ...n, personId } : n) }); if (window.__commitRemote)
+        window.__commitRemote(apply);
+    else
+        setDb(apply); setAssign(null); });
+    const clearName = (node) => ui.run("กำลังลบชื่อ...", () => { const apply = (p) => ({ ...p, [which]: p[which].map((n) => n.id === node.id ? { ...n, personId: "" } : n) }); if (window.__commitRemote)
+        window.__commitRemote(apply);
+    else
+        setDb(apply); });
     // ฝั่งกรรมการ: ลงชื่อตัวเองในช่องว่างของฝั่งตน (ครู→orgTeacher, นักเรียน→orgStudent)
     const selfSide = committee ? (committee.role === "teacher" ? "teacher" : "student") : null;
     const canSelf = committee && view === selfSide;
@@ -2129,8 +2135,14 @@ function OrgViewManager({ db, setDb, ui, editable, committee }) {
         }
         setConfirmIn(node);
     };
-    const doSignIn = (node) => { ui.run("กำลังลงชื่อ...", () => { setDb((p) => ({ ...p, [which]: p[which].map((n) => n.id === node.id ? { ...n, personId: committee.meId } : n) })); ui.notify("ลงชื่อในตำแหน่งแล้ว"); setTimeout(() => window.__forceSave && window.__forceSave(), 500); }); setConfirmIn(null); };
-    const doWithdraw = (node) => { const person = pool.find((x) => String(x.id) === String(committee.meId)); ui.run("กำลังส่งคำร้องขอถอน...", () => { setDb((p) => ({ ...p, orgRequests: [...(p.orgRequests || []), { id: "r" + Date.now() + Math.random().toString(36).slice(2, 5), side: which, nodeId: node.id, personId: committee.meId, name: person ? `${person.first} ${person.last}` : "", title: node.title, compId: node.compId || "", at: Date.now(), status: "pending" }] })); ui.notify("ส่งคำร้องขอถอนชื่อแล้ว รอประธาน/แอดมินอนุญาต"); setTimeout(() => window.__forceSave && window.__forceSave(), 500); }); setConfirmWd(null); };
+    const doSignIn = (node) => { ui.run("กำลังลงชื่อ...", () => { const apply = (p) => ({ ...p, [which]: p[which].map((n) => n.id === node.id ? { ...n, personId: committee.meId } : n) }); if (window.__commitRemote)
+        window.__commitRemote(apply);
+    else
+        setDb(apply); ui.notify("ลงชื่อในตำแหน่งแล้ว (บันทึกขึ้นส่วนกลาง)"); }); setConfirmIn(null); };
+    const doWithdraw = (node) => { const person = pool.find((x) => String(x.id) === String(committee.meId)); ui.run("กำลังส่งคำร้องขอถอน...", () => { const apply = (p) => ({ ...p, orgRequests: [...(p.orgRequests || []), { id: "r" + Date.now() + Math.random().toString(36).slice(2, 5), side: which, nodeId: node.id, personId: committee.meId, name: person ? `${person.first} ${person.last}` : "", title: node.title, compId: node.compId || "", at: Date.now(), status: "pending" }] }); if (window.__commitRemote)
+        window.__commitRemote(apply);
+    else
+        setDb(apply); ui.notify("ส่งคำร้องขอถอนชื่อแล้ว รอประธาน/แอดมินอนุญาต"); }); setConfirmWd(null); };
     const treeMode = editable ? "names" : (canSelf ? "selfsignup" : "view");
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23", sub: editable ? "ผังรวมครู+นักเรียน · หรือลงชื่อในตำแหน่ง (ค้นหาได้ ลงทันที)" : (committee ? "ช่องที่มีชื่อแล้ว = อ่านอย่างเดียว · ช่องว่างฝั่งคุณ = กดลงชื่อฉันได้" : "ดูอย่างเดียว") }),
@@ -3279,9 +3291,18 @@ function NotificationCenter({ db, setDb, ui, admin, viewerId, viewerRole }) {
     const reqs = (db.orgRequests || []).filter((r) => admin || canApproveReq(r) || r.personId === viewerId).slice().sort((a, b) => b.at - a.at);
     const sideLabel = (s) => s === "orgTeacher" ? "ครู" : "นักเรียน";
     const nodeFilled = (r) => { const n = (db[r.side] || []).find((x) => x.id === r.nodeId); return !!(n && n.personId); };
-    const approve = (r) => ui.run("กำลังอนุญาต...", () => { setDb((p) => ({ ...p, [r.side]: p[r.side].map((n) => n.id === r.nodeId ? { ...n, personId: "" } : n), orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, status: "approved" } : x) })); ui.notify("อนุญาตแล้ว — ถอนชื่อออกจากตำแหน่ง"); setTimeout(() => window.__forceSave && window.__forceSave(), 500); });
-    const deny = (r) => ui.run("กำลังปฏิเสธคำร้อง...", () => { setDb((p) => ({ ...p, orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, status: "rejected" } : x) })); ui.notify("ไม่อนุญาตให้ถอน — คงอยู่ตำแหน่งเดิม"); setTimeout(() => window.__forceSave && window.__forceSave(), 500); });
-    const del = (r) => ui.run("กำลังลบ...", () => { setDb((p) => ({ ...p, orgRequests: p.orgRequests.filter((x) => x.id !== r.id) })); setTimeout(() => window.__forceSave && window.__forceSave(), 500); });
+    const approve = (r) => ui.run("กำลังอนุญาต...", () => { const apply = (p) => ({ ...p, [r.side]: p[r.side].map((n) => n.id === r.nodeId ? { ...n, personId: "" } : n), orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, status: "approved" } : x) }); if (window.__commitRemote)
+        window.__commitRemote(apply);
+    else
+        setDb(apply); ui.notify("อนุญาตแล้ว — ถอนชื่อออกจากตำแหน่ง"); });
+    const deny = (r) => ui.run("กำลังปฏิเสธคำร้อง...", () => { const apply = (p) => ({ ...p, orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, status: "rejected" } : x) }); if (window.__commitRemote)
+        window.__commitRemote(apply);
+    else
+        setDb(apply); ui.notify("ไม่อนุญาตให้ถอน — คงอยู่ตำแหน่งเดิม"); });
+    const del = (r) => ui.run("กำลังลบ...", () => { const apply = (p) => ({ ...p, orgRequests: p.orgRequests.filter((x) => x.id !== r.id) }); if (window.__commitRemote)
+        window.__commitRemote(apply);
+    else
+        setDb(apply); });
     const compName = (id) => { const c = db.competitions.find((x) => x.id === id); return c ? c.name : ""; };
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19 / \u0E04\u0E33\u0E23\u0E49\u0E2D\u0E07", sub: "\u0E04\u0E33\u0E23\u0E49\u0E2D\u0E07\u0E02\u0E2D\u0E16\u0E2D\u0E19\u0E0A\u0E37\u0E48\u0E2D\u0E08\u0E32\u0E01\u0E1C\u0E31\u0E07 \u00B7 \u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15\u0E41\u0E25\u0E49\u0E27\u0E0A\u0E37\u0E48\u0E2D\u0E08\u0E30\u0E2B\u0E32\u0E22\u0E08\u0E32\u0E01\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07 \u00B7 \u0E15\u0E34\u0E14\u0E15\u0E32\u0E21\u0E27\u0E48\u0E32\u0E21\u0E35\u0E04\u0E19\u0E21\u0E32\u0E41\u0E17\u0E19\u0E2B\u0E23\u0E37\u0E2D\u0E22\u0E31\u0E07" }),
@@ -4127,8 +4148,35 @@ function App() {
     };
     const pushSave = () => { if (!loadedRef.current)
         return; doSave(); }; // ออโต้เซฟ: ทำเฉพาะเมื่อโหลดสำเร็จ (กันเขียนทับ)
-    const saveNow = () => { clearTimeout(timerRef.current); doSave(); }; // กดเอง: บังคับบันทึกเสมอ
-    window.__forceSave = saveNow; // ให้หน้าจอย่อย (เช่น ลงข้อมูลครั้งแรก) สั่งบันทึกขึ้น Sheet ทันทีได้
+    const saveNow = () => { if (API_URL && !loadedRef.current) {
+        setSync("offline");
+        return;
+    } clearTimeout(timerRef.current); doSave(); }; // กดเอง: บันทึกเมื่อโหลดสำเร็จแล้วเท่านั้น (กันทับด้วยข้อมูลที่ยังไม่โหลด)
+    window.__forceSave = saveNow; // ให้หน้าจอย่อยสั่งบันทึกขึ้น Sheet ทันทีได้
+    // อ่านข้อมูลล่าสุดจาก Sheet ก่อน แล้วแก้เฉพาะจุด แล้วบันทึก (กันการลงชื่อ/ถอน/อนุมัติ ของหลายคนทับกัน)
+    window.__commitRemote = (mutator) => {
+        if (!API_URL) {
+            setDb(mutator);
+            return;
+        }
+        fetch(API_URL).then((r) => r.text()).then((t) => {
+            let latest;
+            try {
+                const j = JSON.parse(t);
+                latest = (j && j.ok && j.data) ? mergeDb(JSON.parse(j.data)) : dbRef.current;
+            }
+            catch (e) {
+                latest = dbRef.current;
+            }
+            const next = mutator(latest);
+            dbRef.current = next;
+            loadedRef.current = true;
+            justLoaded.current = true;
+            setDb(next);
+            doSave();
+        }).catch(() => { const next = mutator(dbRef.current); dbRef.current = next; setDb(next); if (loadedRef.current)
+            doSave(); });
+    };
     const retryLoad = () => { setSync("loading"); loadData(); };
     // โหลดข้อมูลจาก Google Sheet ตอนเปิดหน้า — ต้องสำเร็จก่อนถึงจะอนุญาตให้ออโต้เซฟ
     const loadData = () => {
@@ -4186,6 +4234,26 @@ function App() {
         window.addEventListener("beforeunload", flush);
         window.addEventListener("pagehide", flush);
         return () => { window.removeEventListener("beforeunload", flush); window.removeEventListener("pagehide", flush); };
+    }, []);
+    // ดึงข้อมูลล่าสุดอัตโนมัติทุก ~12 วิ (เห็นการลงชื่อ/แก้ไขของคนอื่นโดยไม่ต้องรีเฟรช) — ข้ามถ้ากำลังแก้/บันทึกอยู่ กันทับงานที่ยังไม่บันทึก
+    useEffect(() => {
+        if (!API_URL)
+            return;
+        const iv = setInterval(() => {
+            if (!loadedRef.current || dirtyRef.current || savingRef.current)
+                return;
+            if (document.hidden)
+                return;
+            fetch(API_URL).then((r) => r.text()).then((t) => {
+                const j = JSON.parse(t);
+                if (j && j.ok && j.data) {
+                    justLoaded.current = true;
+                    setDb(mergeDb(JSON.parse(j.data)));
+                    setLastSaved(Date.now());
+                }
+            }).catch(() => { });
+        }, 12000);
+        return () => clearInterval(iv);
     }, []);
     // ธีมสี: แอดมินใช้สีธีมที่ตั้งไว้ · ครู/กรรมการ/นักเรียน ใช้สีทีมของตัวเอง
     const teamColors = db.settings.houses && db.settings.houses.length ? db.settings.houses : DEFAULT_HOUSES;
