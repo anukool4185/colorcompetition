@@ -1322,6 +1322,7 @@ function PersonList({ kind, db, setDb, ui }) {
         rawRows && React.createElement(ImportPreview, { kind: kind, rawRows: rawRows, existing: list, houses: db.settings.houses, onClose: () => setRawRows(null), onConfirm: (rows) => ui.run("กำลังโอนเข้าระบบ...", () => { setDb((p) => ({ ...p, [key]: [...p[key], ...rows] })); setRawRows(null); ui.notify(`โอนเข้าระบบแล้ว ${rows.length} คน`); }) }),
         confirm && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E01\u0E32\u0E23\u0E25\u0E1A", message: confirm.msg, onConfirm: () => purge(confirm.ids), onClose: () => setConfirm(null) })));
 }
+function phoneOk(v) { v = String(v == null ? "" : v).trim(); return v === "" || /^[0-9]{9,10}$/.test(v); }
 function PersonForm({ kind, person, onClose, onSave, ui, houses }) {
     var _a;
     const base = kind === "student"
@@ -1346,27 +1347,33 @@ function PersonForm({ kind, person, onClose, onSave, ui, houses }) {
         }
     };
     const clearPhoto = () => { setPreview(""); setNewPhoto(""); setF((p) => ({ ...p, photoUrl: undefined, photoId: undefined })); };
-    const submit = () => ui.runAsync(newPhoto ? "กำลังอัปโหลดรูปและบันทึก..." : "กำลังบันทึก...", async () => {
-        let data = { ...f };
-        if (newPhoto) {
-            const up = await uploadImageRemote(newPhoto, data, kind, person && person.photoId);
-            if (up) {
-                data.photoUrl = up.photoUrl;
-                data.photoId = up.photoId;
-            }
-            else if (!API_URL) {
-                ui.notify("โหมดทดลอง: รูปจะไม่ถูกบันทึกถาวร");
-                data.photoUrl = newPhoto;
-            }
-            else {
-                ui.notify("อัปโหลดรูปไม่สำเร็จ (ตรวจการเชื่อม Drive)");
-            }
+    const submit = () => {
+        if (!phoneOk(f.phone)) {
+            ui.notify("เบอร์โทรไม่ถูกต้อง — ใส่ตัวเลขล้วน 9–10 หลัก (เช่น 0812345678) ไม่ต้องมีขีดหรือเว้นวรรค");
+            return;
         }
-        else if (person && person.photoId && !data.photoId) {
-            deleteImageRemote(person, kind);
-        }
-        onSave(data, !!person);
-    });
+        ui.runAsync(newPhoto ? "กำลังอัปโหลดรูปและบันทึก..." : "กำลังบันทึก...", async () => {
+            let data = { ...f };
+            if (newPhoto) {
+                const up = await uploadImageRemote(newPhoto, data, kind, person && person.photoId);
+                if (up) {
+                    data.photoUrl = up.photoUrl;
+                    data.photoId = up.photoId;
+                }
+                else if (!API_URL) {
+                    ui.notify("โหมดทดลอง: รูปจะไม่ถูกบันทึกถาวร");
+                    data.photoUrl = newPhoto;
+                }
+                else {
+                    ui.notify("อัปโหลดรูปไม่สำเร็จ (ตรวจการเชื่อม Drive)");
+                }
+            }
+            else if (person && person.photoId && !data.photoId) {
+                deleteImageRemote(person, kind);
+            }
+            onSave(data, !!person);
+        });
+    };
     const avatarPreview = { ...f, photoUrl: preview };
     const preOpts = kind === "student" ? ["เด็กชาย", "เด็กหญิง", "นาย", "นางสาว", "นาง"] : ["นาย", "นาง", "นางสาว"];
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff" };
@@ -1380,7 +1387,7 @@ function PersonForm({ kind, person, onClose, onSave, ui, houses }) {
             preview && React.createElement(Btn, { variant: "ghost", small: true, onClick: clearPhoto }, "\u0E25\u0E1A\u0E23\u0E39\u0E1B")),
         React.createElement("div", { className: "md:grid md:grid-cols-2 md:gap-x-3" },
             React.createElement(Field, { label: "\u0E23\u0E2B\u0E31\u0E2A", value: f.id, onChange: set("id"), placeholder: kind === "student" ? "เช่น 10234" : "เช่น T05" }),
-            React.createElement(Field, { label: "\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23", value: f.phone, onChange: set("phone"), placeholder: "08x-xxx-xxxx" }),
+            React.createElement(Field, { label: "\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23", value: f.phone, onChange: set("phone"), placeholder: "\u0E40\u0E0A\u0E48\u0E19 0812345678 (\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02\u0E25\u0E49\u0E27\u0E19)" }),
             React.createElement("label", { style: lblCss },
                 React.createElement("span", { style: capCss }, "\u0E04\u0E33\u0E19\u0E33\u0E2B\u0E19\u0E49\u0E32"),
                 React.createElement("select", { value: f.pre, onChange: (e) => set("pre")(e.target.value), style: selCss }, preOpts.map((p) => React.createElement("option", { key: p, value: p }, p)))),
@@ -3633,7 +3640,10 @@ function CommitteeProfile({ role, meId, db, setDb, ui }) {
                 React.createElement(Field, { label: "\u0E0A\u0E37\u0E48\u0E2D", value: f.first, onChange: set("first") }),
                 React.createElement(Field, { label: "\u0E19\u0E32\u0E21\u0E2A\u0E01\u0E38\u0E25", value: f.last, onChange: set("last") })),
             React.createElement(Field, { label: "\u0E23\u0E2B\u0E31\u0E2A\u0E1C\u0E48\u0E32\u0E19", value: f.password, onChange: set("password") }),
-            React.createElement(Btn, { onClick: () => ui.run("กำลังบันทึก...", () => { setDb((p) => ({ ...p, teachers: p.teachers.map((t) => t.id === me.id ? { ...t, ...f } : t) })); ui.notify("บันทึกข้อมูลแล้ว"); }) }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25"))));
+            React.createElement(Btn, { onClick: () => { if (!phoneOk(f.phone)) {
+                    ui.notify("เบอร์โทรไม่ถูกต้อง — ใส่ตัวเลขล้วน 9–10 หลัก (เช่น 0812345678) ไม่ต้องมีขีดหรือเว้นวรรค");
+                    return;
+                } ui.run("กำลังบันทึก...", () => { setDb((p) => ({ ...p, teachers: p.teachers.map((t) => t.id === me.id ? { ...t, ...f } : t) })); ui.notify("บันทึกข้อมูลแล้ว"); }); } }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25"))));
 }
 function ResultsScreen({ db, setDb, ui, restrict, title }) {
     const cfg = db.settings.scoreConfig || {};
@@ -3827,8 +3837,11 @@ function ProfileGate({ me, setDb, ui }) {
     const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
     const ok = f.phone && f.password && f.guardian && f.guardianPhone && f.guardianRelation;
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff", marginBottom: 12 };
-    const save = () => ui.run("กำลังบันทึกข้อมูล...", () => { setDb((p) => ({ ...p, students: p.students.map((s) => s.id === me.id ? { ...s, ...f, profileDone: true } : s) })); ui.notify("บันทึกข้อมูลแล้ว ยินดีต้อนรับ"); setTimeout(() => { if (window.__forceSave)
-        window.__forceSave(); }, 500); });
+    const save = () => { if (!phoneOk(f.phone) || !phoneOk(f.guardianPhone)) {
+        ui.notify("เบอร์โทรไม่ถูกต้อง — ใส่ตัวเลขล้วน 9–10 หลัก (เช่น 0812345678) ไม่ต้องมีขีดหรือเว้นวรรค");
+        return;
+    } ui.run("กำลังบันทึกข้อมูล...", () => { setDb((p) => ({ ...p, students: p.students.map((s) => s.id === me.id ? { ...s, ...f, profileDone: true } : s) })); ui.notify("บันทึกข้อมูลแล้ว ยินดีต้อนรับ"); setTimeout(() => { if (window.__forceSave)
+        window.__forceSave(); }, 500); }); };
     return (React.createElement("div", { style: { position: "fixed", inset: 0, background: "rgba(20,20,30,.6)", zIndex: 200, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } },
         React.createElement("div", { style: { background: C.surface, borderRadius: 18, padding: 22, maxWidth: 440, width: "100%", margin: "24px 0", boxShadow: "0 10px 40px rgba(0,0,0,.3)" } },
             React.createElement("div", { style: { fontWeight: 800, fontSize: 18, color: C.ink, marginBottom: 4 } }, "\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E04\u0E23\u0E31\u0E49\u0E07\u0E41\u0E23\u0E01"),
@@ -3901,7 +3914,10 @@ function MyProfile({ me, db, setDb, ui }) {
             React.createElement("select", { value: f.guardianRelation, onChange: (e) => set("guardianRelation")(e.target.value), style: selCss },
                 React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01 \u2014"),
                 rels.map((r) => React.createElement("option", { key: r }, r))),
-            React.createElement(Btn, { onClick: () => ui.run("กำลังบันทึก...", () => { setDb((p) => ({ ...p, students: p.students.map((s) => s.id === me.id ? { ...s, ...f } : s) })); ui.notify("บันทึกข้อมูลแล้ว"); }) }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25"))));
+            React.createElement(Btn, { onClick: () => { if (!phoneOk(f.phone) || !phoneOk(f.guardianPhone)) {
+                    ui.notify("เบอร์โทรไม่ถูกต้อง — ใส่ตัวเลขล้วน 9–10 หลัก (เช่น 0812345678) ไม่ต้องมีขีดหรือเว้นวรรค");
+                    return;
+                } ui.run("กำลังบันทึก...", () => { setDb((p) => ({ ...p, students: p.students.map((s) => s.id === me.id ? { ...s, ...f } : s) })); ui.notify("บันทึกข้อมูลแล้ว"); }); } }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25"))));
 }
 function StudentRegister({ me, db, setDb, ui }) {
     const [kind, setKind] = useState("แข่งขัน");
@@ -4147,7 +4163,8 @@ function App() {
     const [db, setDb] = useState(seed);
     const [sync, setSync] = useState(API_URL ? "loading" : "local");
     const [lastSaved, setLastSaved] = useState(null);
-    const loadedRef = useRef(!API_URL); // ห้ามบันทึกจนกว่าจะโหลดข้อมูลเดิมสำเร็จ (กันเขียนทับของเก่า)
+    const loadedRef = useRef(!API_URL); // สถานะเชื่อมต่อล่าสุด (โหลด/บันทึกสำเร็จ)
+    const everLoadedRef = useRef(!API_URL); // เคยโหลด/บันทึกสำเร็จอย่างน้อย 1 ครั้ง (มีข้อมูลจริงแล้ว) — ใช้ตัดสินว่าปลอดภัยที่จะบันทึก
     const justLoaded = useRef(false);
     const timerRef = useRef(null);
     const savingRef = useRef(false);
@@ -4180,7 +4197,8 @@ function App() {
             if (!j.ok)
                 throw new Error(j.error || "server ok=false");
             dirtyRef.current = false;
-            loadedRef.current = true; // บันทึกได้ = เชื่อมต่อได้ ปลดล็อกออโต้เซฟ
+            loadedRef.current = true;
+            everLoadedRef.current = true; // บันทึกได้ = เชื่อมต่อได้
             setSync("saved");
             setLastSaved(Date.now());
         })
@@ -4192,10 +4210,10 @@ function App() {
     };
     const pushSave = () => { if (!loadedRef.current)
         return; doSave(); }; // ออโต้เซฟ: ทำเฉพาะเมื่อโหลดสำเร็จ (กันเขียนทับ)
-    const saveNow = () => { if (API_URL && !loadedRef.current) {
+    const saveNow = () => { if (API_URL && !everLoadedRef.current) {
         setSync("offline");
         return;
-    } clearTimeout(timerRef.current); doSave(); }; // กดเอง: บันทึกเมื่อโหลดสำเร็จแล้วเท่านั้น (กันทับด้วยข้อมูลที่ยังไม่โหลด)
+    } clearTimeout(timerRef.current); doSave(); }; // บันทึกได้เสมอหลังเคยโหลด/บันทึกสำเร็จอย่างน้อย 1 ครั้ง (กันทับด้วยข้อมูลว่างตอนยังไม่เคยโหลด)
     window.__forceSave = saveNow; // ให้หน้าจอย่อยสั่งบันทึกขึ้น Sheet ทันทีได้
     // อ่านข้อมูลล่าสุดจาก Sheet ก่อน แล้วแก้เฉพาะจุด แล้วบันทึก (กันการลงชื่อ/ถอน/อนุมัติ ของหลายคนทับกัน)
     // mutator(latest) คืน db ใหม่ ถ้าคืน null/undefined = ยกเลิก (เช่น ตำแหน่งถูกลงไปแล้ว) จะไม่บันทึกทับ แต่จะอัปเดตหน้าจอเป็นข้อมูลล่าสุด
@@ -4225,6 +4243,7 @@ function App() {
             if (next == null) {
                 dbRef.current = latest;
                 loadedRef.current = true;
+                everLoadedRef.current = true;
                 justLoaded.current = true;
                 setDb(latest);
                 opts.onAbort && opts.onAbort(latest);
@@ -4232,6 +4251,7 @@ function App() {
             }
             dbRef.current = next;
             loadedRef.current = true;
+            everLoadedRef.current = true;
             justLoaded.current = true;
             setDb(next);
             doSave();
@@ -4265,6 +4285,7 @@ function App() {
                 catch (e) { }
             }
             loadedRef.current = true;
+            everLoadedRef.current = true;
             setSync("saved");
             setLastSaved(Date.now());
         }).catch((err) => { console.warn("[โหลดไม่สำเร็จ]", err); loadedRef.current = false; setSync("offline"); });
@@ -4310,6 +4331,8 @@ function App() {
             if (document.hidden)
                 return;
             fetch(API_URL).then((r) => r.text()).then((t) => {
+                if (dirtyRef.current || savingRef.current)
+                    return; // มีการแก้ไข/บันทึกเกิดขึ้นระหว่างดึงข้อมูล — ทิ้งผลเก่า กันทับของใหม่
                 const j = JSON.parse(t);
                 if (j && j.ok && j.data) {
                     justLoaded.current = true;
