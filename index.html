@@ -3345,6 +3345,13 @@ function NotificationCenter({ db, setDb, ui, admin, viewerId, viewerRole }) {
                                 " \u00B7 \u0E1D\u0E31\u0E48\u0E07",
                                 sideLabel(r.side),
                                 r.compId ? ` · ▹ ${compName(r.compId)}` : ""),
+                            (() => { const pool = r.side === "orgStudent" ? db.students : db.teachers; const s = pool.find((x) => String(x.id) === String(r.personId)); if (!s)
+                                return null; return React.createElement("div", { style: { fontSize: 12.5, color: C.ink, marginTop: 3 } },
+                                "\u0E15\u0E34\u0E14\u0E15\u0E48\u0E2D: ",
+                                s.grade ? `${s.grade}/${s.room || ""} · ` : "",
+                                s.phone ? React.createElement("a", { href: `tel:${s.phone}`, style: { color: C.primary, textDecoration: "none", fontWeight: 700 } },
+                                    "\u260E ",
+                                    s.phone) : React.createElement("span", { style: { color: C.muted } }, "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23")); })(),
                             r.status === "approved" && (React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginTop: 6, color: filled ? "#2f9e6b" : "#c0392b" } }, filled ? "● มีคนมาแทนตำแหน่งแล้ว" : "● ตำแหน่งยังว่าง (รอคนมาแทน)")),
                             r.status === "rejected" && React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginTop: 6, color: C.muted } }, "\u25CF \u0E44\u0E21\u0E48\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15\u0E43\u0E2B\u0E49\u0E16\u0E2D\u0E19 (\u0E04\u0E07\u0E2D\u0E22\u0E39\u0E48\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E40\u0E14\u0E34\u0E21)")),
                         React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } },
