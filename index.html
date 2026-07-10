@@ -133,11 +133,14 @@ function scoreOf(r, cfg) {
         s += Number(cfg.bronze) || 0;
     return s;
 }
+function todayStr() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
 // รวมคะแนนรายคนจากทุกรายการ → { [sid]: totalScore }
 function scoreStats(db) {
     const cfg = db.settings.scoreConfig || {};
     const tot = {};
     db.competitions.forEach((c) => {
+        if (c.noScore)
+            return; // ยกเลิกคะแนนรายการนี้ (ไม่นับรวม)
         Object.entries(c.results || {}).forEach(([sid, r]) => { tot[sid] = (tot[sid] || 0) + scoreOf(r, cfg); });
     });
     return tot;
@@ -338,27 +341,29 @@ function TrainingBlock({ db }) {
             t.note && React.createElement("div", { style: { fontSize: 12, color: C.muted, marginTop: 2 } }, t.note)))))));
 }
 function CompTrainingBlock({ db }) {
-    const withT = (db.competitions || []).filter((c) => (c.training || []).length > 0);
-    if (!withT.length)
+    const rows = [];
+    (db.competitions || []).forEach((c) => (c.training || []).forEach((t) => rows.push({ c, t })));
+    rows.sort((a, b) => ((a.t.date || "") + (a.t.time || "")).localeCompare((b.t.date || "") + (b.t.time || "")));
+    if (!rows.length)
         return null;
     return (React.createElement(Card, { style: { marginTop: 16 } },
-        React.createElement(BlockHead, { dot: "#2f9e6b", title: "\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21 (\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)" }),
-        React.createElement("div", { style: { padding: 10, display: "flex", flexDirection: "column", gap: 10 } }, withT.map((c) => (React.createElement("div", { key: c.id, style: { border: `1px solid ${C.line}`, borderLeft: "4px solid #2f9e6b", borderRadius: 10, padding: "8px 12px", background: C.surface } },
-            React.createElement("div", { style: { fontWeight: 700, color: C.ink, fontSize: 13.5 } },
+        React.createElement(BlockHead, { dot: "#2f9e6b", title: "\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21 (\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)" }),
+        React.createElement("div", { style: { padding: 10, display: "flex", flexDirection: "column", gap: 6 } }, rows.map(({ c, t }) => (React.createElement("div", { key: c.id + t.id, style: { border: `1px solid ${C.line}`, borderLeft: "4px solid #2f9e6b", borderRadius: 10, padding: "8px 12px", background: C.surface } },
+            React.createElement("div", { style: { fontSize: 13, color: C.ink } },
+                React.createElement("b", { style: { color: "#2f9e6b" } },
+                    "\uD83D\uDCC5 ",
+                    t.date,
+                    " ",
+                    t.time || ""),
+                t.place ? ` · ${t.place}` : ""),
+            React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginTop: 2 } },
                 c.name,
                 " ",
-                React.createElement("span", { style: { fontSize: 11, color: C.muted, fontWeight: 500 } },
+                React.createElement("span", { style: { fontSize: 11 } },
                     "(",
                     c.kind,
-                    ")")),
-            trainingSorted(c).map((t) => React.createElement("div", { key: t.id, style: { fontSize: 12.5, color: C.muted, marginTop: 2 } },
-                "\uD83D\uDCC5 ",
-                t.date,
-                " ",
-                t.time ? `· ${t.time}` : "",
-                " ",
-                t.place ? `· ${t.place}` : "",
-                t.note ? ` · ${t.note}` : ""))))))));
+                    ")"),
+                t.note ? ` · ${t.note}` : "")))))));
 }
 function PublicSearchRegister({ db, setDb, ui }) {
     const [mode, setMode] = useState(null); // "search" | "register"
@@ -716,6 +721,7 @@ function AdminApp({ db, setDb, onExit }) {
         { key: "duties", label: "หน้าที่ กิจกรรมแข่งขัน", icon: "🧩" },
         { key: "org", label: "ผังองค์กร", icon: "🗂" },
         { key: "comp", label: "การแข่งขัน", icon: "🏆" },
+        { key: "results", label: "จัดการผลการแข่งขัน", icon: "🏅" },
         { key: "promote", label: "เลื่อนชั้น", icon: "⬆" },
         { key: "trash", label: "ถังขยะ", icon: "🗑" },
         { key: "promo", label: "ตั้งค่า", icon: "⚙️" },
@@ -727,6 +733,7 @@ function AdminApp({ db, setDb, onExit }) {
         view === "duties" && React.createElement(DutyManager, { db: db, setDb: setDb, ui: ui }),
         view === "org" && React.createElement(OrgViewManager, { db: db, setDb: setDb, ui: ui, editable: true }),
         view === "comp" && React.createElement(CompManager, { db: db, setDb: setDb, ui: ui }),
+        view === "results" && React.createElement(ResultsManager, { db: db, setDb: setDb, ui: ui }),
         view === "promote" && React.createElement(PromotionManager, { db: db, setDb: setDb, ui: ui }),
         view === "trash" && React.createElement(TrashBin, { db: db, setDb: setDb, ui: ui }),
         view === "promo" && React.createElement(SettingsManager, { db: db, setDb: setDb, ui: ui })));
@@ -4011,6 +4018,110 @@ function CommitteeProfile({ role, meId, db, setDb, ui }) {
                     ui.notify("เบอร์โทรไม่ถูกต้อง — ใส่ตัวเลขล้วน 9–10 หลัก (เช่น 0812345678) ไม่ต้องมีขีดหรือเว้นวรรค");
                     return;
                 } ui.run("กำลังบันทึก...", () => { setDb((p) => ({ ...p, teachers: p.teachers.map((t) => t.id === me.id ? { ...t, ...f } : t) })); ui.notify("บันทึกข้อมูลแล้ว"); }); } }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25"))));
+}
+function ResultsManager({ db, setDb, ui }) {
+    const cfg = db.settings.scoreConfig || {};
+    const [kind, setKind] = useState("แข่งขัน");
+    const [q, setQ] = useState("");
+    const [dateF, setDateF] = useState("");
+    const [pick, setPick] = useState("");
+    const [perStudent, setPerStudent] = useState(false);
+    const commit = (mut) => { if (window.__commitRemote)
+        window.__commitRemote(mut);
+    else
+        setDb(mut); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
+    let list = db.competitions.filter((c) => c.kind === kind);
+    if (q.trim())
+        list = list.filter((c) => c.name.toLowerCase().includes(q.trim().toLowerCase()));
+    if (dateF)
+        list = list.filter((c) => (c.schedule || []).some((s) => s.date === dateF) || c.resultDate === dateF);
+    const comp = list.find((c) => c.id === pick) || list[0];
+    const mode = (comp && comp.resultMode) || (cfg.scheme === "medal" ? "medal" : "outcome");
+    const parts = comp ? comp.participants.filter((x) => x.status === "main" || x.status === "reserve") : [];
+    const setMode = (m) => commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultMode: m } : c) }));
+    const setResult = (sid, patch) => commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, results: { ...(c.results || {}), [sid]: { ...((c.results || {})[sid] || {}), ...patch } }, resultDate: c.resultDate || todayStr() } : c) }));
+    const bulkAll = (key, val) => { if (!comp)
+        return; commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, results: Object.fromEntries(parts.map((x) => [x.sid, { ...((c.results || {})[x.sid] || {}), [key]: val }])), resultDate: todayStr() } : c) })); ui.notify("ลงผลทั้งรายการแล้ว — คะแนนแจกอัตโนมัติ"); };
+    const clearResults = () => { if (!comp)
+        return; commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, results: {}, resultDate: "", noScore: false } : c) })); ui.notify("ยกเลิกผลการแข่งของรายการนี้แล้ว"); };
+    const toggleNoScore = () => { if (!comp)
+        return; commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, noScore: !c.noScore } : c) })); ui.notify(comp.noScore ? "นับคะแนนรายการนี้แล้ว" : "ยกเลิกคะแนนรายการนี้ (ไม่นับรวม)"); };
+    const chip = (sid, key, val, r, color) => React.createElement("button", { onClick: () => setResult(sid, { [key]: r[key] === val ? "" : val }), style: { padding: "5px 11px", borderRadius: 16, border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 700, background: r[key] === val ? color : C.soft, color: r[key] === val ? "#fff" : C.primaryDark } }, val);
+    const hasResults = comp && Object.values(comp.results || {}).some((r) => r.outcome || r.medal);
+    return (React.createElement("div", null,
+        React.createElement(PageHead, { title: "\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E1C\u0E25\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19", sub: "\u0E25\u0E07\u0E1C\u0E25 / \u0E43\u0E2B\u0E49\u0E04\u0E30\u0E41\u0E19\u0E19 / \u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E1C\u0E25 / \u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E04\u0E30\u0E41\u0E19\u0E19 \u00B7 2 \u0E23\u0E30\u0E1A\u0E1A: \u0E41\u0E1E\u0E49-\u0E0A\u0E19\u0E30-\u0E40\u0E2A\u0E21\u0E2D \u0E41\u0E25\u0E30 \u0E40\u0E2B\u0E23\u0E35\u0E22\u0E0D \u00B7 \u0E04\u0E30\u0E41\u0E19\u0E19\u0E41\u0E08\u0E01\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34" }),
+        React.createElement(Tabs, { tabs: [{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }], active: kind, onChange: (k) => { setKind(k); setPick(""); } }),
+        React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" } },
+            React.createElement("input", { value: q, onChange: (e) => setQ(e.target.value), placeholder: "\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", style: { padding: "8px 10px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 13, minWidth: 140 } }),
+            React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E27\u0E31\u0E19\u0E41\u0E02\u0E48\u0E07/\u0E25\u0E07\u0E1C\u0E25:"),
+            React.createElement("input", { type: "date", value: dateF, onChange: (e) => setDateF(e.target.value), style: { padding: "8px 10px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 13 } }),
+            dateF && React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setDateF("") }, "\u0E25\u0E49\u0E32\u0E07\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48")),
+        React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" } },
+            React.createElement(Select, { value: (comp === null || comp === void 0 ? void 0 : comp.id) || "", onChange: setPick }, list.map((c) => React.createElement("option", { key: c.id, value: c.id },
+                c.name,
+                c.noScore ? " (ไม่นับคะแนน)" : ""))),
+            comp && React.createElement(ItemStatusBadge, { c: comp })),
+        !comp && React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 (\u0E1B\u0E23\u0E31\u0E1A\u0E15\u0E31\u0E27\u0E01\u0E23\u0E2D\u0E07/\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48)" }),
+        comp && (React.createElement(Card, { style: { padding: 16 } },
+            React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
+                React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: C.ink } }, "\u0E23\u0E30\u0E1A\u0E1A\u0E01\u0E32\u0E23\u0E25\u0E07\u0E1C\u0E25:"),
+                [["outcome", "แพ้/ชนะ/เสมอ (รอบเก็บคะแนน)"], ["medal", "เหรียญ (รอบชิง)"]].map(([v, l]) => (React.createElement("button", { key: v, onClick: () => setMode(v), style: { padding: "6px 12px", borderRadius: 16, border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 700, background: mode === v ? C.primary : C.soft, color: mode === v ? "#fff" : C.primaryDark } }, l)))),
+            React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12, paddingBottom: 12, borderBottom: `1px solid ${C.line}` } },
+                React.createElement("span", { style: { fontSize: 12.5, color: C.muted } }, "\u0E25\u0E07\u0E04\u0E23\u0E31\u0E49\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27\u0E17\u0E31\u0E49\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23:"),
+                mode === "outcome" ? React.createElement(React.Fragment, null,
+                    React.createElement(Btn, { small: true, variant: "soft", onClick: () => bulkAll("outcome", "ชนะ") }, "\u0E17\u0E38\u0E01\u0E04\u0E19: \u0E0A\u0E19\u0E30"),
+                    React.createElement(Btn, { small: true, variant: "soft", onClick: () => bulkAll("outcome", "เสมอ") }, "\u0E17\u0E38\u0E01\u0E04\u0E19: \u0E40\u0E2A\u0E21\u0E2D"),
+                    React.createElement(Btn, { small: true, variant: "soft", onClick: () => bulkAll("outcome", "แพ้") }, "\u0E17\u0E38\u0E01\u0E04\u0E19: \u0E41\u0E1E\u0E49")) : React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E42\u0E2B\u0E21\u0E14\u0E40\u0E2B\u0E23\u0E35\u0E22\u0E0D \u0E43\u0E2B\u0E49\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E40\u0E2B\u0E23\u0E35\u0E22\u0E0D\u0E23\u0E32\u0E22\u0E1A\u0E38\u0E04\u0E04\u0E25\u0E14\u0E49\u0E32\u0E19\u0E25\u0E48\u0E32\u0E07"),
+                React.createElement("label", { style: { marginLeft: "auto", fontSize: 12.5, color: C.ink, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" } },
+                    React.createElement("input", { type: "checkbox", checked: perStudent, onChange: (e) => setPerStudent(e.target.checked) }),
+                    " \u0E25\u0E07\u0E23\u0E32\u0E22\u0E1A\u0E38\u0E04\u0E04\u0E25")),
+            (perStudent || mode === "medal") ? (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
+                parts.map((x) => {
+                    const s = db.students.find((st) => st.id === x.sid);
+                    if (!s)
+                        return null;
+                    const r = (comp.results || {})[x.sid] || {};
+                    return (React.createElement("div", { key: x.sid, style: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", border: `1px solid ${C.line}`, borderRadius: 10, padding: "8px 12px" } },
+                        React.createElement(Avatar, { person: s, size: 34 }),
+                        React.createElement("div", { style: { flex: "1 1 140px", minWidth: 0 } },
+                            React.createElement("div", { style: { fontSize: 13, fontWeight: 600, color: C.ink } }, fullName(s)),
+                            React.createElement("div", { style: { fontSize: 11, color: C.muted } },
+                                s.grade,
+                                "/",
+                                s.room,
+                                " \u00B7 ",
+                                x.sel === "main" ? "ตัวจริง" : x.sel === "reserve" ? "สำรอง" : "สมัคร")),
+                        React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } }, mode === "outcome" ? React.createElement(React.Fragment, null,
+                            chip(x.sid, "outcome", "ชนะ", r, "#2f9e6b"),
+                            chip(x.sid, "outcome", "เสมอ", r, "#c99a2e"),
+                            chip(x.sid, "outcome", "แพ้", r, "#c0392b"))
+                            : React.createElement(React.Fragment, null,
+                                chip(x.sid, "medal", "ทอง", r, "#d4a017"),
+                                chip(x.sid, "medal", "เงิน", r, "#9aa3ab"),
+                                chip(x.sid, "medal", "ทองแดง", r, "#b06a3b"))),
+                        React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: C.primaryDark } },
+                            scoreOf(r, cfg),
+                            " \u0E04\u0E30\u0E41\u0E19\u0E19")));
+                }),
+                parts.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E39\u0E49\u0E40\u0E02\u0E49\u0E32\u0E41\u0E02\u0E48\u0E07" }))) : (React.createElement("div", { style: { fontSize: 13, color: C.muted } }, hasResults ? React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } }, parts.map((x) => { const s = db.students.find((st) => st.id === x.sid); const r = (comp.results || {})[x.sid] || {}; if (!s)
+                return null; return React.createElement("div", { key: x.sid, style: { fontSize: 12.5, color: C.ink } },
+                "\u2022 ",
+                fullName(s),
+                " \u2014 ",
+                r.outcome || "",
+                r.medal ? ` ${r.medal}` : "",
+                " ",
+                React.createElement("span", { style: { color: C.primaryDark, fontWeight: 700 } },
+                    "(",
+                    scoreOf(r, cfg),
+                    " \u0E04\u0E30\u0E41\u0E19\u0E19)")); })) : React.createElement("span", null, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E25\u0E07\u0E1C\u0E25 \u2014 \u0E01\u0E14 \"\u0E25\u0E07\u0E04\u0E23\u0E31\u0E49\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27\u0E17\u0E31\u0E49\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\" \u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19 \u0E2B\u0E23\u0E37\u0E2D\u0E15\u0E34\u0E4A\u0E01 \"\u0E25\u0E07\u0E23\u0E32\u0E22\u0E1A\u0E38\u0E04\u0E04\u0E25\""))),
+            React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.line}` } },
+                React.createElement(Btn, { small: true, variant: "danger", onClick: clearResults }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E1C\u0E25\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07"),
+                React.createElement(Btn, { small: true, variant: comp.noScore ? "soft" : "ghost", onClick: toggleNoScore }, comp.noScore ? "เปิดนับคะแนนอีกครั้ง" : "ยกเลิกคะแนน (ไม่นับรวม)"),
+                comp.resultDate && React.createElement("span", { style: { fontSize: 12, color: C.muted, alignSelf: "center" } },
+                    "\u0E25\u0E07\u0E1C\u0E25\u0E40\u0E21\u0E37\u0E48\u0E2D ",
+                    comp.resultDate),
+                comp.noScore && React.createElement("span", { style: { fontSize: 12, color: "#c0392b", fontWeight: 700, alignSelf: "center" } }, "\u25CF \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49\u0E44\u0E21\u0E48\u0E19\u0E31\u0E1A\u0E04\u0E30\u0E41\u0E19\u0E19"))))));
 }
 function ResultsScreen({ db, setDb, ui, restrict, title }) {
     const cfg = db.settings.scoreConfig || {};
