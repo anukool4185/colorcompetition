@@ -360,7 +360,92 @@ function CompTrainingBlock({ db }) {
                 t.place ? `· ${t.place}` : "",
                 t.note ? ` · ${t.note}` : ""))))))));
 }
-function Landing({ onLogin, announce, comps, db }) {
+function PublicSearchRegister({ db, setDb, ui }) {
+    const [mode, setMode] = useState(null); // "search" | "register"
+    const [q, setQ] = useState("");
+    const houses = (db.settings && db.settings.houses) || [];
+    const blank = { id: "", pre: "เด็กชาย", first: "", last: "", grade: "", room: "", phone: "", house: "" };
+    const [f, setF] = useState(blank);
+    const matches = (str) => { const s = (str || "").trim().toLowerCase(); if (!s)
+        return []; return db.students.filter((x) => String(x.id).toLowerCase().includes(s) || fullName(x).toLowerCase().includes(s)).slice(0, 8); };
+    const commit = (mut) => { if (window.__commitRemote)
+        window.__commitRemote(mut);
+    else
+        setDb(mut); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
+    const idExists = (id) => db.students.some((x) => String(x.id) === String((id || "").trim()));
+    const doRegister = () => {
+        if (!f.id.trim() || !f.first.trim()) {
+            ui.notify("กรอกรหัสนักเรียนและชื่ออย่างน้อย");
+            return;
+        }
+        if (idExists(f.id)) {
+            ui.notify("รหัสนักเรียนนี้มีในระบบแล้ว — ใช้ค้นหาแทน");
+            return;
+        }
+        if (!phoneOk(f.phone)) {
+            ui.notify("เบอร์โทรไม่ถูกต้อง — ตัวเลขล้วน 9–10 หลัก ไม่มีขีด");
+            return;
+        }
+        commit((p) => ({ ...p, students: [...p.students, { id: f.id.trim(), pre: f.pre, first: f.first.trim(), last: f.last.trim(), grade: f.grade, room: f.room.trim(), phone: f.phone.trim(), house: f.house === "" ? undefined : Number(f.house) }] }));
+        ui.notify("ลงทะเบียนสำเร็จ! เข้าระบบด้วยรหัสนักเรียน (รหัสผ่านครั้งแรก = รหัสนักเรียน)");
+        setF(blank);
+        setMode(null);
+    };
+    const resultList = (list) => list.length ? (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6, marginTop: 8 } }, list.map((s) => React.createElement("div", { key: s.id, style: { border: `1px solid ${C.line}`, borderRadius: 8, padding: "6px 10px", fontSize: 13 } },
+        React.createElement("b", { style: { color: "#2f9e6b" } }, "\u0E1E\u0E1A\u0E43\u0E19\u0E23\u0E30\u0E1A\u0E1A"),
+        " \u00B7 ",
+        fullName(s),
+        " ",
+        React.createElement("span", { style: { color: C.muted } },
+            "(",
+            s.id,
+            s.grade ? ` · ${s.grade}/${s.room || ""}` : "",
+            ")"))))) : (React.createElement("div", { style: { marginTop: 8, fontSize: 13, color: C.muted } },
+        "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E43\u0E19\u0E23\u0E30\u0E1A\u0E1A \u2014 ",
+        React.createElement("button", { onClick: () => { setF({ ...blank, id: /^\d+$/.test(q.trim()) ? q.trim() : "", first: /^\d+$/.test(q.trim()) ? "" : q.trim() }); setMode("register"); }, style: { color: C.primary, fontWeight: 700, background: "none", border: "none", cursor: "pointer", textDecoration: "underline" } }, "\u0E25\u0E07\u0E17\u0E30\u0E40\u0E1A\u0E35\u0E22\u0E19\u0E40\u0E1E\u0E34\u0E48\u0E21")));
+    return (React.createElement(React.Fragment, null,
+        React.createElement(Btn, { small: true, variant: "ghost", onClick: () => { setMode("search"); setQ(""); } }, "\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D"),
+        React.createElement(Btn, { small: true, variant: "ghost", onClick: () => { setF(blank); setMode("register"); } }, "\u0E25\u0E07\u0E17\u0E30\u0E40\u0E1A\u0E35\u0E22\u0E19\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E43\u0E2B\u0E21\u0E48"),
+        mode === "search" && (React.createElement(Modal, { title: "\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E19\u0E23\u0E30\u0E1A\u0E1A", onClose: () => setMode(null) },
+            React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 8 } }, "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E0A\u0E37\u0E48\u0E2D \u0E2B\u0E23\u0E37\u0E2D \u0E40\u0E25\u0E02\u0E1B\u0E23\u0E30\u0E08\u0E33\u0E15\u0E31\u0E27 \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E15\u0E23\u0E27\u0E08\u0E27\u0E48\u0E32\u0E2D\u0E22\u0E39\u0E48\u0E43\u0E19\u0E23\u0E30\u0E1A\u0E1A\u0E41\u0E25\u0E49\u0E27\u0E2B\u0E23\u0E37\u0E2D\u0E22\u0E31\u0E07"),
+            React.createElement("input", { autoFocus: true, value: q, onChange: (e) => setQ(e.target.value), placeholder: "\u0E0A\u0E37\u0E48\u0E2D / \u0E40\u0E25\u0E02\u0E1B\u0E23\u0E30\u0E08\u0E33\u0E15\u0E31\u0E27", style: { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14 } }),
+            q.trim() && resultList(matches(q)))),
+        mode === "register" && (React.createElement(Modal, { title: "\u0E25\u0E07\u0E17\u0E30\u0E40\u0E1A\u0E35\u0E22\u0E19\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E43\u0E2B\u0E21\u0E48", onClose: () => setMode(null) },
+            React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 10 } }, "\u0E01\u0E23\u0E2D\u0E01\u0E23\u0E2B\u0E31\u0E2A\u0E2B\u0E23\u0E37\u0E2D\u0E0A\u0E37\u0E48\u0E2D \u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E0A\u0E48\u0E27\u0E22\u0E40\u0E0A\u0E47\u0E04\u0E27\u0E48\u0E32\u0E21\u0E35\u0E43\u0E19\u0E23\u0E30\u0E1A\u0E1A\u0E41\u0E25\u0E49\u0E27\u0E2B\u0E23\u0E37\u0E2D\u0E22\u0E31\u0E07"),
+            React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
+                React.createElement(Field, { label: "\u0E23\u0E2B\u0E31\u0E2A\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19", value: f.id, onChange: (v) => setF({ ...f, id: v }), placeholder: "\u0E40\u0E25\u0E02\u0E1B\u0E23\u0E30\u0E08\u0E33\u0E15\u0E31\u0E27" }),
+                React.createElement("div", null,
+                    React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E04\u0E33\u0E19\u0E33\u0E2B\u0E19\u0E49\u0E32"),
+                    React.createElement(Select, { value: f.pre, onChange: (v) => setF({ ...f, pre: v }) }, ["เด็กชาย", "เด็กหญิง", "นาย", "นางสาว"].map((x) => React.createElement("option", { key: x, value: x }, x))))),
+            f.id.trim() && idExists(f.id) && React.createElement("div", { style: { fontSize: 12.5, color: "#c0392b", fontWeight: 700, marginBottom: 8 } },
+                "\u26A0 \u0E23\u0E2B\u0E31\u0E2A\u0E19\u0E35\u0E49\u0E21\u0E35\u0E43\u0E19\u0E23\u0E30\u0E1A\u0E1A\u0E41\u0E25\u0E49\u0E27 (",
+                fullName(db.students.find((x) => String(x.id) === String(f.id.trim()))),
+                ") \u2014 \u0E43\u0E0A\u0E49\u0E04\u0E49\u0E19\u0E2B\u0E32/\u0E40\u0E02\u0E49\u0E32\u0E23\u0E30\u0E1A\u0E1A\u0E41\u0E17\u0E19"),
+            React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
+                React.createElement(Field, { label: "\u0E0A\u0E37\u0E48\u0E2D", value: f.first, onChange: (v) => setF({ ...f, first: v }) }),
+                React.createElement(Field, { label: "\u0E19\u0E32\u0E21\u0E2A\u0E01\u0E38\u0E25", value: f.last, onChange: (v) => setF({ ...f, last: v }) })),
+            f.first.trim() && matches(f.first).length > 0 && !idExists(f.id) && React.createElement("div", { style: { fontSize: 12, color: "#c99a2e", marginBottom: 8 } },
+                "\u0E1E\u0E1A\u0E0A\u0E37\u0E48\u0E2D\u0E04\u0E25\u0E49\u0E32\u0E22\u0E01\u0E31\u0E19\u0E43\u0E19\u0E23\u0E30\u0E1A\u0E1A: ",
+                matches(f.first).map((s) => `${fullName(s)} (${s.id})`).join(", ")),
+            React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
+                React.createElement("div", null,
+                    React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E0A\u0E31\u0E49\u0E19"),
+                    React.createElement(Select, { value: f.grade, onChange: (v) => setF({ ...f, grade: v }) },
+                        React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01 \u2014"),
+                        GRADE_ORDER.map((g) => React.createElement("option", { key: g, value: g }, g)))),
+                React.createElement(Field, { label: "\u0E2B\u0E49\u0E2D\u0E07", value: f.room, onChange: (v) => setF({ ...f, room: v }) })),
+            React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
+                React.createElement(Field, { label: "\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23", value: f.phone, onChange: (v) => setF({ ...f, phone: v }), placeholder: "\u0E40\u0E0A\u0E48\u0E19 0812345678" }),
+                React.createElement("div", null,
+                    React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E2A\u0E35"),
+                    React.createElement(Select, { value: f.house, onChange: (v) => setF({ ...f, house: v }) },
+                        React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2A\u0E35 \u2014"),
+                        houses.map((h, i) => React.createElement("option", { key: i, value: i }, h.name))))),
+            React.createElement("div", { style: { marginTop: 12, display: "flex", gap: 8 } },
+                React.createElement(Btn, { onClick: doRegister }, "\u0E25\u0E07\u0E17\u0E30\u0E40\u0E1A\u0E35\u0E22\u0E19"),
+                React.createElement(Btn, { variant: "ghost", onClick: () => setMode(null) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"))))));
+}
+function Landing({ onLogin, announce, comps, db, setDb, ui }) {
     const [speed, setSpeed] = useState(announce.speed);
     const [showSchedule, setShowSchedule] = useState(false);
     const allSch = comps.flatMap((c) => c.schedule.map((s) => ({ ...s, name: c.name })));
@@ -370,7 +455,8 @@ function Landing({ onLogin, announce, comps, db }) {
         React.createElement("header", { style: { background: C.surface, borderBottom: `1px solid ${C.line}` } },
             React.createElement("div", { style: { maxWidth: 1080, margin: "0 auto", padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" } },
                 React.createElement(Brand, { sub: "\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19" }),
-                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
+                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+                    setDb && React.createElement(PublicSearchRegister, { db: db, setDb: setDb, ui: ui }),
                     React.createElement(Btn, { onClick: onLogin, small: true }, "\u0E40\u0E02\u0E49\u0E32\u0E2A\u0E39\u0E48\u0E23\u0E30\u0E1A\u0E1A"),
                     React.createElement("button", { onClick: closeWin, "aria-label": "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", title: "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", style: { fontSize: 18, fontWeight: 700, color: "#c0392b", background: "none", border: `1px solid ${C.line}`, borderRadius: 8, width: 34, height: 34, cursor: "pointer", lineHeight: 1 } }, "\u2715")))),
         React.createElement("main", { style: { maxWidth: 1080, margin: "0 auto", padding: 18, display: "flex", flexDirection: "column", gap: 16 } },
@@ -4526,7 +4612,7 @@ function App() {
                 saveNow();
             else
                 loadData(); } }),
-        screen === "landing" && React.createElement(Landing, { onLogin: () => setScreen("login"), announce: db.settings.announce, comps: db.competitions, db: db }),
+        screen === "landing" && React.createElement(Landing, { onLogin: () => setScreen("login"), announce: db.settings.announce, comps: db.competitions, db: db, setDb: setDb, ui: ui }),
         screen === "login" && React.createElement(Login, { db: db, onEnter: (a) => { setAuth(a); setScreen("app"); }, onBack: () => setScreen("landing") }),
         screen === "app" && (auth === null || auth === void 0 ? void 0 : auth.role) === "admin" && React.createElement(AdminApp, { db: db, setDb: setDb, onExit: exit }),
         screen === "app" && ((auth === null || auth === void 0 ? void 0 : auth.role) === "teacher" || (auth === null || auth === void 0 ? void 0 : auth.role) === "studentcom") && React.createElement(CommitteeApp, { role: auth.role, db: db, setDb: setDb, onExit: exit, meId: auth.id }),
