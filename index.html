@@ -3852,6 +3852,12 @@ function CommitteeRegister({ myCompIds, db, setDb, ui, role, meId }) {
     const enrollSelf = (compId, status) => { if (quotaFull) {
         ui.notify("ครบโควตาแล้ว — ติดต่อกรรมการสี(นักเรียน)");
         return;
+    } const c0 = db.competitions.find((x) => x.id === compId); if (c0 && status === "main" && mainSelFull(c0)) {
+        ui.notify("ตัวจริงครบแล้ว — ปิดรับสมัครตัวจริง");
+        return;
+    } if (c0 && status === "reserve" && reserveSelFull(c0)) {
+        ui.notify("ตัวสำรองครบแล้ว — ปิดรับสมัครสำรอง");
+        return;
     } ui.run("กำลังสมัคร...", () => { setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === compId ? { ...c, participants: [...c.participants.filter((x) => x.sid !== me.id), { sid: me.id, status, sel: undefined }] } : c) })); ui.notify("สมัครสำเร็จ"); }); };
     const unregSelf = (compId) => ui.run("กำลังยกเลิก...", () => setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === compId ? { ...c, participants: c.participants.filter((x) => x.sid !== me.id) } : c) })));
     return (React.createElement("div", null,
@@ -3878,10 +3884,11 @@ function CommitteeRegister({ myCompIds, db, setDb, ui, role, meId }) {
                                 " ",
                                 React.createElement(ItemStatusBadge, { c: c })),
                             mine && React.createElement(Badge, { status: mine.sel || mine.status })),
-                        React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" } },
-                            React.createElement(Btn, { variant: "soft", small: true, disabled: quotaFull, onClick: () => enrollSelf(c.id, "main") }, "\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07"),
-                            React.createElement(Btn, { variant: "ghost", small: true, disabled: quotaFull, onClick: () => enrollSelf(c.id, "reserve") }, "\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E2A\u0E33\u0E23\u0E2D\u0E07"),
-                            mine && React.createElement(Btn, { variant: "ghost", small: true, onClick: () => unregSelf(c.id) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E2A\u0E21\u0E31\u0E04\u0E23"))));
+                        React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap", alignItems: "center" } },
+                            React.createElement(Btn, { variant: "soft", small: true, disabled: quotaFull || mainSelFull(c), onClick: () => enrollSelf(c.id, "main") }, "\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07"),
+                            React.createElement(Btn, { variant: "ghost", small: true, disabled: quotaFull || reserveSelFull(c), onClick: () => enrollSelf(c.id, "reserve") }, "\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E2A\u0E33\u0E23\u0E2D\u0E07"),
+                            mine && React.createElement(Btn, { variant: "ghost", small: true, onClick: () => unregSelf(c.id) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E2A\u0E21\u0E31\u0E04\u0E23"),
+                            regClosed(c) && React.createElement("span", { style: { fontSize: 11.5, fontWeight: 700, color: "#c0392b" } }, "\u0E1B\u0E34\u0E14\u0E23\u0E31\u0E1A\u0E2A\u0E21\u0E31\u0E04\u0E23 (\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E04\u0E23\u0E1A)"))));
                 }),
                 selfList.length === 0 && React.createElement(Empty, { text: `ไม่มีรายการ${kind}สำหรับระดับชั้นของคุณ` })))),
         React.createElement("div", { style: { fontWeight: 800, color: C.ink, marginBottom: 8 } }, "\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E41\u0E17\u0E19\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19"),
@@ -4279,6 +4286,9 @@ function MyProfile({ me, db, setDb, ui }) {
                     return;
                 } ui.run("กำลังบันทึก...", () => { setDb((p) => ({ ...p, students: p.students.map((s) => s.id === me.id ? { ...s, ...f } : s) })); ui.notify("บันทึกข้อมูลแล้ว"); }); } }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25"))));
 }
+function mainSelFull(c) { const n = Number(c.mainCount) || 0; return n > 0 && c.participants.filter((x) => x.sel === "main").length >= n; }
+function reserveSelFull(c) { const n = Number(c.reserveCount) || 0; return n > 0 && c.participants.filter((x) => x.sel === "reserve").length >= n; }
+function regClosed(c) { return mainSelFull(c) && reserveSelFull(c); }
 function StudentRegister({ me, db, setDb, ui }) {
     const [kind, setKind] = useState("แข่งขัน");
     const list = db.competitions.filter((c) => c.kind === kind && eligibleForGrade(c, me.grade));
@@ -4288,6 +4298,15 @@ function StudentRegister({ me, db, setDb, ui }) {
     const enroll = (compId, status) => {
         if (quotaFull) {
             ui.notify("ครบโควตาแล้ว — ติดต่อกรรมการสี(นักเรียน)");
+            return;
+        }
+        const c = db.competitions.find((x) => x.id === compId);
+        if (c && status === "main" && mainSelFull(c)) {
+            ui.notify("ตัวจริงครบแล้ว — ปิดรับสมัครตัวจริง (ลองสมัครสำรอง)");
+            return;
+        }
+        if (c && status === "reserve" && reserveSelFull(c)) {
+            ui.notify("ตัวสำรองครบแล้ว — ปิดรับสมัครสำรอง");
             return;
         }
         ui.run("กำลังสมัคร...", () => { setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === compId ? { ...c, participants: [...c.participants.filter((x) => x.sid !== me.id), { sid: me.id, status, sel: undefined }] } : c) })); ui.notify("สมัครสำเร็จ"); });
@@ -4315,10 +4334,13 @@ function StudentRegister({ me, db, setDb, ui }) {
                                 " \u0E16\u0E36\u0E07 ",
                                 c.regEnd || "-")),
                         mine && React.createElement(Badge, { status: mine.sel || mine.status })),
-                    React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" } },
-                        React.createElement(Btn, { variant: "soft", small: true, disabled: quotaFull, onClick: () => enroll(c.id, "main") }, "\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07"),
-                        React.createElement(Btn, { variant: "ghost", small: true, disabled: quotaFull, onClick: () => enroll(c.id, "reserve") }, "\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E2A\u0E33\u0E23\u0E2D\u0E07"),
-                        mine && React.createElement(Btn, { variant: "ghost", small: true, onClick: () => unreg(c.id) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E2A\u0E21\u0E31\u0E04\u0E23"))));
+                    React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap", alignItems: "center" } },
+                        React.createElement(Btn, { variant: "soft", small: true, disabled: quotaFull || mainSelFull(c), onClick: () => enroll(c.id, "main") }, "\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07"),
+                        React.createElement(Btn, { variant: "ghost", small: true, disabled: quotaFull || reserveSelFull(c), onClick: () => enroll(c.id, "reserve") }, "\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E2A\u0E33\u0E23\u0E2D\u0E07"),
+                        mine && React.createElement(Btn, { variant: "ghost", small: true, onClick: () => unreg(c.id) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E2A\u0E21\u0E31\u0E04\u0E23"),
+                        regClosed(c) && React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#c0392b" } }, "\u0E1B\u0E34\u0E14\u0E23\u0E31\u0E1A\u0E2A\u0E21\u0E31\u0E04\u0E23 (\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E04\u0E23\u0E1A\u0E41\u0E25\u0E49\u0E27) \u2014 \u0E14\u0E39\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E44\u0E14\u0E49"),
+                        !regClosed(c) && mainSelFull(c) && React.createElement("span", { style: { fontSize: 11.5, color: "#c0392b" } }, "\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07\u0E04\u0E23\u0E1A"),
+                        !regClosed(c) && reserveSelFull(c) && React.createElement("span", { style: { fontSize: 11.5, color: "#c0392b" } }, "\u0E15\u0E31\u0E27\u0E2A\u0E33\u0E23\u0E2D\u0E07\u0E04\u0E23\u0E1A"))));
             }),
             list.length === 0 && React.createElement(Empty, { text: `ยังไม่มีรายการ${kind}` }))));
 }
