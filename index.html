@@ -3660,6 +3660,27 @@ function TrainingModal({ comp, db, setDb, ui, onClose }) {
         React.createElement("div", { style: { marginTop: 8 } },
             React.createElement(Btn, { onClick: add }, "\uFF0B \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E19\u0E31\u0E14\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21"))));
 }
+function committeeMembers(db, c) {
+    const out = [], seen = new Set();
+    const walk = (orgKey, pool, side) => {
+        (db[orgKey] || []).filter((n) => String(n.compId) === String(c.id)).forEach((n) => {
+            orgPathIds(db[orgKey], n.id).slice().reverse().forEach((id) => {
+                const node = (db[orgKey] || []).find((x) => x.id === id);
+                const p = node && pool.find((x) => String(x.id) === String(node.personId));
+                if (p) {
+                    const key = side + ":" + p.id;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        out.push({ name: `${p.first} ${p.last}`, grade: p.grade || "", room: p.room || "", title: node.title, phone: p.phone || "", side });
+                    }
+                }
+            });
+        });
+    };
+    walk("orgTeacher", db.teachers, "ครู");
+    walk("orgStudent", db.students, "นักเรียน");
+    return out;
+}
 function CommitteeSchedule({ myCompIds, db, setDb, ui, me }) {
     const [popup, setPopup] = useState(null);
     const [trainModal, setTrainModal] = useState(null);
@@ -3758,7 +3779,26 @@ function CommitteeSchedule({ myCompIds, db, setDb, ui, me }) {
                                             "\u260E ",
                                             s.phone)) : ""); })));
                         })),
-                    React.createElement("div", { style: { flex: "0 0 220px", borderLeft: `1px solid ${C.line}`, paddingLeft: 12 } },
+                    React.createElement("div", { style: { flex: "0 0 250px", borderLeft: `1px solid ${C.line}`, paddingLeft: 12 } },
+                        React.createElement("div", { style: { fontWeight: 700, color: C.primaryDark, fontSize: 13, marginBottom: 6 } }, "\uD83D\uDC65 \u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23"),
+                        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 } },
+                            committeeMembers(db, c).map((m, i) => (React.createElement("div", { key: i, style: { fontSize: 12, color: C.ink, lineHeight: 1.35 } },
+                                React.createElement("b", null, m.name),
+                                " ",
+                                React.createElement("span", { style: { color: m.side === "ครู" ? C.primary : C.gold, fontWeight: 700 } },
+                                    "(",
+                                    m.side,
+                                    ")"),
+                                React.createElement("br", null),
+                                React.createElement("span", { style: { color: C.muted } },
+                                    m.grade ? `${m.grade}/${m.room} · ` : "",
+                                    m.title),
+                                m.phone ? React.createElement(React.Fragment, null,
+                                    " \u00B7 ",
+                                    React.createElement("a", { href: `tel:${m.phone}`, style: { color: C.primary, textDecoration: "none", fontWeight: 700 } },
+                                        "\u260E ",
+                                        m.phone)) : ""))),
+                            committeeMembers(db, c).length === 0 && React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23 (\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E19\u0E1C\u0E31\u0E07 + \u0E1C\u0E39\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)")),
                         React.createElement("div", { style: { fontWeight: 700, color: C.primaryDark, fontSize: 13, marginBottom: 6 } }, "\uD83C\uDFCB \u0E19\u0E31\u0E14\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21"),
                         React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 } },
                             trainingSorted(c).map((t) => React.createElement("div", { key: t.id, style: { fontSize: 12, color: C.ink } },
