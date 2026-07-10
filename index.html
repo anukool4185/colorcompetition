@@ -3486,7 +3486,7 @@ function TrainingModal({ comp, db, setDb, ui, onClose }) {
         return;
     } commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, training: [...(c.training || []), { id: "tr" + Date.now() + Math.random().toString(36).slice(2, 5), date: f.date, time: f.time, place: f.place, note: f.note }] } : c) })); setF({ date: "", time: "", place: "", note: "" }); ui.notify("เพิ่มนัดฝึกซ้อมแล้ว"); };
     const del = (tid) => commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, training: (c.training || []).filter((t) => t.id !== tid) } : c) }));
-    return (React.createElement(Modal, { title: `กำหนดวันฝึกซ้อม: ${comp.name}`, onClose: onClose },
+    return (React.createElement(Modal, { title: `เพิ่มนัดหมายฝึกซ้อม: ${comp.name}`, onClose: onClose },
         React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 } },
             list.map((t) => (React.createElement("div", { key: t.id, style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, border: `1px solid ${C.line}`, borderRadius: 8, padding: "6px 10px" } },
                 React.createElement("div", { style: { fontSize: 12.5, color: C.ink } },
@@ -3616,7 +3616,7 @@ function CommitteeSchedule({ myCompIds, db, setDb, ui, me }) {
                                 t.place ? ` · ${t.place}` : "",
                                 t.note ? ` · ${t.note}` : "")),
                             trainingSorted(c).length === 0 && React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E14\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21")),
-                        React.createElement(Btn, { small: true, onClick: () => setTrainModal(c) }, "\uFF0B \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E27\u0E31\u0E19\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21")))))),
+                        React.createElement(Btn, { small: true, onClick: () => setTrainModal(c) }, "\uFF0B \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21")))))),
             mine.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E21\u0E2D\u0E1A\u0E2B\u0E21\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23" })),
         trainModal && React.createElement(TrainingModal, { comp: db.competitions.find((c) => c.id === trainModal.id) || trainModal, db: db, setDb: setDb, ui: ui, onClose: () => setTrainModal(null) }),
         popup && (React.createElement(Modal, { title: `ตาราง: ${popup.name}`, onClose: () => setPopup(null) },
