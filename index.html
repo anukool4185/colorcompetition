@@ -4612,7 +4612,7 @@ function App() {
                 saveNow();
             else
                 loadData(); } }),
-        screen === "landing" && React.createElement(Landing, { onLogin: () => setScreen("login"), announce: db.settings.announce, comps: db.competitions, db: db, setDb: setDb, ui: ui }),
+        screen === "landing" && React.createElement(Landing, { onLogin: () => setScreen("login"), announce: db.settings.announce, comps: db.competitions, db: db, setDb: setDb, ui: { notify: toast } }),
         screen === "login" && React.createElement(Login, { db: db, onEnter: (a) => { setAuth(a); setScreen("app"); }, onBack: () => setScreen("landing") }),
         screen === "app" && (auth === null || auth === void 0 ? void 0 : auth.role) === "admin" && React.createElement(AdminApp, { db: db, setDb: setDb, onExit: exit }),
         screen === "app" && ((auth === null || auth === void 0 ? void 0 : auth.role) === "teacher" || (auth === null || auth === void 0 ? void 0 : auth.role) === "studentcom") && React.createElement(CommitteeApp, { role: auth.role, db: db, setDb: setDb, onExit: exit, meId: auth.id }),
