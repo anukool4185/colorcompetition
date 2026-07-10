@@ -1416,7 +1416,8 @@ function PersonList({ kind, db, setDb, ui }) {
                 React.createElement("div", { style: { flex: 1, minWidth: 0 } },
                     React.createElement("div", { style: { fontWeight: 700, color: C.ink, fontSize: 14 } },
                         fullName(s),
-                        React.createElement(OrgDot, { db: db, kind: kind, id: s.id })),
+                        React.createElement(OrgDot, { db: db, kind: kind, id: s.id }),
+                        kind === "student" && (s.profileDone || studentProfileComplete(s)) && React.createElement("span", { style: { fontSize: 10.5, fontWeight: 700, color: "#2f9e6b", background: "#eaf7f0", borderRadius: 10, padding: "1px 8px", marginLeft: 6, whiteSpace: "nowrap" } }, "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E04\u0E23\u0E1A\u0E14\u0E49\u0E27\u0E22\u0E01\u0E32\u0E23 login \u0E04\u0E23\u0E31\u0E49\u0E07\u0E41\u0E23\u0E01")),
                     React.createElement("div", { style: { fontSize: 12, color: C.muted } },
                         "\u0E23\u0E2B\u0E31\u0E2A ",
                         s.id,
@@ -3609,6 +3610,7 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
     const nav = [
         { key: "noti", label: pendingCount ? `แจ้งเตือน (${pendingCount})` : "แจ้งเตือน", icon: "🔔" },
         { key: "me", label: "ข้อมูลฉัน", icon: "🪪" },
+        ...(role === "studentcom" ? [{ key: "students", label: "ข้อมูลนักเรียน", icon: "📋" }] : []),
         { key: "org", label: "ผังองค์กร", icon: "🗂" },
         { key: "select", label: "คัดเลือก", icon: "✅" },
         { key: "schedule", label: "ตารางแข่ง", icon: "📅" },
@@ -3619,6 +3621,7 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
     return (React.createElement(Shell, { role: role, nav: nav, view: view, setView: setView, onExit: onExit, ui: ui },
         view === "noti" && React.createElement(NotificationCenter, { db: db, setDb: setDb, ui: ui, admin: false, viewerId: meId, viewerRole: role }),
         view === "me" && React.createElement(CommitteeProfile, { role: role, meId: meId, db: db, setDb: setDb, ui: ui }),
+        view === "students" && React.createElement(StudentInfoList, { db: db }),
         view === "org" && React.createElement(OrgViewManager, { db: db, setDb: setDb, ui: ui, committee: { role, meId } }),
         view === "select" && React.createElement(MyDutyScreen, { role: role, meId: meId, db: db, setDb: setDb, ui: ui }),
         view === "results" && React.createElement(ResultsScreen, { db: db, setDb: setDb, ui: ui, restrict: myCompIds, title: "\u0E2A\u0E48\u0E07\u0E1C\u0E25 (\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E09\u0E31\u0E19\u0E14\u0E39\u0E41\u0E25)" }),
@@ -3942,6 +3945,33 @@ function MyDutyScreen({ role, meId, db, setDb, ui }) {
             comp && React.createElement("div", { id: "myDutyArea" },
                 React.createElement(ParticipantManager, { comp: comp, db: db, setDb: setDb, ui: ui })),
             addOpen && comp && React.createElement(AddApplicantModal, { comp: comp, db: db, onClose: () => setAddOpen(false), onAdd: (sid, status) => addStudent(sid, status) })))));
+}
+function StudentInfoList({ db }) {
+    const [q, setQ] = useState("");
+    const isDone = (s) => !!(s.profileDone || studentProfileComplete(s));
+    const list = db.students.filter((s) => (fullName(s) + (s.id || "") + (s.grade || "") + (s.room || "")).toLowerCase().includes(q.trim().toLowerCase())).slice().sort((a, b) => (a.grade || "").localeCompare(b.grade || "") || (a.room || "").localeCompare(b.room || "") || fullName(a).localeCompare(fullName(b)));
+    const doneCount = db.students.filter(isDone).length;
+    return (React.createElement("div", null,
+        React.createElement(PageHead, { title: "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19", sub: `ทั้งหมด ${db.students.length} คน · ข้อมูลครบ ${doneCount} คน` }),
+        React.createElement("input", { value: q, onChange: (e) => setQ(e.target.value), placeholder: "\u0E04\u0E49\u0E19\u0E2B\u0E32 \u0E0A\u0E37\u0E48\u0E2D / \u0E23\u0E2B\u0E31\u0E2A / \u0E0A\u0E31\u0E49\u0E19-\u0E2B\u0E49\u0E2D\u0E07", style: { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, marginBottom: 12 } }),
+        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
+            list.map((s) => (React.createElement(Card, { key: s.id, style: { padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 } },
+                React.createElement(Avatar, { person: s, size: 36 }),
+                React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                    React.createElement("div", { style: { fontSize: 13.5, fontWeight: 700, color: C.ink } },
+                        fullName(s),
+                        " ",
+                        isDone(s) && React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#2f9e6b", background: "#eaf7f0", borderRadius: 10, padding: "1px 8px", whiteSpace: "nowrap" } }, "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E04\u0E23\u0E1A\u0E14\u0E49\u0E27\u0E22\u0E01\u0E32\u0E23 login \u0E04\u0E23\u0E31\u0E49\u0E07\u0E41\u0E23\u0E01")),
+                    React.createElement("div", { style: { fontSize: 12, color: C.muted } },
+                        s.id ? `${s.id} · ` : "",
+                        s.grade || "",
+                        s.room ? `/${s.room}` : "",
+                        s.phone ? React.createElement(React.Fragment, null,
+                            " \u00B7 ",
+                            React.createElement("a", { href: `tel:${s.phone}`, style: { color: C.primary, textDecoration: "none", fontWeight: 700 } },
+                                "\u260E ",
+                                s.phone)) : ""))))),
+            list.length === 0 && React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19" }))));
 }
 function CommitteeProfile({ role, meId, db, setDb, ui }) {
     if (role === "studentcom") {
