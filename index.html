@@ -730,6 +730,7 @@ function nextGrade(g) {
    ============================================================ */
 function AdminApp({ db, setDb, onExit }) {
     const [view, setView] = useState("home");
+    const [jumpComp, setJumpComp] = useState(null);
     const ui = useUI();
     const adminPending = (db.orgRequests || []).filter((r) => r.status === "pending").length;
     const nav = [
@@ -746,12 +747,12 @@ function AdminApp({ db, setDb, onExit }) {
     ];
     return (React.createElement(Shell, { role: "admin", nav: nav, view: view, setView: setView, onExit: onExit, ui: ui },
         view === "home" && React.createElement(AdminHome, { db: db, setDb: setDb, ui: ui }),
-        view === "noti" && React.createElement(NotificationCenter, { db: db, setDb: setDb, ui: ui, admin: true }),
+        view === "noti" && React.createElement(NotificationCenter, { db: db, setDb: setDb, ui: ui, admin: true, onGoResults: (id) => { setJumpComp(id); setView("results"); } }),
         view === "people" && React.createElement(PeopleManager, { db: db, setDb: setDb, ui: ui }),
         view === "duties" && React.createElement(DutyManager, { db: db, setDb: setDb, ui: ui }),
         view === "org" && React.createElement(OrgViewManager, { db: db, setDb: setDb, ui: ui, editable: true }),
         view === "comp" && React.createElement(CompManager, { db: db, setDb: setDb, ui: ui }),
-        view === "results" && React.createElement(ResultsManager, { db: db, setDb: setDb, ui: ui }),
+        view === "results" && React.createElement(ResultsManager, { db: db, setDb: setDb, ui: ui, autoOpen: jumpComp, onAutoOpened: () => setJumpComp(null) }),
         view === "promote" && React.createElement(PromotionManager, { db: db, setDb: setDb, ui: ui }),
         view === "trash" && React.createElement(TrashBin, { db: db, setDb: setDb, ui: ui }),
         view === "promo" && React.createElement(SettingsManager, { db: db, setDb: setDb, ui: ui })));
@@ -2658,6 +2659,46 @@ function reqApprovers(db, r) {
     }
     return { teacherIds, studentIds };
 }
+// กรรมการที่รับผิดชอบรายการ c (ทั้งสายผัง ครู+นักเรียน ที่ผูกกับ compId)
+function respCommForComp(db, comp) {
+    const teacherIds = new Set(), studentIds = new Set();
+    (db.orgTeacher || []).filter((n) => String(n.compId) === String(comp.id)).forEach((node) => { orgPathIds(db.orgTeacher || [], node.id).forEach((id) => { const n = (db.orgTeacher || []).find((x) => x.id === id); if (n && n.personId)
+        teacherIds.add(String(n.personId)); }); });
+    (db.orgStudent || []).filter((n) => String(n.compId) === String(comp.id)).forEach((node) => { orgPathIds(db.orgStudent || [], node.id).forEach((id) => { const n = (db.orgStudent || []).find((x) => x.id === id); if (n && n.personId)
+        studentIds.add(String(n.personId)); }); });
+    return { teacherIds, studentIds };
+}
+// สร้างรอบผลอัตโนมัติเมื่อเลยเวลาแข่ง + ลบรอบว่าง(อัตโนมัติ)ที่ตารางเปลี่ยน/เลื่อน — ไม่แตะรอบที่มีผลแล้ว
+function autoSyncRounds(db) {
+    const now = new Date();
+    const todayS = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const nowHM = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    let changed = false;
+    const comps = (db.competitions || []).map((c) => {
+        let sets = c.resultSets ? [...c.resultSets] : [];
+        const schedKeys = new Set((c.schedule || []).filter((s) => s.date).map((s) => `${s.date}|${s.time || ""}|${s.round || ""}`));
+        const before = sets.length;
+        // ลบรอบว่างที่ระบบสร้าง (auto) แต่ตารางถูกเลื่อน/ลบไปแล้ว (schedKey ไม่ตรง) และยังไม่มีผล
+        sets = sets.filter((rs) => !(rs.auto && rs.schedKey && !schedKeys.has(rs.schedKey) && (!rs.results || !Object.keys(rs.results).length)));
+        if (sets.length !== before)
+            changed = true;
+        (c.schedule || []).forEach((s) => {
+            if (!s.date)
+                return;
+            const passed = s.date < todayS || (s.date === todayS && (!s.time || s.time <= nowHM));
+            if (!passed)
+                return;
+            const key = `${s.date}|${s.time || ""}|${s.round || ""}`;
+            const exists = sets.some((rs) => rs.schedKey === key || (rs.date === s.date && (rs.time || "") === (s.time || "") && !rs.auto));
+            if (!exists) {
+                sets.push({ id: "rs" + Date.now() + Math.random().toString(36).slice(2, 6), date: s.date, time: s.time || "", place: s.place || "", mode: "outcome", results: {}, auto: true, schedKey: key });
+                changed = true;
+            }
+        });
+        return { ...c, resultSets: sets };
+    });
+    return { changed, next: changed ? { ...db, competitions: comps } : db };
+}
 // เรียงจากประธาน (บนสุด) ลงมาถึงผู้ดูแล + ใส่ (ตำแหน่ง) ต่อท้ายชื่อ
 function orgLineNamed(nodes, nodeId, pool) {
     const ids = orgPathIds(nodes, nodeId).slice().reverse();
@@ -3537,11 +3578,23 @@ function PromoCard({ db, setDb, ui }) {
 /* ============================================================
    COMMITTEE (teacher / student committee) — same screens
    ============================================================ */
-function NotificationCenter({ db, setDb, ui, admin, viewerId, viewerRole }) {
+function NotificationCenter({ db, setDb, ui, admin, viewerId, viewerRole, onGoResults }) {
     const now = Date.now();
     const canApproveReq = (r) => { if (admin)
         return true; const a = reqApprovers(db, r); return viewerRole === "teacher" ? a.teacherIds.has(viewerId) : a.studentIds.has(viewerId); };
     const reqs = (db.orgRequests || []).filter((r) => (!r.hiddenUntil || r.hiddenUntil <= now) && (admin || canApproveReq(r) || String(r.personId) === String(viewerId) || String(r.replacementId || "") === String(viewerId))).slice().sort((a, b) => b.at - a.at);
+    const resultReminders = [];
+    if (onGoResults) {
+        (db.competitions || []).forEach((c) => {
+            const resp = respCommForComp(db, c);
+            const iAmResp = admin || resp.teacherIds.has(String(viewerId)) || resp.studentIds.has(String(viewerId));
+            if (!iAmResp)
+                return;
+            (c.resultSets || []).forEach((rs) => { const hasResults = rs.results && Object.values(rs.results).some((r) => r && (r.outcome || r.medal)); if (!hasResults)
+                resultReminders.push({ comp: c, rs }); });
+        });
+        resultReminders.sort((a, b) => ((a.rs.date || "") + (a.rs.time || "")).localeCompare((b.rs.date || "") + (b.rs.time || "")));
+    }
     const sideLabel = (s) => s === "orgTeacher" ? "ครู" : "นักเรียน";
     const personOf = (side, id) => (side === "orgStudent" ? db.students : db.teachers).find((x) => String(x.id) === String(id));
     const isReplacement = (r) => viewerId != null && String(r.replacementId || "") === String(viewerId);
@@ -3561,9 +3614,28 @@ function NotificationCenter({ db, setDb, ui, admin, viewerId, viewerRole }) {
     const ackStay = (r) => ui.run("กำลังยืนยัน...", () => { commit((p) => ({ ...p, orgRequests: p.orgRequests.filter((x) => x.id !== r.id) })); ui.notify("รับทราบ — ทำหน้าที่เดิมต่อไป (ปิดคำร้อง)"); });
     const reRequestPick = (r, rep) => ui.run("กำลังส่งคำร้องใหม่...", () => { commit((p) => ({ ...p, orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, status: "pending", replacementId: rep.id || rep.user || "", replacementName: fullName(rep), replacementStatus: "pending", rejectReason: "", at: Date.now(), hiddenUntil: 0 } : x) })); ui.notify("ส่งคำร้องอีกครั้งแล้ว — แจ้งผู้มาแทน + หัวหน้าตามสาย"); setReReq(null); });
     const del = (r) => ui.run("กำลังซ่อน...", () => { commit((p) => ({ ...p, orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, hiddenUntil: Date.now() + 30 * 60 * 1000 } : x) })); ui.notify("ซ่อนแจ้งเตือนชั่วคราว — ถ้ายังไม่จบ จะกลับมาอีกใน 30 นาที"); });
+    const delPermanent = (r) => ui.run("กำลังลบถาวร...", () => { commit((p) => ({ ...p, orgRequests: p.orgRequests.filter((x) => x.id !== r.id) })); ui.notify("ลบถาวร — ยกเลิกคำร้อง และลบข้อความให้ทุกคนที่เกี่ยวข้อง"); });
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19 / \u0E04\u0E33\u0E23\u0E49\u0E2D\u0E07", sub: "\u0E04\u0E33\u0E23\u0E49\u0E2D\u0E07\u0E02\u0E2D\u0E16\u0E2D\u0E19\u0E0A\u0E37\u0E48\u0E2D \u00B7 \u0E08\u0E1A\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E21\u0E35\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19/\u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A/\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15 \u00B7 \u0E16\u0E49\u0E32\u0E16\u0E39\u0E01\u0E1B\u0E0F\u0E34\u0E40\u0E2A\u0E18 \u0E1C\u0E39\u0E49\u0E02\u0E2D\u0E23\u0E31\u0E1A\u0E17\u0E23\u0E32\u0E1A\u0E41\u0E25\u0E49\u0E27\u0E02\u0E2D\u0E43\u0E2B\u0E21\u0E48\u0E44\u0E14\u0E49 \u00B7 \u0E25\u0E1A\u0E40\u0E2D\u0E07\u0E41\u0E25\u0E49\u0E27\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E08\u0E1A\u0E08\u0E30\u0E01\u0E25\u0E31\u0E1A\u0E21\u0E32\u0E43\u0E19 30 \u0E19\u0E32\u0E17\u0E35" }),
         React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
+            resultReminders.map(({ comp, rs }) => (React.createElement(Card, { key: "rem" + comp.id + rs.id, style: { padding: 14, borderLeft: `4px solid ${C.gold}`, background: "#fffdf5" } },
+                React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap", alignItems: "center" } },
+                    React.createElement("div", { style: { minWidth: 0 } },
+                        React.createElement("div", { style: { fontWeight: 800, color: "#b8860b" } }, "\u23F0 \u0E01\u0E23\u0E38\u0E13\u0E32\u0E2A\u0E48\u0E07\u0E1C\u0E25\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19"),
+                        React.createElement("div", { style: { fontSize: 13, color: C.ink, marginTop: 2 } },
+                            comp.name,
+                            " ",
+                            React.createElement("span", { style: { fontSize: 11, color: C.muted } },
+                                "(",
+                                comp.kind,
+                                ")")),
+                        React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginTop: 2 } },
+                            "\uD83D\uDCC5 ",
+                            rs.date,
+                            " ",
+                            rs.time || "",
+                            rs.place ? ` · ${rs.place}` : "")),
+                    React.createElement(Btn, { small: true, onClick: () => onGoResults(comp.id) }, "\u0E2A\u0E48\u0E07\u0E1C\u0E25\u0E40\u0E25\u0E22"))))),
             reqs.map((r) => {
                 const rejected = r.status === "rejected";
                 return (React.createElement(Card, { key: r.id, style: { padding: 14 } },
@@ -3606,14 +3678,30 @@ function NotificationCenter({ db, setDb, ui, admin, viewerId, viewerRole }) {
                             rejected && isRequester(r) && React.createElement(Btn, { small: true, variant: "soft", onClick: () => setReReq(r) }, "\u0E02\u0E2D\u0E16\u0E2D\u0E19\u0E15\u0E31\u0E27\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07"),
                             r.status === "pending" && isRequester(r) && !isReplacement(r) && !canApproveReq(r) && React.createElement("span", { style: { fontSize: 11.5, color: "#c99a2e", fontWeight: 700, alignSelf: "center" } }, "\u0E23\u0E2D\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19/\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32"),
                             r.status === "pending" && !canApproveReq(r) && !isReplacement(r) && !isRequester(r) && React.createElement("span", { style: { fontSize: 11.5, color: "#c99a2e", fontWeight: 700, alignSelf: "center" } }, "\u0E23\u0E2D\u0E14\u0E33\u0E40\u0E19\u0E34\u0E19\u0E01\u0E32\u0E23"),
-                            React.createElement(Btn, { small: true, variant: "ghost", onClick: () => del(r) }, "\u0E25\u0E1A\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19")))));
+                            admin ? React.createElement(Btn, { small: true, variant: "danger", onClick: () => delPermanent(r) }, "\u0E25\u0E1A\u0E16\u0E32\u0E27\u0E23") : React.createElement(Btn, { small: true, variant: "ghost", onClick: () => del(r) }, "\u0E25\u0E1A\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19")))));
             }),
-            reqs.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E33\u0E23\u0E49\u0E2D\u0E07/\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19" })),
+            reqs.length === 0 && resultReminders.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E33\u0E23\u0E49\u0E2D\u0E07/\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19" })),
         approvePick && React.createElement(ReplacementPicker, { title: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E01\u0E48\u0E2D\u0E19\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15", note: "\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 \u00B7 \u0E15\u0E49\u0E2D\u0E07\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E01\u0E48\u0E2D\u0E19\u0E08\u0E36\u0E07\u0E08\u0E30\u0E16\u0E2D\u0E19\u0E1C\u0E39\u0E49\u0E02\u0E2D\u0E2D\u0E2D\u0E01\u0E44\u0E14\u0E49 (\u0E41\u0E19\u0E30\u0E19\u0E33\u0E1C\u0E39\u0E49\u0E17\u0E35\u0E48\u0E1C\u0E39\u0E49\u0E02\u0E2D\u0E40\u0E2A\u0E19\u0E2D \u0E2B\u0E23\u0E37\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E43\u0E2B\u0E21\u0E48)", pool: poolFor(approvePick), onPick: (s) => doApprove(approvePick, s), onClose: () => setApprovePick(null) }),
         reReq && React.createElement(ReplacementPicker, { title: "\u0E02\u0E2D\u0E16\u0E2D\u0E19\u0E15\u0E31\u0E27\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07 \u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19", note: "\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 \u00B7 \u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E41\u0E08\u0E49\u0E07\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19 + \u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E15\u0E32\u0E21\u0E2A\u0E32\u0E22\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07", pool: poolFor(reReq), onPick: (s) => reRequestPick(reReq, s), onClose: () => setReReq(null) })));
 }
 function CommitteeApp({ role, db, setDb, onExit, meId }) {
-    const [view, setView] = useState("me");
+    const [view, setView] = useState(() => {
+        const hasPending = (db.orgRequests || []).some((r) => {
+            if (r.hiddenUntil && r.hiddenUntil > Date.now())
+                return false;
+            const a = reqApprovers(db, r);
+            const canApp = role === "teacher" ? a.teacherIds.has(meId) : a.studentIds.has(meId);
+            const isReq = String(r.personId) === String(meId);
+            const isRep = String(r.replacementId || "") === String(meId);
+            if (r.status === "rejected")
+                return isReq;
+            if (r.status === "pending")
+                return canApp || (isRep && r.replacementStatus !== "declined") || isReq;
+            return false;
+        });
+        return hasPending ? "noti" : "me";
+    });
+    const [jumpComp, setJumpComp] = useState(null);
     const ui = useUI();
     if (role === "studentcom") {
         const me = db.students.find((s) => s.id === meId);
@@ -3643,12 +3731,12 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
         { key: "register", label: "สมัคร", icon: "✍️" },
     ];
     return (React.createElement(Shell, { role: role, nav: nav, view: view, setView: setView, onExit: onExit, ui: ui },
-        view === "noti" && React.createElement(NotificationCenter, { db: db, setDb: setDb, ui: ui, admin: false, viewerId: meId, viewerRole: role }),
+        view === "noti" && React.createElement(NotificationCenter, { db: db, setDb: setDb, ui: ui, admin: false, viewerId: meId, viewerRole: role, onGoResults: (id) => { setJumpComp(id); setView("results"); } }),
         view === "me" && React.createElement(CommitteeProfile, { role: role, meId: meId, db: db, setDb: setDb, ui: ui }),
         view === "students" && React.createElement(StudentInfoList, { db: db }),
         view === "org" && React.createElement(OrgViewManager, { db: db, setDb: setDb, ui: ui, committee: { role, meId } }),
         view === "select" && React.createElement(MyDutyScreen, { role: role, meId: meId, db: db, setDb: setDb, ui: ui }),
-        view === "results" && React.createElement(ResultsManager, { db: db, setDb: setDb, ui: ui, scopeCompIds: myCompIds }),
+        view === "results" && React.createElement(ResultsManager, { db: db, setDb: setDb, ui: ui, scopeCompIds: myCompIds, autoOpen: jumpComp, onAutoOpened: () => setJumpComp(null) }),
         view === "schedule" && React.createElement(CommitteeSchedule, { myCompIds: myCompIds, db: db, setDb: setDb, ui: ui, me: role === "studentcom" ? db.students.find((s) => s.id === meId) : null }),
         view === "items" && React.createElement(CompDisplayTabs, { db: db, ui: ui }),
         view === "register" && React.createElement(CommitteeRegister, { myCompIds: myCompIds, db: db, setDb: setDb, ui: ui, role: role, meId: meId })));
@@ -4038,7 +4126,7 @@ function CommitteeProfile({ role, meId, db, setDb, ui }) {
                     return;
                 } ui.run("กำลังบันทึก...", () => { setDb((p) => ({ ...p, teachers: p.teachers.map((t) => t.id === me.id ? { ...t, ...f } : t) })); ui.notify("บันทึกข้อมูลแล้ว"); }); } }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25"))));
 }
-function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
+function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid, autoOpen, onAutoOpened }) {
     const cfg = db.settings.scoreConfig || {};
     const fullClear = !readOnly && !scopeCompIds;
     const [kind, setKind] = useState("แข่งขัน");
@@ -4075,6 +4163,17 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
         s.push(extra); return s; };
     const defMode = () => (comp && comp.resultMode) || (cfg.scheme === "medal" ? "medal" : "outcome");
     const openNew = () => { setChecked([]); setDraft({ setId: "NEW", mode: "outcome", results: {}, removed: [] }); };
+    const openForComp = (c) => { setPick(c.id); setChecked([]); const todaySet = (c.resultSets || []).find((s) => s.date === todayStr()); if (todaySet)
+        setDraft({ setId: todaySet.id, mode: todaySet.mode, results: JSON.parse(JSON.stringify(todaySet.results || {})), removed: [] });
+    else
+        setDraft({ setId: "NEW", mode: "outcome", results: {}, removed: [] }); };
+    useEffect(() => { if (autoOpen) {
+        const c = db.competitions.find((x) => x.id === autoOpen);
+        if (c)
+            openForComp(c);
+        if (onAutoOpened)
+            onAutoOpened();
+    } }, [autoOpen]);
     const openEdit = (set) => { setChecked([]); setDraft({ setId: set.id, mode: set.mode, results: JSON.parse(JSON.stringify(set.results || {})), removed: [] }); };
     const tryNew = () => { const t = sets.find((s) => s.date === todayStr() && !s._legacy); if (t)
         setAskNew({ today: t });
@@ -4142,6 +4241,39 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
             React.createElement("input", { type: "date", value: dateF, onChange: (e) => setDateF(e.target.value), style: { padding: "8px 10px", borderRadius: 10, border: "1px solid " + C.line, fontSize: 13 } }),
             dateF && React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setDateF("") }, "\u0E17\u0E38\u0E01\u0E27\u0E31\u0E19"),
             comp && React.createElement(ItemStatusBadge, { c: comp })),
+        !readOnly && (() => {
+            const dueToday = list.filter((c) => (c.schedule || []).some((s) => s.date === todayStr()));
+            if (!dueToday.length)
+                return null;
+            return (React.createElement(Card, { style: { padding: 14, marginBottom: 12, background: "#fffdf5", borderLeft: `4px solid ${C.gold}` } },
+                React.createElement("div", { style: { fontWeight: 800, color: "#b8860b", marginBottom: 8 } },
+                    "\uD83C\uDFC6 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49 \u2014 \u0E15\u0E49\u0E2D\u0E07\u0E2A\u0E48\u0E07\u0E1C\u0E25 (",
+                    todayStr(),
+                    ")"),
+                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, dueToday.map((c) => {
+                    const rowsToday = compResultRows(c).filter((r) => r.date === todayStr());
+                    const done = rowsToday.length > 0;
+                    const sTimes = (c.schedule || []).filter((s) => s.date === todayStr()).map((s) => `${s.time || ""}${s.place ? " · " + s.place : ""}`).filter(Boolean).join(" | ");
+                    return (React.createElement("div", { key: c.id, style: { border: `1px solid ${C.line}`, borderRadius: 10, padding: "8px 12px", display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center", background: "#fff" } },
+                        React.createElement("div", { style: { minWidth: 0 } },
+                            React.createElement("div", { style: { fontWeight: 700, color: C.ink } },
+                                c.name,
+                                " ",
+                                React.createElement("span", { style: { fontSize: 11, color: C.muted, fontWeight: 500 } },
+                                    "(",
+                                    c.kind,
+                                    ")")),
+                            React.createElement("div", { style: { fontSize: 12, color: C.muted } },
+                                "\u0E40\u0E27\u0E25\u0E32 ",
+                                sTimes || "-",
+                                " \u00B7 ",
+                                done ? React.createElement("span", { style: { color: "#2f9e6b", fontWeight: 700 } },
+                                    "\u0E2A\u0E48\u0E07\u0E1C\u0E25\u0E41\u0E25\u0E49\u0E27 ",
+                                    rowsToday.length,
+                                    " \u0E04\u0E19") : React.createElement("span", { style: { color: "#c0392b", fontWeight: 700 } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E2A\u0E48\u0E07\u0E1C\u0E25"))),
+                        React.createElement(Btn, { small: true, variant: done ? "ghost" : "soft", onClick: () => openForComp(c) }, done ? "แก้ไขผล" : "ส่งผล")));
+                }))));
+        })(),
         !comp && React.createElement(Empty, { text: "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E04\u0E49\u0E19\u0E2B\u0E32 \u0E2B\u0E23\u0E37\u0E2D\u0E41\u0E15\u0E30\u0E0A\u0E48\u0E2D\u0E07\u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E08\u0E30\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E1C\u0E25" }),
         comp && (React.createElement(Card, { style: { padding: 16 } },
             !readOnly && React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 } },
@@ -4218,6 +4350,9 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
                     nowHM(),
                     " \u0E19.)")))),
         draft && comp && (React.createElement(Modal, { title: draft.setId === "NEW" ? "ลงผลรอบใหม่: " + comp.name : "แก้ไขผล: " + comp.name, onClose: () => setDraft(null) },
+            (comp.schedule || []).length > 0 && React.createElement("div", { style: { fontSize: 12.5, color: "#b8860b", fontWeight: 700, marginBottom: 6 } },
+                "\uD83C\uDFC6 \u0E41\u0E02\u0E48\u0E07: ",
+                (comp.schedule || []).map((s) => `${s.date || ""} ${s.time || ""}${s.place ? " · " + s.place : ""}`).join(" | ")),
             React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 10 } }, "\u0E25\u0E07\u0E1C\u0E25\u0E44\u0E14\u0E49\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1C\u0E39\u0E49\u0E17\u0E35\u0E48\u0E16\u0E39\u0E01\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01 \u00B7 \u0E01\u0E14 \"\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E2A\u0E34\u0E49\u0E19\" \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 (\u0E01\u0E14\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E08\u0E30\u0E44\u0E21\u0E48\u0E2A\u0E23\u0E49\u0E32\u0E07/\u0E44\u0E21\u0E48\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19)"),
             React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 } },
                 React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E23\u0E30\u0E1A\u0E1A:"),
@@ -4950,6 +5085,23 @@ function App() {
     };
     useEffect(() => { if (auth)
         toast("กลับสู่ระบบ"); loadData(); }, []);
+    // สร้างรอบผลอัตโนมัติเมื่อเลยเวลาแข่ง + ลบรอบว่างที่ตารางเลื่อน (ตรวจตอนโหลด + ทุก 60 วิ)
+    useEffect(() => {
+        if (!API_URL)
+            return;
+        const run = () => {
+            if (!everLoadedRef.current || dirtyRef.current || savingRef.current || document.hidden)
+                return;
+            const q = autoSyncRounds(dbRef.current);
+            if (!q.changed)
+                return;
+            if (window.__commitRemote)
+                window.__commitRemote((latest) => { const r = autoSyncRounds(latest); return r.changed ? r.next : null; });
+        };
+        const t = setTimeout(run, 3500);
+        const iv = setInterval(run, 60000);
+        return () => { clearTimeout(t); clearInterval(iv); };
+    }, []);
     // ออโต้เซฟหลังหยุดแก้ไข ~2 วินาที (ทำงานเฉพาะเมื่อโหลดข้อมูลเดิมสำเร็จแล้ว)
     useEffect(() => {
         if (!API_URL || !loadedRef.current)
