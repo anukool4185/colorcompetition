@@ -4042,10 +4042,11 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
     const [q, setQ] = useState("");
     const [dateF, setDateF] = useState(todayStr());
     const [pick, setPick] = useState("");
-    const [activeSet, setActiveSet] = useState(null);
     const [askNew, setAskNew] = useState(null);
+    const [draft, setDraft] = useState(null);
     const [checked, setChecked] = useState([]);
-    useEffect(() => { setChecked([]); }, [activeSet]);
+    const [checkedSets, setCheckedSets] = useState([]);
+    useEffect(() => { setCheckedSets([]); }, [pick, dateF, kind]);
     const commit = (mut) => { if (readOnly)
         return; if (window.__commitRemote)
         window.__commitRemote(mut);
@@ -4066,40 +4067,63 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
     const migrateThen = (c, extra) => { let s = c.resultSets ? [...c.resultSets] : []; if (!s.length && c.results && Object.keys(c.results).length)
         s.push({ id: "rsL" + Date.now(), date: c.resultDate || todayStr(), time: "", mode: Object.values(c.results).some((r) => r.medal) ? "medal" : "outcome", results: c.results }); if (extra)
         s.push(extra); return s; };
-    const createSession = (mode) => { const id = "rs" + Date.now() + Math.random().toString(36).slice(2, 5); commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: migrateThen(c, { id, date: todayStr(), time: nowHM(), mode, results: {} }), results: {} } : c) })); setActiveSet(id); setDateF(todayStr()); };
     const defMode = () => (comp && comp.resultMode) || (cfg.scheme === "medal" ? "medal" : "outcome");
+    const openNew = () => { setChecked([]); setDraft({ setId: "NEW", mode: defMode(), results: {} }); };
+    const openEdit = (set) => { setChecked([]); setDraft({ setId: set.id, mode: set.mode, results: Object.assign({}, set.results || {}) }); };
     const tryNew = () => { const t = sets.find((s) => s.date === todayStr() && !s._legacy); if (t)
         setAskNew({ today: t });
     else
-        createSession(defMode()); };
-    const setRes = (setId, sid, patch) => commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: migrateThen(c).map((s) => s.id === setId ? { ...s, results: { ...s.results, [sid]: { ...(s.results[sid] || {}), ...patch } } } : s), results: {} } : c) }));
-    const bulkSet = (setId, key, val) => { commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: migrateThen(c).map((s) => s.id === setId ? { ...s, results: Object.fromEntries(parts.map((x) => [x.sid, { ...(s.results[x.sid] || {}), [key]: val }])) } : s), results: {} } : c) })); ui.notify("ลงผลรอบนี้แล้ว"); };
-    const setSetMode = (setId, mode) => commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: migrateThen(c).map((s) => s.id === setId ? { ...s, mode } : s), results: {} } : c) }));
+        openNew(); };
+    const dApply = (key, val) => { if (!checked.length) {
+        ui.notify("ติ๊กเลือกรายชื่อก่อน (หรือกด ทุกคน)");
+        return;
+    } setDraft((d) => ({ ...d, results: { ...d.results, ...Object.fromEntries(checked.map((sid) => [sid, { [key]: val }])) } })); };
+    const dClear = () => { if (!checked.length) {
+        ui.notify("ติ๊กเลือกรายชื่อก่อน");
+        return;
+    } setDraft((d) => { const r = { ...d.results }; checked.forEach((sid) => { delete r[sid]; }); return { ...d, results: r }; }); };
+    const dMode = (mode) => setDraft((d) => ({ ...d, mode }));
+    const saveDraft = () => {
+        const filtered = Object.fromEntries(Object.entries(draft.results).filter(([, r]) => r && (r.outcome || r.medal)));
+        if (draft.setId === "NEW") {
+            if (!Object.keys(filtered).length) {
+                ui.notify("ยังไม่ได้ลงผล — ไม่สร้างรายการ");
+                setDraft(null);
+                return;
+            }
+            const id = "rs" + Date.now() + Math.random().toString(36).slice(2, 5);
+            commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: migrateThen(c, { id, date: todayStr(), time: nowHM(), mode: draft.mode, results: filtered }), results: {} } : c) }));
+            setDateF(todayStr());
+            ui.notify("บันทึกผลรอบใหม่แล้ว");
+        }
+        else {
+            commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: migrateThen(c).map((s) => s.id === draft.setId ? { ...s, mode: draft.mode, results: filtered } : s), results: {} } : c) }));
+            ui.notify("อัพเดทผลแล้ว");
+        }
+        setDraft(null);
+    };
     const delSet = (setId) => commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: migrateThen(c).filter((s) => s.id !== setId), results: {} } : c) }));
     const clearAllSets = () => commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: [], results: {}, resultDate: "" } : c) }));
     const toggleSetNoScore = (setId) => commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: migrateThen(c).map((s) => s.id === setId ? { ...s, noScore: !s.noScore } : s), results: {} } : c) }));
-    const delLabel = dateF ? "ยกเลิกการแข่งขันวันนี้" : "ยกเลิกการแข่งขันรอบนี้";
-    const applyChecked = (setId, key, val) => {
-        if (!checked.length) {
-            ui.notify("ติ๊กเลือกรายชื่อก่อน (หรือกด ทุกคน)");
-            return;
-        }
-        commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: migrateThen(c).map((s) => s.id === setId ? { ...s, results: { ...s.results, ...Object.fromEntries(checked.map((sid) => [sid, { ...(s.results[sid] || {}), [key]: val }])) } } : s), results: {} } : c) }));
-        ui.notify(`ลงผลให้ ${checked.length} คนแล้ว`);
-    };
-    const chip = (setId, sid, key, val, r, color) => React.createElement("button", { onClick: () => setRes(setId, sid, { [key]: r[key] === val ? "" : val }), style: { padding: "4px 10px", borderRadius: 14, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: r[key] === val ? color : C.soft, color: r[key] === val ? "#fff" : C.primaryDark } }, val);
+    const delLabel = "ยกเลิกการแข่งขันรอบนี้";
+    const bulkDelSets = () => { if (!checkedSets.length) {
+        ui.notify("ติ๊กเลือกรอบก่อน");
+        return;
+    } commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: migrateThen(c).filter((s) => !checkedSets.includes(s.id)), results: {} } : c) })); ui.notify(`ยกเลิก ${checkedSets.length} รอบแล้ว`); setCheckedSets([]); };
+    const bulkScoreSets = (noScore) => { if (!checkedSets.length) {
+        ui.notify("ติ๊กเลือกรอบก่อน");
+        return;
+    } commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: migrateThen(c).map((s) => checkedSets.includes(s.id) ? { ...s, noScore } : s), results: {} } : c) })); ui.notify(noScore ? "ตั้งเป็นไม่มีคะแนนแล้ว" : "ตั้งเป็นมีคะแนนแล้ว"); setCheckedSets([]); };
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: readOnly ? "ผลการแข่งขัน" : "จัดการผลการแข่งขัน", sub: readOnly ? "ดูผล · กรองตามวัน-เวลา" : "ลงผลเป็นรอบ (บันทึกวัน-เวลาอัตโนมัติ) · แพ้/ชนะ/เสมอ และ เหรียญ · คะแนนอัตโนมัติ" }),
-        React.createElement(Tabs, { tabs: [{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }], active: kind, onChange: (k) => { setKind(k); setPick(""); setActiveSet(null); } }),
+        React.createElement(Tabs, { tabs: [{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }], active: kind, onChange: (k) => { setKind(k); setPick(""); setDraft(null); } }),
         React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" } },
             React.createElement("input", { value: q, onChange: (e) => setQ(e.target.value), placeholder: "\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", style: { padding: "8px 10px", borderRadius: 10, border: "1px solid " + C.line, fontSize: 13, minWidth: 130 } }),
             React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48:"),
             React.createElement("input", { type: "date", value: dateF, onChange: (e) => setDateF(e.target.value), style: { padding: "8px 10px", borderRadius: 10, border: "1px solid " + C.line, fontSize: 13 } }),
             dateF && React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setDateF("") }, "\u0E17\u0E38\u0E01\u0E27\u0E31\u0E19")),
         React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" } },
-            React.createElement(Select, { value: comp ? comp.id : "", onChange: (v) => { setPick(v); setActiveSet(null); } }, list.map((c) => React.createElement("option", { key: c.id, value: c.id },
-                c.name,
-                c.noScore ? " (ไม่นับคะแนน)" : ""))),
+            React.createElement(Select, { value: comp ? comp.id : "", onChange: (v) => { setPick(v); setDraft(null); } }, list.map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name))),
             comp && React.createElement(ItemStatusBadge, { c: comp })),
         !comp && React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23" }),
         comp && (React.createElement(Card, { style: { padding: 16 } },
@@ -4107,25 +4131,40 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
                 React.createElement(Btn, { small: true, onClick: tryNew }, "\uFF0B \u0E25\u0E07\u0E1C\u0E25\u0E23\u0E2D\u0E1A\u0E43\u0E2B\u0E21\u0E48 (\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49)"),
                 fullClear && !dateF && React.createElement(Btn, { small: true, variant: "danger", onClick: clearAllSets }, "\u0E25\u0E49\u0E32\u0E07\u0E1C\u0E25\u0E17\u0E31\u0E49\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 (\u0E17\u0E38\u0E01\u0E23\u0E2D\u0E1A)")),
             visSets.length === 0 && React.createElement(Empty, { text: dateF ? "ไม่มีผลของวันที่ " + dateF : "ยังไม่มีผล" }),
+            !readOnly && !dateF && visSets.some((s) => !s._legacy) && (React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10, padding: "8px 10px", background: C.soft, borderRadius: 10 } },
+                React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, fontWeight: 700, color: C.ink, cursor: "pointer" } },
+                    React.createElement("input", { type: "checkbox", checked: checkedSets.length > 0 && checkedSets.length === visSets.filter((s) => !s._legacy).length, onChange: (e) => setCheckedSets(e.target.checked ? visSets.filter((s) => !s._legacy).map((s) => s.id) : []) }),
+                    " \u0E17\u0E38\u0E01\u0E23\u0E2D\u0E1A"),
+                React.createElement(Btn, { small: true, variant: "danger", onClick: bulkDelSets }, "\u0E25\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07"),
+                React.createElement(Btn, { small: true, variant: "soft", onClick: () => bulkScoreSets(false) }, "\u0E21\u0E35\u0E04\u0E30\u0E41\u0E19\u0E19"),
+                React.createElement(Btn, { small: true, variant: "ghost", onClick: () => bulkScoreSets(true) }, "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E30\u0E41\u0E19\u0E19"),
+                checkedSets.length > 0 && React.createElement("span", { style: { fontSize: 12, color: C.muted } },
+                    "\u0E40\u0E25\u0E37\u0E2D\u0E01 ",
+                    checkedSets.length,
+                    " \u0E23\u0E2D\u0E1A"))),
             visSets.map((set) => {
                 const rows = Object.entries(set.results || {}).filter(([, r]) => r && (r.outcome || r.medal));
-                return (React.createElement("div", { key: set.id, style: { border: "1px solid " + C.line, borderRadius: 12, padding: 12, marginBottom: 10 } },
+                const selMode = !readOnly && !dateF && !set._legacy;
+                const on = checkedSets.includes(set.id);
+                return (React.createElement("div", { key: set.id, style: { border: "1px solid " + C.line, borderRadius: 12, padding: 12, marginBottom: 10, background: on ? C.soft : "transparent" } },
                     React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
-                        React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: C.primaryDark } },
-                            "\uD83D\uDCC5 ",
-                            set.date || "—",
-                            " ",
-                            set.time ? "· " + set.time + " น." : "",
-                            " ",
-                            React.createElement("span", { style: { fontSize: 11, color: C.muted, fontWeight: 500 } },
-                                "(",
-                                set.mode === "medal" ? "เหรียญ" : "แพ้/ชนะ/เสมอ",
-                                ")"),
-                            set.noScore ? React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#c0392b", marginLeft: 6 } }, "\u25CF \u0E44\u0E21\u0E48\u0E19\u0E31\u0E1A\u0E04\u0E30\u0E41\u0E19\u0E19") : ""),
+                        React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: C.primaryDark, display: "flex", alignItems: "center", gap: 8 } },
+                            selMode && React.createElement("input", { type: "checkbox", checked: on, onChange: () => setCheckedSets(on ? checkedSets.filter((id) => id !== set.id) : [...checkedSets, set.id]) }),
+                            React.createElement("span", null,
+                                "\uD83D\uDCC5 ",
+                                set.date || "—",
+                                " ",
+                                set.time ? "· " + set.time + " น." : "",
+                                " ",
+                                React.createElement("span", { style: { fontSize: 11, color: C.muted, fontWeight: 500 } },
+                                    "(",
+                                    set.mode === "medal" ? "เหรียญ" : "แพ้/ชนะ/เสมอ",
+                                    ")"),
+                                set.noScore ? React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#c0392b", marginLeft: 6 } }, "\u25CF \u0E44\u0E21\u0E48\u0E19\u0E31\u0E1A\u0E04\u0E30\u0E41\u0E19\u0E19") : "")),
                         !readOnly && !set._legacy && React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } },
-                            React.createElement(Btn, { small: true, onClick: () => setActiveSet(set.id) }, "\u0E25\u0E07\u0E1C\u0E25/\u0E41\u0E01\u0E49\u0E44\u0E02"),
-                            React.createElement(Btn, { small: true, variant: set.noScore ? "soft" : "ghost", onClick: () => toggleSetNoScore(set.id) }, set.noScore ? "เปิดนับคะแนนรอบนี้" : "ยกเลิกคะแนนรอบนี้"),
-                            React.createElement(Btn, { small: true, variant: "danger", onClick: () => delSet(set.id) }, delLabel))),
+                            React.createElement(Btn, { small: true, onClick: () => openEdit(set) }, "\u0E25\u0E07\u0E1C\u0E25/\u0E41\u0E01\u0E49\u0E44\u0E02"),
+                            React.createElement(Btn, { small: true, variant: "danger", onClick: () => delSet(set.id) }, delLabel),
+                            React.createElement(Btn, { small: true, variant: set.noScore ? "ghost" : "soft", onClick: () => toggleSetNoScore(set.id) }, set.noScore ? "ไม่มีคะแนน" : "มีคะแนน"))),
                     React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 3 } }, rows.length ? rows.map(([sid, r]) => { const s = db.students.find((st) => st.id === sid); if (!s)
                         return null; return React.createElement("div", { key: sid, style: { fontSize: 12.5, color: C.ink } },
                         "\u2022 ",
@@ -4147,74 +4186,65 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
                             " \u0E04\u0E30\u0E41\u0E19\u0E19)")); }) : React.createElement("div", { style: { fontSize: 12, color: C.muted } },
                         "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E25\u0E07\u0E1C\u0E25\u0E23\u0E2D\u0E1A\u0E19\u0E35\u0E49 ",
                         !readOnly && !set._legacy ? "— กด \"ลงผล/แก้ไข\"" : ""))));
-            }),
-            comp.noScore && React.createElement("div", { style: { fontSize: 12, color: "#c0392b", fontWeight: 700 } }, "\u25CF \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49\u0E44\u0E21\u0E48\u0E19\u0E31\u0E1A\u0E04\u0E30\u0E41\u0E19\u0E19"))),
-        activeSet && comp && (() => {
-            const set = (comp.resultSets || []).find((s) => s.id === activeSet);
-            if (!set)
-                return null;
-            return (React.createElement(Modal, { title: `ลงผล: ${comp.name}`, onClose: () => setActiveSet(null) },
-                React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 10 } },
-                    "\u0E23\u0E2D\u0E1A \uD83D\uDCC5 ",
-                    set.date,
-                    " ",
-                    set.time ? set.time + " น." : "",
-                    " \u00B7 \u0E25\u0E07\u0E1C\u0E25\u0E44\u0E14\u0E49\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1C\u0E39\u0E49\u0E17\u0E35\u0E48\u0E16\u0E39\u0E01\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01 (\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07/\u0E2A\u0E33\u0E23\u0E2D\u0E07)"),
-                React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 } },
-                    React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E23\u0E30\u0E1A\u0E1A:"),
-                    [["outcome", "ลงคะแนน (แพ้/ชนะ/เสมอ)"], ["medal", "ลงเหรียญ"]].map(([v, l]) => React.createElement("button", { key: v, onClick: () => setSetMode(set.id, v), style: { padding: "6px 12px", borderRadius: 14, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: set.mode === v ? C.primary : C.soft, color: set.mode === v ? "#fff" : C.primaryDark } }, l))),
-                React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12, paddingBottom: 10, borderBottom: "1px dashed " + C.line } },
-                    React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, fontWeight: 700, color: C.ink, cursor: "pointer" } },
-                        React.createElement("input", { type: "checkbox", checked: parts.length > 0 && checked.length === parts.length, onChange: (e) => setChecked(e.target.checked ? parts.map((x) => x.sid) : []) }),
-                        " \u0E17\u0E38\u0E01\u0E04\u0E19"),
-                    React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E41\u0E25\u0E49\u0E27\u0E01\u0E14 \u2192"),
-                    set.mode === "medal"
-                        ? React.createElement(React.Fragment, null, [["ทองแดง", "#b06a3b"], ["เงิน", "#9aa3ab"], ["ทอง", "#d4a017"]].map(([v, col]) => React.createElement("button", { key: v, onClick: () => applyChecked(set.id, "medal", v), style: { padding: "6px 14px", borderRadius: 16, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, background: col, color: "#fff" } }, v)))
-                        : React.createElement(React.Fragment, null, [["แพ้", "#c0392b"], ["ชนะ", "#2f9e6b"], ["เสมอ", "#c99a2e"]].map(([v, col]) => React.createElement("button", { key: v, onClick: () => applyChecked(set.id, "outcome", v), style: { padding: "6px 14px", borderRadius: 16, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, background: col, color: "#fff" } }, v)))),
-                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6, maxHeight: 360, overflowY: "auto" } },
-                    parts.map((x) => {
-                        const s = db.students.find((st) => st.id === x.sid);
-                        if (!s)
-                            return null;
-                        const r = (set.results || {})[x.sid] || {};
-                        const on = checked.includes(x.sid);
-                        return (React.createElement("label", { key: x.sid, style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", borderBottom: "1px solid " + C.line, paddingBottom: 6, cursor: "pointer", background: on ? C.soft : "transparent", borderRadius: 8, padding: "4px 6px" } },
-                            React.createElement("input", { type: "checkbox", checked: on, onChange: () => setChecked(on ? checked.filter((id) => id !== x.sid) : [...checked, x.sid]) }),
-                            React.createElement("div", { style: { flex: "1 1 130px", minWidth: 0, fontSize: 12.5, color: C.ink } },
-                                fullName(s),
-                                " ",
-                                React.createElement("span", { style: { color: C.muted } },
-                                    "(",
-                                    s.grade,
-                                    "/",
-                                    s.room,
-                                    " \u00B7 ",
-                                    x.sel === "main" ? "ตัวจริง" : "สำรอง",
-                                    ")")),
-                            React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: (r.outcome || r.medal) ? C.primaryDark : C.muted } }, r.outcome || r.medal ? `${r.outcome || r.medal} · ${scoreOf(r, cfg)} คะแนน` : "ยังไม่ลงผล")));
-                    }),
-                    parts.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E39\u0E49\u0E16\u0E39\u0E01\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01 (\u0E44\u0E1B\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E01\u0E48\u0E2D\u0E19)" })),
-                React.createElement("div", { style: { marginTop: 14, display: "flex", gap: 8 } },
-                    React.createElement(Btn, { onClick: () => setActiveSet(null) }, "\u0E40\u0E2A\u0E23\u0E47\u0E08"),
-                    checked.length > 0 && React.createElement("span", { style: { fontSize: 12, color: C.muted, alignSelf: "center" } },
-                        "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E27\u0E49 ",
-                        checked.length,
-                        " \u0E04\u0E19"))));
-        })(),
+            }))),
         askNew && (React.createElement(Modal, { title: "\u0E25\u0E07\u0E1C\u0E25\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49", onClose: () => setAskNew(null) },
             React.createElement("div", { style: { fontSize: 13.5, color: C.ink, marginBottom: 12 } },
                 "\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49\u0E21\u0E35\u0E01\u0E32\u0E23\u0E25\u0E07\u0E1C\u0E25\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49\u0E41\u0E25\u0E49\u0E27 (\u0E23\u0E2D\u0E1A\u0E40\u0E27\u0E25\u0E32 ",
                 askNew.today.time || "—",
                 " \u0E19.) \u2014 \u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23?"),
             React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
-                React.createElement(Btn, { onClick: () => { setActiveSet(askNew.today.id); setAskNew(null); } },
+                React.createElement(Btn, { onClick: () => { openEdit(askNew.today); setAskNew(null); } },
                     "\u0E41\u0E01\u0E49\u0E23\u0E2D\u0E1A\u0E40\u0E14\u0E34\u0E21 (\u0E40\u0E27\u0E25\u0E32 ",
                     askNew.today.time || "—",
                     " \u0E19.)"),
-                React.createElement(Btn, { variant: "soft", onClick: () => { createSession(defMode()); setAskNew(null); } },
+                React.createElement(Btn, { variant: "soft", onClick: () => { openNew(); setAskNew(null); } },
                     "\u0E25\u0E07\u0E23\u0E2D\u0E1A\u0E43\u0E2B\u0E21\u0E48 (\u0E40\u0E27\u0E25\u0E32 ",
                     nowHM(),
-                    " \u0E19.)"))))));
+                    " \u0E19.)")))),
+        draft && comp && (React.createElement(Modal, { title: draft.setId === "NEW" ? "ลงผลรอบใหม่: " + comp.name : "แก้ไขผล: " + comp.name, onClose: () => setDraft(null) },
+            React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 10 } }, "\u0E25\u0E07\u0E1C\u0E25\u0E44\u0E14\u0E49\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1C\u0E39\u0E49\u0E17\u0E35\u0E48\u0E16\u0E39\u0E01\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01 \u00B7 \u0E01\u0E14 \"\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E2A\u0E34\u0E49\u0E19\" \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 (\u0E01\u0E14\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E08\u0E30\u0E44\u0E21\u0E48\u0E2A\u0E23\u0E49\u0E32\u0E07/\u0E44\u0E21\u0E48\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19)"),
+            React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 } },
+                React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E23\u0E30\u0E1A\u0E1A:"),
+                [["outcome", "ลงคะแนน (แพ้/ชนะ/เสมอ)"], ["medal", "ลงเหรียญ"]].map(([v, l]) => React.createElement("button", { key: v, onClick: () => dMode(v), style: { padding: "6px 12px", borderRadius: 14, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: draft.mode === v ? C.primary : C.soft, color: draft.mode === v ? "#fff" : C.primaryDark } }, l))),
+            React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12, paddingBottom: 10, borderBottom: "1px dashed " + C.line } },
+                React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, fontWeight: 700, color: C.ink, cursor: "pointer" } },
+                    React.createElement("input", { type: "checkbox", checked: parts.length > 0 && checked.length === parts.length, onChange: (e) => setChecked(e.target.checked ? parts.map((x) => x.sid) : []) }),
+                    " \u0E17\u0E38\u0E01\u0E04\u0E19"),
+                React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E41\u0E25\u0E49\u0E27\u0E01\u0E14 \u2192"),
+                draft.mode === "medal"
+                    ? [["ทองแดง", "#b06a3b"], ["เงิน", "#9aa3ab"], ["ทอง", "#d4a017"]].map(([v, col]) => React.createElement("button", { key: v, onClick: () => dApply("medal", v), style: { padding: "6px 14px", borderRadius: 16, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, background: col, color: "#fff" } }, v))
+                    : [["แพ้", "#c0392b"], ["ชนะ", "#2f9e6b"], ["เสมอ", "#c99a2e"]].map(([v, col]) => React.createElement("button", { key: v, onClick: () => dApply("outcome", v), style: { padding: "6px 14px", borderRadius: 16, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, background: col, color: "#fff" } }, v)),
+                React.createElement(Btn, { small: true, variant: "ghost", onClick: dClear }, "\u0E40\u0E2D\u0E32\u0E1C\u0E25\u0E2D\u0E2D\u0E01")),
+            React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6, maxHeight: 340, overflowY: "auto" } },
+                parts.map((x) => {
+                    const s = db.students.find((st) => st.id === x.sid);
+                    if (!s)
+                        return null;
+                    const r = draft.results[x.sid] || {};
+                    const on = checked.includes(x.sid);
+                    return (React.createElement("label", { key: x.sid, style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", borderBottom: "1px solid " + C.line, cursor: "pointer", background: on ? C.soft : "transparent", borderRadius: 8, padding: "5px 6px" } },
+                        React.createElement("input", { type: "checkbox", checked: on, onChange: () => setChecked(on ? checked.filter((id) => id !== x.sid) : [...checked, x.sid]) }),
+                        React.createElement("div", { style: { flex: "1 1 130px", minWidth: 0, fontSize: 12.5, color: C.ink } },
+                            fullName(s),
+                            " ",
+                            React.createElement("span", { style: { color: C.muted } },
+                                "(",
+                                s.grade,
+                                "/",
+                                s.room,
+                                " \u00B7 ",
+                                x.sel === "main" ? "ตัวจริง" : "สำรอง",
+                                ")")),
+                        React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: (r.outcome || r.medal) ? C.primaryDark : C.muted } }, r.outcome || r.medal ? (r.outcome || r.medal) + " · " + scoreOf(r, cfg) + " คะแนน" : "ยังไม่ลงผล")));
+                }),
+                parts.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E39\u0E49\u0E16\u0E39\u0E01\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01 (\u0E44\u0E1B\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E01\u0E48\u0E2D\u0E19)" })),
+            React.createElement("div", { style: { marginTop: 14, display: "flex", gap: 8, alignItems: "center" } },
+                React.createElement(Btn, { onClick: saveDraft }, "\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E2A\u0E34\u0E49\u0E19 (\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01)"),
+                React.createElement(Btn, { variant: "ghost", onClick: () => setDraft(null) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"),
+                checked.length > 0 && React.createElement("span", { style: { fontSize: 12, color: C.muted } },
+                    "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E27\u0E49 ",
+                    checked.length,
+                    " \u0E04\u0E19"))))));
 }
 function ResultsScreen({ db, setDb, ui, restrict, title }) {
     const cfg = db.settings.scoreConfig || {};
