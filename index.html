@@ -4046,6 +4046,7 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
     const [draft, setDraft] = useState(null);
     const [checked, setChecked] = useState([]);
     const [checkedSets, setCheckedSets] = useState([]);
+    const [bulkMode, setBulkMode] = useState(false);
     useEffect(() => { setCheckedSets([]); }, [pick, dateF, kind]);
     const commit = (mut) => { if (readOnly)
         return; if (window.__commitRemote)
@@ -4068,7 +4069,7 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
         s.push({ id: "rsL" + Date.now(), date: c.resultDate || todayStr(), time: "", mode: Object.values(c.results).some((r) => r.medal) ? "medal" : "outcome", results: c.results }); if (extra)
         s.push(extra); return s; };
     const defMode = () => (comp && comp.resultMode) || (cfg.scheme === "medal" ? "medal" : "outcome");
-    const openNew = () => { setChecked([]); setDraft({ setId: "NEW", mode: defMode(), results: {}, removed: [] }); };
+    const openNew = () => { setChecked([]); setDraft({ setId: "NEW", mode: "outcome", results: {}, removed: [] }); };
     const openEdit = (set) => { setChecked([]); setDraft({ setId: set.id, mode: set.mode, results: JSON.parse(JSON.stringify(set.results || {})), removed: [] }); };
     const tryNew = () => { const t = sets.find((s) => s.date === todayStr() && !s._legacy); if (t)
         setAskNew({ today: t });
@@ -4117,22 +4118,22 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
     } commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: migrateThen(c).map((s) => checkedSets.includes(s.id) ? { ...s, noScore } : s), results: {} } : c) })); ui.notify(noScore ? "ตั้งเป็นไม่มีคะแนนแล้ว" : "ตั้งเป็นมีคะแนนแล้ว"); setCheckedSets([]); };
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: readOnly ? "ผลการแข่งขัน" : "จัดการผลการแข่งขัน", sub: readOnly ? "ดูผล · กรองตามวัน-เวลา" : "ลงผลเป็นรอบ (บันทึกวัน-เวลาอัตโนมัติ) · แพ้/ชนะ/เสมอ และ เหรียญ · คะแนนอัตโนมัติ" }),
-        React.createElement(Tabs, { tabs: [{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }], active: kind, onChange: (k) => { setKind(k); setPick(""); setDraft(null); } }),
+        React.createElement(Tabs, { tabs: [{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }], active: kind, onChange: (k) => { setKind(k); setPick(""); setDraft(null); setBulkMode(false); } }),
         React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" } },
             React.createElement("input", { value: q, onChange: (e) => setQ(e.target.value), placeholder: "\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", style: { padding: "8px 10px", borderRadius: 10, border: "1px solid " + C.line, fontSize: 13, minWidth: 130 } }),
             React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48:"),
-            React.createElement("input", { type: "date", value: dateF, onChange: (e) => setDateF(e.target.value), style: { padding: "8px 10px", borderRadius: 10, border: "1px solid " + C.line, fontSize: 13 } }),
-            dateF && React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setDateF("") }, "\u0E17\u0E38\u0E01\u0E27\u0E31\u0E19")),
+            React.createElement("input", { type: "date", value: dateF, onChange: (e) => { setDateF(e.target.value); setBulkMode(false); }, style: { padding: "8px 10px", borderRadius: 10, border: "1px solid " + C.line, fontSize: 13 } }),
+            dateF && React.createElement(Btn, { small: true, variant: "ghost", onClick: () => { setDateF(""); setBulkMode(true); } }, "\u0E17\u0E38\u0E01\u0E27\u0E31\u0E19")),
         React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" } },
-            React.createElement(Select, { value: comp ? comp.id : "", onChange: (v) => { setPick(v); setDraft(null); } }, list.map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name))),
+            React.createElement(Select, { value: comp ? comp.id : "", onChange: (v) => { setPick(v); setDraft(null); setBulkMode(false); } }, list.map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name))),
             comp && React.createElement(ItemStatusBadge, { c: comp })),
         !comp && React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23" }),
         comp && (React.createElement(Card, { style: { padding: 16 } },
             !readOnly && React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 } },
                 React.createElement(Btn, { small: true, onClick: tryNew }, "\uFF0B \u0E25\u0E07\u0E1C\u0E25\u0E23\u0E2D\u0E1A\u0E43\u0E2B\u0E21\u0E48 (\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49)"),
-                fullClear && !dateF && React.createElement(Btn, { small: true, variant: "danger", onClick: clearAllSets }, "\u0E25\u0E49\u0E32\u0E07\u0E1C\u0E25\u0E17\u0E31\u0E49\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 (\u0E17\u0E38\u0E01\u0E23\u0E2D\u0E1A)")),
+                React.createElement(Btn, { small: true, variant: bulkMode && dateF ? "soft" : "ghost", onClick: () => { setDateF(dateF || todayStr()); setBulkMode(true); } }, "\u0E23\u0E2D\u0E1A\u0E41\u0E02\u0E48\u0E07\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49 (\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2B\u0E25\u0E32\u0E22\u0E23\u0E2D\u0E1A)")),
             visSets.length === 0 && React.createElement(Empty, { text: dateF ? "ไม่มีผลของวันที่ " + dateF : "ยังไม่มีผล" }),
-            !readOnly && !dateF && visSets.some((s) => !s._legacy) && (React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10, padding: "8px 10px", background: C.soft, borderRadius: 10 } },
+            !readOnly && bulkMode && visSets.some((s) => !s._legacy) && (React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10, padding: "8px 10px", background: C.soft, borderRadius: 10 } },
                 React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, fontWeight: 700, color: C.ink, cursor: "pointer" } },
                     React.createElement("input", { type: "checkbox", checked: checkedSets.length > 0 && checkedSets.length === visSets.filter((s) => !s._legacy).length, onChange: (e) => setCheckedSets(e.target.checked ? visSets.filter((s) => !s._legacy).map((s) => s.id) : []) }),
                     " \u0E17\u0E38\u0E01\u0E23\u0E2D\u0E1A"),
@@ -4145,7 +4146,7 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
                     " \u0E23\u0E2D\u0E1A"))),
             visSets.map((set) => {
                 const rows = Object.entries(set.results || {}).filter(([, r]) => r && (r.outcome || r.medal));
-                const selMode = !readOnly && !dateF && !set._legacy;
+                const selMode = !readOnly && bulkMode && !set._legacy;
                 const on = checkedSets.includes(set.id);
                 return (React.createElement("div", { key: set.id, style: { border: "1px solid " + C.line, borderRadius: 12, padding: 12, marginBottom: 10, background: on ? C.soft : "transparent" } },
                     React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
