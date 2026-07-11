@@ -3538,43 +3538,34 @@ function PromoCard({ db, setDb, ui }) {
    COMMITTEE (teacher / student committee) — same screens
    ============================================================ */
 function NotificationCenter({ db, setDb, ui, admin, viewerId, viewerRole }) {
+    const now = Date.now();
     const canApproveReq = (r) => { if (admin)
         return true; const a = reqApprovers(db, r); return viewerRole === "teacher" ? a.teacherIds.has(viewerId) : a.studentIds.has(viewerId); };
-    const reqs = (db.orgRequests || []).filter((r) => admin || canApproveReq(r) || String(r.personId) === String(viewerId) || String(r.replacementId || "") === String(viewerId)).slice().sort((a, b) => b.at - a.at);
+    const reqs = (db.orgRequests || []).filter((r) => (!r.hiddenUntil || r.hiddenUntil <= now) && (admin || canApproveReq(r) || String(r.personId) === String(viewerId) || String(r.replacementId || "") === String(viewerId))).slice().sort((a, b) => b.at - a.at);
     const sideLabel = (s) => s === "orgTeacher" ? "ครู" : "นักเรียน";
-    const nodeFilled = (r) => { const n = (db[r.side] || []).find((x) => x.id === r.nodeId); return !!(n && n.personId); };
     const personOf = (side, id) => (side === "orgStudent" ? db.students : db.teachers).find((x) => String(x.id) === String(id));
     const isReplacement = (r) => viewerId != null && String(r.replacementId || "") === String(viewerId);
     const isRequester = (r) => viewerId != null && String(r.personId) === String(viewerId);
-    const [approvePick, setApprovePick] = useState(null);
-    // ผู้มาแทนกดยอมรับ → เข้าแทนตำแหน่งทันที (ถ้ายังไม่มีใครมาก่อน)
-    const accept = (r) => ui.run("กำลังยอมรับ...", () => { const apply = (p) => ({ ...p, [r.side]: p[r.side].map((n) => n.id === r.nodeId ? { ...n, personId: r.replacementId } : n), orgRequests: p.orgRequests.filter((x) => x.id !== r.id) }); if (window.__commitRemote)
-        window.__commitRemote(apply);
-    else
-        setDb(apply); ui.notify("ยอมรับและเข้าแทนตำแหน่งแล้ว ✓"); });
-    const declineRep = (r) => ui.run("กำลังปฏิเสธ...", () => { const apply = (p) => ({ ...p, orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, replacementStatus: "declined" } : x) }); if (window.__commitRemote)
-        window.__commitRemote(apply);
-    else
-        setDb(apply); ui.notify("ปฏิเสธการมาแทนแล้ว — แจ้งผู้ขอและหัวหน้า"); });
-    // หัวหน้า/แอดมินกดอนุญาต → ต้องเลือกผู้มาแทนก่อน แล้วจึงถอนผู้ขอออก
-    const doApprove = (r, rep) => ui.run("กำลังอนุญาต...", () => { const rid = rep.id || rep.user || ""; const apply = (p) => ({ ...p, [r.side]: p[r.side].map((n) => n.id === r.nodeId ? { ...n, personId: rid } : n), orgRequests: p.orgRequests.filter((x) => x.id !== r.id) }); if (window.__commitRemote)
-        window.__commitRemote(apply);
-    else
-        setDb(apply); ui.notify("อนุญาต + ตั้งผู้มาแทนแล้ว ✓"); setApprovePick(null); });
-    const deny = (r) => ui.run("กำลังปฏิเสธคำร้อง...", () => { const apply = (p) => ({ ...p, orgRequests: p.orgRequests.filter((x) => x.id !== r.id) }); if (window.__commitRemote)
-        window.__commitRemote(apply);
-    else
-        setDb(apply); ui.notify("ไม่อนุญาต — คงชื่อเดิม และลบแจ้งเตือนนี้ให้ทุกคน"); });
-    const del = (r) => ui.run("กำลังลบ...", () => { const apply = (p) => ({ ...p, orgRequests: p.orgRequests.filter((x) => x.id !== r.id) }); if (window.__commitRemote)
-        window.__commitRemote(apply);
-    else
-        setDb(apply); });
     const compName = (id) => { const c = db.competitions.find((x) => x.id === id); return c ? c.name : ""; };
+    const poolFor = (r) => (r.side === "orgStudent" ? db.students : db.teachers).filter((x) => String(x.id) !== String(r.personId) && (r.side === "orgStudent" ? x.committee : true));
+    const [approvePick, setApprovePick] = useState(null);
+    const [reReq, setReReq] = useState(null);
+    const commit = (mut) => { if (window.__commitRemote)
+        window.__commitRemote(mut);
+    else
+        setDb(mut); };
+    const accept = (r) => ui.run("กำลังยอมรับ...", () => { commit((p) => ({ ...p, [r.side]: p[r.side].map((n) => n.id === r.nodeId ? { ...n, personId: r.replacementId } : n), orgRequests: p.orgRequests.filter((x) => x.id !== r.id) })); ui.notify("ยอมรับและเข้าแทนตำแหน่งแล้ว ✓ (ปิดคำร้อง)"); });
+    const declineRep = (r) => ui.run("กำลังปฏิเสธ...", () => { commit((p) => ({ ...p, orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, status: "rejected", replacementStatus: "declined", rejectReason: "ผู้ที่ขอให้มาแทนไม่ยอมรับ", hiddenUntil: 0, at: Date.now() } : x) })); ui.notify("ปฏิเสธการมาแทน — แจ้งกลับผู้ขอ"); });
+    const doApprove = (r, rep) => ui.run("กำลังอนุญาต...", () => { const rid = rep.id || rep.user || ""; commit((p) => ({ ...p, [r.side]: p[r.side].map((n) => n.id === r.nodeId ? { ...n, personId: rid } : n), orgRequests: p.orgRequests.filter((x) => x.id !== r.id) })); ui.notify("อนุญาต + ตั้งผู้มาแทนแล้ว ✓ (ปิดคำร้อง)"); setApprovePick(null); });
+    const deny = (r) => ui.run("กำลังปฏิเสธคำร้อง...", () => { commit((p) => ({ ...p, orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, status: "rejected", rejectReason: "ผู้มีอำนาจไม่อนุญาตให้ถอน", hiddenUntil: 0, at: Date.now() } : x) })); ui.notify("ไม่อนุญาต — แจ้งกลับผู้ขอ"); });
+    const ackStay = (r) => ui.run("กำลังยืนยัน...", () => { commit((p) => ({ ...p, orgRequests: p.orgRequests.filter((x) => x.id !== r.id) })); ui.notify("รับทราบ — ทำหน้าที่เดิมต่อไป (ปิดคำร้อง)"); });
+    const reRequestPick = (r, rep) => ui.run("กำลังส่งคำร้องใหม่...", () => { commit((p) => ({ ...p, orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, status: "pending", replacementId: rep.id || rep.user || "", replacementName: fullName(rep), replacementStatus: "pending", rejectReason: "", at: Date.now(), hiddenUntil: 0 } : x) })); ui.notify("ส่งคำร้องอีกครั้งแล้ว — แจ้งผู้มาแทน + หัวหน้าตามสาย"); setReReq(null); });
+    const del = (r) => ui.run("กำลังซ่อน...", () => { commit((p) => ({ ...p, orgRequests: p.orgRequests.map((x) => x.id === r.id ? { ...x, hiddenUntil: Date.now() + 30 * 60 * 1000 } : x) })); ui.notify("ซ่อนแจ้งเตือนชั่วคราว — ถ้ายังไม่จบ จะกลับมาอีกใน 30 นาที"); });
     return (React.createElement("div", null,
-        React.createElement(PageHead, { title: "\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19 / \u0E04\u0E33\u0E23\u0E49\u0E2D\u0E07", sub: "\u0E04\u0E33\u0E23\u0E49\u0E2D\u0E07\u0E02\u0E2D\u0E16\u0E2D\u0E19\u0E0A\u0E37\u0E48\u0E2D\u0E08\u0E32\u0E01\u0E1C\u0E31\u0E07 \u00B7 \u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15\u0E41\u0E25\u0E49\u0E27\u0E0A\u0E37\u0E48\u0E2D\u0E08\u0E30\u0E2B\u0E32\u0E22\u0E08\u0E32\u0E01\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07 \u00B7 \u0E15\u0E34\u0E14\u0E15\u0E32\u0E21\u0E27\u0E48\u0E32\u0E21\u0E35\u0E04\u0E19\u0E21\u0E32\u0E41\u0E17\u0E19\u0E2B\u0E23\u0E37\u0E2D\u0E22\u0E31\u0E07" }),
+        React.createElement(PageHead, { title: "\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19 / \u0E04\u0E33\u0E23\u0E49\u0E2D\u0E07", sub: "\u0E04\u0E33\u0E23\u0E49\u0E2D\u0E07\u0E02\u0E2D\u0E16\u0E2D\u0E19\u0E0A\u0E37\u0E48\u0E2D \u00B7 \u0E08\u0E1A\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E21\u0E35\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19/\u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A/\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15 \u00B7 \u0E16\u0E49\u0E32\u0E16\u0E39\u0E01\u0E1B\u0E0F\u0E34\u0E40\u0E2A\u0E18 \u0E1C\u0E39\u0E49\u0E02\u0E2D\u0E23\u0E31\u0E1A\u0E17\u0E23\u0E32\u0E1A\u0E41\u0E25\u0E49\u0E27\u0E02\u0E2D\u0E43\u0E2B\u0E21\u0E48\u0E44\u0E14\u0E49 \u00B7 \u0E25\u0E1A\u0E40\u0E2D\u0E07\u0E41\u0E25\u0E49\u0E27\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E08\u0E1A\u0E08\u0E30\u0E01\u0E25\u0E31\u0E1A\u0E21\u0E32\u0E43\u0E19 30 \u0E19\u0E32\u0E17\u0E35" }),
         React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
             reqs.map((r) => {
-                const filled = nodeFilled(r);
+                const rejected = r.status === "rejected";
                 return (React.createElement(Card, { key: r.id, style: { padding: 14 } },
                     React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" } },
                         React.createElement("div", { style: { minWidth: 0 } },
@@ -3602,20 +3593,24 @@ function NotificationCenter({ db, setDb, ui, admin, viewerId, viewerRole }) {
                                     "(",
                                     st,
                                     ")")); })(),
-                            r.status === "approved" && (React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginTop: 6, color: filled ? "#2f9e6b" : "#c0392b" } }, filled ? "● มีคนมาแทนตำแหน่งแล้ว" : "● ตำแหน่งยังว่าง (รอคนมาแทน)")),
-                            r.status === "rejected" && React.createElement("div", { style: { fontSize: 12, fontWeight: 700, marginTop: 6, color: C.muted } },
-                                "\u25CF \u0E44\u0E21\u0E48\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15\u0E43\u0E2B\u0E49\u0E16\u0E2D\u0E19 (\u0E04\u0E07\u0E2D\u0E22\u0E39\u0E48\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E40\u0E14\u0E34\u0E21)",
-                                isRequester(r) ? " — คำร้องของคุณถูกปฏิเสธ" : "")),
+                            rejected && React.createElement("div", { style: { fontSize: 12.5, fontWeight: 700, marginTop: 6, color: "#c0392b" } },
+                                "\u25CF ",
+                                r.rejectReason || "คำร้องถูกปฏิเสธ",
+                                isRequester(r) ? " — กรุณากดรับทราบ เพื่อยืนยันทำหน้าที่เดิม หรือขอถอนตัวอีกครั้ง" : " (รอผู้ขอตัดสินใจ)")),
                         React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } },
-                            r.status === "pending" && isReplacement(r) && r.replacementStatus !== "declined" && React.createElement(Btn, { small: true, onClick: () => accept(r) }, "\u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A\u0E21\u0E32\u0E41\u0E17\u0E19"),
-                            r.status === "pending" && isReplacement(r) && r.replacementStatus !== "declined" && React.createElement(Btn, { small: true, variant: "danger", onClick: () => declineRep(r) }, "\u0E44\u0E21\u0E48\u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A"),
-                            r.status === "pending" && canApproveReq(r) && React.createElement(Btn, { small: true, onClick: () => setApprovePick(r) }, "\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15 (\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1C\u0E39\u0E49\u0E41\u0E17\u0E19)"),
-                            r.status === "pending" && canApproveReq(r) && React.createElement(Btn, { small: true, variant: "danger", onClick: () => deny(r) }, "\u0E44\u0E21\u0E48\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15"),
-                            r.status === "pending" && !canApproveReq(r) && !isReplacement(r) && React.createElement("span", { style: { fontSize: 11.5, color: "#c99a2e", fontWeight: 700, alignSelf: "center" } }, "\u0E23\u0E2D\u0E14\u0E33\u0E40\u0E19\u0E34\u0E19\u0E01\u0E32\u0E23"),
+                            r.status === "pending" && isReplacement(r) && React.createElement(Btn, { small: true, onClick: () => accept(r) }, "\u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A\u0E21\u0E32\u0E41\u0E17\u0E19"),
+                            r.status === "pending" && isReplacement(r) && React.createElement(Btn, { small: true, variant: "danger", onClick: () => declineRep(r) }, "\u0E44\u0E21\u0E48\u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A"),
+                            r.status === "pending" && canApproveReq(r) && !isReplacement(r) && React.createElement(Btn, { small: true, onClick: () => setApprovePick(r) }, "\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15 (\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1C\u0E39\u0E49\u0E41\u0E17\u0E19)"),
+                            r.status === "pending" && canApproveReq(r) && !isReplacement(r) && React.createElement(Btn, { small: true, variant: "danger", onClick: () => deny(r) }, "\u0E44\u0E21\u0E48\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15"),
+                            rejected && isRequester(r) && React.createElement(Btn, { small: true, onClick: () => ackStay(r) }, "\u0E23\u0E31\u0E1A\u0E17\u0E23\u0E32\u0E1A (\u0E17\u0E33\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E40\u0E14\u0E34\u0E21)"),
+                            rejected && isRequester(r) && React.createElement(Btn, { small: true, variant: "soft", onClick: () => setReReq(r) }, "\u0E02\u0E2D\u0E16\u0E2D\u0E19\u0E15\u0E31\u0E27\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07"),
+                            r.status === "pending" && isRequester(r) && !isReplacement(r) && !canApproveReq(r) && React.createElement("span", { style: { fontSize: 11.5, color: "#c99a2e", fontWeight: 700, alignSelf: "center" } }, "\u0E23\u0E2D\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19/\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32"),
+                            r.status === "pending" && !canApproveReq(r) && !isReplacement(r) && !isRequester(r) && React.createElement("span", { style: { fontSize: 11.5, color: "#c99a2e", fontWeight: 700, alignSelf: "center" } }, "\u0E23\u0E2D\u0E14\u0E33\u0E40\u0E19\u0E34\u0E19\u0E01\u0E32\u0E23"),
                             React.createElement(Btn, { small: true, variant: "ghost", onClick: () => del(r) }, "\u0E25\u0E1A\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19")))));
             }),
             reqs.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E33\u0E23\u0E49\u0E2D\u0E07/\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19" })),
-        approvePick && React.createElement(ReplacementPicker, { title: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E01\u0E48\u0E2D\u0E19\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15", note: "\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 \u00B7 \u0E15\u0E49\u0E2D\u0E07\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E01\u0E48\u0E2D\u0E19\u0E08\u0E36\u0E07\u0E08\u0E30\u0E16\u0E2D\u0E19\u0E1C\u0E39\u0E49\u0E02\u0E2D\u0E2D\u0E2D\u0E01\u0E44\u0E14\u0E49 (\u0E41\u0E19\u0E30\u0E19\u0E33\u0E1C\u0E39\u0E49\u0E17\u0E35\u0E48\u0E1C\u0E39\u0E49\u0E02\u0E2D\u0E40\u0E2A\u0E19\u0E2D \u0E2B\u0E23\u0E37\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E43\u0E2B\u0E21\u0E48)", pool: (approvePick.side === "orgStudent" ? db.students : db.teachers).filter((x) => String(x.id) !== String(approvePick.personId) && (approvePick.side === "orgStudent" ? x.committee : true)), onPick: (s) => doApprove(approvePick, s), onClose: () => setApprovePick(null) })));
+        approvePick && React.createElement(ReplacementPicker, { title: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E01\u0E48\u0E2D\u0E19\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15", note: "\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 \u00B7 \u0E15\u0E49\u0E2D\u0E07\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E01\u0E48\u0E2D\u0E19\u0E08\u0E36\u0E07\u0E08\u0E30\u0E16\u0E2D\u0E19\u0E1C\u0E39\u0E49\u0E02\u0E2D\u0E2D\u0E2D\u0E01\u0E44\u0E14\u0E49 (\u0E41\u0E19\u0E30\u0E19\u0E33\u0E1C\u0E39\u0E49\u0E17\u0E35\u0E48\u0E1C\u0E39\u0E49\u0E02\u0E2D\u0E40\u0E2A\u0E19\u0E2D \u0E2B\u0E23\u0E37\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E43\u0E2B\u0E21\u0E48)", pool: poolFor(approvePick), onPick: (s) => doApprove(approvePick, s), onClose: () => setApprovePick(null) }),
+        reReq && React.createElement(ReplacementPicker, { title: "\u0E02\u0E2D\u0E16\u0E2D\u0E19\u0E15\u0E31\u0E27\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07 \u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19", note: "\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 \u00B7 \u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E41\u0E08\u0E49\u0E07\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19 + \u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E15\u0E32\u0E21\u0E2A\u0E32\u0E22\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07", pool: poolFor(reReq), onPick: (s) => reRequestPick(reReq, s), onClose: () => setReReq(null) })));
 }
 function CommitteeApp({ role, db, setDb, onExit, meId }) {
     const [view, setView] = useState("me");
@@ -3628,8 +3623,10 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
                 ui.loading && React.createElement(LoadingModal, { label: ui.loading }),
                 ui.toast && React.createElement(Toast, { msg: ui.toast })));
     }
-    const pendingCount = (db.orgRequests || []).filter((r) => { if (r.status !== "pending")
-        return false; const a = reqApprovers(db, r); const canApp = role === "teacher" ? a.teacherIds.has(meId) : a.studentIds.has(meId); const isRep = String(r.replacementId || "") === String(meId) && r.replacementStatus !== "declined"; return canApp || isRep; }).length;
+    const pendingCount = (db.orgRequests || []).filter((r) => { if (r.hiddenUntil && r.hiddenUntil > Date.now())
+        return false; const a = reqApprovers(db, r); const canApp = role === "teacher" ? a.teacherIds.has(meId) : a.studentIds.has(meId); const isRep = String(r.replacementId || "") === String(meId); const isReq = String(r.personId) === String(meId); if (r.status === "rejected")
+        return isReq; if (r.status === "pending")
+        return canApp || (isRep && r.replacementStatus !== "declined") || isReq; return false; }).length;
     const which = role === "teacher" ? "orgTeacher" : "orgStudent";
     const myNodeIds = db[which].filter((n) => String(n.personId) === String(meId)).map((n) => n.id);
     const managesComp = (c) => db[which].filter((n) => String(n.compId) === String(c.id)).some((n) => orgPathIds(db[which], n.id).some((id) => myNodeIds.includes(id)));
@@ -4831,6 +4828,7 @@ function App() {
     const dbRef = useRef(db);
     dbRef.current = db;
     const dirtyRef = useRef(false); // มีการแก้ไขที่ยังไม่ถูกบันทึกหรือไม่
+    const lastSaveAt = useRef(0); // เวลาเริ่มบันทึกล่าสุด — ใช้ทิ้งผล auto-refresh ที่ค้างท่อ (กันข้อมูลเก่าทับของที่เพิ่งเซฟ)
     // แกนบันทึกจริง (ไม่ติดล็อก) — ใช้ทั้งออโต้เซฟและปุ่มบันทึกเอง
     const doSave = () => {
         if (!API_URL)
@@ -4839,6 +4837,7 @@ function App() {
             againRef.current = true;
             return;
         }
+        lastSaveAt.current = Date.now();
         savingRef.current = true;
         setSync("saving");
         let st = 0;
@@ -4989,9 +4988,10 @@ function App() {
                 return;
             if (document.hidden)
                 return;
+            const started = Date.now();
             fetch(API_URL).then((r) => r.text()).then((t) => {
-                if (dirtyRef.current || savingRef.current)
-                    return; // มีการแก้ไข/บันทึกเกิดขึ้นระหว่างดึงข้อมูล — ทิ้งผลเก่า กันทับของใหม่
+                if (dirtyRef.current || savingRef.current || lastSaveAt.current > started)
+                    return; // มีการแก้ไข/บันทึกระหว่างดึง — ทิ้งผลค้างท่อ กันทับของที่เพิ่งเซฟ
                 const j = JSON.parse(t);
                 if (j && j.ok && j.data) {
                     justLoaded.current = true;
