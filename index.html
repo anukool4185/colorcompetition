@@ -4068,8 +4068,8 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
         s.push({ id: "rsL" + Date.now(), date: c.resultDate || todayStr(), time: "", mode: Object.values(c.results).some((r) => r.medal) ? "medal" : "outcome", results: c.results }); if (extra)
         s.push(extra); return s; };
     const defMode = () => (comp && comp.resultMode) || (cfg.scheme === "medal" ? "medal" : "outcome");
-    const openNew = () => { setChecked([]); setDraft({ setId: "NEW", mode: defMode(), results: {} }); };
-    const openEdit = (set) => { setChecked([]); setDraft({ setId: set.id, mode: set.mode, results: Object.assign({}, set.results || {}) }); };
+    const openNew = () => { setChecked([]); setDraft({ setId: "NEW", mode: defMode(), results: {}, removed: [] }); };
+    const openEdit = (set) => { setChecked([]); setDraft({ setId: set.id, mode: set.mode, results: JSON.parse(JSON.stringify(set.results || {})), removed: [] }); };
     const tryNew = () => { const t = sets.find((s) => s.date === todayStr() && !s._legacy); if (t)
         setAskNew({ today: t });
     else
@@ -4077,28 +4077,29 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
     const dApply = (key, val) => { if (!checked.length) {
         ui.notify("ติ๊กเลือกรายชื่อก่อน (หรือกด ทุกคน)");
         return;
-    } setDraft((d) => ({ ...d, results: { ...d.results, ...Object.fromEntries(checked.map((sid) => [sid, { [key]: val }])) } })); };
+    } setDraft((d) => ({ ...d, results: { ...d.results, ...Object.fromEntries(checked.map((sid) => [sid, { [key]: val }])) }, removed: (d.removed || []).filter((sid) => !checked.includes(sid)) })); };
     const dClear = () => { if (!checked.length) {
         ui.notify("ติ๊กเลือกรายชื่อก่อน");
         return;
-    } setDraft((d) => { const r = { ...d.results }; checked.forEach((sid) => { delete r[sid]; }); return { ...d, results: r }; }); };
+    } setDraft((d) => { const r = { ...d.results }; checked.forEach((sid) => { delete r[sid]; }); return { ...d, results: r, removed: Array.from(new Set([...(d.removed || []), ...checked])) }; }); };
     const dMode = (mode) => setDraft((d) => ({ ...d, mode }));
     const saveDraft = () => {
-        const filtered = Object.fromEntries(Object.entries(draft.results).filter(([, r]) => r && (r.outcome || r.medal)));
+        const draftClean = Object.fromEntries(Object.entries(draft.results).filter(([, r]) => r && (r.outcome || r.medal)));
         if (draft.setId === "NEW") {
-            if (!Object.keys(filtered).length) {
+            if (!Object.keys(draftClean).length) {
                 ui.notify("ยังไม่ได้ลงผล — ไม่สร้างรายการ");
                 setDraft(null);
                 return;
             }
             const id = "rs" + Date.now() + Math.random().toString(36).slice(2, 5);
-            commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: migrateThen(c, { id, date: todayStr(), time: nowHM(), mode: draft.mode, results: filtered }), results: {} } : c) }));
+            commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: migrateThen(c, { id, date: todayStr(), time: nowHM(), mode: draft.mode, results: draftClean }), results: {} } : c) }));
             setDateF(todayStr());
             ui.notify("บันทึกผลรอบใหม่แล้ว");
         }
         else {
-            commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: migrateThen(c).map((s) => s.id === draft.setId ? { ...s, mode: draft.mode, results: filtered } : s), results: {} } : c) }));
-            ui.notify("อัพเดทผลแล้ว");
+            commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: migrateThen(c).map((s) => { if (s.id !== draft.setId)
+                        return s; const merged = { ...(s.results || {}), ...draft.results }; (draft.removed || []).forEach((sid) => { delete merged[sid]; }); const clean = Object.fromEntries(Object.entries(merged).filter(([, r]) => r && (r.outcome || r.medal))); return { ...s, mode: draft.mode, results: clean }; }), results: {} } : c) }));
+            ui.notify("อัพเดทผลแล้ว (ผลเดิมที่ไม่ได้แก้ยังอยู่)");
         }
         setDraft(null);
     };
@@ -4136,8 +4137,8 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
                     React.createElement("input", { type: "checkbox", checked: checkedSets.length > 0 && checkedSets.length === visSets.filter((s) => !s._legacy).length, onChange: (e) => setCheckedSets(e.target.checked ? visSets.filter((s) => !s._legacy).map((s) => s.id) : []) }),
                     " \u0E17\u0E38\u0E01\u0E23\u0E2D\u0E1A"),
                 React.createElement(Btn, { small: true, variant: "danger", onClick: bulkDelSets }, "\u0E25\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07"),
-                React.createElement(Btn, { small: true, variant: "soft", onClick: () => bulkScoreSets(false) }, "\u0E21\u0E35\u0E04\u0E30\u0E41\u0E19\u0E19"),
-                React.createElement(Btn, { small: true, variant: "ghost", onClick: () => bulkScoreSets(true) }, "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E30\u0E41\u0E19\u0E19"),
+                React.createElement(Btn, { small: true, variant: "soft", onClick: () => bulkScoreSets(false) }, "\u0E1B\u0E23\u0E31\u0E1A\u0E43\u0E2B\u0E49\u0E21\u0E35\u0E04\u0E30\u0E41\u0E19\u0E19"),
+                React.createElement(Btn, { small: true, variant: "ghost", onClick: () => bulkScoreSets(true) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E04\u0E30\u0E41\u0E19\u0E19"),
                 checkedSets.length > 0 && React.createElement("span", { style: { fontSize: 12, color: C.muted } },
                     "\u0E40\u0E25\u0E37\u0E2D\u0E01 ",
                     checkedSets.length,
@@ -4164,7 +4165,7 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
                         !readOnly && !set._legacy && React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } },
                             React.createElement(Btn, { small: true, onClick: () => openEdit(set) }, "\u0E25\u0E07\u0E1C\u0E25/\u0E41\u0E01\u0E49\u0E44\u0E02"),
                             React.createElement(Btn, { small: true, variant: "danger", onClick: () => delSet(set.id) }, delLabel),
-                            React.createElement(Btn, { small: true, variant: set.noScore ? "ghost" : "soft", onClick: () => toggleSetNoScore(set.id) }, set.noScore ? "ไม่มีคะแนน" : "มีคะแนน"))),
+                            React.createElement(Btn, { small: true, variant: set.noScore ? "soft" : "ghost", onClick: () => toggleSetNoScore(set.id) }, set.noScore ? "ปรับให้มีคะแนน" : "ยกเลิกคะแนน"))),
                     React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 3 } }, rows.length ? rows.map(([sid, r]) => { const s = db.students.find((st) => st.id === sid); if (!s)
                         return null; return React.createElement("div", { key: sid, style: { fontSize: 12.5, color: C.ink } },
                         "\u2022 ",
@@ -4180,10 +4181,10 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
                         r.outcome || "",
                         r.medal ? " " + r.medal : "",
                         " ",
-                        React.createElement("span", { style: { color: C.primaryDark, fontWeight: 700 } },
+                        React.createElement("span", { style: { color: set.noScore ? "#c0392b" : C.primaryDark, fontWeight: 700 } },
                             "(",
-                            scoreOf(r, cfg),
-                            " \u0E04\u0E30\u0E41\u0E19\u0E19)")); }) : React.createElement("div", { style: { fontSize: 12, color: C.muted } },
+                            set.noScore ? "ไม่นับคะแนน" : scoreOf(r, cfg) + " คะแนน",
+                            ")")); }) : React.createElement("div", { style: { fontSize: 12, color: C.muted } },
                         "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E25\u0E07\u0E1C\u0E25\u0E23\u0E2D\u0E1A\u0E19\u0E35\u0E49 ",
                         !readOnly && !set._legacy ? "— กด \"ลงผล/แก้ไข\"" : ""))));
             }))),
