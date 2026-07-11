@@ -4044,6 +4044,8 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
     const [pick, setPick] = useState("");
     const [activeSet, setActiveSet] = useState(null);
     const [askNew, setAskNew] = useState(null);
+    const [checked, setChecked] = useState([]);
+    useEffect(() => { setChecked([]); }, [activeSet]);
     const commit = (mut) => { if (readOnly)
         return; if (window.__commitRemote)
         window.__commitRemote(mut);
@@ -4077,6 +4079,14 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
     const clearAllSets = () => commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: [], results: {}, resultDate: "" } : c) }));
     const toggleSetNoScore = (setId) => commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: migrateThen(c).map((s) => s.id === setId ? { ...s, noScore: !s.noScore } : s), results: {} } : c) }));
     const delLabel = dateF ? "ยกเลิกการแข่งขันวันนี้" : "ยกเลิกการแข่งขันรอบนี้";
+    const applyChecked = (setId, key, val) => {
+        if (!checked.length) {
+            ui.notify("ติ๊กเลือกรายชื่อก่อน (หรือกด ทุกคน)");
+            return;
+        }
+        commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: migrateThen(c).map((s) => s.id === setId ? { ...s, results: { ...s.results, ...Object.fromEntries(checked.map((sid) => [sid, { ...(s.results[sid] || {}), [key]: val }])) } } : s), results: {} } : c) }));
+        ui.notify(`ลงผลให้ ${checked.length} คนแล้ว`);
+    };
     const chip = (setId, sid, key, val, r, color) => React.createElement("button", { onClick: () => setRes(setId, sid, { [key]: r[key] === val ? "" : val }), style: { padding: "4px 10px", borderRadius: 14, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: r[key] === val ? color : C.soft, color: r[key] === val ? "#fff" : C.primaryDark } }, val);
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: readOnly ? "ผลการแข่งขัน" : "จัดการผลการแข่งขัน", sub: readOnly ? "ดูผล · กรองตามวัน-เวลา" : "ลงผลเป็นรอบ (บันทึกวัน-เวลาอัตโนมัติ) · แพ้/ชนะ/เสมอ และ เหรียญ · คะแนนอัตโนมัติ" }),
@@ -4150,21 +4160,26 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
                     " ",
                     set.time ? set.time + " น." : "",
                     " \u00B7 \u0E25\u0E07\u0E1C\u0E25\u0E44\u0E14\u0E49\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1C\u0E39\u0E49\u0E17\u0E35\u0E48\u0E16\u0E39\u0E01\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01 (\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07/\u0E2A\u0E33\u0E23\u0E2D\u0E07)"),
-                React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12, paddingBottom: 10, borderBottom: "1px dashed " + C.line } },
+                React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 } },
                     React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E23\u0E30\u0E1A\u0E1A:"),
-                    [["outcome", "แพ้/ชนะ/เสมอ"], ["medal", "เหรียญ"]].map(([v, l]) => React.createElement("button", { key: v, onClick: () => setSetMode(set.id, v), style: { padding: "5px 11px", borderRadius: 14, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: set.mode === v ? C.primary : C.soft, color: set.mode === v ? "#fff" : C.primaryDark } }, l)),
-                    set.mode !== "medal" && React.createElement(React.Fragment, null,
-                        React.createElement("span", { style: { fontSize: 12, color: C.muted, marginLeft: 4 } }, "\u0E25\u0E07\u0E04\u0E23\u0E31\u0E49\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27:"),
-                        React.createElement(Btn, { small: true, variant: "soft", onClick: () => bulkSet(set.id, "outcome", "ชนะ") }, "\u0E17\u0E38\u0E01\u0E04\u0E19\u0E0A\u0E19\u0E30"),
-                        React.createElement(Btn, { small: true, variant: "soft", onClick: () => bulkSet(set.id, "outcome", "เสมอ") }, "\u0E40\u0E2A\u0E21\u0E2D"),
-                        React.createElement(Btn, { small: true, variant: "soft", onClick: () => bulkSet(set.id, "outcome", "แพ้") }, "\u0E41\u0E1E\u0E49"))),
-                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8, maxHeight: 380, overflowY: "auto" } },
+                    [["outcome", "ลงคะแนน (แพ้/ชนะ/เสมอ)"], ["medal", "ลงเหรียญ"]].map(([v, l]) => React.createElement("button", { key: v, onClick: () => setSetMode(set.id, v), style: { padding: "6px 12px", borderRadius: 14, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: set.mode === v ? C.primary : C.soft, color: set.mode === v ? "#fff" : C.primaryDark } }, l))),
+                React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12, paddingBottom: 10, borderBottom: "1px dashed " + C.line } },
+                    React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, fontWeight: 700, color: C.ink, cursor: "pointer" } },
+                        React.createElement("input", { type: "checkbox", checked: parts.length > 0 && checked.length === parts.length, onChange: (e) => setChecked(e.target.checked ? parts.map((x) => x.sid) : []) }),
+                        " \u0E17\u0E38\u0E01\u0E04\u0E19"),
+                    React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E41\u0E25\u0E49\u0E27\u0E01\u0E14 \u2192"),
+                    set.mode === "medal"
+                        ? React.createElement(React.Fragment, null, [["ทองแดง", "#b06a3b"], ["เงิน", "#9aa3ab"], ["ทอง", "#d4a017"]].map(([v, col]) => React.createElement("button", { key: v, onClick: () => applyChecked(set.id, "medal", v), style: { padding: "6px 14px", borderRadius: 16, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, background: col, color: "#fff" } }, v)))
+                        : React.createElement(React.Fragment, null, [["แพ้", "#c0392b"], ["ชนะ", "#2f9e6b"], ["เสมอ", "#c99a2e"]].map(([v, col]) => React.createElement("button", { key: v, onClick: () => applyChecked(set.id, "outcome", v), style: { padding: "6px 14px", borderRadius: 16, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, background: col, color: "#fff" } }, v)))),
+                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6, maxHeight: 360, overflowY: "auto" } },
                     parts.map((x) => {
                         const s = db.students.find((st) => st.id === x.sid);
                         if (!s)
                             return null;
                         const r = (set.results || {})[x.sid] || {};
-                        return (React.createElement("div", { key: x.sid, style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", borderBottom: "1px solid " + C.line, paddingBottom: 6 } },
+                        const on = checked.includes(x.sid);
+                        return (React.createElement("label", { key: x.sid, style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", borderBottom: "1px solid " + C.line, paddingBottom: 6, cursor: "pointer", background: on ? C.soft : "transparent", borderRadius: 8, padding: "4px 6px" } },
+                            React.createElement("input", { type: "checkbox", checked: on, onChange: () => setChecked(on ? checked.filter((id) => id !== x.sid) : [...checked, x.sid]) }),
                             React.createElement("div", { style: { flex: "1 1 130px", minWidth: 0, fontSize: 12.5, color: C.ink } },
                                 fullName(s),
                                 " ",
@@ -4176,18 +4191,15 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
                                     " \u00B7 ",
                                     x.sel === "main" ? "ตัวจริง" : "สำรอง",
                                     ")")),
-                            React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } }, set.mode === "medal" ? React.createElement(React.Fragment, null,
-                                chip(set.id, x.sid, "medal", "ทอง", r, "#d4a017"),
-                                chip(set.id, x.sid, "medal", "เงิน", r, "#9aa3ab"),
-                                chip(set.id, x.sid, "medal", "ทองแดง", r, "#b06a3b")) : React.createElement(React.Fragment, null,
-                                chip(set.id, x.sid, "outcome", "ชนะ", r, "#2f9e6b"),
-                                chip(set.id, x.sid, "outcome", "เสมอ", r, "#c99a2e"),
-                                chip(set.id, x.sid, "outcome", "แพ้", r, "#c0392b"))),
-                            React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: (r.outcome || r.medal) ? C.primaryDark : C.muted } }, (r.outcome || r.medal) ? scoreOf(r, cfg) + " คะแนน" : "ยังไม่ลงผล")));
+                            React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: (r.outcome || r.medal) ? C.primaryDark : C.muted } }, r.outcome || r.medal ? `${r.outcome || r.medal} · ${scoreOf(r, cfg)} คะแนน` : "ยังไม่ลงผล")));
                     }),
                     parts.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E39\u0E49\u0E16\u0E39\u0E01\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01 (\u0E44\u0E1B\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E01\u0E48\u0E2D\u0E19)" })),
-                React.createElement("div", { style: { marginTop: 14 } },
-                    React.createElement(Btn, { onClick: () => setActiveSet(null) }, "\u0E40\u0E2A\u0E23\u0E47\u0E08"))));
+                React.createElement("div", { style: { marginTop: 14, display: "flex", gap: 8 } },
+                    React.createElement(Btn, { onClick: () => setActiveSet(null) }, "\u0E40\u0E2A\u0E23\u0E47\u0E08"),
+                    checked.length > 0 && React.createElement("span", { style: { fontSize: 12, color: C.muted, alignSelf: "center" } },
+                        "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E27\u0E49 ",
+                        checked.length,
+                        " \u0E04\u0E19"))));
         })(),
         askNew && (React.createElement(Modal, { title: "\u0E25\u0E07\u0E1C\u0E25\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49", onClose: () => setAskNew(null) },
             React.createElement("div", { style: { fontSize: 13.5, color: C.ink, marginBottom: 12 } },
