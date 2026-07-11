@@ -2425,13 +2425,12 @@ function OrgTree({ nodes, pool, accent, mode, comps, onAddChild, onEditTitle, on
                         cc.name) : null; })(),
                     structure && (React.createElement("div", { style: { display: "flex", gap: 4, justifyContent: "center", marginTop: 6, flexWrap: "wrap" } },
                         React.createElement("button", { onClick: () => onAddChild(node), style: mini(C.soft, C.primaryDark) }, "+ \u0E25\u0E39\u0E01\u0E19\u0E49\u0E2D\u0E07"),
-                        React.createElement("button", { onClick: () => onEditTitle(node), style: mini(C.surface, C.muted, C.line) },
-                            "\u0E41\u0E01\u0E49\u0E44\u0E02/\u0E1C\u0E39\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23/button>",
-                            onInsertParent && React.createElement("button", { onClick: () => onInsertParent(node), style: mini(C.surface, C.muted, C.line) }, "\u0E41\u0E17\u0E23\u0E01\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32"),
-                            onMove && React.createElement("button", { onClick: () => onMove(node), style: mini(C.surface, C.muted, C.line) }, "\u0E22\u0E49\u0E32\u0E22"),
-                            onReorder && React.createElement("button", { onClick: () => onReorder(node, -1), style: mini(C.surface, C.muted, C.line), title: "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E02\u0E36\u0E49\u0E19/\u0E0B\u0E49\u0E32\u0E22" }, "\u2191"),
-                            onReorder && React.createElement("button", { onClick: () => onReorder(node, 1), style: mini(C.surface, C.muted, C.line), title: "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E25\u0E07/\u0E02\u0E27\u0E32" }, "\u2193"),
-                            React.createElement("button", { onClick: () => onDelete(node), style: mini("#fbeeee", "#c0392b", "#eccdcd") }, "\u0E25\u0E1A")))),
+                        React.createElement("button", { onClick: () => onEditTitle(node), style: mini(C.surface, C.muted, C.line) }, "\u0E41\u0E01\u0E49\u0E44\u0E02/\u0E1C\u0E39\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"),
+                        onInsertParent && React.createElement("button", { onClick: () => onInsertParent(node), style: mini(C.surface, C.muted, C.line) }, "\u0E41\u0E17\u0E23\u0E01\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32"),
+                        onMove && React.createElement("button", { onClick: () => onMove(node), style: mini(C.surface, C.muted, C.line) }, "\u0E22\u0E49\u0E32\u0E22"),
+                        onReorder && React.createElement("button", { onClick: () => onReorder(node, -1), style: mini(C.surface, C.muted, C.line), title: "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E02\u0E36\u0E49\u0E19/\u0E0B\u0E49\u0E32\u0E22" }, "\u2191"),
+                        onReorder && React.createElement("button", { onClick: () => onReorder(node, 1), style: mini(C.surface, C.muted, C.line), title: "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E25\u0E07/\u0E02\u0E27\u0E32" }, "\u2193"),
+                        React.createElement("button", { onClick: () => onDelete(node), style: mini("#fbeeee", "#c0392b", "#eccdcd") }, "\u0E25\u0E1A"))),
                     names && p && (React.createElement("div", { style: { display: "flex", gap: 4, justifyContent: "center", marginTop: 6 } },
                         React.createElement("button", { onClick: (e) => { e.stopPropagation(); onAssign(node); }, style: mini(C.soft, C.primaryDark) }, "\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19"),
                         React.createElement("button", { onClick: (e) => { e.stopPropagation(); onClearName(node); }, style: mini("#fbeeee", "#c0392b", "#eccdcd") }, "\u0E25\u0E1A\u0E0A\u0E37\u0E48\u0E2D"))),
@@ -2973,11 +2972,10 @@ function CompManager({ db, setDb, ui }) {
     const [tab, setTab] = useState("select");
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19 & \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21", sub: `คัดเลือกผู้เข้าแข่ง · จำกัดตัวจริงต่อคน: ${db.settings.maxMain} รายการ (เพิ่ม/แก้รายการที่เมนู กำหนดหน้าที่)` }),
-        React.createElement(Tabs, { tabs: [{ key: "select", label: "คัดเลือกผู้เข้าแข่ง" }, { key: "results", label: "ลงผล" }, { key: "stats", label: "สถิติคะแนน" }, { key: "comp", label: "รายการแข่งขัน" }, { key: "act", label: "รายการกิจกรรม" }, { key: "set", label: "ตั้งค่า" }], active: tab, onChange: setTab }),
+        React.createElement(Tabs, { tabs: [{ key: "select", label: "คัดเลือกผู้เข้าแข่ง" }, { key: "stats", label: "สถิติคะแนน" }, { key: "comp", label: "รายการแข่งขัน" }, { key: "act", label: "รายการกิจกรรม" }, { key: "set", label: "ตั้งค่า" }], active: tab, onChange: setTab }),
         tab === "comp" && React.createElement(CompDisplay, { kind: "\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19", db: db, ui: ui }),
         tab === "act" && React.createElement(CompDisplay, { kind: "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21", db: db, ui: ui }),
         tab === "select" && React.createElement(SelectionScreen, { db: db, setDb: setDb, ui: ui }),
-        tab === "results" && React.createElement(ResultsScreen, { db: db, setDb: setDb, ui: ui }),
         tab === "stats" && React.createElement(ScoreStatsScreen, { db: db, ui: ui }),
         tab === "set" && React.createElement(CompSettings, { db: db, setDb: setDb, ui: ui })));
 }
@@ -4163,14 +4161,79 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid, autoO
         s.push(extra); return s; };
     const defMode = () => (comp && comp.resultMode) || (cfg.scheme === "medal" ? "medal" : "outcome");
     const openNew = () => { setChecked([]); setDraft({ setId: "NEW", mode: "outcome", results: {}, removed: [] }); };
+    const [askPlay, setAskPlay] = useState(null); // {comp, set} — ถาม "แข่งแล้ว/เลื่อน/แข่งไปแล้ว"
+    const [postpone, setPostpone] = useState(null); // {comp, set, date, time, place}
+    const [backdate, setBackdate] = useState(null); // {comp, set, date}
     const openForComp = (c) => { setPick(c.id); setChecked([]); const todaySet = (c.resultSets || []).find((s) => s.date === todayStr()); if (todaySet)
         setDraft({ setId: todaySet.id, mode: todaySet.mode, results: JSON.parse(JSON.stringify(todaySet.results || {})), removed: [] });
     else
         setDraft({ setId: "NEW", mode: "outcome", results: {}, removed: [] }); };
+    // เปิดผ่านการ์ดแจ้งเตือน/รายการวันนี้ → ถามก่อนว่าแข่งแล้วหรือยัง
+    const startFor = (c) => { const pend = (c.resultSets || []).find((s) => !s.results || !Object.values(s.results).some((r) => r && (r.outcome || r.medal))); setPick(c.id); if (pend)
+        setAskPlay({ comp: c, set: pend });
+    else
+        openForComp(c); };
+    const openSetDraft = (c, set) => { setPick(c.id); setChecked([]); setDraft({ setId: set.id, mode: set.mode || "outcome", results: JSON.parse(JSON.stringify(set.results || {})), removed: [] }); };
+    // ลบรอบ + ลบข้อความเดียวกัน (compId + วันแข่งเดียวกัน) ทั้งสาย
+    const dropRoundsOn = (compId, date, keepSetId) => commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === compId ? { ...c, resultSets: (c.resultSets || []).filter((s) => { const empty = !s.results || !Object.values(s.results).some((r) => r && (r.outcome || r.medal)); return !(s.date === date && empty && s.id !== keepSetId); }) } : c) }));
+    // เลื่อน: ย้ายกำหนดในตาราง + ลบรอบเปล่า/แจ้งเตือนของนัดเดิม (เฉพาะรายการนี้)
+    const doPostpone = () => {
+        const { comp: c, set, date, time, place } = postpone;
+        if (!date) {
+            ui.notify("ระบุวันที่แข่งใหม่");
+            return;
+        }
+        const preset = (c.schedule || []).find((s) => s.date === date && s.date !== set.date);
+        ui.run("กำลังเลื่อนนัด...", () => {
+            commit((p) => ({ ...p, competitions: p.competitions.map((x) => {
+                    if (x.id !== c.id)
+                        return x;
+                    let sched = [...(x.schedule || [])];
+                    if (preset) {
+                        sched = sched.filter((s) => !(s.date === set.date && (s.time || "") === (set.time || "")));
+                    }
+                    else {
+                        const i = sched.findIndex((s) => s.date === set.date && (s.time || "") === (set.time || ""));
+                        const item = { round: (i >= 0 && sched[i].round) || "นัดหมาย", date, time: time || "", place: place || (i >= 0 ? sched[i].place : "") || "" };
+                        if (i >= 0)
+                            sched[i] = item;
+                        else
+                            sched.push(item);
+                    }
+                    const sets = (x.resultSets || []).filter((s) => { const empty = !s.results || !Object.values(s.results).some((r) => r && (r.outcome || r.medal)); return !(s.date === set.date && empty); });
+                    return { ...x, schedule: sched, resultSets: sets };
+                }) }));
+            ui.notify(preset ? `ผูกกับนัดที่กำหนดไว้ ${date} แล้ว — ลบแจ้งเตือนนัดเดิม` : `เลื่อนไป ${date} ${time || ""} แล้ว — ลบแจ้งเตือนนัดเดิม`);
+            setPostpone(null);
+            setAskPlay(null);
+        });
+    };
+    // แข่งไปแล้วย้อนหลัง: ถ้าวันนั้นมีผลแล้ว → ลบรอบ/แจ้งเตือนนี้ทิ้ง (ซ้ำ) · ถ้ายังไม่มี → ลงผลให้วันนั้นแทน
+    const doBackdate = () => {
+        const { comp: c, set, date } = backdate;
+        if (!date) {
+            ui.notify("ระบุวันที่ที่แข่งไปแล้ว");
+            return;
+        }
+        const already = compResultRows(c).some((r) => r.date === date);
+        if (already) {
+            ui.run("กำลังลบแจ้งเตือนซ้ำ...", () => { dropRoundsOn(c.id, set.date, null); ui.notify(`วันที่ ${date} ลงผลไว้แล้ว — ลบแจ้งเตือน/รอบซ้ำของ ${set.date} ทั้งสาย`); setBackdate(null); setAskPlay(null); });
+            return;
+        }
+        // ยังไม่มีผลของวันย้อนหลัง → ใช้รอบนี้ลงผล แต่เปลี่ยนวันเป็นวันที่แข่งจริง + ลบรอบเปล่าซ้ำของวันเดียวกัน
+        ui.run("กำลังตั้งวันแข่งย้อนหลัง...", () => {
+            commit((p) => ({ ...p, competitions: p.competitions.map((x) => x.id !== c.id ? x : { ...x, resultSets: (x.resultSets || []).filter((s) => { const empty = !s.results || !Object.values(s.results).some((r) => r && (r.outcome || r.medal)); return !(s.date === date && empty && s.id !== set.id); }).map((s) => s.id === set.id ? { ...s, date, auto: false, schedKey: "" } : s) }) }));
+            const updated = { ...set, date };
+            setBackdate(null);
+            setAskPlay(null);
+            setTimeout(() => openSetDraft(c, updated), 250);
+            ui.notify(`ตั้งเป็นวันแข่ง ${date} — ลงผลได้เลย (ลบแจ้งเตือนซ้ำวันเดียวกันแล้ว)`);
+        });
+    };
     useEffect(() => { if (autoOpen) {
         const c = db.competitions.find((x) => x.id === autoOpen);
         if (c)
-            openForComp(c);
+            startFor(c);
         if (onAutoOpened)
             onAutoOpened();
     } }, [autoOpen]);
@@ -4271,7 +4334,7 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid, autoO
                                     "\u0E2A\u0E48\u0E07\u0E1C\u0E25\u0E41\u0E25\u0E49\u0E27 ",
                                     rowsToday.length,
                                     " \u0E04\u0E19") : React.createElement("span", { style: { color: "#c0392b", fontWeight: 700 } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E2A\u0E48\u0E07\u0E1C\u0E25"))),
-                        React.createElement(Btn, { small: true, variant: done ? "ghost" : "soft", onClick: () => openForComp(c) }, done ? "แก้ไขผล" : "ส่งผล")));
+                        React.createElement(Btn, { small: true, variant: done ? "ghost" : "soft", onClick: () => startFor(c) }, done ? "แก้ไขผล" : "ส่งผล")));
                 }))));
         })(),
         !comp && React.createElement(Empty, { text: "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E04\u0E49\u0E19\u0E2B\u0E32 \u0E2B\u0E23\u0E37\u0E2D\u0E41\u0E15\u0E30\u0E0A\u0E48\u0E2D\u0E07\u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E08\u0E30\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E1C\u0E25" }),
@@ -4395,63 +4458,56 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid, autoO
                 checked.length > 0 && React.createElement("span", { style: { fontSize: 12, color: C.muted } },
                     "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E27\u0E49 ",
                     checked.length,
-                    " \u0E04\u0E19"))))));
-}
-function ResultsScreen({ db, setDb, ui, restrict, title }) {
-    const cfg = db.settings.scoreConfig || {};
-    const scheme = cfg.scheme || "outcome";
-    const [kind, setKind] = useState("แข่งขัน");
-    const list = db.competitions.filter((c) => c.kind === kind && (!restrict || restrict.includes(c.id)));
-    const [pick, setPick] = useState("");
-    const [nextFor, setNextFor] = useState(null);
-    const comp = list.find((c) => c.id === pick) || list[0];
-    const parts = comp ? comp.participants.filter((x) => x.status === "main" || x.status === "reserve") : [];
-    const setResult = (sid, patch) => setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, results: { ...c.results, [sid]: { ...(c.results[sid] || {}), ...patch } } } : c) }));
-    const chip = (sid, key, val, r, color) => (React.createElement("button", { onClick: () => setResult(sid, { [key]: r[key] === val ? "" : val }), style: { padding: "5px 11px", borderRadius: 16, border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 700, background: r[key] === val ? color : C.soft, color: r[key] === val ? "#fff" : C.primaryDark } }, val));
-    return (React.createElement("div", null,
-        React.createElement(PageHead, { title: title || "ลงผลการแข่งขัน", sub: "\u0E25\u0E07\u0E1C\u0E25\u0E23\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u00B7 \u0E04\u0E30\u0E41\u0E19\u0E19\u0E41\u0E08\u0E01\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34 \u00B7 \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E36\u0E49\u0E19\u0E2A\u0E48\u0E27\u0E19\u0E01\u0E25\u0E32\u0E07\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34" }),
-        React.createElement(Tabs, { tabs: [{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }], active: kind, onChange: (k) => { setKind(k); setPick(""); } }),
-        React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" } },
-            React.createElement(Select, { value: (comp === null || comp === void 0 ? void 0 : comp.id) || "", onChange: setPick }, list.map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name))),
-            comp && React.createElement(ItemStatusBadge, { c: comp }),
-            comp && React.createElement(Btn, { small: true, onClick: () => setNextFor(comp) }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 & \u0E23\u0E30\u0E1A\u0E38\u0E23\u0E2D\u0E1A\u0E16\u0E31\u0E14\u0E44\u0E1B"),
-            comp && comp.resultDone && React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#2f9e6b" } }, "\u25CF \u0E08\u0E1A\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E41\u0E25\u0E49\u0E27")),
-        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
-            parts.map((x) => {
-                const s = db.students.find((st) => st.id === x.sid);
-                if (!s)
-                    return null;
-                const r = comp.results[x.sid] || {};
-                const sc = scoreOf(r, cfg);
-                return (React.createElement(Card, { key: x.sid, style: { padding: 12 } },
-                    React.createElement("div", { style: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" } },
-                        React.createElement(Avatar, { person: s, size: 40 }),
-                        React.createElement("div", { style: { flex: 1, minWidth: 120 } },
-                            React.createElement("div", { style: { fontWeight: 700, color: C.ink, fontSize: 13.5 } },
-                                fullName(s),
-                                " ",
-                                React.createElement("span", { style: { fontSize: 11, color: C.muted } },
-                                    "(",
-                                    x.status === "main" ? "ตัวจริง" : "สำรอง",
-                                    ")")),
-                            React.createElement("div", { style: { fontSize: 11.5, color: C.muted } },
-                                s.grade,
-                                "/",
-                                s.room,
-                                " \u00B7 \u0E04\u0E30\u0E41\u0E19\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49 ",
-                                sc)),
-                        React.createElement("div", { style: { display: "flex", gap: 5, flexWrap: "wrap" } },
-                            (scheme === "outcome" || scheme === "both") && React.createElement(React.Fragment, null,
-                                chip(x.sid, "outcome", "ชนะ", r, "#2f9e6b"),
-                                chip(x.sid, "outcome", "เสมอ", r, C.primary),
-                                chip(x.sid, "outcome", "แพ้", r, "#c0392b")),
-                            (scheme === "medal" || scheme === "both") && React.createElement(React.Fragment, null,
-                                chip(x.sid, "medal", "ทอง", r, C.gold),
-                                chip(x.sid, "medal", "เงิน", r, "#8a97a5"),
-                                chip(x.sid, "medal", "ทองแดง", r, "#a9702f"))))));
-            }),
-            (!comp || parts.length === 0) && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E39\u0E49\u0E40\u0E02\u0E49\u0E32\u0E41\u0E02\u0E48\u0E07\u0E43\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49" })),
-        nextFor && React.createElement(NextRoundModal, { comp: nextFor, db: db, setDb: setDb, ui: ui, onClose: () => setNextFor(null) })));
+                    " \u0E04\u0E19")))),
+        askPlay && (React.createElement(Modal, { title: "ส่งผล: " + askPlay.comp.name, onClose: () => setAskPlay(null) },
+            React.createElement("div", { style: { fontSize: 12.5, color: "#b8860b", fontWeight: 700, marginBottom: 8 } },
+                "\uD83C\uDFC6 \u0E19\u0E31\u0E14\u0E19\u0E35\u0E49: \uD83D\uDCC5 ",
+                askPlay.set.date,
+                " ",
+                askPlay.set.time || "",
+                askPlay.set.place ? ` · ${askPlay.set.place}` : ""),
+            React.createElement("div", { style: { fontSize: 13.5, color: C.ink, marginBottom: 12 } }, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49\u0E41\u0E02\u0E48\u0E07\u0E41\u0E25\u0E49\u0E27\u0E2B\u0E23\u0E37\u0E2D\u0E22\u0E31\u0E07?"),
+            React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
+                React.createElement(Btn, { onClick: () => { const c = askPlay.comp, st = askPlay.set; setAskPlay(null); openSetDraft(c, st); } }, "\u2460 \u0E41\u0E02\u0E48\u0E07\u0E41\u0E25\u0E49\u0E27 \u0E44\u0E21\u0E48\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19 \u2014 \u0E25\u0E07\u0E1C\u0E25\u0E40\u0E25\u0E22"),
+                React.createElement(Btn, { variant: "soft", onClick: () => { setPostpone({ comp: askPlay.comp, set: askPlay.set, date: "", time: "", place: askPlay.set.place || "" }); } }, "\u2461 \u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E19\u0E31\u0E14 \u2014 \u0E23\u0E30\u0E1A\u0E38\u0E27\u0E31\u0E19/\u0E40\u0E27\u0E25\u0E32/\u0E2A\u0E16\u0E32\u0E19\u0E17\u0E35\u0E48\u0E43\u0E2B\u0E21\u0E48"),
+                React.createElement(Btn, { variant: "ghost", onClick: () => { setBackdate({ comp: askPlay.comp, set: askPlay.set, date: "" }); } }, "\u2462 \u0E41\u0E02\u0E48\u0E07\u0E44\u0E1B\u0E41\u0E25\u0E49\u0E27 (\u0E23\u0E30\u0E1A\u0E38\u0E27\u0E31\u0E19\u0E22\u0E49\u0E2D\u0E19\u0E2B\u0E25\u0E31\u0E07)")))),
+        postpone && (React.createElement(Modal, { title: "เลื่อนนัด: " + postpone.comp.name, onClose: () => setPostpone(null) },
+            React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 10 } },
+                "\u0E19\u0E31\u0E14\u0E40\u0E14\u0E34\u0E21: ",
+                postpone.set.date,
+                " ",
+                postpone.set.time || "",
+                " \u00B7 \u0E1C\u0E39\u0E49\u0E14\u0E33\u0E40\u0E19\u0E34\u0E19\u0E01\u0E32\u0E23 (\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23): \u0E04\u0E38\u0E13"),
+            React.createElement(Field, { label: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E41\u0E02\u0E48\u0E07\u0E43\u0E2B\u0E21\u0E48", type: "date", value: postpone.date, onChange: (v) => setPostpone((p) => ({ ...p, date: v })) }),
+            React.createElement(Field, { label: "\u0E40\u0E27\u0E25\u0E32", value: postpone.time, onChange: (v) => setPostpone((p) => ({ ...p, time: v })), placeholder: "\u0E40\u0E0A\u0E48\u0E19 13:00" }),
+            React.createElement(Field, { label: "\u0E2A\u0E16\u0E32\u0E19\u0E17\u0E35\u0E48", value: postpone.place, onChange: (v) => setPostpone((p) => ({ ...p, place: v })), placeholder: "\u0E40\u0E0A\u0E48\u0E19 \u0E2B\u0E2D\u0E1B\u0E23\u0E30\u0E0A\u0E38\u0E21" }),
+            postpone.date && (postpone.comp.schedule || []).some((s) => s.date === postpone.date && s.date !== postpone.set.date) && React.createElement("div", { style: { fontSize: 12.5, color: "#2f9e6b", fontWeight: 700, marginBottom: 8 } },
+                "\u2713 \u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A\u0E19\u0E31\u0E14\u0E17\u0E35\u0E48\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E44\u0E27\u0E49\u0E25\u0E48\u0E27\u0E07\u0E2B\u0E19\u0E49\u0E32 (",
+                postpone.date,
+                ") \u2014 \u0E08\u0E30\u0E1C\u0E39\u0E01\u0E01\u0E31\u0E1A\u0E19\u0E31\u0E14\u0E19\u0E31\u0E49\u0E19"),
+            React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } },
+                React.createElement(Btn, { onClick: doPostpone }, "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E19\u0E31\u0E14"),
+                React.createElement(Btn, { variant: "ghost", onClick: () => setPostpone(null) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01")))),
+        backdate && (React.createElement(Modal, { title: "แข่งไปแล้ว: " + backdate.comp.name, onClose: () => setBackdate(null) },
+            React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 10 } },
+                "\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19\u0E19\u0E31\u0E14\u0E19\u0E35\u0E49: ",
+                backdate.set.date,
+                " ",
+                backdate.set.time || "",
+                " \u00B7 \u0E23\u0E30\u0E1A\u0E38\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E17\u0E35\u0E48\u0E41\u0E02\u0E48\u0E07\u0E08\u0E23\u0E34\u0E07 (\u0E22\u0E49\u0E2D\u0E19\u0E2B\u0E25\u0E31\u0E07)"),
+            React.createElement(Field, { label: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E41\u0E02\u0E48\u0E07\u0E08\u0E23\u0E34\u0E07", type: "date", value: backdate.date, onChange: (v) => setBackdate((p) => ({ ...p, date: v })) }),
+            backdate.date && (compResultRows(backdate.comp).some((r) => r.date === backdate.date)
+                ? React.createElement("div", { style: { fontSize: 12.5, color: "#2f9e6b", fontWeight: 700, marginBottom: 8 } },
+                    "\u2713 \u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ",
+                    backdate.date,
+                    " \u0E25\u0E07\u0E1C\u0E25\u0E44\u0E27\u0E49\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E25\u0E1A\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19/\u0E23\u0E2D\u0E1A\u0E0B\u0E49\u0E33\u0E19\u0E35\u0E49\u0E17\u0E31\u0E49\u0E07\u0E2A\u0E32\u0E22")
+                : React.createElement("div", { style: { fontSize: 12.5, color: "#c99a2e", fontWeight: 700, marginBottom: 8 } },
+                    "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48 ",
+                    backdate.date,
+                    " \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E25 \u2014 \u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E43\u0E2B\u0E49\u0E25\u0E07\u0E1C\u0E25\u0E02\u0E2D\u0E07\u0E27\u0E31\u0E19\u0E19\u0E31\u0E49\u0E19 \u0E41\u0E25\u0E49\u0E27\u0E25\u0E1A\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19\u0E0B\u0E49\u0E33")),
+            React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } },
+                React.createElement(Btn, { onClick: doBackdate }, "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19"),
+                React.createElement(Btn, { variant: "ghost", onClick: () => setBackdate(null) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"))))));
 }
 function NextRoundModal({ comp, db, setDb, ui, onClose }) {
     const [mode, setMode] = useState("");
