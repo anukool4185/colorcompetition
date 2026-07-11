@@ -391,8 +391,10 @@ function PublicSearchRegister({ db, setDb, ui }) {
         return []; return db.students.filter((x) => String(x.id).toLowerCase().includes(s) || fullName(x).toLowerCase().includes(s)).slice(0, 8); };
     const commit = (mut) => { if (window.__commitRemote)
         window.__commitRemote(mut);
-    else
-        setDb(mut); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
+    else {
+        setDb(mut);
+        setTimeout(() => window.__forceSave && window.__forceSave(), 400);
+    } };
     const idExists = (id) => db.students.some((x) => String(x.id) === String((id || "").trim()));
     const doRegister = () => {
         if (!f.id.trim() || !f.first.trim()) {
@@ -3297,8 +3299,10 @@ function TrainingManager({ db, setDb, ui }) {
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff", marginBottom: 12 };
     const commit = (mut) => { if (window.__commitRemote)
         window.__commitRemote(mut);
-    else
-        setDb(mut); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
+    else {
+        setDb(mut);
+        setTimeout(() => window.__forceSave && window.__forceSave(), 400);
+    } };
     const save = () => {
         if (!f.compId && !f.title.trim()) {
             ui.notify("ใส่หัวข้อ หรือเลือกรายการแข่งขัน/กิจกรรม");
@@ -3658,8 +3662,10 @@ function TrainingModal({ comp, db, setDb, ui, onClose }) {
     const list = trainingSorted(comp);
     const commit = (mut) => { if (window.__commitRemote)
         window.__commitRemote(mut);
-    else
-        setDb(mut); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
+    else {
+        setDb(mut);
+        setTimeout(() => window.__forceSave && window.__forceSave(), 400);
+    } };
     const add = () => { if (!f.date) {
         ui.notify("กรุณาใส่วันที่ฝึกซ้อม");
         return;
@@ -4046,13 +4052,15 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
     const [draft, setDraft] = useState(null);
     const [checked, setChecked] = useState([]);
     const [checkedSets, setCheckedSets] = useState([]);
-    const [bulkMode, setBulkMode] = useState(false);
+    const [open, setOpen] = useState(false);
     useEffect(() => { setCheckedSets([]); }, [pick, dateF, kind]);
     const commit = (mut) => { if (readOnly)
         return; if (window.__commitRemote)
         window.__commitRemote(mut);
-    else
-        setDb(mut); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
+    else {
+        setDb(mut);
+        setTimeout(() => window.__forceSave && window.__forceSave(), 400);
+    } };
     let list = db.competitions.filter((c) => c.kind === kind);
     if (scopeCompIds)
         list = list.filter((c) => scopeCompIds.includes(c.id));
@@ -4060,7 +4068,7 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
         list = list.filter((c) => c.participants.some((x) => x.sid === scopeSid));
     if (q.trim())
         list = list.filter((c) => c.name.toLowerCase().includes(q.trim().toLowerCase()));
-    const comp = list.find((c) => c.id === pick) || list[0];
+    const comp = list.find((c) => c.id === pick);
     const rawSets = comp ? (comp.resultSets && comp.resultSets.length ? comp.resultSets : (compResultRows(comp).length ? [{ id: "legacy", date: comp.resultDate || "", time: "", mode: compResultRows(comp)[0].mode, results: comp.results || {}, _legacy: true }] : [])) : [];
     const sets = rawSets.slice().sort((a, b) => ((a.date || "") + (a.time || "")).localeCompare((b.date || "") + (b.time || "")));
     const visSets = dateF ? sets.filter((s) => s.date === dateF) : sets;
@@ -4118,22 +4126,31 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
     } commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: migrateThen(c).map((s) => checkedSets.includes(s.id) ? { ...s, noScore } : s), results: {} } : c) })); ui.notify(noScore ? "ตั้งเป็นไม่มีคะแนนแล้ว" : "ตั้งเป็นมีคะแนนแล้ว"); setCheckedSets([]); };
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: readOnly ? "ผลการแข่งขัน" : "จัดการผลการแข่งขัน", sub: readOnly ? "ดูผล · กรองตามวัน-เวลา" : "ลงผลเป็นรอบ (บันทึกวัน-เวลาอัตโนมัติ) · แพ้/ชนะ/เสมอ และ เหรียญ · คะแนนอัตโนมัติ" }),
-        React.createElement(Tabs, { tabs: [{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }], active: kind, onChange: (k) => { setKind(k); setPick(""); setDraft(null); setBulkMode(false); } }),
+        React.createElement(Tabs, { tabs: [{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }], active: kind, onChange: (k) => { setKind(k); setPick(""); setDraft(null); } }),
         React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" } },
-            React.createElement("input", { value: q, onChange: (e) => setQ(e.target.value), placeholder: "\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", style: { padding: "8px 10px", borderRadius: 10, border: "1px solid " + C.line, fontSize: 13, minWidth: 130 } }),
+            React.createElement("div", { style: { position: "relative", flex: "1 1 240px", minWidth: 200 } },
+                React.createElement("input", { value: q, onChange: (e) => { setQ(e.target.value); setOpen(true); if (pick) {
+                        setPick("");
+                        setDraft(null);
+                    } }, onFocus: () => setOpen(true), onBlur: () => setTimeout(() => setOpen(false), 180), placeholder: "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E04\u0E49\u0E19\u0E2B\u0E32 \u0E2B\u0E23\u0E37\u0E2D \u0E41\u0E15\u0E30\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", style: { width: "100%", padding: "10px 34px 10px 12px", borderRadius: 10, border: "1px solid " + C.line, fontSize: 14, color: C.ink, background: "#fbfcfb" } }),
+                (q || pick) && React.createElement("button", { onMouseDown: (e) => { e.preventDefault(); setQ(""); setPick(""); setDraft(null); setOpen(true); }, style: { position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", border: "none", background: "none", cursor: "pointer", fontSize: 16, color: C.muted } }, "\u2715"),
+                open && (React.createElement("div", { style: { position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 30, background: "#fff", border: "1px solid " + C.line, borderRadius: 10, boxShadow: "0 6px 20px rgba(0,0,0,.12)", maxHeight: 280, overflowY: "auto" } }, list.length ? list.map((c) => (React.createElement("div", { key: c.id, onMouseDown: (e) => { e.preventDefault(); setPick(c.id); setQ(c.name); setOpen(false); setDraft(null); }, style: { padding: "9px 12px", fontSize: 13.5, color: C.ink, cursor: "pointer", borderBottom: "1px solid " + C.line, background: pick === c.id ? C.soft : "transparent" } },
+                    c.name,
+                    " ",
+                    React.createElement("span", { style: { fontSize: 11, color: C.muted } },
+                        "(",
+                        c.kind,
+                        ")")))) : React.createElement("div", { style: { padding: "10px 12px", fontSize: 13, color: C.muted } }, "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23")))),
             React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48:"),
-            React.createElement("input", { type: "date", value: dateF, onChange: (e) => { setDateF(e.target.value); setBulkMode(false); }, style: { padding: "8px 10px", borderRadius: 10, border: "1px solid " + C.line, fontSize: 13 } }),
-            dateF && React.createElement(Btn, { small: true, variant: "ghost", onClick: () => { setDateF(""); setBulkMode(true); } }, "\u0E17\u0E38\u0E01\u0E27\u0E31\u0E19")),
-        React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" } },
-            React.createElement(Select, { value: comp ? comp.id : "", onChange: (v) => { setPick(v); setDraft(null); setBulkMode(false); } }, list.map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name))),
+            React.createElement("input", { type: "date", value: dateF, onChange: (e) => setDateF(e.target.value), style: { padding: "8px 10px", borderRadius: 10, border: "1px solid " + C.line, fontSize: 13 } }),
+            dateF && React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setDateF("") }, "\u0E17\u0E38\u0E01\u0E27\u0E31\u0E19"),
             comp && React.createElement(ItemStatusBadge, { c: comp })),
-        !comp && React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23" }),
+        !comp && React.createElement(Empty, { text: "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E04\u0E49\u0E19\u0E2B\u0E32 \u0E2B\u0E23\u0E37\u0E2D\u0E41\u0E15\u0E30\u0E0A\u0E48\u0E2D\u0E07\u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E08\u0E30\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E1C\u0E25" }),
         comp && (React.createElement(Card, { style: { padding: 16 } },
             !readOnly && React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 } },
-                React.createElement(Btn, { small: true, onClick: tryNew }, "\uFF0B \u0E25\u0E07\u0E1C\u0E25\u0E23\u0E2D\u0E1A\u0E43\u0E2B\u0E21\u0E48 (\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49)"),
-                React.createElement(Btn, { small: true, variant: bulkMode && dateF ? "soft" : "ghost", onClick: () => { setDateF(dateF || todayStr()); setBulkMode(true); } }, "\u0E23\u0E2D\u0E1A\u0E41\u0E02\u0E48\u0E07\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49 (\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2B\u0E25\u0E32\u0E22\u0E23\u0E2D\u0E1A)")),
+                React.createElement(Btn, { small: true, onClick: tryNew }, "\uFF0B \u0E25\u0E07\u0E1C\u0E25\u0E23\u0E2D\u0E1A\u0E43\u0E2B\u0E21\u0E48 (\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49)")),
             visSets.length === 0 && React.createElement(Empty, { text: dateF ? "ไม่มีผลของวันที่ " + dateF : "ยังไม่มีผล" }),
-            !readOnly && bulkMode && visSets.some((s) => !s._legacy) && (React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10, padding: "8px 10px", background: C.soft, borderRadius: 10 } },
+            !readOnly && visSets.some((s) => !s._legacy) && (React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10, padding: "8px 10px", background: C.soft, borderRadius: 10 } },
                 React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 12.5, fontWeight: 700, color: C.ink, cursor: "pointer" } },
                     React.createElement("input", { type: "checkbox", checked: checkedSets.length > 0 && checkedSets.length === visSets.filter((s) => !s._legacy).length, onChange: (e) => setCheckedSets(e.target.checked ? visSets.filter((s) => !s._legacy).map((s) => s.id) : []) }),
                     " \u0E17\u0E38\u0E01\u0E23\u0E2D\u0E1A"),
@@ -4146,7 +4163,7 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
                     " \u0E23\u0E2D\u0E1A"))),
             visSets.map((set) => {
                 const rows = Object.entries(set.results || {}).filter(([, r]) => r && (r.outcome || r.medal));
-                const selMode = !readOnly && bulkMode && !set._legacy;
+                const selMode = !readOnly && !set._legacy;
                 const on = checkedSets.includes(set.id);
                 return (React.createElement("div", { key: set.id, style: { border: "1px solid " + C.line, borderRadius: 12, padding: 12, marginBottom: 10, background: on ? C.soft : "transparent" } },
                     React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 8 } },
