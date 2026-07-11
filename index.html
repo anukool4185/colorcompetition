@@ -141,11 +141,11 @@ function compResultRows(c) {
     const rows = [];
     if (c.resultSets && c.resultSets.length) {
         c.resultSets.forEach((set) => Object.entries(set.results || {}).forEach(([sid, r]) => { if (r && (r.outcome || r.medal))
-            rows.push({ sid, outcome: r.outcome, medal: r.medal, date: set.date || "", time: set.time || "", setId: set.id, mode: set.mode }); }));
+            rows.push({ sid, outcome: r.outcome, medal: r.medal, date: set.date || "", time: set.time || "", setId: set.id, mode: set.mode, noScore: !!set.noScore }); }));
     }
     else if (c.results) {
         Object.entries(c.results).forEach(([sid, r]) => { if (r && (r.outcome || r.medal))
-            rows.push({ sid, outcome: r.outcome, medal: r.medal, date: c.resultDate || "", time: "", setId: "legacy", mode: r.medal ? "medal" : "outcome" }); });
+            rows.push({ sid, outcome: r.outcome, medal: r.medal, date: c.resultDate || "", time: "", setId: "legacy", mode: r.medal ? "medal" : "outcome", noScore: false }); });
     }
     return rows;
 }
@@ -155,8 +155,9 @@ function scoreStats(db) {
     const tot = {};
     db.competitions.forEach((c) => {
         if (c.noScore)
-            return; // ยกเลิกคะแนนรายการนี้ (ไม่นับรวม)
-        compResultRows(c).forEach((row) => { tot[row.sid] = (tot[row.sid] || 0) + scoreOf(row, cfg); });
+            return; // ยกเลิกคะแนนทั้งรายการ
+        compResultRows(c).forEach((row) => { if (row.noScore)
+            return; tot[row.sid] = (tot[row.sid] || 0) + scoreOf(row, cfg); });
     });
     return tot;
 }
@@ -4074,7 +4075,8 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
     const setSetMode = (setId, mode) => commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: migrateThen(c).map((s) => s.id === setId ? { ...s, mode } : s), results: {} } : c) }));
     const delSet = (setId) => commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: migrateThen(c).filter((s) => s.id !== setId), results: {} } : c) }));
     const clearAllSets = () => commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: [], results: {}, resultDate: "" } : c) }));
-    const toggleNoScore = () => commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, noScore: !c.noScore } : c) }));
+    const toggleSetNoScore = (setId) => commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, resultSets: migrateThen(c).map((s) => s.id === setId ? { ...s, noScore: !s.noScore } : s), results: {} } : c) }));
+    const delLabel = dateF ? "ยกเลิกการแข่งขันวันนี้" : "ยกเลิกการแข่งขันรอบนี้";
     const chip = (setId, sid, key, val, r, color) => React.createElement("button", { onClick: () => setRes(setId, sid, { [key]: r[key] === val ? "" : val }), style: { padding: "4px 10px", borderRadius: 14, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: r[key] === val ? color : C.soft, color: r[key] === val ? "#fff" : C.primaryDark } }, val);
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: readOnly ? "ผลการแข่งขัน" : "จัดการผลการแข่งขัน", sub: readOnly ? "ดูผล · กรองตามวัน-เวลา" : "ลงผลเป็นรอบ (บันทึกวัน-เวลาอัตโนมัติ) · แพ้/ชนะ/เสมอ และ เหรียญ · คะแนนอัตโนมัติ" }),
@@ -4093,8 +4095,7 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
         comp && (React.createElement(Card, { style: { padding: 16 } },
             !readOnly && React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 } },
                 React.createElement(Btn, { small: true, onClick: tryNew }, "\uFF0B \u0E25\u0E07\u0E1C\u0E25\u0E23\u0E2D\u0E1A\u0E43\u0E2B\u0E21\u0E48 (\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49)"),
-                fullClear && React.createElement(Btn, { small: true, variant: "danger", onClick: clearAllSets }, "\u0E25\u0E49\u0E32\u0E07\u0E1C\u0E25\u0E17\u0E31\u0E49\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"),
-                React.createElement(Btn, { small: true, variant: comp.noScore ? "soft" : "ghost", onClick: toggleNoScore }, comp.noScore ? "เปิดนับคะแนน" : "ยกเลิกคะแนน (ไม่นับรวม)")),
+                fullClear && !dateF && React.createElement(Btn, { small: true, variant: "danger", onClick: clearAllSets }, "\u0E25\u0E49\u0E32\u0E07\u0E1C\u0E25\u0E17\u0E31\u0E49\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 (\u0E17\u0E38\u0E01\u0E23\u0E2D\u0E1A)")),
             visSets.length === 0 && React.createElement(Empty, { text: dateF ? "ไม่มีผลของวันที่ " + dateF : "ยังไม่มีผล" }),
             visSets.map((set) => {
                 const editing = activeSet === set.id && !readOnly && !set._legacy;
@@ -4110,10 +4111,12 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid }) {
                             React.createElement("span", { style: { fontSize: 11, color: C.muted, fontWeight: 500 } },
                                 "(",
                                 set.mode === "medal" ? "เหรียญ" : "แพ้/ชนะ/เสมอ",
-                                ")")),
-                        !readOnly && !set._legacy && React.createElement("div", { style: { display: "flex", gap: 6 } },
+                                ")"),
+                            set.noScore ? React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#c0392b", marginLeft: 6 } }, "\u25CF \u0E44\u0E21\u0E48\u0E19\u0E31\u0E1A\u0E04\u0E30\u0E41\u0E19\u0E19") : ""),
+                        !readOnly && !set._legacy && React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } },
                             React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setActiveSet(editing ? null : set.id) }, editing ? "เสร็จ" : "แก้ไข"),
-                            React.createElement(Btn, { small: true, variant: "danger", onClick: () => delSet(set.id) }, "\u0E25\u0E1A\u0E23\u0E2D\u0E1A\u0E19\u0E35\u0E49"))),
+                            React.createElement(Btn, { small: true, variant: set.noScore ? "soft" : "ghost", onClick: () => toggleSetNoScore(set.id) }, set.noScore ? "เปิดนับคะแนนรอบนี้" : "ยกเลิกคะแนนรอบนี้"),
+                            React.createElement(Btn, { small: true, variant: "danger", onClick: () => delSet(set.id) }, delLabel))),
                     editing && React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10, paddingBottom: 10, borderBottom: "1px dashed " + C.line } },
                         React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E23\u0E30\u0E1A\u0E1A:"),
                         [["outcome", "แพ้/ชนะ/เสมอ"], ["medal", "เหรียญ"]].map(([v, l]) => React.createElement("button", { key: v, onClick: () => setSetMode(set.id, v), style: { padding: "5px 11px", borderRadius: 14, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: set.mode === v ? C.primary : C.soft, color: set.mode === v ? "#fff" : C.primaryDark } }, l)),
