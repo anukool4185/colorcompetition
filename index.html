@@ -3333,6 +3333,8 @@ function TrainingManager({ db, setDb, ui }) {
     const list = db.training || [];
     const [f, setF] = useState({ title: "", date: "", time: "", place: "", note: "", house: "", compId: "" });
     const [edit, setEdit] = useState(null);
+    const [multi, setMulti] = useState(false);
+    const [multiSel, setMultiSel] = useState([]);
     const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
     const houseLabel = (h) => h === "" || h === undefined || h === null ? "ทุกสี" : (houses[h] ? houses[h].name : "ทุกสี");
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff", marginBottom: 12 };
@@ -3355,7 +3357,7 @@ function TrainingManager({ db, setDb, ui }) {
             if (f.compId) {
                 const entry = { id: "tr" + Date.now() + Math.random().toString(36).slice(2, 5), date: f.date, time: f.time, place: f.place, note: (f.note || f.title || "").trim() };
                 commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === f.compId ? { ...c, training: [...(c.training || []), entry] } : c) }));
-                ui.notify("เพิ่มนัดฝึกซ้อมให้รายการแล้ว");
+                ui.notify("เพิ่มกำหนดการฝึกซ้อมให้รายการแล้ว");
             }
             else {
                 commit((p) => { const cur = p.training || []; if (edit)
@@ -3364,6 +3366,22 @@ function TrainingManager({ db, setDb, ui }) {
             }
             setF({ title: "", date: "", time: "", place: "", note: "", house: "", compId: "" });
             setEdit(null);
+        });
+    };
+    const saveMulti = () => {
+        if (!multiSel.length) {
+            ui.notify("เลือกรายการอย่างน้อย 1 รายการ");
+            return;
+        }
+        if (!f.date) {
+            ui.notify("ใส่วันที่ฝึกซ้อม");
+            return;
+        }
+        ui.run("กำลังส่งหลายรายการ...", () => {
+            commit((p) => ({ ...p, competitions: p.competitions.map((c) => multiSel.includes(c.id) ? { ...c, training: [...(c.training || []), { id: "tr" + Date.now() + Math.random().toString(36).slice(2, 6), date: f.date, time: f.time, place: f.place, note: (f.note || f.title || "").trim() }] } : c) }));
+            ui.notify(`ส่งกำหนดการฝึกซ้อมให้ ${multiSel.length} รายการแล้ว`);
+            setF({ title: "", date: "", time: "", place: "", note: "", house: "", compId: "" });
+            setMultiSel([]);
         });
     };
     const startEdit = (t) => { setEdit(t.id); setF({ title: t.title || "", date: t.date || "", time: t.time || "", place: t.place || "", note: t.note || "", house: t.house === undefined || t.house === null ? "" : t.house, compId: "" }); };
@@ -3376,27 +3394,53 @@ function TrainingManager({ db, setDb, ui }) {
     return (React.createElement("div", { style: { maxWidth: 640 } },
         React.createElement(Card, { style: { padding: 16, marginBottom: 14 } },
             React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 10 } }, edit ? "แก้ไขกำหนดการฝึกซ้อม" : "เพิ่มกำหนดการฝึกซ้อม"),
-            React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E1C\u0E39\u0E01\u0E01\u0E31\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 (\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \u0E2B\u0E23\u0E37\u0E2D \"\u0E17\u0E31\u0E48\u0E27\u0E44\u0E1B\")"),
-            React.createElement("select", { value: f.compId, onChange: (e) => set("compId")(e.target.value), style: selCss, disabled: !!edit },
-                React.createElement("option", { value: "" }, "\u2014 \u0E17\u0E31\u0E48\u0E27\u0E44\u0E1B (\u0E23\u0E32\u0E22\u0E2A\u0E35) \u2014"),
-                React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19" }, (db.competitions || []).filter((c) => c.kind === "แข่งขัน").map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name))),
-                React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }, (db.competitions || []).filter((c) => c.kind === "กิจกรรม").map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name)))),
-            React.createElement(Field, { label: f.compId ? "รายละเอียด/หมายเหตุ (พิมพ์ได้)" : "หัวข้อ/รายการฝึกซ้อม", value: f.title, onChange: set("title"), placeholder: f.compId ? "เช่น ซ้อมรอบแรก, เตรียมอุปกรณ์" : "เช่น ซ้อมเชียร์รวมสี, ซ้อมกีฬาสี" }),
-            !f.compId && React.createElement(React.Fragment, null,
-                React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E2A\u0E31\u0E07\u0E01\u0E31\u0E14\u0E2A\u0E35"),
-                React.createElement("select", { value: f.house, onChange: (e) => set("house")(e.target.value === "" ? "" : Number(e.target.value)), style: selCss },
-                    React.createElement("option", { value: "" }, "\u0E17\u0E38\u0E01\u0E2A\u0E35"),
-                    houses.map((h, i) => React.createElement("option", { key: i, value: i }, h.name)))),
+            !edit && React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 12 } },
+                React.createElement("button", { onClick: () => { setMulti(false); setMultiSel([]); }, style: { flex: 1, padding: "8px 10px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 700, background: !multi ? C.primary : C.soft, color: !multi ? "#fff" : C.primaryDark } }, "\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E17\u0E35\u0E25\u0E30\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"),
+                React.createElement("button", { onClick: () => { setMulti(true); }, style: { flex: 1, padding: "8px 10px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 12.5, fontWeight: 700, background: multi ? C.primary : C.soft, color: multi ? "#fff" : C.primaryDark } }, "\u0E2A\u0E48\u0E07\u0E2B\u0E25\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E01\u0E31\u0E19")),
+            multi ? (React.createElement(React.Fragment, null,
+                React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 } },
+                    React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E08\u0E30\u0E2A\u0E48\u0E07\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21 (\u0E27\u0E31\u0E19/\u0E40\u0E27\u0E25\u0E32\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19)"),
+                    React.createElement("label", { style: { fontSize: 12.5, fontWeight: 700, color: C.ink, display: "flex", alignItems: "center", gap: 5, cursor: "pointer" } },
+                        React.createElement("input", { type: "checkbox", checked: multiSel.length > 0 && multiSel.length === (db.competitions || []).length, onChange: (e) => setMultiSel(e.target.checked ? (db.competitions || []).map((c) => c.id) : []) }),
+                        " \u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23")),
+                React.createElement("div", { style: { maxHeight: 220, overflowY: "auto", border: `1px solid ${C.line}`, borderRadius: 10, padding: 8, marginBottom: 12 } },
+                    ["แข่งขัน", "กิจกรรม"].map((k) => {
+                        const items = (db.competitions || []).filter((c) => c.kind === k);
+                        if (!items.length)
+                            return null;
+                        return (React.createElement("div", { key: k, style: { marginBottom: 6 } },
+                            React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700, color: C.muted, margin: "2px 0 4px" } }, k === "แข่งขัน" ? "รายการแข่งขัน" : "รายการกิจกรรม"),
+                            items.map((c) => {
+                                const on = multiSel.includes(c.id);
+                                return (React.createElement("label", { key: c.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "4px 6px", borderRadius: 8, cursor: "pointer", background: on ? C.soft : "transparent", fontSize: 13, color: C.ink } },
+                                    React.createElement("input", { type: "checkbox", checked: on, onChange: () => setMultiSel(on ? multiSel.filter((id) => id !== c.id) : [...multiSel, c.id]) }),
+                                    " ",
+                                    c.name));
+                            })));
+                    }),
+                    (db.competitions || []).length === 0 && React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21")),
+                React.createElement(Field, { label: "\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14/\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 (\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E44\u0E14\u0E49)", value: f.title, onChange: set("title"), placeholder: "\u0E40\u0E0A\u0E48\u0E19 \u0E0B\u0E49\u0E2D\u0E21\u0E23\u0E27\u0E21, \u0E40\u0E15\u0E23\u0E35\u0E22\u0E21\u0E2D\u0E38\u0E1B\u0E01\u0E23\u0E13\u0E4C" }))) : (React.createElement(React.Fragment, null,
+                React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E1C\u0E39\u0E01\u0E01\u0E31\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 (\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \u0E2B\u0E23\u0E37\u0E2D \"\u0E17\u0E31\u0E48\u0E27\u0E44\u0E1B\")"),
+                React.createElement("select", { value: f.compId, onChange: (e) => set("compId")(e.target.value), style: selCss, disabled: !!edit },
+                    React.createElement("option", { value: "" }, "\u2014 \u0E17\u0E31\u0E48\u0E27\u0E44\u0E1B (\u0E23\u0E32\u0E22\u0E2A\u0E35) \u2014"),
+                    React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19" }, (db.competitions || []).filter((c) => c.kind === "แข่งขัน").map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name))),
+                    React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }, (db.competitions || []).filter((c) => c.kind === "กิจกรรม").map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name)))),
+                React.createElement(Field, { label: f.compId ? "รายละเอียด/หมายเหตุ (พิมพ์ได้)" : "หัวข้อ/รายการฝึกซ้อม", value: f.title, onChange: set("title"), placeholder: f.compId ? "เช่น ซ้อมรอบแรก, เตรียมอุปกรณ์" : "เช่น ซ้อมเชียร์รวมสี, ซ้อมกีฬาสี" }),
+                !f.compId && React.createElement(React.Fragment, null,
+                    React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E2A\u0E31\u0E07\u0E01\u0E31\u0E14\u0E2A\u0E35"),
+                    React.createElement("select", { value: f.house, onChange: (e) => set("house")(e.target.value === "" ? "" : Number(e.target.value)), style: selCss },
+                        React.createElement("option", { value: "" }, "\u0E17\u0E38\u0E01\u0E2A\u0E35"),
+                        houses.map((h, i) => React.createElement("option", { key: i, value: i }, h.name)))))),
             React.createElement("div", { className: "md:grid md:grid-cols-2 md:gap-x-3" },
                 React.createElement(Field, { label: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48", value: f.date, onChange: set("date"), type: "date" }),
                 React.createElement(Field, { label: "\u0E40\u0E27\u0E25\u0E32", value: f.time, onChange: set("time"), placeholder: "\u0E40\u0E0A\u0E48\u0E19 15:30-17:00" })),
             React.createElement(Field, { label: "\u0E2A\u0E16\u0E32\u0E19\u0E17\u0E35\u0E48", value: f.place, onChange: set("place"), placeholder: "\u0E40\u0E0A\u0E48\u0E19 \u0E2A\u0E19\u0E32\u0E21\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E2A\u0E32\u0E18\u0E07" }),
-            !f.compId && React.createElement(Field, { label: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", value: f.note, onChange: set("note"), placeholder: "\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E40\u0E15\u0E34\u0E21 (\u0E16\u0E49\u0E32\u0E21\u0E35)" }),
+            !f.compId && !multi && React.createElement(Field, { label: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", value: f.note, onChange: set("note"), placeholder: "\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E40\u0E15\u0E34\u0E21 (\u0E16\u0E49\u0E32\u0E21\u0E35)" }),
             React.createElement("div", { style: { display: "flex", gap: 8 } },
-                React.createElement(Btn, { onClick: save }, edit ? "บันทึกการแก้ไข" : "+ เพิ่ม"),
+                React.createElement(Btn, { onClick: multi ? saveMulti : save }, edit ? "บันทึกการแก้ไข" : multi ? `+ ส่งให้ ${multiSel.length || 0} รายการ` : "+ เพิ่ม"),
                 edit && React.createElement(Btn, { variant: "ghost", onClick: () => { setEdit(null); setF({ title: "", date: "", time: "", place: "", note: "", house: "", compId: "" }); } }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"))),
         compTrs.length > 0 && (React.createElement("div", { style: { marginBottom: 14 } },
-            React.createElement("div", { style: { fontWeight: 700, color: C.primaryDark, fontSize: 13, marginBottom: 6 } }, "\u0E19\u0E31\u0E14\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21\u0E23\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"),
+            React.createElement("div", { style: { fontWeight: 700, color: C.primaryDark, fontSize: 13, marginBottom: 6 } }, "\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21\u0E23\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"),
             React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, compTrs.map((t) => (React.createElement(Card, { key: t.compId + t.id, style: { padding: 12, display: "flex", alignItems: "flex-start", gap: 10 } },
                 React.createElement("div", { style: { flex: 1, minWidth: 0 } },
                     React.createElement("div", { style: { fontWeight: 700, color: C.ink } },
@@ -3593,6 +3637,22 @@ function NotificationCenter({ db, setDb, ui, admin, viewerId, viewerRole, onGoRe
         });
         resultReminders.sort((a, b) => ((a.rs.date || "") + (a.rs.time || "")).localeCompare((b.rs.date || "") + (b.rs.time || "")));
     }
+    const trainingReminders = [];
+    {
+        const todayS = todayStr();
+        (db.competitions || []).forEach((c) => {
+            if (!(c.training || []).length)
+                return;
+            const resp = respCommForComp(db, c);
+            const iAmResp = admin || resp.teacherIds.has(String(viewerId)) || resp.studentIds.has(String(viewerId));
+            const iAmPart = viewerId != null && (c.participants || []).some((x) => String(x.sid) === String(viewerId) && (x.sel === "main" || x.sel === "reserve" || x.status === "main" || x.status === "reserve"));
+            if (!iAmResp && !iAmPart)
+                return;
+            (c.training || []).forEach((t) => { if (!t.date || t.date >= todayS)
+                trainingReminders.push({ comp: c, t }); });
+        });
+        trainingReminders.sort((a, b) => ((a.t.date || "") + (a.t.time || "")).localeCompare((b.t.date || "") + (b.t.time || "")));
+    }
     const sideLabel = (s) => s === "orgTeacher" ? "ครู" : "นักเรียน";
     const personOf = (side, id) => (side === "orgStudent" ? db.students : db.teachers).find((x) => String(x.id) === String(id));
     const isReplacement = (r) => viewerId != null && String(r.replacementId || "") === String(viewerId);
@@ -3634,6 +3694,23 @@ function NotificationCenter({ db, setDb, ui, admin, viewerId, viewerRole, onGoRe
                             rs.time || "",
                             rs.place ? ` · ${rs.place}` : "")),
                     React.createElement(Btn, { small: true, onClick: () => onGoResults(comp.id) }, "\u0E2A\u0E48\u0E07\u0E1C\u0E25\u0E40\u0E25\u0E22"))))),
+            trainingReminders.map(({ comp, t }) => (React.createElement(Card, { key: "tr" + comp.id + t.id, style: { padding: 14, borderLeft: `4px solid #2f9e6b`, background: "#f2fbf6" } },
+                React.createElement("div", { style: { minWidth: 0 } },
+                    React.createElement("div", { style: { fontWeight: 800, color: "#2f9e6b" } }, "\uD83C\uDFCB \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21"),
+                    React.createElement("div", { style: { fontSize: 13, color: C.ink, marginTop: 2 } },
+                        comp.name,
+                        " ",
+                        React.createElement("span", { style: { fontSize: 11, color: C.muted } },
+                            "(",
+                            comp.kind,
+                            ")")),
+                    React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginTop: 2 } },
+                        "\uD83D\uDCC5 ",
+                        t.date,
+                        " ",
+                        t.time || "",
+                        t.place ? ` · ${t.place}` : "",
+                        t.note ? ` · ${t.note}` : ""))))),
             reqs.map((r) => {
                 const rejected = r.status === "rejected";
                 return (React.createElement(Card, { key: r.id, style: { padding: 14 } },
@@ -3678,7 +3755,7 @@ function NotificationCenter({ db, setDb, ui, admin, viewerId, viewerRole, onGoRe
                             r.status === "pending" && !canApproveReq(r) && !isReplacement(r) && !isRequester(r) && React.createElement("span", { style: { fontSize: 11.5, color: "#c99a2e", fontWeight: 700, alignSelf: "center" } }, "\u0E23\u0E2D\u0E14\u0E33\u0E40\u0E19\u0E34\u0E19\u0E01\u0E32\u0E23"),
                             admin ? React.createElement(Btn, { small: true, variant: "danger", onClick: () => delPermanent(r) }, "\u0E25\u0E1A\u0E16\u0E32\u0E27\u0E23") : React.createElement(Btn, { small: true, variant: "ghost", onClick: () => del(r) }, "\u0E25\u0E1A\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19")))));
             }),
-            reqs.length === 0 && resultReminders.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E33\u0E23\u0E49\u0E2D\u0E07/\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19" })),
+            reqs.length === 0 && resultReminders.length === 0 && trainingReminders.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E33\u0E23\u0E49\u0E2D\u0E07/\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19" })),
         approvePick && React.createElement(ReplacementPicker, { title: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E01\u0E48\u0E2D\u0E19\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15", note: "\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 \u00B7 \u0E15\u0E49\u0E2D\u0E07\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E01\u0E48\u0E2D\u0E19\u0E08\u0E36\u0E07\u0E08\u0E30\u0E16\u0E2D\u0E19\u0E1C\u0E39\u0E49\u0E02\u0E2D\u0E2D\u0E2D\u0E01\u0E44\u0E14\u0E49 (\u0E41\u0E19\u0E30\u0E19\u0E33\u0E1C\u0E39\u0E49\u0E17\u0E35\u0E48\u0E1C\u0E39\u0E49\u0E02\u0E2D\u0E40\u0E2A\u0E19\u0E2D \u0E2B\u0E23\u0E37\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E43\u0E2B\u0E21\u0E48)", pool: poolFor(approvePick), onPick: (s) => doApprove(approvePick, s), onClose: () => setApprovePick(null) }),
         reReq && React.createElement(ReplacementPicker, { title: "\u0E02\u0E2D\u0E16\u0E2D\u0E19\u0E15\u0E31\u0E27\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07 \u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19", note: "\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 \u00B7 \u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E41\u0E08\u0E49\u0E07\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19 + \u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E15\u0E32\u0E21\u0E2A\u0E32\u0E22\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07", pool: poolFor(reReq), onPick: (s) => reRequestPick(reReq, s), onClose: () => setReReq(null) })));
 }
@@ -3752,9 +3829,9 @@ function TrainingModal({ comp, db, setDb, ui, onClose }) {
     const add = () => { if (!f.date) {
         ui.notify("กรุณาใส่วันที่ฝึกซ้อม");
         return;
-    } commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, training: [...(c.training || []), { id: "tr" + Date.now() + Math.random().toString(36).slice(2, 5), date: f.date, time: f.time, place: f.place, note: f.note }] } : c) })); setF({ date: "", time: "", place: "", note: "" }); ui.notify("เพิ่มนัดฝึกซ้อมแล้ว"); };
+    } commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, training: [...(c.training || []), { id: "tr" + Date.now() + Math.random().toString(36).slice(2, 5), date: f.date, time: f.time, place: f.place, note: f.note }] } : c) })); setF({ date: "", time: "", place: "", note: "" }); ui.notify("เพิ่มกำหนดการฝึกซ้อมแล้ว"); };
     const del = (tid) => commit((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, training: (c.training || []).filter((t) => t.id !== tid) } : c) }));
-    return (React.createElement(Modal, { title: `เพิ่มนัดหมายฝึกซ้อม: ${comp.name}`, onClose: onClose },
+    return (React.createElement(Modal, { title: `เพิ่มกำหนดการฝึกซ้อม: ${comp.name}`, onClose: onClose },
         React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 } },
             list.map((t) => (React.createElement("div", { key: t.id, style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, border: `1px solid ${C.line}`, borderRadius: 8, padding: "6px 10px" } },
                 React.createElement("div", { style: { fontSize: 12.5, color: C.ink } },
@@ -3766,14 +3843,14 @@ function TrainingModal({ comp, db, setDb, ui, onClose }) {
                     t.place ? `· ${t.place}` : "",
                     t.note ? ` · ${t.note}` : ""),
                 React.createElement("button", { onClick: () => del(t.id), style: { background: "#fbeeee", color: "#c0392b", border: "1px solid #eccdcd", borderRadius: 8, padding: "3px 10px", fontSize: 12, cursor: "pointer" } }, "\u0E25\u0E1A")))),
-            list.length === 0 && React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E14\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21")),
+            list.length === 0 && React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21")),
         React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
             React.createElement(Field, { label: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21", type: "date", value: f.date, onChange: (v) => setF({ ...f, date: v }) }),
             React.createElement(Field, { label: "\u0E40\u0E27\u0E25\u0E32", type: "time", value: f.time, onChange: (v) => setF({ ...f, time: v }) })),
         React.createElement(Field, { label: "\u0E2A\u0E16\u0E32\u0E19\u0E17\u0E35\u0E48", value: f.place, onChange: (v) => setF({ ...f, place: v }), placeholder: "\u0E40\u0E0A\u0E48\u0E19 \u0E2B\u0E49\u0E2D\u0E07\u0E1B\u0E23\u0E30\u0E0A\u0E38\u0E21 1" }),
         React.createElement(Field, { label: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", value: f.note, onChange: (v) => setF({ ...f, note: v }), placeholder: "(\u0E44\u0E21\u0E48\u0E1A\u0E31\u0E07\u0E04\u0E31\u0E1A)" }),
         React.createElement("div", { style: { marginTop: 8 } },
-            React.createElement(Btn, { onClick: add }, "\uFF0B \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E19\u0E31\u0E14\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21"))));
+            React.createElement(Btn, { onClick: add }, "\uFF0B \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21"))));
 }
 function committeeMembers(db, c) {
     const out = [], seen = new Set();
@@ -3919,7 +3996,7 @@ function CommitteeSchedule({ myCompIds, db, setDb, ui, me }) {
                                         m.phone)) : ""))),
                             committeeMembers(db, c).length === 0 && React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23 (\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E19\u0E1C\u0E31\u0E07 + \u0E1C\u0E39\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)"))),
                     React.createElement("div", { style: { flex: "0 1 160px", minWidth: 0, borderLeft: `1px solid ${C.line}`, paddingLeft: 12 } },
-                        React.createElement("div", { style: { fontWeight: 700, color: C.primaryDark, fontSize: 13, marginBottom: 6 } }, "\uD83C\uDFCB \u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21"),
+                        React.createElement("div", { style: { fontWeight: 700, color: C.primaryDark, fontSize: 13, marginBottom: 6 } }, "\uD83C\uDFCB \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21"),
                         React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 } },
                             trainingSorted(c).map((t) => React.createElement("div", { key: t.id, style: { fontSize: 12, color: C.ink } },
                                 "\uD83D\uDCC5 ",
@@ -3928,8 +4005,8 @@ function CommitteeSchedule({ myCompIds, db, setDb, ui, me }) {
                                 t.time,
                                 t.place ? ` · ${t.place}` : "",
                                 t.note ? ` · ${t.note}` : "")),
-                            trainingSorted(c).length === 0 && React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E14\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21")),
-                        React.createElement(Btn, { small: true, onClick: () => setTrainModal(c) }, "\uFF0B \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21")))))),
+                            trainingSorted(c).length === 0 && React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21")),
+                        React.createElement(Btn, { small: true, onClick: () => setTrainModal(c) }, "\uFF0B \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21")))))),
             mine.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E21\u0E2D\u0E1A\u0E2B\u0E21\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23" })),
         trainModal && React.createElement(TrainingModal, { comp: db.competitions.find((c) => c.id === trainModal.id) || trainModal, db: db, setDb: setDb, ui: ui, onClose: () => setTrainModal(null) }),
         popup && (React.createElement(Modal, { title: `ตาราง: ${popup.name}`, onClose: () => setPopup(null) },
@@ -4317,24 +4394,44 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid, autoO
                     const rowsToday = compResultRows(c).filter((r) => r.date === todayStr());
                     const done = rowsToday.length > 0;
                     const sTimes = (c.schedule || []).filter((s) => s.date === todayStr()).map((s) => `${s.time || ""}${s.place ? " · " + s.place : ""}`).filter(Boolean).join(" | ");
-                    return (React.createElement("div", { key: c.id, style: { border: `1px solid ${C.line}`, borderRadius: 10, padding: "8px 12px", display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center", background: "#fff" } },
-                        React.createElement("div", { style: { minWidth: 0 } },
-                            React.createElement("div", { style: { fontWeight: 700, color: C.ink } },
-                                c.name,
-                                " ",
-                                React.createElement("span", { style: { fontSize: 11, color: C.muted, fontWeight: 500 } },
-                                    "(",
-                                    c.kind,
-                                    ")")),
-                            React.createElement("div", { style: { fontSize: 12, color: C.muted } },
-                                "\u0E40\u0E27\u0E25\u0E32 ",
-                                sTimes || "-",
-                                " \u00B7 ",
-                                done ? React.createElement("span", { style: { color: "#2f9e6b", fontWeight: 700 } },
-                                    "\u0E2A\u0E48\u0E07\u0E1C\u0E25\u0E41\u0E25\u0E49\u0E27 ",
-                                    rowsToday.length,
-                                    " \u0E04\u0E19") : React.createElement("span", { style: { color: "#c0392b", fontWeight: 700 } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E2A\u0E48\u0E07\u0E1C\u0E25"))),
-                        React.createElement(Btn, { small: true, variant: done ? "ghost" : "soft", onClick: () => startFor(c) }, done ? "แก้ไขผล" : "ส่งผล")));
+                    return (React.createElement("div", { key: c.id, style: { border: `1px solid ${C.line}`, borderRadius: 10, padding: "10px 12px", background: "#fff" } },
+                        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "center" } },
+                            React.createElement("div", { style: { minWidth: 0 } },
+                                React.createElement("div", { style: { fontWeight: 700, color: C.ink } },
+                                    c.name,
+                                    " ",
+                                    React.createElement("span", { style: { fontSize: 11, color: C.muted, fontWeight: 500 } },
+                                        "(",
+                                        c.kind,
+                                        ")")),
+                                React.createElement("div", { style: { fontSize: 12, color: C.muted } },
+                                    "\u0E40\u0E27\u0E25\u0E32 ",
+                                    sTimes || "-",
+                                    " \u00B7 ",
+                                    done ? React.createElement("span", { style: { color: "#2f9e6b", fontWeight: 700 } },
+                                        "\u0E2A\u0E48\u0E07\u0E1C\u0E25\u0E41\u0E25\u0E49\u0E27 ",
+                                        rowsToday.length,
+                                        " \u0E04\u0E19") : React.createElement("span", { style: { color: "#c0392b", fontWeight: 700 } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E2A\u0E48\u0E07\u0E1C\u0E25"))),
+                            React.createElement(Btn, { small: true, variant: done ? "ghost" : "soft", onClick: () => startFor(c) }, done ? "แก้ไขผล" : "ส่งผล")),
+                        done && React.createElement("div", { style: { marginTop: 8, paddingTop: 8, borderTop: `1px dashed ${C.line}`, display: "flex", flexDirection: "column", gap: 2 } }, rowsToday.map((r, i) => { const s = db.students.find((st) => String(st.id) === String(r.sid)); if (!s)
+                            return null; return React.createElement("div", { key: r.sid + i, style: { fontSize: 12, color: C.ink } },
+                            "\u2022 ",
+                            fullName(s),
+                            " ",
+                            React.createElement("span", { style: { color: C.muted } },
+                                "(",
+                                s.grade,
+                                "/",
+                                s.room,
+                                ")"),
+                            " \u2014 ",
+                            r.outcome || "",
+                            r.medal ? " " + r.medal : "",
+                            " ",
+                            React.createElement("span", { style: { color: r.noScore ? "#c0392b" : C.primaryDark, fontWeight: 700 } },
+                                "(",
+                                r.noScore ? "ไม่นับคะแนน" : scoreOf(r, cfg) + " คะแนน",
+                                ")")); }))));
                 }))));
         })(),
         !comp && React.createElement(Empty, { text: "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E04\u0E49\u0E19\u0E2B\u0E32 \u0E2B\u0E23\u0E37\u0E2D\u0E41\u0E15\u0E30\u0E0A\u0E48\u0E2D\u0E07\u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E08\u0E30\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E1C\u0E25" }),
@@ -4818,7 +4915,7 @@ function StudentSchedule({ me, db, ui }) {
             mine.forEach((c) => trainingSorted(c).forEach((t) => rows.push({ c, t })));
             rows.sort((a, b) => ((a.t.date || "") + (a.t.time || "")).localeCompare((b.t.date || "") + (b.t.time || "")));
             return (React.createElement("div", { style: { marginTop: 18 } },
-                React.createElement("div", { style: { fontWeight: 800, color: "#2f9e6b", marginBottom: 8 } }, "\uD83C\uDFCB \u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21\u0E02\u0E2D\u0E07\u0E09\u0E31\u0E19"),
+                React.createElement("div", { style: { fontWeight: 800, color: "#2f9e6b", marginBottom: 8 } }, "\uD83C\uDFCB \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21\u0E02\u0E2D\u0E07\u0E09\u0E31\u0E19"),
                 React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
                     rows.map(({ c, t }) => (React.createElement(Card, { key: c.id + t.id, style: { padding: "10px 14px" } },
                         React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: C.ink } },
@@ -4835,7 +4932,7 @@ function StudentSchedule({ me, db, ui }) {
                             t.time,
                             t.place ? ` · ${t.place}` : "",
                             t.note ? ` · ${t.note}` : "")))),
-                    rows.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21" }))));
+                    rows.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21" }))));
         })()));
 }
 function StudentAllSchedule({ db, ui }) {
