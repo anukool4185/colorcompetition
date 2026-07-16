@@ -4134,6 +4134,7 @@ function MyDutyScreen({ role, meId, db, setDb, ui }) {
     const [kind, setKind] = useState("แข่งขัน");
     const [pick, setPick] = useState("");
     const [addOpen, setAddOpen] = useState(false);
+    const [commOpen, setCommOpen] = useState(false);
     const myComps = db.competitions.filter((c) => c.kind === kind && db[which].filter((n) => String(n.compId) === String(c.id)).some((n) => orgPathIds(db[which], n.id).some((id) => myNodeIds.includes(id))));
     const comp = myComps.find((c) => c.id === pick) || myComps[0];
     const addStudent = (sid, status) => ui.run("กำลังเพิ่มผู้สมัคร...", () => setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, participants: [...c.participants, { sid, status, sel: undefined }] } : c) })));
@@ -4163,9 +4164,14 @@ function MyDutyScreen({ role, meId, db, setDb, ui }) {
                 if (!members.length)
                     return null;
                 const palette = ["#7a5cc0", "#2f9e6b", "#c0392b", "#2f6fb0", "#b8860b", "#c2185b", "#00838f", "#5d4037"];
-                return (React.createElement(Card, { style: { padding: 12, marginBottom: 12 } },
-                    React.createElement("div", { style: { fontWeight: 700, color: C.primaryDark, fontSize: 13, marginBottom: 6 } }, "\uD83D\uDC65 \u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E14\u0E39\u0E41\u0E25\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49 (\u0E15\u0E32\u0E21\u0E25\u0E33\u0E14\u0E31\u0E1A\u0E1C\u0E31\u0E07)"),
-                    React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } }, members.map((m, i) => (React.createElement("div", { key: i, style: { fontSize: 12.5, whiteSpace: "nowrap", overflowX: "auto" } },
+                return (React.createElement(Card, { style: { padding: 0, marginBottom: 12, overflow: "hidden" } },
+                    React.createElement("button", { onClick: () => setCommOpen((v) => !v), style: { width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "10px 12px", background: C.soft, border: "none", cursor: "pointer", fontWeight: 700, color: C.primaryDark, fontSize: 13 } },
+                        React.createElement("span", null,
+                            "\uD83D\uDC65 \u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E14\u0E39\u0E41\u0E25\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49 (",
+                            members.length,
+                            ") \u00B7 \u0E15\u0E32\u0E21\u0E25\u0E33\u0E14\u0E31\u0E1A\u0E1C\u0E31\u0E07"),
+                        React.createElement("span", { style: { fontSize: 12, color: C.muted } }, commOpen ? "▲ ยุบ" : "▼ ขยาย")),
+                    commOpen && React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4, padding: "10px 12px" } }, members.map((m, i) => (React.createElement("div", { key: i, style: { fontSize: 12.5, whiteSpace: "nowrap", overflowX: "auto" } },
                         React.createElement("b", { style: { color: palette[i % palette.length] } }, m.title),
                         React.createElement("span", { style: { color: "#111" } },
                             " \u00B7 ",
