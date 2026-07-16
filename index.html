@@ -5165,6 +5165,10 @@ function App() {
     dbRef.current = db;
     const dirtyRef = useRef(false); // มีการแก้ไขที่ยังไม่ถูกบันทึกหรือไม่
     const lastSaveAt = useRef(0); // เวลาเริ่มบันทึกล่าสุด — ใช้ทิ้งผล auto-refresh ที่ค้างท่อ (กันข้อมูลเก่าทับของที่เพิ่งเซฟ)
+    const [mode, setModeState] = useState("academic"); // academic = สีวิชาการ (APP_DATA) · sport = กีฬาสี (SPORT_DATA)
+    const modeRef = useRef("academic");
+    modeRef.current = mode;
+    const sheetQS = () => modeRef.current === "sport" ? "?sheet=sport" : "";
     // แกนบันทึกจริง (ไม่ติดล็อก) — ใช้ทั้งออโต้เซฟและปุ่มบันทึกเอง
     const doSave = () => {
         if (!API_URL)
@@ -5177,7 +5181,7 @@ function App() {
         savingRef.current = true;
         setSync("saving");
         let st = 0;
-        fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "data", data: dbRef.current }) })
+        fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "data", sheet: modeRef.current, data: dbRef.current }) })
             .then((r) => { st = r.status; return r.text(); })
             .then((t) => {
             window.__saveLog = `POST HTTP ${st} · ตอบกลับ: ${String(t).slice(0, 140)}`;
@@ -5224,7 +5228,7 @@ function App() {
             }
             return;
         }
-        fetch(API_URL).then((r) => r.text()).then((t) => {
+        fetch(API_URL + sheetQS()).then((r) => r.text()).then((t) => {
             let latest;
             try {
                 const j = JSON.parse(t);
@@ -5257,11 +5261,32 @@ function App() {
             doSave(); opts.onDone && opts.onDone(next); });
     };
     const retryLoad = () => { setSync("loading"); loadData(); };
+    // สลับระบบ (สีวิชาการ <-> กีฬาสี) — บันทึกของเดิมก่อน แล้วโหลดข้อมูลของอีกชีท
+    const switchMode = (m) => {
+        if (m === modeRef.current)
+            return;
+        if (dirtyRef.current && everLoadedRef.current) {
+            try {
+                doSave();
+            }
+            catch (e) { }
+        }
+        clearTimeout(timerRef.current);
+        modeRef.current = m;
+        setModeState(m);
+        loadedRef.current = false;
+        everLoadedRef.current = false;
+        dirtyRef.current = false;
+        justLoaded.current = true;
+        setSync("loading");
+        setTimeout(() => loadData(), 60);
+    };
+    window.__switchMode = switchMode;
     // โหลดข้อมูลจาก Google Sheet ตอนเปิดหน้า — ต้องสำเร็จก่อนถึงจะอนุญาตให้ออโต้เซฟ
     const loadData = () => {
         if (!API_URL)
             return;
-        fetch(API_URL).then((r) => r.text()).then((t) => {
+        fetch(API_URL + sheetQS()).then((r) => r.text()).then((t) => {
             let j;
             try {
                 j = JSON.parse(t);
@@ -5322,7 +5347,7 @@ function App() {
             if (!API_URL || !loadedRef.current || !dirtyRef.current)
                 return;
             try {
-                const body = JSON.stringify({ type: "data", data: dbRef.current });
+                const body = JSON.stringify({ type: "data", sheet: modeRef.current, data: dbRef.current });
                 if (navigator.sendBeacon)
                     navigator.sendBeacon(API_URL, new Blob([body], { type: "text/plain" }));
             }
@@ -5342,7 +5367,7 @@ function App() {
             if (document.hidden)
                 return;
             const started = Date.now();
-            fetch(API_URL).then((r) => r.text()).then((t) => {
+            fetch(API_URL + sheetQS()).then((r) => r.text()).then((t) => {
                 if (dirtyRef.current || savingRef.current || lastSaveAt.current > started)
                     return; // มีการแก้ไข/บันทึกระหว่างดึง — ทิ้งผลค้างท่อ กันทับของที่เพิ่งเซฟ
                 const j = JSON.parse(t);
@@ -5382,6 +5407,9 @@ function App() {
                 saveNow();
             else
                 loadData(); } }),
+        screen === "app" && (React.createElement("div", { style: { display: "flex", justifyContent: "center", gap: 6, padding: "8px 10px", background: mode === "sport" ? "#eaf4ff" : "#f3eefc", borderBottom: `1px solid ${C.line}`, position: "sticky", top: 0, zIndex: 40 } },
+            React.createElement("span", { style: { fontSize: 12, color: C.muted, alignSelf: "center", fontWeight: 600 } }, "\u0E23\u0E30\u0E1A\u0E1A:"),
+            [["academic", "🎓 สีวิชาการ"], ["sport", "🏅 กีฬาสี"]].map(([m, label]) => (React.createElement("button", { key: m, onClick: () => switchMode(m), disabled: mode === m, style: { padding: "6px 16px", borderRadius: 18, border: "none", cursor: mode === m ? "default" : "pointer", fontSize: 13, fontWeight: 800, background: mode === m ? (m === "sport" ? "#2f6fb0" : C.primary) : "#fff", color: mode === m ? "#fff" : C.ink, boxShadow: mode === m ? "0 2px 8px rgba(0,0,0,0.15)" : "inset 0 0 0 1px " + C.line } }, label))))),
         screen === "landing" && React.createElement(Landing, { onLogin: () => setScreen("login"), announce: db.settings.announce, comps: db.competitions, db: db, setDb: setDb, ui: { notify: toast } }),
         screen === "login" && React.createElement(Login, { db: db, onEnter: (a) => { setAuth(a); setScreen("app"); }, onBack: () => setScreen("landing") }),
         screen === "app" && (auth === null || auth === void 0 ? void 0 : auth.role) === "admin" && React.createElement(AdminApp, { db: db, setDb: setDb, onExit: exit }),
