@@ -418,7 +418,8 @@ function PublicSearchRegister({ db, setDb, ui }) {
             ui.notify("เบอร์โทรไม่ถูกต้อง — ตัวเลขล้วน 9–10 หลัก ไม่มีขีด");
             return;
         }
-        commit((p) => ({ ...p, students: [...p.students, { id: f.id.trim(), pre: f.pre, first: f.first.trim(), last: f.last.trim(), grade: f.grade, room: f.room.trim(), phone: f.phone.trim(), house: f.house === "" ? undefined : Number(f.house) }] }));
+        commit((p) => { const students = [...p.students, { id: f.id.trim(), pre: f.pre, first: f.first.trim(), last: f.last.trim(), grade: f.grade, room: f.room.trim(), phone: f.phone.trim(), house: f.house === "" ? undefined : Number(f.house) }]; if (window.__pushOther)
+            window.__pushOther((odb) => mirrorStudentsInto(odb, students)); return { ...p, students }; });
         ui.notify("ลงทะเบียนสำเร็จ! เข้าระบบด้วยรหัสนักเรียน (รหัสผ่านครั้งแรก = รหัสนักเรียน)");
         setF(blank);
         setMode(null);
@@ -1000,6 +1001,8 @@ function PromotePanel({ db, setDb, ui }) {
                 const gradIds = new Set(grad.map((g) => g.id));
                 const orgStudent = pruneOrg(p.orgStudent, gradIds);
                 const competitions = p.competitions.map((c) => { const results = { ...c.results }; grad.forEach((g) => { delete results[g.id]; }); return { ...c, participants: c.participants.filter((x) => !gradIds.has(x.sid)), results }; });
+                if (window.__pushOther)
+                    window.__pushOther((odb) => mirrorStudentsInto(odb, stay));
                 return { ...p, students: stay, archived: [...(p.archived || []), ...grad], orgStudent, competitions };
             });
             setConfirmWhole(false);
@@ -1014,7 +1017,8 @@ function PromotePanel({ db, setDb, ui }) {
         ui.run("กำลังย้าย...", () => {
             sel.forEach((id) => { const s = students.find((x) => x.id === id); if (s && s.photoId)
                 moveImageRemote(s, "student", tGrade, tRoom); });
-            setDb((p) => ({ ...p, students: p.students.map((s) => sel.includes(s.id) ? { ...s, grade: tGrade, room: tRoom } : s) }));
+            setDb((p) => { const students = p.students.map((s) => sel.includes(s.id) ? { ...s, grade: tGrade, room: tRoom } : s); if (window.__pushOther)
+                window.__pushOther((odb) => mirrorStudentsInto(odb, students)); return { ...p, students }; });
             setSel([]);
             ui.notify("ย้ายเรียบร้อย");
         });
@@ -1096,7 +1100,10 @@ function ArchivedPanel({ db, setDb, ui }) {
         });
         setDb((p) => {
             const back = (p.archived || []).filter((a) => ids.includes(a.id)).map((a) => { const { archivedFrom, archivedAt, archivedReason, ...s } = a; return { ...s, grade: tGrade || s.grade, room: tRoom || s.room }; });
-            return { ...p, students: [...p.students, ...back], archived: (p.archived || []).filter((a) => !ids.includes(a.id)) };
+            const students = [...p.students, ...back];
+            if (window.__pushOther)
+                window.__pushOther((odb) => mirrorStudentsInto(odb, students));
+            return { ...p, students, archived: (p.archived || []).filter((a) => !ids.includes(a.id)) };
         });
         setRestoreIds(null);
         setSel((s) => s.filter((x) => !ids.includes(x)));
@@ -1242,6 +1249,7 @@ function PersonList({ kind, db, setDb, ui }) {
     const [rawRows, setRawRows] = useState(null);
     const [sel, setSel] = useState([]);
     const [confirm, setConfirm] = useState(null);
+    const [teacherSide, setTeacherSide] = useState(null); // ครู: ถามใช้ฝั่งไหน { data, isEdit }
     const grades = [...new Set(list.map((s) => s.grade).filter(Boolean))];
     const rooms = [...new Set(list.map((s) => s.room).filter(Boolean))];
     const filtered = list.filter((s) => {
@@ -1317,7 +1325,28 @@ function PersonList({ kind, db, setDb, ui }) {
     const allVisibleSelected = filtered.length > 0 && filtered.every((s) => selSet.has(s.id));
     const toggle = (id) => setSel((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
     const toggleAll = () => setSel(allVisibleSelected ? [] : filtered.map((s) => s.id));
-    const save = (data, isEdit) => { setDb((p) => ({ ...p, [key]: isEdit ? p[key].map((s) => (s.id === data.id ? data : s)) : [...p[key], data] })); setAdd(false); setEdit(null); };
+    const save = (data, isEdit) => {
+        if (kind === "student") {
+            setDb((p) => { const students = isEdit ? p.students.map((s) => (s.id === data.id ? data : s)) : [...p.students, data]; if (window.__pushOther)
+                window.__pushOther((odb) => mirrorStudentsInto(odb, students)); return { ...p, students }; });
+            setAdd(false);
+            setEdit(null);
+            setTimeout(() => window.__forceSave && window.__forceSave(), 400);
+        }
+        else {
+            setAdd(false);
+            setEdit(null);
+            setTeacherSide({ data, isEdit });
+        }
+    };
+    const applyTeacher = (both) => {
+        const { data, isEdit } = teacherSide;
+        setDb((p) => ({ ...p, teachers: isEdit ? p.teachers.map((s) => (s.id === data.id ? data : s)) : [...p.teachers, data] }));
+        if (both && window.__pushOther)
+            window.__pushOther((odb) => upsertTeacherInto(odb, data));
+        setTeacherSide(null);
+        setTimeout(() => window.__forceSave && window.__forceSave(), 400);
+    };
     // ลบ พร้อมตัดความเกี่ยวข้องทั้งหมด (ผังองค์กร, ผู้เข้าแข่ง, ผลการแข่ง) และลบรูปใน Drive
     const purge = (ids) => {
         const idset = new Set(ids);
@@ -1340,6 +1369,15 @@ function PersonList({ kind, db, setDb, ui }) {
             });
             setSel((p) => p.filter((x) => !idset.has(x)));
             setConfirm(null);
+            if (window.__pushOther) {
+                if (kind === "student") {
+                    const remain = db.students.filter((x) => !idset.has(x.id));
+                    window.__pushOther((odb) => mirrorStudentsInto(odb, remain));
+                }
+                else {
+                    window.__pushOther((odb) => { odb.teachers = (odb.teachers || []).filter((t) => !idset.has(t.id)); return odb; });
+                }
+            }
         });
     };
     const onFile = (e) => {
@@ -1468,8 +1506,21 @@ function PersonList({ kind, db, setDb, ui }) {
                     React.createElement(Btn, { variant: "danger", small: true, onClick: () => setConfirm({ ids: [s.id], msg: `ลบ ${fullName(s)} พร้อมตัดความเกี่ยวข้องและลบรูปใน Drive ?` }) }, "\u0E25\u0E1A"))))),
             filtered.length === 0 && React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D\u0E15\u0E32\u0E21\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02" })),
         (add || edit) && React.createElement(PersonForm, { kind: kind, person: edit, ui: ui, houses: db.settings.houses, onClose: () => { setAdd(false); setEdit(null); }, onSave: save }),
-        rawRows && React.createElement(ImportPreview, { kind: kind, rawRows: rawRows, existing: list, houses: db.settings.houses, onClose: () => setRawRows(null), onConfirm: (rows) => ui.run("กำลังโอนเข้าระบบ...", () => { setDb((p) => ({ ...p, [key]: [...p[key], ...rows] })); setRawRows(null); ui.notify(`โอนเข้าระบบแล้ว ${rows.length} คน`); }) }),
-        confirm && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E01\u0E32\u0E23\u0E25\u0E1A", message: confirm.msg, onConfirm: () => purge(confirm.ids), onClose: () => setConfirm(null) })));
+        rawRows && React.createElement(ImportPreview, { kind: kind, rawRows: rawRows, existing: list, houses: db.settings.houses, onClose: () => setRawRows(null), onConfirm: (rows) => ui.run("กำลังโอนเข้าระบบ...", () => { setDb((p) => { const next = { ...p, [key]: [...p[key], ...rows] }; if (kind === "student" && window.__pushOther)
+                window.__pushOther((odb) => mirrorStudentsInto(odb, next.students)); return next; }); setRawRows(null); ui.notify(`โอนเข้าระบบแล้ว ${rows.length} คน`); }) }),
+        confirm && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E01\u0E32\u0E23\u0E25\u0E1A", message: confirm.msg, onConfirm: () => purge(confirm.ids), onClose: () => setConfirm(null) }),
+        teacherSide && (React.createElement(Modal, { title: teacherSide.isEdit ? "แก้ไขครู — ใช้กับระบบไหน?" : "เพิ่มครู — ใช้กับระบบไหน?", onClose: () => setTeacherSide(null) },
+            React.createElement("div", { style: { fontSize: 13.5, color: C.ink, marginBottom: 12 } },
+                "\u0E04\u0E23\u0E39 ",
+                React.createElement("b", null, fullName(teacherSide.data)),
+                " \u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E27\u0E48\u0E32\u0E08\u0E30\u0E43\u0E2B\u0E49\u0E21\u0E35\u0E43\u0E19\u0E23\u0E30\u0E1A\u0E1A\u0E43\u0E14 (\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E43\u0E0A\u0E49\u0E23\u0E48\u0E27\u0E21\u0E01\u0E31\u0E19\u0E2D\u0E22\u0E39\u0E48\u0E41\u0E25\u0E49\u0E27 \u00B7 \u0E04\u0E23\u0E39\u0E41\u0E22\u0E01\u0E10\u0E32\u0E19\u0E44\u0E14\u0E49)"),
+            React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
+                React.createElement(Btn, { onClick: () => applyTeacher(false) },
+                    "\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E23\u0E30\u0E1A\u0E1A\u0E19\u0E35\u0E49 (",
+                    (window.__thisModeName && window.__thisModeName()) || "ระบบปัจจุบัน",
+                    ")"),
+                React.createElement(Btn, { variant: "soft", onClick: () => applyTeacher(true) }, "\u0E17\u0E31\u0E49\u0E07 2 \u0E23\u0E30\u0E1A\u0E1A (\u0E2A\u0E35\u0E27\u0E34\u0E0A\u0E32\u0E01\u0E32\u0E23 + \u0E01\u0E35\u0E2C\u0E32\u0E2A\u0E35)"),
+                React.createElement(Btn, { variant: "ghost", onClick: () => setTeacherSide(null) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"))))));
 }
 function phoneOk(v) { v = String(v == null ? "" : v).trim(); return v === "" || /^[0-9]{9,10}$/.test(v); }
 function PersonForm({ kind, person, onClose, onSave, ui, houses }) {
@@ -4793,7 +4844,8 @@ function ProfileGate({ me, setDb, ui }) {
     const save = () => { if (!phoneOk(f.phone) || !phoneOk(f.guardianPhone)) {
         ui.notify("เบอร์โทรไม่ถูกต้อง — ใส่ตัวเลขล้วน 9–10 หลัก (เช่น 0812345678) ไม่ต้องมีขีดหรือเว้นวรรค");
         return;
-    } ui.run("กำลังบันทึกข้อมูล...", () => { setDb((p) => ({ ...p, students: p.students.map((s) => s.id === me.id ? { ...s, ...f, profileDone: true } : s) })); ui.notify("บันทึกข้อมูลแล้ว ยินดีต้อนรับ"); setTimeout(() => { if (window.__forceSave)
+    } ui.run("กำลังบันทึกข้อมูล...", () => { setDb((p) => { const students = p.students.map((s) => s.id === me.id ? { ...s, ...f, profileDone: true } : s); if (window.__pushOther)
+        window.__pushOther((odb) => mirrorStudentsInto(odb, students)); return { ...p, students }; }); ui.notify("บันทึกข้อมูลแล้ว ยินดีต้อนรับ"); setTimeout(() => { if (window.__forceSave)
         window.__forceSave(); }, 500); }); };
     return (React.createElement("div", { style: { position: "fixed", inset: 0, background: "rgba(20,20,30,.6)", zIndex: 200, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } },
         React.createElement("div", { style: { background: C.surface, borderRadius: 18, padding: 22, maxWidth: 440, width: "100%", margin: "24px 0", boxShadow: "0 10px 40px rgba(0,0,0,.3)" } },
@@ -5078,6 +5130,28 @@ function StudentResults({ me, db, ui }) {
    ถ้าเว้นว่าง = โหมดทดลอง ข้อมูลจะไม่ถูกบันทึกและรีเซ็ตเมื่อรีเฟรช
    ============================================================ */
 const API_URL = "https://script.google.com/macros/s/AKfycbzpV1GA5NDLcr3xfm1eODizmhLkrnZhIc-YTEiHGxqcg2tOHt_rYhkpQ9wjtQaDgG2r/exec";
+// sync รายชื่อนักเรียนไปอีกฐาน: upsert เฉพาะฟิลด์ตัวตน + ลบคนที่ไม่มีในชุดปัจจุบัน (คงฟิลด์เฉพาะระบบของอีกฝั่งไว้)
+function mirrorStudentsInto(odb, students) {
+    const idFields = ["id", "pre", "first", "last", "grade", "room", "house", "phone", "gender", "guardian", "guardianPhone", "photoUrl", "photoId"];
+    const oById = new Map((odb.students || []).map((s) => [String(s.id), s]));
+    odb.students = (students || []).map((s) => { const ex = oById.get(String(s.id)) || {}; const out = { ...ex }; idFields.forEach((k) => { out[k] = s[k]; }); return out; });
+    return odb;
+}
+// upsert ครู 1 คนเข้าอีกฐาน (คงฟิลด์เฉพาะระบบของอีกฝั่ง เช่น user/password ถ้ามี)
+function upsertTeacherInto(odb, teacher) {
+    const idFields = ["id", "pre", "first", "last", "phone", "photoUrl", "photoId"];
+    const list = (odb.teachers || []).slice();
+    const i = list.findIndex((t) => String(t.id) === String(teacher.id));
+    if (i >= 0) {
+        const out = { ...list[i] };
+        idFields.forEach((k) => { out[k] = teacher[k]; });
+        list[i] = out;
+    }
+    else
+        list.push({ id: teacher.id, pre: teacher.pre, first: teacher.first, last: teacher.last, phone: teacher.phone, photoUrl: teacher.photoUrl, photoId: teacher.photoId });
+    odb.teachers = list;
+    return odb;
+}
 function mergeDb(loaded) {
     const s = loaded && loaded.settings ? loaded.settings : {};
     return {
@@ -5282,6 +5356,31 @@ function App() {
         setTimeout(() => loadData(), 60);
     };
     window.__switchMode = switchMode;
+    // เขียนข้ามชีท (อีกระบบ) — อ่านชีทอีกฝั่ง → แก้ด้วย mutator → เขียนกลับ (ใช้ sync นักเรียน/ครู 2 ฐาน)
+    window.__pushOther = (mutator) => {
+        if (!API_URL)
+            return;
+        const other = modeRef.current === "sport" ? "academic" : "sport";
+        const qs = other === "sport" ? "?sheet=sport" : "";
+        fetch(API_URL + qs).then((r) => r.text()).then((t) => {
+            let odb = null;
+            try {
+                const j = JSON.parse(t);
+                odb = (j && j.ok && j.data) ? mergeDb(JSON.parse(j.data)) : mergeDb({});
+            }
+            catch (e) {
+                odb = null;
+            }
+            if (!odb)
+                return;
+            const next = mutator(odb);
+            if (!next)
+                return;
+            fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "data", sheet: other, data: next }) }).catch(() => { });
+        }).catch(() => { });
+    };
+    window.__otherModeName = () => modeRef.current === "sport" ? "สีวิชาการ" : "กีฬาสี";
+    window.__thisModeName = () => modeRef.current === "sport" ? "กีฬาสี" : "สีวิชาการ";
     // โหลดข้อมูลจาก Google Sheet ตอนเปิดหน้า — ต้องสำเร็จก่อนถึงจะอนุญาตให้ออโต้เซฟ
     const loadData = () => {
         if (!API_URL)
