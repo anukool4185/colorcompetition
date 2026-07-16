@@ -256,96 +256,91 @@ function SearchPersonPopup({ pool, onPick, onClose, title, emptyText }) {
             list.length === 0 && React.createElement("div", { style: { textAlign: "center", color: C.muted, padding: 20, fontSize: 13 } }, pool.length === 0 && emptyText ? emptyText : "ไม่พบรายชื่อ"))));
 }
 /* ---------------- Landing ---------------- */
-function HouseDashboard({ db }) {
-    const houses = db.settings.houses || [];
+function dashOf(db) {
     const today = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })();
     const tomorrow = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })();
+    const houses = db.settings.houses || [];
     const cfg = db.settings.scoreConfig || {};
-    const [more, setMore] = useState(null);
     const hOf = new Map(db.students.map((s) => [s.id, s.house]));
     const sById = new Map(db.students.map((s) => [s.id, s]));
     const stats = scoreStats(db);
-    const houseOf = (sid) => hOf.get(sid);
     const houseScore = (i) => db.students.reduce((sum, s) => s.house === i ? sum + (stats[s.id] || 0) : sum, 0);
     const compsForHouse = (i, f) => db.competitions.filter((c) => (c.schedule || []).some(f) && c.participants.some((p) => (p.sel === "main" || p.sel === "reserve") && hOf.get(p.sid) === i));
-    const activityResultsForHouse = (i) => db.competitions.filter((c) => c.kind === "กิจกรรม").map((c) => {
-        const rows = compResultRows(c).filter((r) => hOf.get(r.sid) === i);
-        if (!rows.length)
-            return null;
-        return { c, items: rows.map((r) => ({ s: sById.get(r.sid), r })) };
-    }).filter(Boolean);
+    const activityResultsForHouse = (i) => db.competitions.filter((c) => c.kind === "กิจกรรม").map((c) => { const rows = compResultRows(c).filter((r) => hOf.get(r.sid) === i); if (!rows.length)
+        return null; return { c, items: rows.map((r) => ({ s: sById.get(r.sid), r })) }; }).filter(Boolean);
     const memberHouses = houses.map((h, i) => ({ h, i })).filter(({ i }) => db.students.some((s) => s.house === i));
     const cols = Math.max(1, memberHouses.length);
     const grid = (render) => (React.createElement("div", { style: { display: "grid", gap: 10, padding: 10, gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` } }, memberHouses.map(({ h, i }) => (React.createElement("div", { key: i, style: { border: `1px solid ${h.color}`, borderTop: `4px solid ${h.color}`, borderRadius: 12, padding: 10, background: C.surface, minHeight: 64 } },
         React.createElement("div", { style: { fontWeight: 800, color: h.color, fontSize: 13, marginBottom: 4 } }, h.name),
         render(i))))));
-    if (houses.length === 0 || memberHouses.length === 0)
-        return null;
+    return { today, tomorrow, houses, cfg, hOf, sById, houseScore, compsForHouse, activityResultsForHouse, memberHouses, grid };
+}
+function DualBlock({ dbs, dot, title, render }) {
+    const [tab, setTab] = useState(dbs[0].key);
+    const active = dbs.find((x) => x.key === tab) || dbs[0];
+    const ok = active.db && active.db.students && active.db.settings;
+    return (React.createElement(Card, null,
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "10px 16px", borderBottom: `1px solid ${C.line}`, flexWrap: "wrap" } },
+            React.createElement("span", { style: { width: 8, height: 8, borderRadius: "50%", background: dot } }),
+            React.createElement("span", { style: { fontWeight: 700, color: C.ink } }, title),
+            React.createElement("div", { style: { marginLeft: "auto", display: "flex", gap: 4 } }, dbs.map((d) => React.createElement("button", { key: d.key, onClick: () => setTab(d.key), style: { padding: "4px 12px", borderRadius: 14, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, background: tab === d.key ? d.color : C.soft, color: tab === d.key ? "#fff" : C.muted } }, d.label)))),
+        ok ? render(active.db, dashOf(active.db)) : React.createElement("div", { style: { padding: 16, fontSize: 13, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E02\u0E2D\u0E07\u0E23\u0E30\u0E1A\u0E1A\u0E19\u0E35\u0E49")));
+}
+function HouseDashboard({ dbs }) {
+    const [more, setMore] = useState(null);
     return (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 16 } },
-        React.createElement(Card, null,
-            React.createElement(BlockHead, { dot: "#2f9e6b", title: "\u0E41\u0E02\u0E48\u0E07\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49 (\u0E41\u0E15\u0E48\u0E25\u0E30\u0E2A\u0E35)" }),
-            grid((i) => { const cs = compsForHouse(i, (s) => s.date === today); return cs.length ? cs.map((c) => React.createElement("div", { key: c.id, style: { fontSize: 12, color: C.ink } },
+        React.createElement(DualBlock, { dbs: dbs, dot: "#2f9e6b", title: "\u0E41\u0E02\u0E48\u0E07\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49 (\u0E41\u0E15\u0E48\u0E25\u0E30\u0E2A\u0E35)", render: (db, D) => D.grid((i) => { const cs = D.compsForHouse(i, (s) => s.date === D.today); return cs.length ? cs.map((c) => React.createElement("div", { key: c.id, style: { fontSize: 12, color: C.ink } },
                 "\u2022 ",
-                c.name)) : React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u2014"); })),
-        React.createElement(Card, null,
-            React.createElement(BlockHead, { dot: C.gold, title: "\u0E23\u0E2D\u0E1A\u0E15\u0E48\u0E2D\u0E44\u0E1B (\u0E41\u0E15\u0E48\u0E25\u0E30\u0E2A\u0E35)" }),
-            grid((i) => { const cs = compsForHouse(i, (s) => s.date === tomorrow).map((c) => ({ c, nx: (c.schedule || []).filter((s) => s.date === tomorrow).sort((a, b) => ((a.time || "")).localeCompare(b.time || ""))[0] })).filter((x) => x.nx).sort((a, b) => (a.nx.time || "").localeCompare(b.nx.time || "")); return cs.length ? cs.map(({ c, nx }) => React.createElement("div", { key: c.id, style: { fontSize: 12, color: C.ink } },
+                c.name)) : React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u2014"); }) }),
+        React.createElement(DualBlock, { dbs: dbs, dot: C.gold, title: "\u0E23\u0E2D\u0E1A\u0E15\u0E48\u0E2D\u0E44\u0E1B (\u0E41\u0E15\u0E48\u0E25\u0E30\u0E2A\u0E35)", render: (db, D) => D.grid((i) => { const cs = D.compsForHouse(i, (s) => s.date === D.tomorrow).map((c) => ({ c, nx: (c.schedule || []).filter((s) => s.date === D.tomorrow).sort((a, b) => ((a.time || "")).localeCompare(b.time || ""))[0] })).filter((x) => x.nx).sort((a, b) => (a.nx.time || "").localeCompare(b.nx.time || "")); return cs.length ? cs.map(({ c, nx }) => React.createElement("div", { key: c.id, style: { fontSize: 12, color: C.ink } },
                 "\u2022 ",
                 c.name,
                 " ",
                 React.createElement("span", { style: { color: C.muted } },
                     "(\u0E1E\u0E23\u0E38\u0E48\u0E07\u0E19\u0E35\u0E49 ",
                     nx.time || "",
-                    ")"))) : React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u2014"); })),
-        React.createElement(Card, null,
-            React.createElement(BlockHead, { dot: "#7a5cc0", title: "\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21 (\u0E41\u0E15\u0E48\u0E25\u0E30\u0E2A\u0E35)" }),
-            grid((i) => {
-                const items = [];
-                (db.training || []).forEach((t) => { if ((t.house === i || t.house === "" || t.house === undefined || t.house === null) && (!t.date || t.date >= today))
-                    items.push({ id: "g" + t.id, date: t.date || "", time: t.time || "", label: t.title, place: t.place }); });
-                (db.competitions || []).forEach((c) => { const hasHouse = (c.participants || []).some((p) => (p.sel === "main" || p.sel === "reserve") && hOf.get(p.sid) === i); if (!hasHouse)
-                    return; (c.training || []).forEach((t) => { if (!t.date || t.date >= today)
-                    items.push({ id: "c" + c.id + t.id, date: t.date || "", time: t.time || "", label: c.name, place: t.place, note: t.note }); }); });
-                items.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time));
-                return items.length ? items.map((t) => React.createElement("div", { key: t.id, style: { fontSize: 12, color: C.ink } },
-                    "\u2022 ",
-                    t.label,
+                    ")"))) : React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u2014"); }) }),
+        React.createElement(DualBlock, { dbs: dbs, dot: "#7a5cc0", title: "\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21 (\u0E41\u0E15\u0E48\u0E25\u0E30\u0E2A\u0E35)", render: (db, D) => D.grid((i) => { const items = []; (db.training || []).forEach((t) => { if ((t.house === i || t.house === "" || t.house === undefined || t.house === null) && (!t.date || t.date >= D.today))
+                items.push({ id: "g" + t.id, date: t.date || "", time: t.time || "", label: t.title, place: t.place }); }); (db.competitions || []).forEach((c) => { const hasHouse = (c.participants || []).some((p) => (p.sel === "main" || p.sel === "reserve") && D.hOf.get(p.sid) === i); if (!hasHouse)
+                return; (c.training || []).forEach((t) => { if (!t.date || t.date >= D.today)
+                items.push({ id: "c" + c.id + t.id, date: t.date || "", time: t.time || "", label: c.name, place: t.place }); }); }); items.sort((a, b) => (a.date + a.time).localeCompare(b.date + b.time)); return items.length ? items.map((t) => React.createElement("div", { key: t.id, style: { fontSize: 12, color: C.ink } },
+                "\u2022 ",
+                t.label,
+                " ",
+                (t.date || t.time) ? React.createElement("span", { style: { color: C.muted } },
+                    "(",
+                    t.date,
                     " ",
-                    (t.date || t.time) ? React.createElement("span", { style: { color: C.muted } },
-                        "(",
-                        t.date,
-                        " ",
-                        t.time,
-                        ")") : "",
-                    t.place ? React.createElement("span", { style: { color: C.muted } },
-                        " \u00B7 ",
-                        t.place) : "")) : React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u2014");
-            })),
-        React.createElement(Card, null,
-            React.createElement(BlockHead, { dot: C.primary, title: "\u0E1C\u0E25\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E25\u0E48\u0E32\u0E2A\u0E38\u0E14 (\u0E41\u0E15\u0E48\u0E25\u0E30\u0E2A\u0E35)" }),
-            grid((i) => { const ar = activityResultsForHouse(i); const latest = ar[ar.length - 1]; return latest ? (React.createElement("div", null,
+                    t.time,
+                    ")") : "",
+                t.place ? React.createElement("span", { style: { color: C.muted } },
+                    " \u00B7 ",
+                    t.place) : "")) : React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u2014"); }) }),
+        React.createElement(DualBlock, { dbs: dbs, dot: C.primary, title: "\u0E1C\u0E25\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E25\u0E48\u0E32\u0E2A\u0E38\u0E14 (\u0E41\u0E15\u0E48\u0E25\u0E30\u0E2A\u0E35)", render: (db, D) => D.grid((i) => { const ar = D.activityResultsForHouse(i); const latest = ar[ar.length - 1]; return latest ? (React.createElement("div", null,
                 React.createElement("div", { style: { fontSize: 12, color: C.ink, fontWeight: 600 } },
                     "\u2022 ",
                     latest.c.name),
                 React.createElement("div", { style: { fontSize: 11, color: C.muted } }, latest.items.map((it) => `${it.s.first}: ${it.r.outcome || ""}${it.r.medal ? " " + it.r.medal : ""}`).join(", ")),
-                ar.length > 1 && React.createElement("button", { onClick: () => setMore(i), style: { marginTop: 3, border: "none", background: "none", color: C.primary, fontSize: 11, fontWeight: 700, cursor: "pointer", padding: 0 } }, "\u0E14\u0E39\u0E40\u0E1E\u0E34\u0E48\u0E21 \u2192"))) : React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u2014"); })),
-        React.createElement(Card, null,
-            React.createElement(BlockHead, { dot: "#a9702f", title: "\u0E04\u0E30\u0E41\u0E19\u0E19\u0E23\u0E27\u0E21 (\u0E41\u0E15\u0E48\u0E25\u0E30\u0E2A\u0E35)" }),
-            grid((i) => React.createElement("div", { style: { fontSize: 26, fontWeight: 800, color: houses[i].color } },
-                houseScore(i),
-                React.createElement("span", { style: { fontSize: 11, color: C.muted, fontWeight: 500 } }, " \u0E04\u0E30\u0E41\u0E19\u0E19")))),
-        more !== null && (React.createElement(Modal, { title: `ผลกิจกรรมทั้งหมด · ${houses[more].name}`, onClose: () => setMore(null), wide: true },
-            activityResultsForHouse(more).map((ar, idx) => (React.createElement("div", { key: idx, style: { padding: "8px 0", borderBottom: `1px dashed ${C.line}` } },
-                React.createElement("div", { style: { fontWeight: 700, color: C.ink } }, ar.c.name),
-                ar.items.map((it, j) => React.createElement("div", { key: j, style: { fontSize: 12.5, color: C.muted } },
-                    fullName(it.s),
-                    " \u2014 ",
-                    it.r.outcome || "",
-                    it.r.medal ? ` · ${it.r.medal}` : "",
-                    " \u00B7 ",
-                    scoreOf(it.r, cfg),
-                    " \u0E04\u0E30\u0E41\u0E19\u0E19"))))),
-            activityResultsForHouse(more).length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E25" })))));
+                ar.length > 1 && React.createElement("button", { onClick: () => setMore({ db, i }), style: { marginTop: 3, border: "none", background: "none", color: C.primary, fontSize: 11, fontWeight: 700, cursor: "pointer", padding: 0 } }, "\u0E14\u0E39\u0E40\u0E1E\u0E34\u0E48\u0E21 \u2192"))) : React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u2014"); }) }),
+        React.createElement(DualBlock, { dbs: dbs, dot: "#a9702f", title: "\u0E04\u0E30\u0E41\u0E19\u0E19\u0E23\u0E27\u0E21 (\u0E41\u0E15\u0E48\u0E25\u0E30\u0E2A\u0E35)", render: (db, D) => D.grid((i) => React.createElement("div", { style: { fontSize: 26, fontWeight: 800, color: D.houses[i].color } },
+                D.houseScore(i),
+                React.createElement("span", { style: { fontSize: 11, color: C.muted, fontWeight: 500 } }, " \u0E04\u0E30\u0E41\u0E19\u0E19"))) }),
+        more && (() => {
+            const D = dashOf(more.db);
+            const ar = D.activityResultsForHouse(more.i);
+            return (React.createElement(Modal, { title: `ผลกิจกรรมทั้งหมด · ${D.houses[more.i].name}`, onClose: () => setMore(null), wide: true },
+                ar.map((a, idx) => (React.createElement("div", { key: idx, style: { padding: "8px 0", borderBottom: `1px dashed ${C.line}` } },
+                    React.createElement("div", { style: { fontWeight: 700, color: C.ink } }, a.c.name),
+                    a.items.map((it, j) => React.createElement("div", { key: j, style: { fontSize: 12.5, color: C.muted } },
+                        fullName(it.s),
+                        " \u2014 ",
+                        it.r.outcome || "",
+                        it.r.medal ? ` · ${it.r.medal}` : "",
+                        " \u00B7 ",
+                        scoreOf(it.r, D.cfg),
+                        " \u0E04\u0E30\u0E41\u0E19\u0E19"))))),
+                ar.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E25" })));
+        })()));
 }
 function TrainingBlock({ db }) {
     const list = (db.training || []).slice().sort((a, b) => (a.date || "").localeCompare(b.date || ""));
@@ -478,36 +473,53 @@ function PublicSearchRegister({ db, setDb, ui }) {
                 React.createElement(Btn, { onClick: doRegister }, "\u0E25\u0E07\u0E17\u0E30\u0E40\u0E1A\u0E35\u0E22\u0E19"),
                 React.createElement(Btn, { variant: "ghost", onClick: () => setMode(null) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"))))));
 }
-function Landing({ onLogin, announce, comps, db, setDb, ui }) {
+function Landing({ onLogin, announce, comps, db, setDb, ui, sportDb }) {
     const [speed, setSpeed] = useState(announce.speed);
     const [showSchedule, setShowSchedule] = useState(false);
-    const allSch = comps.flatMap((c) => c.schedule.map((s) => ({ ...s, name: c.name })));
-    const news = announce.lines;
+    const [schTab, setSchTab] = useState("academic");
+    const SPORT = "#2f6fb0";
+    const systems = [
+        { key: "academic", label: "🎓 วิชาการสี", color: C.primary, db: db },
+        { key: "sport", label: "🏅 กีฬาสี", color: SPORT, db: sportDb },
+    ];
+    const dbs = systems.map((s) => ({ key: s.key, label: s.label, color: s.color, db: s.db }));
+    // ประกาศ: รวมทั้ง 2 ระบบ มีป้ายกำกับ
+    const notices = systems.filter((s) => s.db && s.db.settings && s.db.settings.homeNotice).map((s) => ({ sys: s, text: s.db.settings.homeNotice }));
+    // ประชาสัมพันธ์: ต่อกัน มีป้ายกำกับระบบ
+    const prLines = [];
+    systems.forEach((s) => { const ls = (s.db && s.db.settings && s.db.settings.announce && s.db.settings.announce.lines) || []; ls.forEach((n) => prLines.push({ sys: s, text: n })); });
+    const schComps = (schTab === "sport" ? (sportDb && sportDb.competitions) : db.competitions) || [];
+    const allSch = schComps.flatMap((c) => (c.schedule || []).map((s) => ({ ...s, name: c.name })));
     return (React.createElement("div", { style: { minHeight: "100vh", background: C.bg } },
         React.createElement(Ribbon, null),
         React.createElement("header", { style: { background: C.surface, borderBottom: `1px solid ${C.line}` } },
             React.createElement("div", { style: { maxWidth: 1080, margin: "0 auto", padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" } },
-                React.createElement(Brand, { sub: "\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19" }),
+                React.createElement(Brand, { sub: "\u0E27\u0E34\u0E0A\u0E32\u0E01\u0E32\u0E23\u0E2A\u0E35 + \u0E01\u0E35\u0E2C\u0E32\u0E2A\u0E35" }),
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
                     setDb && React.createElement(PublicSearchRegister, { db: db, setDb: setDb, ui: ui }),
                     React.createElement(Btn, { onClick: onLogin, small: true }, "\u0E40\u0E02\u0E49\u0E32\u0E2A\u0E39\u0E48\u0E23\u0E30\u0E1A\u0E1A"),
                     React.createElement("button", { onClick: closeWin, "aria-label": "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", title: "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", style: { fontSize: 18, fontWeight: 700, color: "#c0392b", background: "none", border: `1px solid ${C.line}`, borderRadius: 8, width: 34, height: 34, cursor: "pointer", lineHeight: 1 } }, "\u2715")))),
         React.createElement("main", { style: { maxWidth: 1080, margin: "0 auto", padding: 18, display: "flex", flexDirection: "column", gap: 16 } },
-            db && db.settings && db.settings.homeNotice && (React.createElement(Card, { style: { padding: "14px 18px", borderLeft: `5px solid ${C.gold}`, background: "#fffdf5" } },
-                React.createElement("div", { style: { fontWeight: 800, color: C.gold, fontSize: 14, marginBottom: 4 } }, "\uD83D\uDCE2 \u0E1B\u0E23\u0E30\u0E01\u0E32\u0E28"),
-                React.createElement("div", { style: { fontSize: 14, color: C.ink, whiteSpace: "pre-wrap", lineHeight: 1.5 } }, db.settings.homeNotice))),
+            notices.length > 0 && (React.createElement(Card, { style: { padding: "14px 18px", borderLeft: `5px solid ${C.gold}`, background: "#fffdf5" } },
+                React.createElement("div", { style: { fontWeight: 800, color: C.gold, fontSize: 14, marginBottom: 6 } }, "\uD83D\uDCE2 \u0E1B\u0E23\u0E30\u0E01\u0E32\u0E28"),
+                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10 } }, notices.map((n, i) => (React.createElement("div", { key: i },
+                    React.createElement("span", { style: { background: n.sys.color, color: "#fff", fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 12, marginRight: 6 } }, n.sys.label),
+                    React.createElement("span", { style: { fontSize: 14, color: C.ink, whiteSpace: "pre-wrap", lineHeight: 1.5 } }, n.text))))))),
             React.createElement(Card, { style: { overflow: "hidden" } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", borderBottom: `1px solid ${C.line}` } },
                     React.createElement("span", { style: { background: C.gold, color: "#fff", fontSize: 12, fontWeight: 700, padding: "3px 10px", borderRadius: 20 } }, "\u0E1B\u0E23\u0E30\u0E0A\u0E32\u0E2A\u0E31\u0E21\u0E1E\u0E31\u0E19\u0E18\u0E4C"),
                     React.createElement("span", { style: { fontSize: 12, color: C.muted, marginLeft: "auto" } }, "\u0E04\u0E27\u0E32\u0E21\u0E40\u0E23\u0E47\u0E27"),
                     React.createElement("input", { type: "range", min: "6", max: "30", value: 36 - speed, onChange: (e) => setSpeed(36 - Number(e.target.value)), style: { width: 90 } })),
                 React.createElement("div", { style: { height: 116, overflow: "hidden", padding: "0 16px" } },
-                    React.createElement("div", { style: { animation: `scrollUp ${speed}s linear infinite` } }, [...news, ...news].map((n, i) => React.createElement("div", { key: i, style: { padding: "10px 0", borderBottom: `1px dashed ${C.line}`, color: C.ink, fontSize: 14 } },
-                        "\u2022 ",
-                        n)))),
+                    React.createElement("div", { style: { animation: `scrollUp ${speed}s linear infinite` } },
+                        [...prLines, ...prLines].map((n, i) => React.createElement("div", { key: i, style: { padding: "10px 0", borderBottom: `1px dashed ${C.line}`, color: C.ink, fontSize: 14 } },
+                            React.createElement("span", { style: { background: n.sys.color, color: "#fff", fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 10, marginRight: 6 } }, n.sys.label),
+                            n.text)),
+                        prLines.length === 0 && React.createElement("div", { style: { padding: "10px 0", color: C.muted, fontSize: 14 } }, "\u2014"))),
                 React.createElement("button", { onClick: () => setShowSchedule(true), style: { width: "100%", padding: 12, background: C.soft, color: C.primaryDark, fontWeight: 700, border: "none", cursor: "pointer", fontSize: 14 } }, "\u0E14\u0E39\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2192 \u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E14\u0E39 \u0E04\u0E25\u0E34\u0E01!")),
-            db && React.createElement(HouseDashboard, { db: db })),
+            React.createElement(HouseDashboard, { dbs: dbs })),
         showSchedule && (React.createElement(Modal, { title: "\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14", onClose: () => setShowSchedule(false), wide: true },
+            React.createElement("div", { style: { display: "flex", gap: 6, marginBottom: 12 } }, systems.map((s) => React.createElement("button", { key: s.key, onClick: () => setSchTab(s.key), style: { padding: "6px 16px", borderRadius: 16, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, background: schTab === s.key ? s.color : C.soft, color: schTab === s.key ? "#fff" : C.muted } }, s.label))),
             allSch.map((s, i) => React.createElement(SchRow, { key: i, s: s, status: "\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23" })),
             allSch.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23" })))));
 }
@@ -515,7 +527,7 @@ function Brand({ sub }) {
     return (React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
         React.createElement("div", { style: { width: 40, height: 40, borderRadius: 12, background: C.primary, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 18 } }, "\u0E2A\u0E35"),
         React.createElement("div", null,
-            React.createElement("div", { style: { fontWeight: 800, color: C.ink, fontSize: 16, lineHeight: 1.1 } }, "\u0E27\u0E34\u0E0A\u0E32\u0E01\u0E32\u0E23\u0E2A\u0E35"),
+            React.createElement("div", { style: { fontWeight: 800, color: C.ink, fontSize: 16, lineHeight: 1.1 } }, "\u0E23\u0E30\u0E1A\u0E1A\u0E2A\u0E35\u0E41\u0E25\u0E30\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19"),
             React.createElement("div", { style: { fontSize: 12, color: C.muted } }, sub))));
 }
 function BlockHead({ dot, title }) {
@@ -1911,7 +1923,8 @@ function Stat({ label, v, col }) {
 }
 function AssistantList({ db, setDb, ui }) {
     const [add, setAdd] = useState(false);
-    const remove = (u) => ui.run("กำลังลบ...", () => setDb((p) => ({ ...p, assistants: p.assistants.filter((a) => a.user !== u) })));
+    const remove = (u) => ui.run("กำลังลบ...", () => setDb((p) => { const assistants = p.assistants.filter((a) => a.user !== u); if (window.__pushOther)
+        window.__pushOther((odb) => mirrorAssistantsInto(odb, assistants)); return { ...p, assistants }; }));
     return (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } },
         React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center" } },
             React.createElement("span", { style: { fontSize: 13, color: C.muted } },
@@ -1929,7 +1942,8 @@ function AssistantList({ db, setDb, ui }) {
                     React.createElement("b", { style: { color: C.ink } }, a.password))),
             React.createElement("div", { style: { marginTop: 10 } },
                 React.createElement(Btn, { variant: "danger", small: true, onClick: () => remove(a.user) }, "\u0E25\u0E1A\u0E1A\u0E31\u0E0D\u0E0A\u0E35"))))),
-        add && React.createElement(AssistantForm, { onClose: () => setAdd(false), onSave: (a) => ui.run("กำลังบันทึก...", () => { setDb((p) => ({ ...p, assistants: [...p.assistants, a] })); setAdd(false); }) })));
+        add && React.createElement(AssistantForm, { onClose: () => setAdd(false), onSave: (a) => ui.run("กำลังบันทึก...", () => { setDb((p) => { const assistants = [...p.assistants, a]; if (window.__pushOther)
+                window.__pushOther((odb) => mirrorAssistantsInto(odb, assistants)); return { ...p, assistants }; }); setAdd(false); }) })));
 }
 function AssistantForm({ onClose, onSave }) {
     const [f, setF] = useState({ name: "", user: "", password: "" });
@@ -5143,6 +5157,8 @@ function mirrorStudentsInto(odb, students) {
     return odb;
 }
 // sync รายชื่อครูไปอีกฐาน (ฐานเดียวกัน): upsert ฟิลด์ตัวตน + ลบคนที่ไม่มีในชุดปัจจุบัน (คงฟิลด์ล็อกอินของอีกฝั่งไว้)
+// sync ผู้ช่วยแอดมิน (บัญชีล็อกอินร่วม) — ใช้ชุดเดียวกันทั้ง 2 ฐาน
+function mirrorAssistantsInto(odb, assistants) { odb.assistants = (assistants || []).slice(); return odb; }
 function mirrorTeachersInto(odb, teachers) {
     const idFields = ["id", "pre", "first", "last", "phone", "photoUrl", "photoId"];
     const oById = new Map((odb.teachers || []).map((t) => [String(t.id), t]));
@@ -5270,6 +5286,20 @@ function App() {
     const modeRef = useRef("academic");
     modeRef.current = mode;
     const sheetQS = () => modeRef.current === "sport" ? "?sheet=sport" : "";
+    const [landingSport, setLandingSport] = useState(null);
+    useEffect(() => {
+        if (screen !== "landing" || !API_URL)
+            return;
+        let alive = true;
+        fetch(API_URL + "?sheet=sport").then((r) => r.text()).then((t) => { if (!alive)
+            return; try {
+            const j = JSON.parse(t);
+            if (j && j.ok && j.data)
+                setLandingSport(mergeDb(JSON.parse(j.data)));
+        }
+        catch (e) { } }).catch(() => { });
+        return () => { alive = false; };
+    }, [screen]);
     // แกนบันทึกจริง (ไม่ติดล็อก) — ใช้ทั้งออโต้เซฟและปุ่มบันทึกเอง
     const doSave = () => {
         if (!API_URL)
@@ -5515,6 +5545,9 @@ function App() {
         if (me && teamColors[me.house])
             themeColor = teamColors[me.house].color;
     }
+    // สลับโหมด: กีฬาสีใช้โทนสีเฉพาะ (ต่างจากวิชาการ) — ตั้งค่าได้ที่ตั้งค่าของระบบกีฬาสี ค่าเริ่มต้นเป็นโทนน้ำเงิน
+    if (mode === "sport")
+        themeColor = (db.settings && db.settings.sportTheme) || "#2f6fb0";
     C = makeTheme(themeColor);
     HOUSES = teamColors.map((h) => h.color);
     const exit = () => { localStorage.removeItem("auth"); setAuth(null); setScreen("landing"); };
@@ -5536,7 +5569,7 @@ function App() {
         screen === "app" && (React.createElement("div", { style: { display: "flex", justifyContent: "center", gap: 6, padding: "8px 10px", background: mode === "sport" ? "#eaf4ff" : "#f3eefc", borderBottom: `1px solid ${C.line}`, position: "sticky", top: 0, zIndex: 40 } },
             React.createElement("span", { style: { fontSize: 12, color: C.muted, alignSelf: "center", fontWeight: 600 } }, "\u0E23\u0E30\u0E1A\u0E1A:"),
             [["academic", "🎓 สีวิชาการ"], ["sport", "🏅 กีฬาสี"]].map(([m, label]) => (React.createElement("button", { key: m, onClick: () => switchMode(m), disabled: mode === m, style: { padding: "6px 16px", borderRadius: 18, border: "none", cursor: mode === m ? "default" : "pointer", fontSize: 13, fontWeight: 800, background: mode === m ? (m === "sport" ? "#2f6fb0" : C.primary) : "#fff", color: mode === m ? "#fff" : C.ink, boxShadow: mode === m ? "0 2px 8px rgba(0,0,0,0.15)" : "inset 0 0 0 1px " + C.line } }, label))))),
-        screen === "landing" && React.createElement(Landing, { onLogin: () => setScreen("login"), announce: db.settings.announce, comps: db.competitions, db: db, setDb: setDb, ui: { notify: toast } }),
+        screen === "landing" && React.createElement(Landing, { onLogin: () => setScreen("login"), announce: db.settings.announce, comps: db.competitions, db: db, setDb: setDb, ui: { notify: toast }, sportDb: landingSport }),
         screen === "login" && React.createElement(Login, { db: db, onEnter: (a) => { setAuth(a); setScreen("app"); }, onBack: () => setScreen("landing") }),
         screen === "app" && (auth === null || auth === void 0 ? void 0 : auth.role) === "admin" && React.createElement(AdminApp, { db: db, setDb: setDb, onExit: exit }),
         screen === "app" && ((auth === null || auth === void 0 ? void 0 : auth.role) === "teacher" || (auth === null || auth === void 0 ? void 0 : auth.role) === "studentcom") && React.createElement(CommitteeApp, { role: auth.role, db: db, setDb: setDb, onExit: exit, meId: auth.id }),
