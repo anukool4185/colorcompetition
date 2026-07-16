@@ -504,7 +504,7 @@ function Landing({ onLogin, announce, comps, db, setDb, ui }) {
                     React.createElement("div", { style: { animation: `scrollUp ${speed}s linear infinite` } }, [...news, ...news].map((n, i) => React.createElement("div", { key: i, style: { padding: "10px 0", borderBottom: `1px dashed ${C.line}`, color: C.ink, fontSize: 14 } },
                         "\u2022 ",
                         n)))),
-                React.createElement("button", { onClick: () => setShowSchedule(true), style: { width: "100%", padding: 12, background: C.soft, color: C.primaryDark, fontWeight: 700, border: "none", cursor: "pointer", fontSize: 14 } }, "\u0E14\u0E39\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2192")),
+                React.createElement("button", { onClick: () => setShowSchedule(true), style: { width: "100%", padding: 12, background: C.soft, color: C.primaryDark, fontWeight: 700, border: "none", cursor: "pointer", fontSize: 14 } }, "\u0E14\u0E39\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2192 \u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E14\u0E39 \u0E04\u0E25\u0E34\u0E01!")),
             db && React.createElement(HouseDashboard, { db: db })),
         showSchedule && (React.createElement(Modal, { title: "\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14", onClose: () => setShowSchedule(false), wide: true },
             allSch.map((s, i) => React.createElement(SchRow, { key: i, s: s, status: "\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23" })),
