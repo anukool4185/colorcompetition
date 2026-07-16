@@ -4298,7 +4298,8 @@ function CommitteeProfile({ role, meId, db, setDb, ui }) {
             React.createElement(Btn, { onClick: () => { if (!phoneOk(f.phone)) {
                     ui.notify("เบอร์โทรไม่ถูกต้อง — ใส่ตัวเลขล้วน 9–10 หลัก (เช่น 0812345678) ไม่ต้องมีขีดหรือเว้นวรรค");
                     return;
-                } ui.run("กำลังบันทึก...", () => { setDb((p) => ({ ...p, teachers: p.teachers.map((t) => t.id === me.id ? { ...t, ...f } : t) })); ui.notify("บันทึกข้อมูลแล้ว"); }); } }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25"))));
+                } ui.run("กำลังบันทึก...", () => { setDb((p) => { const teachers = p.teachers.map((t) => t.id === me.id ? { ...t, ...f } : t); const upd = teachers.find((t) => t.id === me.id); if (upd && window.__pushOther)
+                    window.__pushOther((odb) => updateTeacherIfExists(odb, upd)); return { ...p, teachers }; }); ui.notify("บันทึกข้อมูลแล้ว"); }); } }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25"))));
 }
 function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid, autoOpen, onAutoOpened }) {
     const cfg = db.settings.scoreConfig || {};
@@ -4922,7 +4923,8 @@ function MyProfile({ me, db, setDb, ui }) {
             React.createElement(Btn, { onClick: () => { if (!phoneOk(f.phone) || !phoneOk(f.guardianPhone)) {
                     ui.notify("เบอร์โทรไม่ถูกต้อง — ใส่ตัวเลขล้วน 9–10 หลัก (เช่น 0812345678) ไม่ต้องมีขีดหรือเว้นวรรค");
                     return;
-                } ui.run("กำลังบันทึก...", () => { setDb((p) => ({ ...p, students: p.students.map((s) => s.id === me.id ? { ...s, ...f } : s) })); ui.notify("บันทึกข้อมูลแล้ว"); }); } }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25"))));
+                } ui.run("กำลังบันทึก...", () => { setDb((p) => { const students = p.students.map((s) => s.id === me.id ? { ...s, ...f } : s); if (window.__pushOther)
+                    window.__pushOther((odb) => mirrorStudentsInto(odb, students)); return { ...p, students }; }); ui.notify("บันทึกข้อมูลแล้ว"); }); } }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25"))));
 }
 function mainSelFull(c) { const n = Number(c.mainCount) || 0; return n > 0 && c.participants.filter((x) => x.sel === "main").length >= n; }
 function reserveSelFull(c) { const n = Number(c.reserveCount) || 0; return n > 0 && c.participants.filter((x) => x.sel === "reserve").length >= n; }
@@ -5150,6 +5152,21 @@ function upsertTeacherInto(odb, teacher) {
     else
         list.push({ id: teacher.id, pre: teacher.pre, first: teacher.first, last: teacher.last, phone: teacher.phone, photoUrl: teacher.photoUrl, photoId: teacher.photoId });
     odb.teachers = list;
+    return odb;
+}
+// อัปเดตครูในอีกฐาน "เฉพาะถ้ามีอยู่แล้ว" (ไม่สร้างใหม่ — กันเพิ่มครูข้ามระบบโดยไม่ตั้งใจ) ใช้ตอนครูแก้ข้อมูลตัวเอง
+function updateTeacherIfExists(odb, teacher) {
+    const list = (odb.teachers || []);
+    const i = list.findIndex((t) => String(t.id) === String(teacher.id));
+    if (i < 0)
+        return null;
+    const idFields = ["pre", "first", "last", "phone", "photoUrl", "photoId"];
+    const out = { ...list[i] };
+    idFields.forEach((k) => { if (teacher[k] !== undefined)
+        out[k] = teacher[k]; });
+    const nl = list.slice();
+    nl[i] = out;
+    odb.teachers = nl;
     return odb;
 }
 function mergeDb(loaded) {
