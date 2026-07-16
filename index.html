@@ -585,12 +585,38 @@ function Login({ db, onEnter, onBack }) {
     const [u, setU] = useState("");
     const [p, setP] = useState("");
     const [err, setErr] = useState("");
+    const [busy, setBusy] = useState(false);
     const submit = () => {
         const auth = resolveLogin(db, u, p);
         if (auth) {
             localStorage.setItem("auth", JSON.stringify(auth));
             setErr("");
             onEnter(auth);
+            return;
+        }
+        // ไม่เจอในระบบปัจจุบัน → ลองอีกชีท (เช่น ครูที่อยู่เฉพาะกีฬาสี) แล้วสลับโหมดให้
+        if (typeof API_URL !== "undefined" && API_URL) {
+            setBusy(true);
+            setErr("กำลังตรวจสอบอีกระบบ...");
+            fetch(API_URL + "?sheet=sport").then((r) => r.text()).then((t) => {
+                let odb = null;
+                try {
+                    const j = JSON.parse(t);
+                    odb = (j && j.ok && j.data) ? mergeDb(JSON.parse(j.data)) : null;
+                }
+                catch (e) { }
+                const a2 = odb ? resolveLogin(odb, u, p) : null;
+                setBusy(false);
+                if (a2) {
+                    localStorage.setItem("auth", JSON.stringify(a2));
+                    setErr("");
+                    if (window.__switchMode)
+                        window.__switchMode("sport");
+                    onEnter(a2);
+                }
+                else
+                    setErr("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");
+            }).catch(() => { setBusy(false); setErr("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง"); });
         }
         else
             setErr("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");
@@ -610,8 +636,8 @@ function Login({ db, onEnter, onBack }) {
                 React.createElement("label", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E23\u0E2B\u0E31\u0E2A\u0E1C\u0E48\u0E32\u0E19 (password)"),
                 React.createElement("input", { value: p, onChange: (e) => setP(e.target.value), onKeyDown: (e) => e.key === "Enter" && submit(), type: "password", style: inp, placeholder: "\u0E23\u0E2B\u0E31\u0E2A\u0E1C\u0E48\u0E32\u0E19" }),
                 err && React.createElement("div", { style: { background: "#fdeeee", color: "#c0392b", fontSize: 13, padding: "8px 12px", borderRadius: 10, marginBottom: 12 } }, err),
-                React.createElement(Btn, { onClick: submit },
-                    React.createElement("span", { style: { display: "block", textAlign: "center", width: "100%" } }, "\u0E40\u0E02\u0E49\u0E32\u0E2A\u0E39\u0E48\u0E23\u0E30\u0E1A\u0E1A")),
+                React.createElement(Btn, { onClick: submit, disabled: busy },
+                    React.createElement("span", { style: { display: "block", textAlign: "center", width: "100%" } }, busy ? "กำลังตรวจสอบ..." : "เข้าสู่ระบบ")),
                 React.createElement("button", { onClick: onBack, style: { marginTop: 16, width: "100%", background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 13 } }, "\u2190 \u0E01\u0E25\u0E31\u0E1A\u0E2B\u0E19\u0E49\u0E32\u0E41\u0E23\u0E01")))));
 }
 /* ---------------- Shell (nav) ---------------- */
