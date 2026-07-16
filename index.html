@@ -2694,9 +2694,21 @@ function autoSyncRounds(db) {
                 changed = true;
             }
         });
-        return { ...c, resultSets: sets };
+        // ลบกำหนดการฝึกซ้อมที่พ้นวันแล้ว (date < วันนี้) ทิ้งจริง
+        let tr = c.training || [];
+        const trBefore = tr.length;
+        tr = tr.filter((t) => !t.date || t.date >= todayS);
+        if (tr.length !== trBefore)
+            changed = true;
+        return { ...c, resultSets: sets, training: tr };
     });
-    return { changed, next: changed ? { ...db, competitions: comps } : db };
+    // ลบกำหนดการฝึกซ้อมรายสี (ทั่วไป) ที่พ้นวันแล้ว
+    let genTr = db.training || [];
+    const genBefore = genTr.length;
+    genTr = genTr.filter((t) => !t.date || t.date >= todayS);
+    if (genTr.length !== genBefore)
+        changed = true;
+    return { changed, next: changed ? { ...db, competitions: comps, training: genTr } : db };
 }
 // เรียงจากประธาน (บนสุด) ลงมาถึงผู้ดูแล + ใส่ (ตำแหน่ง) ต่อท้ายชื่อ
 function orgLineNamed(nodes, nodeId, pool) {
