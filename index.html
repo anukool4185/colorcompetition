@@ -4158,6 +4158,28 @@ function MyDutyScreen({ role, meId, db, setDb, ui }) {
                     catch (e) {
                         ui.notify("ดาวน์โหลดไม่สำเร็จ");
                     } } }, "Excel")),
+            comp && (() => {
+                const members = committeeMembers(db, comp);
+                if (!members.length)
+                    return null;
+                const palette = ["#7a5cc0", "#2f9e6b", "#c0392b", "#2f6fb0", "#b8860b", "#c2185b", "#00838f", "#5d4037"];
+                return (React.createElement(Card, { style: { padding: 12, marginBottom: 12 } },
+                    React.createElement("div", { style: { fontWeight: 700, color: C.primaryDark, fontSize: 13, marginBottom: 6 } }, "\uD83D\uDC65 \u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E14\u0E39\u0E41\u0E25\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49 (\u0E15\u0E32\u0E21\u0E25\u0E33\u0E14\u0E31\u0E1A\u0E1C\u0E31\u0E07)"),
+                    React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } }, members.map((m, i) => (React.createElement("div", { key: i, style: { fontSize: 12.5, whiteSpace: "nowrap", overflowX: "auto" } },
+                        React.createElement("b", { style: { color: palette[i % palette.length] } }, m.title),
+                        React.createElement("span", { style: { color: "#111" } },
+                            " \u00B7 ",
+                            m.name,
+                            m.grade ? ` ${m.grade}/${m.room}` : "",
+                            " ",
+                            React.createElement("span", { style: { fontSize: 11, color: C.muted } },
+                                "(",
+                                m.side,
+                                ")")),
+                        m.phone ? React.createElement("a", { href: `tel:${m.phone}`, style: { color: "#c0392b", textDecoration: "none", fontWeight: 700 } },
+                            " \u00B7 \u260E ",
+                            m.phone) : ""))))));
+            })(),
             comp && React.createElement("div", { id: "myDutyArea" },
                 React.createElement(ParticipantManager, { comp: comp, db: db, setDb: setDb, ui: ui })),
             addOpen && comp && React.createElement(AddApplicantModal, { comp: comp, db: db, onClose: () => setAddOpen(false), onAdd: (sid, status) => addStudent(sid, status) })))));
