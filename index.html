@@ -13,6 +13,7 @@
 <style>
   html, body, #root { height: 100%; margin: 0; }
   body { font-family: 'Noto Sans Thai', system-ui, sans-serif; -webkit-text-size-adjust: 100%; }
+  @media (max-width: 640px) { body { zoom: 0.6; } }
   .hidden { display: none !important; }
   .grid-cols-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .orgtree { display: inline-block; min-width: 100%; text-align: center; }
@@ -5282,6 +5283,7 @@ function App() {
     dbRef.current = db;
     const dirtyRef = useRef(false); // มีการแก้ไขที่ยังไม่ถูกบันทึกหรือไม่
     const lastSaveAt = useRef(0); // เวลาเริ่มบันทึกล่าสุด — ใช้ทิ้งผล auto-refresh ที่ค้างท่อ (กันข้อมูลเก่าทับของที่เพิ่งเซฟ)
+    const switchingRef = useRef(false); // กำลังสลับระบบ — ใช้ให้ธีมแสดงสีของโหมดใหม่ทันที (ไม่รอ db โหลด)
     const [mode, setModeState] = useState("academic"); // academic = สีวิชาการ (APP_DATA) · sport = กีฬาสี (SPORT_DATA)
     const modeRef = useRef("academic");
     modeRef.current = mode;
@@ -5304,6 +5306,8 @@ function App() {
     const doSave = () => {
         if (!API_URL)
             return;
+        if (!everLoadedRef.current)
+            return; // กันบันทึกทับด้วยค่าว่าง/ค่าที่ยังโหลดไม่สำเร็จ (สำคัญ: ป้องกันข้อมูลหาย)
         if (savingRef.current) {
             againRef.current = true;
             return;
@@ -5403,13 +5407,13 @@ function App() {
             catch (e) { }
         }
         clearTimeout(timerRef.current);
+        switchingRef.current = true; // กันธีม/สีของอีกระบบค้างแวบ (ไม่แตะ db เพื่อไม่ให้ค่าว่างถูกบันทึกทับ)
         modeRef.current = m;
         setModeState(m);
         loadedRef.current = false;
         everLoadedRef.current = false;
         dirtyRef.current = false;
         justLoaded.current = true;
-        setDb(mergeDb({})); // ล้างข้อมูลระบบเดิมทันที กันธีม/สีของอีกระบบค้างแวบระหว่างโหลด
         setSync("loading");
         setTimeout(() => loadData(), 60);
     };
@@ -5453,18 +5457,27 @@ function App() {
             }
             if (!j.ok)
                 throw new Error(j.error || "ไม่สำเร็จ");
+            let nd;
             if (j.data) {
                 try {
-                    setDb(mergeDb(JSON.parse(j.data)));
-                    justLoaded.current = true;
+                    nd = mergeDb(JSON.parse(j.data));
                 }
-                catch (e) { }
+                catch (e) {
+                    nd = mergeDb({});
+                }
             }
+            else {
+                nd = mergeDb({});
+            } // ชีทว่าง (ระบบใหม่) → เริ่มด้วยค่าเริ่มต้นของระบบนี้ (ปลอดภัย: บันทึกทับชีทที่ว่างอยู่แล้ว)
+            dbRef.current = nd;
+            justLoaded.current = true;
+            setDb(nd); // ตั้ง dbRef ทันที กันช่วงที่ค่ายังเป็นของระบบเก่า
             loadedRef.current = true;
             everLoadedRef.current = true;
+            switchingRef.current = false;
             setSync("saved");
             setLastSaved(Date.now());
-        }).catch((err) => { console.warn("[โหลดไม่สำเร็จ]", err); loadedRef.current = false; setSync("offline"); });
+        }).catch((err) => { console.warn("[โหลดไม่สำเร็จ]", err); loadedRef.current = false; everLoadedRef.current = false; switchingRef.current = false; setSync("offline"); });
     };
     useEffect(() => { if (auth)
         toast("กลับสู่ระบบ"); loadData(); }, []);
@@ -5549,6 +5562,9 @@ function App() {
     // สลับโหมด: กีฬาสีใช้โทนสีเฉพาะ (ต่างจากวิชาการ) — ตั้งค่าได้ที่ตั้งค่าของระบบกีฬาสี ค่าเริ่มต้นเป็นโทนน้ำเงิน
     if (mode === "sport")
         themeColor = (db.settings && db.settings.sportTheme) || "#2f6fb0";
+    // ระหว่างสลับระบบ (db ยังเป็นของระบบเก่า) → ใช้สีเริ่มต้นของโหมดใหม่ทันที กันสีเก่าค้างแวบ
+    if (switchingRef.current)
+        themeColor = mode === "sport" ? "#2f6fb0" : DEFAULT_HOUSES[0].color;
     C = makeTheme(themeColor);
     HOUSES = teamColors.map((h) => h.color);
     const exit = () => { localStorage.removeItem("auth"); setAuth(null); setScreen("landing"); };
@@ -5579,6 +5595,7 @@ function App() {
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(React.createElement(App));
+
 </script>
 <style>
 .toast { position: fixed; z-index: 100; left: 50%; bottom: 0; padding: 12px 14px; border-radius: 24px; transform: translate(-50%, -24px); box-shadow: 0 2px 20px rgba(0,0,0,.2); animation: fade-in .3s ease-out; background: rgba(24,38,53,.88); color: white; font-size: 14px; }
