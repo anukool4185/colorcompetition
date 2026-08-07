@@ -5832,6 +5832,9 @@ function App() {
     // ระหว่างสลับระบบ (db ยังเป็นของระบบเก่า) → ใช้สีเริ่มต้นของโหมดใหม่ทันที กันสีเก่าค้างแวบ
     if (switchingRef.current)
         themeColor = mode === "sport" ? "#2f6fb0" : DEFAULT_HOUSES[0].color;
+    // หน้าเพจแรก + หน้าเลือกกิจกรรม → ใช้สีปกติ (default) เสมอ ไม่ผูกกับธีมวิชาการ/กีฬา
+    if (screen === "landing" || screen === "choose")
+        themeColor = DEFAULT_HOUSES[0].color;
     C = makeTheme(themeColor);
     HOUSES = teamColors.map((h) => h.color);
     const exit = () => { localStorage.removeItem("auth"); setAuth(null); setScreen("landing"); if (modeRef.current !== "academic")
