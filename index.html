@@ -524,6 +524,26 @@ function Landing({ onLogin, announce, comps, db, setDb, ui, sportDb }) {
             allSch.map((s, i) => React.createElement(SchRow, { key: i, s: s, status: "\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23" })),
             allSch.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23" })))));
 }
+function ChooseActivity({ onPick, onBack }) {
+    const cards = [
+        { key: "academic", label: "วิชาการสี", icon: "🎓", color: C.primary, desc: "การแข่งขันด้านวิชาการ" },
+        { key: "sport", label: "แข่งขันกีฬา", icon: "🏅", color: "#2f6fb0", desc: "การแข่งขันกีฬาสี" },
+    ];
+    return (React.createElement("div", { style: { minHeight: "100vh", background: C.bg, display: "flex", flexDirection: "column" } },
+        React.createElement(Ribbon, null),
+        React.createElement("header", { style: { background: C.surface, borderBottom: `1px solid ${C.line}` } },
+            React.createElement("div", { style: { maxWidth: 1080, margin: "0 auto", padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between" } },
+                React.createElement(Brand, { sub: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }),
+                React.createElement(Btn, { variant: "ghost", small: true, onClick: onBack }, "\u2190 \u0E01\u0E25\u0E31\u0E1A\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E1E\u0E08"))),
+        React.createElement("main", { style: { maxWidth: 720, margin: "0 auto", padding: 24, width: "100%" } },
+            React.createElement("div", { style: { fontWeight: 800, fontSize: 20, textAlign: "center", marginBottom: 6, color: C.ink } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E35\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E40\u0E02\u0E49\u0E32\u0E2A\u0E39\u0E48\u0E23\u0E30\u0E1A\u0E1A"),
+            React.createElement("div", { style: { fontSize: 13, color: C.muted, textAlign: "center", marginBottom: 24 } }, "\u0E43\u0E0A\u0E49\u0E0A\u0E37\u0E48\u0E2D\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49/\u0E23\u0E2B\u0E31\u0E2A\u0E1C\u0E48\u0E32\u0E19\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19\u0E17\u0E31\u0E49\u0E07 2 \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \u00B7 \u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E41\u0E22\u0E01\u0E01\u0E31\u0E19\u0E04\u0E19\u0E25\u0E30\u0E23\u0E30\u0E1A\u0E1A"),
+            React.createElement("div", { style: { display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" } }, cards.map((c) => (React.createElement("button", { key: c.key, onClick: () => onPick(c.key), style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "32px 18px", borderRadius: 18, border: `2px solid ${c.color}`, background: C.surface, cursor: "pointer", boxShadow: "0 2px 12px rgba(0,0,0,.06)" } },
+                React.createElement("span", { style: { fontSize: 52 } }, c.icon),
+                React.createElement("span", { style: { fontSize: 20, fontWeight: 800, color: c.color } }, c.label),
+                React.createElement("span", { style: { fontSize: 12.5, color: C.muted } }, c.desc),
+                React.createElement("span", { style: { marginTop: 6, fontSize: 13, fontWeight: 700, color: "#fff", background: c.color, borderRadius: 20, padding: "6px 18px" } }, "\u0E40\u0E02\u0E49\u0E32\u0E2A\u0E39\u0E48\u0E23\u0E30\u0E1A\u0E1A \u2192"))))))));
+}
 function Brand({ sub }) {
     return (React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
         React.createElement("div", { style: { width: 40, height: 40, borderRadius: 12, background: C.primary, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 18 } }, "\u0E2A\u0E35"),
@@ -594,7 +614,7 @@ function resolveLogin(db, uRaw, pRaw) {
     }
     return null;
 }
-function Login({ db, onEnter, onBack }) {
+function Login({ db, onEnter, onBack, mode }) {
     const [u, setU] = useState("");
     const [p, setP] = useState("");
     const [err, setErr] = useState("");
@@ -642,7 +662,8 @@ function Login({ db, onEnter, onBack }) {
                 React.createElement("div", { style: { textAlign: "center", marginBottom: 20 } },
                     React.createElement("div", { style: { width: 52, height: 52, borderRadius: 14, background: C.primary, color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 22 } }, "\u0E2A\u0E35"),
                     React.createElement("div", { style: { fontWeight: 800, color: C.ink, fontSize: 18, marginTop: 10 } }, "\u0E40\u0E02\u0E49\u0E32\u0E2A\u0E39\u0E48\u0E23\u0E30\u0E1A\u0E1A"),
-                    React.createElement("div", { style: { fontSize: 13, color: C.muted } }, "\u0E01\u0E23\u0E2D\u0E01\u0E0A\u0E37\u0E48\u0E2D\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49\u0E41\u0E25\u0E30\u0E23\u0E2B\u0E31\u0E2A\u0E1C\u0E48\u0E32\u0E19")),
+                    mode && React.createElement("div", { style: { display: "inline-block", marginTop: 6, fontSize: 13, fontWeight: 700, color: "#fff", background: mode === "sport" ? "#2f6fb0" : C.primary, borderRadius: 20, padding: "4px 14px" } }, mode === "sport" ? "🏅 แข่งขันกีฬา" : "🎓 วิชาการสี"),
+                    React.createElement("div", { style: { fontSize: 13, color: C.muted, marginTop: 6 } }, "\u0E01\u0E23\u0E2D\u0E01\u0E0A\u0E37\u0E48\u0E2D\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49\u0E41\u0E25\u0E30\u0E23\u0E2B\u0E31\u0E2A\u0E1C\u0E48\u0E32\u0E19 (\u0E43\u0E0A\u0E49\u0E23\u0E48\u0E27\u0E21\u0E17\u0E31\u0E49\u0E07 2 \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21)")),
                 db.settings && db.settings.loginHelp && React.createElement("div", { style: { background: "#f2f8f4", border: `1px solid ${C.line}`, borderRadius: 10, padding: "10px 12px", fontSize: 13, color: C.ink, whiteSpace: "pre-wrap", marginBottom: 14 } }, db.settings.loginHelp),
                 React.createElement("label", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E0A\u0E37\u0E48\u0E2D\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49 (user)"),
                 React.createElement("input", { value: u, onChange: (e) => setU(e.target.value), onKeyDown: (e) => e.key === "Enter" && submit(), style: inp, placeholder: "\u0E40\u0E0A\u0E48\u0E19 admin \u0E2B\u0E23\u0E37\u0E2D \u0E23\u0E2B\u0E31\u0E2A\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19" }),
@@ -691,9 +712,9 @@ function Shell({ role, nav, view, setView, onExit, children, ui }) {
                     React.createElement("button", { onClick: () => setConfirmOut(true), style: { fontSize: 13, fontWeight: 500, color: C.muted, background: "none", border: "none", padding: 0, cursor: "pointer" } }, "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A"),
                     React.createElement("button", { onClick: () => setConfirmClose(true), "aria-label": "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", style: { fontSize: 16, fontWeight: 700, color: "#c0392b", background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1 } }, "\u2715"))),
             React.createElement("div", { style: { maxWidth: 960, margin: "0 auto", padding: 16 } }, children)),
-        React.createElement("nav", { className: "md:hidden", style: { position: "fixed", bottom: 0, left: 0, right: 0, background: C.surface, borderTop: `1px solid ${C.line}`, display: "flex", zIndex: 20 } }, nav.map((n) => (React.createElement("button", { key: n.key, onClick: () => setView(n.key), style: { flex: 1, padding: "9px 2px 8px", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, color: view === n.key ? C.primary : C.muted } },
+        React.createElement("nav", { className: "md:hidden", style: { position: "fixed", bottom: 0, left: 0, right: 0, width: "100%", background: C.surface, borderTop: `1px solid ${C.line}`, display: "flex", flexWrap: "nowrap", overflowX: "auto", zIndex: 20 } }, nav.map((n) => (React.createElement("button", { key: n.key, onClick: () => setView(n.key), style: { flex: "1 0 0", minWidth: 52, padding: "9px 2px 8px", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, color: view === n.key ? C.primary : C.muted } },
             React.createElement("span", { style: { fontSize: 18 } }, n.icon),
-            React.createElement("span", { style: { fontSize: 10, fontWeight: view === n.key ? 700 : 500 } }, n.label))))),
+            React.createElement("span", { style: { fontSize: 10, fontWeight: view === n.key ? 700 : 500, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, n.label))))),
         React.createElement("button", { className: "hidden md:flex", onClick: () => setConfirmClose(true), title: "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", "aria-label": "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", style: { position: "fixed", top: 12, right: 14, zIndex: 40, width: 36, height: 36, borderRadius: 10, border: `1px solid ${C.line}`, background: C.surface, color: "#c0392b", fontSize: 18, fontWeight: 700, cursor: "pointer", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 6px rgba(0,0,0,.08)" } }, "\u2715"),
         confirmOut && React.createElement(ConfirmModal, { title: "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A", message: "\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A\u0E43\u0E0A\u0E48\u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E21\u0E48? \u0E04\u0E23\u0E31\u0E49\u0E07\u0E15\u0E48\u0E2D\u0E44\u0E1B\u0E15\u0E49\u0E2D\u0E07\u0E25\u0E47\u0E2D\u0E01\u0E2D\u0E34\u0E19\u0E43\u0E2B\u0E21\u0E48", confirmLabel: "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A", onConfirm: () => { setConfirmOut(false); onExit(); }, onClose: () => setConfirmOut(false) }),
         confirmClose && React.createElement(ConfirmModal, { title: "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", message: "\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A\u0E19\u0E35\u0E49\u0E43\u0E0A\u0E48\u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E21\u0E48? (\u0E23\u0E30\u0E1A\u0E1A\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E02\u0E36\u0E49\u0E19 Sheet \u0E41\u0E25\u0E49\u0E27)", confirmLabel: "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", variant: "danger", onConfirm: () => { setConfirmClose(false); closeWin(); }, onClose: () => setConfirmClose(false) }),
@@ -5586,8 +5607,10 @@ function App() {
         screen === "app" && (React.createElement("div", { style: { display: "flex", justifyContent: "center", gap: 6, padding: "8px 10px", background: mode === "sport" ? "#eaf4ff" : "#f3eefc", borderBottom: `1px solid ${C.line}`, position: "sticky", top: 0, zIndex: 40 } },
             React.createElement("span", { style: { fontSize: 12, color: C.muted, alignSelf: "center", fontWeight: 600 } }, "\u0E23\u0E30\u0E1A\u0E1A:"),
             [["academic", "🎓 สีวิชาการ"], ["sport", "🏅 กีฬาสี"]].map(([m, label]) => (React.createElement("button", { key: m, onClick: () => switchMode(m), disabled: mode === m, style: { padding: "6px 16px", borderRadius: 18, border: "none", cursor: mode === m ? "default" : "pointer", fontSize: 13, fontWeight: 800, background: mode === m ? (m === "sport" ? "#2f6fb0" : C.primary) : "#fff", color: mode === m ? "#fff" : C.ink, boxShadow: mode === m ? "0 2px 8px rgba(0,0,0,0.15)" : "inset 0 0 0 1px " + C.line } }, label))))),
-        screen === "landing" && React.createElement(Landing, { onLogin: () => setScreen("login"), announce: db.settings.announce, comps: db.competitions, db: db, setDb: setDb, ui: { notify: toast }, sportDb: landingSport }),
-        screen === "login" && React.createElement(Login, { db: db, onEnter: (a) => { setAuth(a); setScreen("app"); }, onBack: () => setScreen("landing") }),
+        screen === "landing" && React.createElement(Landing, { onLogin: () => setScreen("choose"), announce: db.settings.announce, comps: db.competitions, db: db, setDb: setDb, ui: { notify: toast }, sportDb: landingSport }),
+        screen === "choose" && React.createElement(ChooseActivity, { onPick: (m) => { if (m !== modeRef.current)
+                switchMode(m); setScreen("login"); }, onBack: () => setScreen("landing") }),
+        screen === "login" && React.createElement(Login, { db: db, mode: mode, onEnter: (a) => { setAuth(a); setScreen("app"); }, onBack: () => setScreen("choose") }),
         screen === "app" && (auth === null || auth === void 0 ? void 0 : auth.role) === "admin" && React.createElement(AdminApp, { db: db, setDb: setDb, onExit: exit }),
         screen === "app" && ((auth === null || auth === void 0 ? void 0 : auth.role) === "teacher" || (auth === null || auth === void 0 ? void 0 : auth.role) === "studentcom") && React.createElement(CommitteeApp, { role: auth.role, db: db, setDb: setDb, onExit: exit, meId: auth.id }),
         screen === "app" && (auth === null || auth === void 0 ? void 0 : auth.role) === "student" && React.createElement(StudentApp, { meId: auth.id, db: db, setDb: setDb, onExit: exit })));
