@@ -5854,10 +5854,7 @@ function App() {
         screen === "app" && (React.createElement("div", { style: { display: "flex", justifyContent: "center", gap: 8, padding: "6px 10px", background: mode === "sport" ? "#eaf4ff" : "#f3eefc", borderBottom: `1px solid ${C.line}`, position: "sticky", top: 0, zIndex: 40 } },
             React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: "#fff", background: mode === "sport" ? "#2f6fb0" : C.primary, borderRadius: 20, padding: "3px 16px" } }, mode === "sport" ? "🏅 แข่งขันกีฬา" : "🎓 วิชาการสี"))),
         screen === "landing" && React.createElement(Landing, { onLogin: () => setScreen("choose"), announce: db.settings.announce, comps: db.competitions, db: db, setDb: setDb, ui: { notify: toast }, sportDb: landingSport }),
-        screen === "choose" && React.createElement(ChooseActivity, { onPick: (m) => { if (m !== modeRef.current)
-                switchMode(m);
-            else
-                setModeState(m); setScreen("login"); }, onBack: () => setScreen("landing") }),
+        screen === "choose" && React.createElement(ChooseActivity, { onPick: (m) => { modeRef.current = m; setModeState(m); switchingRef.current = true; loadedRef.current = false; everLoadedRef.current = false; dirtyRef.current = false; justLoaded.current = true; setSync("loading"); clearTimeout(timerRef.current); setTimeout(() => loadData(), 60); setScreen("login"); }, onBack: () => setScreen("landing") }),
         screen === "login" && React.createElement(Login, { db: db, mode: mode, onEnter: (a) => { setAuth(a); setScreen("app"); }, onBack: () => setScreen("choose") }),
         screen === "app" && (auth === null || auth === void 0 ? void 0 : auth.role) === "admin" && React.createElement(AdminApp, { db: db, setDb: setDb, onExit: exit }),
         screen === "app" && ((auth === null || auth === void 0 ? void 0 : auth.role) === "teacher" || (auth === null || auth === void 0 ? void 0 : auth.role) === "studentcom") && React.createElement(CommitteeApp, { role: auth.role, db: db, setDb: setDb, onExit: exit, meId: auth.id }),
