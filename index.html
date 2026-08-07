@@ -96,6 +96,8 @@ function makeTheme(themeColor) {
         gold: "#cf9f52", soft: lighten(themeColor, 0.80),
     };
 }
+// ธีมชมพู (วิชาการ + หน้าเพจ) — primary เป็นชมพูจริง ไม่ผ่าน darken ที่ทำให้ออกม่วง
+const PINK_THEME = { bg: "#fdf5f9", surface: "#ffffff", ink: "#413c54", muted: "#8d879e", line: "#f4e2ec", primary: "#e05a91", primaryDark: "#c43f77", gold: "#cf9f52", soft: "#fce6f0" };
 // module-level; <App/> reassigns these from admin settings on every render
 let C = makeTheme(DEFAULT_HOUSES[0].color);
 let HOUSES = DEFAULT_HOUSES.map((h) => h.color);
@@ -5817,25 +5819,15 @@ function App() {
         }, 4000);
         return () => clearInterval(iv);
     }, []);
-    // ธีมสี: แอดมินใช้สีธีมที่ตั้งไว้ · ครู/กรรมการ/นักเรียน ใช้สีทีมของตัวเอง
+    // ธีมสีแบบตายตัว — วิชาการ = ชมพู · กีฬา = น้ำเงิน · ไม่มีสลับสีตามผู้ใช้/บ้าน · ก่อนล็อกอินใช้ชมพูกลาง
     const teamColors = db.settings.houses && db.settings.houses.length ? db.settings.houses : DEFAULT_HOUSES;
-    let themeColor = db.settings.themeColor || (teamColors[0] && teamColors[0].color) || DEFAULT_HOUSES[0].color;
-    if (auth && (auth.role === "teacher" || auth.role === "studentcom" || auth.role === "student")) {
-        const pool = auth.role === "teacher" ? db.teachers : db.students;
-        const me = pool.find((x) => String(x.id) === String(auth.id));
-        if (me && teamColors[me.house])
-            themeColor = teamColors[me.house].color;
-    }
-    // สลับโหมด: กีฬาสีใช้โทนสีเฉพาะ (ต่างจากวิชาการ) — ตั้งค่าได้ที่ตั้งค่าของระบบกีฬาสี ค่าเริ่มต้นเป็นโทนน้ำเงิน
-    if (mode === "sport")
-        themeColor = (db.settings && db.settings.sportTheme) || "#2f6fb0";
-    // ระหว่างสลับระบบ (db ยังเป็นของระบบเก่า) → ใช้สีเริ่มต้นของโหมดใหม่ทันที กันสีเก่าค้างแวบ
-    if (switchingRef.current)
-        themeColor = mode === "sport" ? "#2f6fb0" : DEFAULT_HOUSES[0].color;
-    // หน้าเพจแรก + หน้าเลือกกิจกรรม → ใช้สีปกติ (default) เสมอ ไม่ผูกกับธีมวิชาการ/กีฬา
+    const BLUE_THEME = makeTheme("#2f6fb0");
     if (screen === "landing" || screen === "choose")
-        themeColor = DEFAULT_HOUSES[0].color;
-    C = makeTheme(themeColor);
+        C = PINK_THEME;
+    else if (mode === "sport")
+        C = BLUE_THEME;
+    else
+        C = PINK_THEME;
     HOUSES = teamColors.map((h) => h.color);
     const exit = () => { localStorage.removeItem("auth"); setAuth(null); setScreen("landing"); if (modeRef.current !== "academic")
         switchMode("academic"); };
