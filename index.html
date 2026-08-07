@@ -498,8 +498,7 @@ function Landing({ onLogin, announce, comps, db, setDb, ui, sportDb }) {
                 React.createElement(Brand, { sub: "\u0E27\u0E34\u0E0A\u0E32\u0E01\u0E32\u0E23\u0E2A\u0E35 + \u0E01\u0E35\u0E2C\u0E32\u0E2A\u0E35" }),
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
                     setDb && React.createElement(PublicSearchRegister, { db: db, setDb: setDb, ui: ui }),
-                    React.createElement("button", { onClick: () => onLogin("academic"), style: { padding: "8px 14px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, background: C.primary, color: "#fff" } }, "\u0E40\u0E02\u0E49\u0E32\u0E2A\u0E39\u0E48\u0E23\u0E30\u0E1A\u0E1A \uD83C\uDF93 \u0E27\u0E34\u0E0A\u0E32\u0E01\u0E32\u0E23\u0E2A\u0E35"),
-                    React.createElement("button", { onClick: () => onLogin("sport"), style: { padding: "8px 14px", borderRadius: 10, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, background: "#2f6fb0", color: "#fff" } }, "\u0E40\u0E02\u0E49\u0E32\u0E2A\u0E39\u0E48\u0E23\u0E30\u0E1A\u0E1A \uD83C\uDFC5 \u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19\u0E01\u0E35\u0E2C\u0E32"),
+                    React.createElement(Btn, { onClick: () => onLogin(), small: true }, "\u0E40\u0E02\u0E49\u0E32\u0E2A\u0E39\u0E48\u0E23\u0E30\u0E1A\u0E1A"),
                     React.createElement("button", { onClick: closeWin, "aria-label": "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", title: "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", style: { fontSize: 18, fontWeight: 700, color: "#c0392b", background: "none", border: `1px solid ${C.line}`, borderRadius: 8, width: 34, height: 34, cursor: "pointer", lineHeight: 1 } }, "\u2715")))),
         React.createElement("main", { style: { maxWidth: 1080, margin: "0 auto", padding: 18, display: "flex", flexDirection: "column", gap: 16 } },
             notices.length > 0 && (React.createElement(Card, { style: { padding: "14px 18px", borderLeft: `5px solid ${C.gold}`, background: "#fffdf5" } },
@@ -5583,9 +5582,10 @@ function App() {
                 loadData(); } }),
         screen === "app" && (React.createElement("div", { style: { display: "flex", justifyContent: "center", gap: 8, padding: "6px 10px", background: mode === "sport" ? "#eaf4ff" : "#f3eefc", borderBottom: `1px solid ${C.line}`, position: "sticky", top: 0, zIndex: 40 } },
             React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: "#fff", background: mode === "sport" ? "#2f6fb0" : C.primary, borderRadius: 20, padding: "3px 16px" } }, mode === "sport" ? "🏅 แข่งขันกีฬา" : "🎓 วิชาการสี"))),
-        screen === "landing" && React.createElement(Landing, { onLogin: (m) => { if (m !== modeRef.current)
-                switchMode(m); setScreen("login"); }, announce: db.settings.announce, comps: db.competitions, db: db, setDb: setDb, ui: { notify: toast }, sportDb: landingSport }),
-        screen === "login" && React.createElement(Login, { db: db, mode: mode, onEnter: (a) => { setAuth(a); setScreen("app"); }, onBack: () => setScreen("landing") }),
+        screen === "landing" && React.createElement(Landing, { onLogin: () => setScreen("choose"), announce: db.settings.announce, comps: db.competitions, db: db, setDb: setDb, ui: { notify: toast }, sportDb: landingSport }),
+        screen === "choose" && React.createElement(ChooseActivity, { onPick: (m) => { if (m !== modeRef.current)
+                switchMode(m); setScreen("login"); }, onBack: () => setScreen("landing") }),
+        screen === "login" && React.createElement(Login, { db: db, mode: mode, onEnter: (a) => { setAuth(a); setScreen("app"); }, onBack: () => setScreen("choose") }),
         screen === "app" && (auth === null || auth === void 0 ? void 0 : auth.role) === "admin" && React.createElement(AdminApp, { db: db, setDb: setDb, onExit: exit }),
         screen === "app" && ((auth === null || auth === void 0 ? void 0 : auth.role) === "teacher" || (auth === null || auth === void 0 ? void 0 : auth.role) === "studentcom") && React.createElement(CommitteeApp, { role: auth.role, db: db, setDb: setDb, onExit: exit, meId: auth.id }),
         screen === "app" && (auth === null || auth === void 0 ? void 0 : auth.role) === "student" && React.createElement(StudentApp, { meId: auth.id, db: db, setDb: setDb, onExit: exit })));
