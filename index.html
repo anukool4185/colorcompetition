@@ -1034,6 +1034,7 @@ function AdminApp({ db, setDb, onExit }) {
 }
 function AdminHome({ db, setDb, ui }) {
     const [confirmReset, setConfirmReset] = useState(false);
+    const [confirmSwap, setConfirmSwap] = useState(false);
     const stats = [
         { label: "นักเรียนในระบบ", value: db.students.length, color: HOUSES[1] },
         { label: "ครู/กรรมการ", value: db.teachers.length, color: HOUSES[2] },
@@ -1058,10 +1059,24 @@ function AdminHome({ db, setDb, ui }) {
                 React.createElement("div", { style: { fontSize: 20, fontWeight: 800, color: C.primary } }, v),
                 React.createElement("div", { style: { fontSize: 11, color: C.muted } }, k)))))),
         React.createElement(BackupCard, { db: db, setDb: setDb, ui: ui }),
+        React.createElement(Card, { style: { padding: 16, border: `1px solid #d8c7ee` } },
+            React.createElement("div", { style: { fontWeight: 700, color: "#6b4fa0", marginBottom: 6 } }, "\uD83D\uDD01 \u0E2A\u0E25\u0E31\u0E1A\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 2 \u0E23\u0E30\u0E1A\u0E1A (\u0E27\u0E34\u0E0A\u0E32\u0E01\u0E32\u0E23 \u2194 \u0E01\u0E35\u0E2C\u0E32)"),
+            React.createElement("p", { style: { fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 10, lineHeight: 1.6 } },
+                "\u0E43\u0E0A\u0E49\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E01\u0E23\u0E13\u0E35 \"\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2A\u0E25\u0E31\u0E1A\u0E1D\u0E31\u0E48\u0E07\" (\u0E40\u0E02\u0E49\u0E32\u0E27\u0E34\u0E0A\u0E32\u0E01\u0E32\u0E23\u0E40\u0E08\u0E2D\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E01\u0E35\u0E2C\u0E32 \u0E41\u0E25\u0E30\u0E01\u0E25\u0E31\u0E1A\u0E01\u0E31\u0E19) \u2014 \u0E01\u0E14\u0E41\u0E25\u0E49\u0E27\u0E08\u0E30\u0E2A\u0E25\u0E31\u0E1A\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E31\u0E49\u0E07 2 \u0E23\u0E30\u0E1A\u0E1A\u0E43\u0E2B\u0E49\u0E01\u0E25\u0E31\u0E1A\u0E16\u0E39\u0E01\u0E1D\u0E31\u0E48\u0E07 \u00B7 ",
+                React.createElement("b", { style: { color: "#b3453f" } }, "\u0E01\u0E14\u0E04\u0E23\u0E31\u0E49\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27\u0E1E\u0E2D"),
+                " (\u0E01\u0E14\u0E0B\u0E49\u0E33\u0E08\u0E30\u0E2A\u0E25\u0E31\u0E1A\u0E01\u0E25\u0E31\u0E1A) \u00B7 \u0E1B\u0E34\u0E14\u0E41\u0E17\u0E47\u0E1A\u0E2D\u0E37\u0E48\u0E19\u0E01\u0E48\u0E2D\u0E19\u0E01\u0E14"),
+            React.createElement(Btn, { variant: "danger", small: true, onClick: () => setConfirmSwap(true) }, "\u0E2A\u0E25\u0E31\u0E1A\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 2 \u0E23\u0E30\u0E1A\u0E1A")),
         React.createElement(Card, { style: { padding: 16, border: `1px solid #eccdcd` } },
             React.createElement("div", { style: { fontWeight: 700, color: "#b3453f", marginBottom: 6 } }, "\u0E25\u0E49\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E31\u0E49\u0E07\u0E23\u0E30\u0E1A\u0E1A (\u0E40\u0E23\u0E34\u0E48\u0E21\u0E43\u0E2B\u0E21\u0E48)"),
             React.createElement("p", { style: { fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 10, lineHeight: 1.6 } }, "\u0E25\u0E1A\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19/\u0E04\u0E23\u0E39 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07 \u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23 \u0E41\u0E25\u0E30\u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 (\u0E04\u0E07\u0E44\u0E27\u0E49\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E2A\u0E35\u0E17\u0E35\u0E21/\u0E1B\u0E23\u0E30\u0E0A\u0E32\u0E2A\u0E31\u0E21\u0E1E\u0E31\u0E19\u0E18\u0E4C) \u0E43\u0E0A\u0E49\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E2D\u0E22\u0E32\u0E01\u0E40\u0E23\u0E34\u0E48\u0E21\u0E15\u0E49\u0E19\u0E43\u0E2B\u0E21\u0E48\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14"),
             React.createElement(Btn, { variant: "danger", small: true, onClick: () => setConfirmReset(true) }, "\u0E25\u0E49\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14")),
+        confirmSwap && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E2A\u0E25\u0E31\u0E1A\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 2 \u0E23\u0E30\u0E1A\u0E1A", message: "\u0E08\u0E30\u0E2A\u0E25\u0E31\u0E1A\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14\u0E23\u0E30\u0E2B\u0E27\u0E48\u0E32\u0E07 \u0E27\u0E34\u0E0A\u0E32\u0E01\u0E32\u0E23\u0E2A\u0E35 \u2194 \u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19\u0E01\u0E35\u0E2C\u0E32 (\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E1C\u0E31\u0E07/\u0E1C\u0E25/\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19 \u0E2F\u0E25\u0E2F) \u2014 \u0E43\u0E0A\u0E49\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E15\u0E2D\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2A\u0E25\u0E31\u0E1A\u0E1D\u0E31\u0E48\u0E07 \u00B7 \u0E2B\u0E25\u0E31\u0E07\u0E01\u0E14\u0E43\u0E2B\u0E49\u0E23\u0E35\u0E40\u0E1F\u0E23\u0E0A\u0E2B\u0E19\u0E49\u0E32\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07 \u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E21\u0E48?", onConfirm: () => { setConfirmSwap(false); ui.runAsync("กำลังสลับข้อมูล 2 ระบบ...", async () => { try {
+                await window.__swapSystems();
+                ui.notify("สลับข้อมูลแล้ว — กำลังโหลดใหม่ ถ้าไม่อัปเดตให้รีเฟรชหน้า");
+            }
+            catch (e) {
+                ui.notify("สลับไม่สำเร็จ: " + (e && e.message ? e.message : "ลองใหม่"));
+            } }); }, onClose: () => setConfirmSwap(false) }),
         confirmReset && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E25\u0E49\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E31\u0E49\u0E07\u0E23\u0E30\u0E1A\u0E1A", message: "\u0E08\u0E30\u0E25\u0E1A\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 (\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 \u0E04\u0E23\u0E39 \u0E1A\u0E31\u0E0D\u0E0A\u0E35 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07 \u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23) \u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E01\u0E32\u0E23\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E2A\u0E35\u0E17\u0E35\u0E21/\u0E1B\u0E23\u0E30\u0E0A\u0E32\u0E2A\u0E31\u0E21\u0E1E\u0E31\u0E19\u0E18\u0E4C \u2014 \u0E22\u0E49\u0E2D\u0E19\u0E01\u0E25\u0E31\u0E1A\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 \u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E21\u0E48?", onConfirm: () => ui.run("กำลังล้างข้อมูล...", () => { setDb((p) => ({ students: [], teachers: [], assistants: [], competitions: [], orgTeacher: [], orgStudent: [], dutyList: [], orgRequests: [], archived: [], trash: [], finance: [], settings: p.settings })); setConfirmReset(false); ui.notify("ล้างข้อมูลแล้ว"); }), onClose: () => setConfirmReset(false) })));
 }
 function BackupCard({ db, setDb, ui }) {
@@ -5713,6 +5728,37 @@ function App() {
     };
     window.__otherModeName = () => modeRef.current === "sport" ? "สีวิชาการ" : "กีฬาสี";
     window.__thisModeName = () => modeRef.current === "sport" ? "กีฬาสี" : "สีวิชาการ";
+    // สลับข้อมูล 2 ระบบ (แก้กรณีข้อมูลสลับฝั่ง) — อ่านทั้ง 2 ชีทแล้วเขียนไขว้กัน
+    window.__swapSystems = async () => {
+        if (!API_URL)
+            throw new Error("ไม่มี API");
+        everLoadedRef.current = false;
+        dirtyRef.current = false; // กันบันทึกทับระหว่างสลับ
+        const getSheet = async (qs) => { const r = await fetch(API_URL + qs); const t = await r.text(); let j; try {
+            j = JSON.parse(t);
+        }
+        catch (e) {
+            throw new Error("อ่านข้อมูลไม่สำเร็จ");
+        } if (!j.ok)
+            throw new Error(j.error || "อ่านข้อมูลไม่สำเร็จ"); return j.data ? JSON.parse(j.data) : {}; };
+        const acad = await getSheet("");
+        const sport = await getSheet("?sheet=sport");
+        const post = async (sheet, data) => { const r = await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "data", sheet, data: data || {} }) }); const t = await r.text(); let j; try {
+            j = JSON.parse(t);
+        }
+        catch (e) {
+            throw new Error("บันทึกไม่สำเร็จ");
+        } if (!j.ok)
+            throw new Error(j.error || "บันทึกไม่สำเร็จ"); };
+        await post("academic", sport); // ข้อมูลที่อยู่ในชีทกีฬา → ย้ายไปชีทวิชาการ
+        await post("sport", acad); // ข้อมูลที่อยู่ในชีทวิชาการ → ย้ายไปชีทกีฬา
+        loadedRef.current = false;
+        everLoadedRef.current = false;
+        justLoaded.current = true;
+        switchingRef.current = true;
+        setSync("loading");
+        setTimeout(() => loadData(), 300); // โหลดข้อมูลของโหมดปัจจุบันใหม่ (ที่ถูกต้องแล้ว)
+    };
     // โหลดข้อมูลจาก Google Sheet ตอนเปิดหน้า — ต้องสำเร็จก่อนถึงจะอนุญาตให้ออโต้เซฟ
     const loadData = () => {
         if (!API_URL)
