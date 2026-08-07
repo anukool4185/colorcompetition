@@ -5752,12 +5752,14 @@ function App() {
             throw new Error(j.error || "บันทึกไม่สำเร็จ"); };
         await post("academic", sport); // ข้อมูลที่อยู่ในชีทกีฬา → ย้ายไปชีทวิชาการ
         await post("sport", acad); // ข้อมูลที่อยู่ในชีทวิชาการ → ย้ายไปชีทกีฬา
-        loadedRef.current = false;
-        everLoadedRef.current = false;
-        justLoaded.current = true;
-        switchingRef.current = true;
-        setSync("loading");
-        setTimeout(() => loadData(), 300); // โหลดข้อมูลของโหมดปัจจุบันใหม่ (ที่ถูกต้องแล้ว)
+        // รีโหลดทั้งหน้าเพื่อโหลดข้อมูลใหม่ที่ถูกต้อง (ชัวร์กว่าโหลดเฉพาะส่วน)
+        setTimeout(() => { try {
+            window.location.reload();
+        }
+        catch (e) {
+            loadedRef.current = false;
+            loadData();
+        } }, 600);
     };
     // โหลดข้อมูลจาก Google Sheet ตอนเปิดหน้า — ต้องสำเร็จก่อนถึงจะอนุญาตให้ออโต้เซฟ
     const loadData = () => {
