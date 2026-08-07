@@ -96,8 +96,10 @@ function makeTheme(themeColor) {
         gold: "#cf9f52", soft: lighten(themeColor, 0.80),
     };
 }
-// ธีมชมพู (วิชาการ + หน้าเพจ) — primary เป็นชมพูจริง ไม่ผ่าน darken ที่ทำให้ออกม่วง
+// ธีมชมพู (หน้าเพจ/หน้าเลือกกิจกรรม — สีกลางก่อนล็อกอิน)
 const PINK_THEME = { bg: "#fdf5f9", surface: "#ffffff", ink: "#413c54", muted: "#8d879e", line: "#f4e2ec", primary: "#e05a91", primaryDark: "#c43f77", gold: "#cf9f52", soft: "#fce6f0" };
+// ธีมฟ้า (วิชาการสี) — ฟ้าสด คนละเฉดกับกีฬา (น้ำเงินเข้ม)
+const ACAD_THEME = { bg: "#f1fafe", surface: "#ffffff", ink: "#33414f", muted: "#7f8b97", line: "#d8edf7", primary: "#1f9fd6", primaryDark: "#1877a8", gold: "#cf9f52", soft: "#e2f3fb" };
 // module-level; <App/> reassigns these from admin settings on every render
 let C = makeTheme(DEFAULT_HOUSES[0].color);
 let HOUSES = DEFAULT_HOUSES.map((h) => h.color);
@@ -528,7 +530,7 @@ function Landing({ onLogin, announce, comps, db, setDb, ui, sportDb }) {
 }
 function ChooseActivity({ onPick, onBack }) {
     const cards = [
-        { key: "academic", label: "วิชาการสี", icon: "🎓", color: C.primary, desc: "การแข่งขันด้านวิชาการ" },
+        { key: "academic", label: "วิชาการสี", icon: "🎓", color: "#1f9fd6", desc: "การแข่งขันด้านวิชาการ" },
         { key: "sport", label: "แข่งขันกีฬา", icon: "🏅", color: "#2f6fb0", desc: "การแข่งขันกีฬาสี" },
     ];
     return (React.createElement("div", { style: { minHeight: "100vh", background: C.bg, display: "flex", flexDirection: "column" } },
@@ -3906,14 +3908,13 @@ function ThemeCard({ db, setDb, ui }) {
     ];
     return (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14, maxWidth: 520 } },
         React.createElement(Card, { style: { padding: 16 } },
-            React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 4 } }, "\u0E2A\u0E35\u0E18\u0E35\u0E21\u0E02\u0E2D\u0E07\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A"),
-            React.createElement("p", { style: { fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 14 } }, "\u0E2A\u0E35\u0E2B\u0E25\u0E31\u0E01\u0E17\u0E35\u0E48\u0E43\u0E0A\u0E49\u0E41\u0E15\u0E48\u0E07\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A\u0E17\u0E31\u0E49\u0E07\u0E23\u0E30\u0E1A\u0E1A \u00B7 \u0E41\u0E22\u0E01\u0E08\u0E32\u0E01\u0E2A\u0E35\u0E17\u0E35\u0E21\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19 \u00B7 \u0E41\u0E01\u0E49\u0E41\u0E25\u0E49\u0E27\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E17\u0E31\u0E19\u0E17\u0E35"),
-            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12 } },
-                React.createElement("input", { type: "color", value: db.settings.themeColor || (houses[0] && houses[0].color) || "#eaa0ad", onChange: (e) => setDb((p) => ({ ...p, settings: { ...p.settings, themeColor: e.target.value } })), style: { width: 52, height: 44, border: `1px solid ${C.line}`, borderRadius: 10, background: "none", cursor: "pointer", padding: 2 } }),
-                React.createElement("div", { style: { flex: 1 } },
-                    React.createElement("div", { style: { fontSize: 13.5, color: C.ink, fontWeight: 600 } }, "\u0E2A\u0E35\u0E18\u0E35\u0E21\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19"),
-                    React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2A\u0E35\u0E17\u0E35\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E43\u0E2B\u0E49\u0E40\u0E1B\u0E47\u0E19\u0E42\u0E17\u0E19\u0E2B\u0E25\u0E31\u0E01\u0E02\u0E2D\u0E07\u0E40\u0E27\u0E47\u0E1A")),
-                React.createElement("button", { onClick: () => setDb((p) => ({ ...p, settings: { ...p.settings, themeColor: (p.settings.houses[0] && p.settings.houses[0].color) || "#eaa0ad" } })), style: { border: `1px solid ${C.line}`, background: C.surface, color: C.muted, borderRadius: 10, padding: "8px 12px", fontSize: 12.5, cursor: "pointer", whiteSpace: "nowrap" } }, "\u0E43\u0E0A\u0E49\u0E2A\u0E35\u0E17\u0E35\u0E21\u0E17\u0E35\u0E48 1"))),
+            React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 4 } }, "\u0E2A\u0E35\u0E18\u0E35\u0E21\u0E02\u0E2D\u0E07\u0E23\u0E30\u0E1A\u0E1A"),
+            React.createElement("p", { style: { fontSize: 12.5, color: C.muted, margin: 0 } },
+                "\u0E2A\u0E35\u0E16\u0E39\u0E01\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E15\u0E32\u0E21\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34 \u2014 ",
+                React.createElement("b", { style: { color: "#1f9fd6" } }, "\u0E27\u0E34\u0E0A\u0E32\u0E01\u0E32\u0E23\u0E2A\u0E35 = \u0E1F\u0E49\u0E32"),
+                " \u00B7 ",
+                React.createElement("b", { style: { color: "#2f6fb0" } }, "\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19\u0E01\u0E35\u0E2C\u0E32 = \u0E19\u0E49\u0E33\u0E40\u0E07\u0E34\u0E19"),
+                " (\u0E1B\u0E23\u0E31\u0E1A\u0E40\u0E2D\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E43\u0E2B\u0E49\u0E41\u0E22\u0E01\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E0A\u0E31\u0E14\u0E40\u0E08\u0E19)")),
         React.createElement(Card, { style: { padding: 16 } },
             React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 4 } }, "\u0E2A\u0E35\u0E17\u0E35\u0E21\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19 (\u0E2A\u0E35\u0E2B\u0E25\u0E31\u0E01)"),
             React.createElement("p", { style: { fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 14 } }, "\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E44\u0E14\u0E49\u0E2B\u0E25\u0E32\u0E22\u0E2A\u0E35\u0E15\u0E32\u0E21\u0E08\u0E33\u0E19\u0E27\u0E19\u0E17\u0E35\u0E21 \u00B7 \u0E43\u0E0A\u0E49\u0E01\u0E31\u0E1A\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 \u0E04\u0E23\u0E39 \u0E41\u0E25\u0E30\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23 (\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E43\u0E2B\u0E49\u0E41\u0E15\u0E48\u0E25\u0E30\u0E04\u0E19\u0E44\u0E14\u0E49) \u00B7 \u0E44\u0E21\u0E48\u0E01\u0E23\u0E30\u0E17\u0E1A\u0E2A\u0E35\u0E18\u0E35\u0E21"),
@@ -5827,7 +5828,7 @@ function App() {
     else if (mode === "sport")
         C = BLUE_THEME;
     else
-        C = PINK_THEME;
+        C = ACAD_THEME;
     HOUSES = teamColors.map((h) => h.color);
     const exit = () => { localStorage.removeItem("auth"); setAuth(null); setScreen("landing"); if (modeRef.current !== "academic")
         switchMode("academic"); };
