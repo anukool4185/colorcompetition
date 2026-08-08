@@ -804,6 +804,7 @@ function nextGrade(g) {
 }
 function FinanceManager({ db, setDb, ui, viewer }) {
     const acc = financeAccess(db, viewer.id, viewer.role);
+    const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff" };
     const canRecordAny = acc.full || acc.depts.size > 0;
     const allowedComps = db.competitions.filter((c) => acc.full || acc.depts.has(String(c.id)));
     const compName = (id) => { const c = db.competitions.find((x) => String(x.id) === String(id)); return c ? c.name : "ทั่วไป/ไม่ระบุฝ่าย"; };
@@ -2614,6 +2615,7 @@ function OrgViewManager({ db, setDb, ui, editable, committee, orgComp }) {
     const pool = view === "teacher" ? db.teachers : db.students;
     const pickPool = view === "teacher" ? db.teachers.filter((t) => t.user) : db.students.filter((s) => s.committee);
     const relIds = compObj ? compOrgNodeIds(db, compObj, which) : null;
+    const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff" };
     const nodes = (db[which] || []).filter((n) => (n.cat || "comp") === effCat && (!compObj || (relIds && relIds.has(String(n.id)))));
     const setPerson = (nodeId, personId) => ui.run("กำลังลงชื่อ...", () => { const apply = (p) => ({ ...p, [which]: p[which].map((n) => n.id === nodeId ? { ...n, personId } : n) }); if (window.__commitRemote)
         window.__commitRemote(apply);
