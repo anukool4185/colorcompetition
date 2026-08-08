@@ -1024,13 +1024,14 @@ function AdminApp({ db, setDb, onExit }) {
     const [jumpComp, setJumpComp] = useState(null);
     const ui = useUI();
     const adminPending = (db.orgRequests || []).filter((r) => r.status === "pending").length;
-    const orgChildren = [{ key: "org:all", label: "ผังรวมทั้งหมด" }, { header: true, label: "รายการแข่งขัน" }, ...db.competitions.filter((c) => c.kind === "แข่งขัน").map((c) => ({ key: "org:" + c.id, label: c.name })), { header: true, label: "รายการกิจกรรม" }, ...db.competitions.filter((c) => c.kind === "กิจกรรม").map((c) => ({ key: "org:" + c.id, label: c.name }))];
+    const orgDefault = db.competitions[0] ? "org:" + db.competitions[0].id : "org:all";
+    const orgChildren = [{ header: true, label: "รายการแข่งขัน" }, ...db.competitions.filter((c) => c.kind === "แข่งขัน").map((c) => ({ key: "org:" + c.id, label: c.name })), { header: true, label: "รายการกิจกรรม" }, ...db.competitions.filter((c) => c.kind === "กิจกรรม").map((c) => ({ key: "org:" + c.id, label: c.name }))];
     const nav = [
         { key: "home", label: "ภาพรวม", icon: "▦" },
         { key: "noti", label: adminPending ? `แจ้งเตือน (${adminPending})` : "แจ้งเตือน", icon: "🔔" },
         { key: "people", label: "บุคลากร", icon: "👥" },
         { key: "duties", label: "หน้าที่ กิจกรรมแข่งขัน", icon: "🧩" },
-        { key: "org", label: "ผังองค์กร", icon: "🗂", defaultKey: "org:all", children: orgChildren },
+        { key: "org", label: "ผังองค์กร", icon: "🗂", defaultKey: orgDefault, children: orgChildren },
         { key: "comp", label: "การแข่งขัน", icon: "🏆" },
         { key: "results", label: "จัดการผลการแข่งขัน", icon: "🏅" },
         { key: "promote", label: "เลื่อนชั้น", icon: "⬆" },
@@ -2613,7 +2614,7 @@ function OrgViewManager({ db, setDb, ui, editable, committee, orgComp }) {
     const pool = view === "teacher" ? db.teachers : db.students;
     const pickPool = view === "teacher" ? db.teachers.filter((t) => t.user) : db.students.filter((s) => s.committee);
     const relIds = compObj ? compOrgNodeIds(db, compObj, which) : null;
-    const nodes = db[which].filter((n) => (n.cat || "comp") === effCat && (!compObj || relIds.has(String(n.id))));
+    const nodes = (db[which] || []).filter((n) => (n.cat || "comp") === effCat && (!compObj || (relIds && relIds.has(String(n.id)))));
     const setPerson = (nodeId, personId) => ui.run("กำลังลงชื่อ...", () => { const apply = (p) => ({ ...p, [which]: p[which].map((n) => n.id === nodeId ? { ...n, personId } : n) }); if (window.__commitRemote)
         window.__commitRemote(apply);
     else
@@ -4192,12 +4193,13 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
     const myNodeIds = db[which].filter((n) => String(n.personId) === String(meId)).map((n) => n.id);
     const managesComp = (c) => db[which].filter((n) => String(n.compId) === String(c.id)).some((n) => orgPathIds(db[which], n.id).some((id) => myNodeIds.includes(id)));
     const myCompIds = db.competitions.filter(managesComp).map((c) => c.id);
-    const orgChildren = [{ key: "org:all", label: "ผังรวมทั้งหมด" }, { header: true, label: "รายการแข่งขัน" }, ...db.competitions.filter((c) => c.kind === "แข่งขัน").map((c) => ({ key: "org:" + c.id, label: c.name })), { header: true, label: "รายการกิจกรรม" }, ...db.competitions.filter((c) => c.kind === "กิจกรรม").map((c) => ({ key: "org:" + c.id, label: c.name }))];
+    const orgDefault = db.competitions[0] ? "org:" + db.competitions[0].id : "org:all";
+    const orgChildren = [{ header: true, label: "รายการแข่งขัน" }, ...db.competitions.filter((c) => c.kind === "แข่งขัน").map((c) => ({ key: "org:" + c.id, label: c.name })), { header: true, label: "รายการกิจกรรม" }, ...db.competitions.filter((c) => c.kind === "กิจกรรม").map((c) => ({ key: "org:" + c.id, label: c.name }))];
     const nav = [
         { key: "noti", label: pendingCount ? `แจ้งเตือน (${pendingCount})` : "แจ้งเตือน", icon: "🔔" },
         { key: "me", label: "ข้อมูลฉัน", icon: "🪪" },
         ...(role === "studentcom" ? [{ key: "students", label: "ข้อมูลนักเรียน", icon: "📋" }] : []),
-        { key: "org", label: "ผังองค์กร", icon: "🗂", defaultKey: "org:all", children: orgChildren },
+        { key: "org", label: "ผังองค์กร", icon: "🗂", defaultKey: orgDefault, children: orgChildren },
         { key: "select", label: "คัดเลือก", icon: "✅" },
         { key: "schedule", label: "ตารางแข่ง", icon: "📅" },
         { key: "items", label: "รายการแข่งขัน", icon: "🏆" },
@@ -5567,8 +5569,19 @@ function toast(msg) {
    ROOT
    ============================================================ */
 function App() {
-    const [screen, setScreen] = useState("landing"); // เปิด/รีเฟรชหน้า → เริ่มที่หน้าแรกเสมอ (เลือกกิจกรรม + ล็อกอินใหม่ทุกครั้ง เพื่อกันเข้าผิดกิจกรรม)
-    const [auth, setAuth] = useState(null);
+    const [screen, setScreen] = useState(() => { try {
+        return localStorage.getItem("auth") ? "app" : "landing";
+    }
+    catch (e) {
+        return "landing";
+    } }); // รีเฟรช: ถ้าล็อกอินอยู่ → กลับหน้าเดิม
+    const [auth, setAuth] = useState(() => { try {
+        const s = localStorage.getItem("auth");
+        return s ? JSON.parse(s) : null;
+    }
+    catch (e) {
+        return null;
+    } });
     const [db, setDb] = useState(seed);
     const [sync, setSync] = useState(API_URL ? "loading" : "local");
     const [lastSaved, setLastSaved] = useState(null);
@@ -5583,7 +5596,14 @@ function App() {
     const dirtyRef = useRef(false); // มีการแก้ไขที่ยังไม่ถูกบันทึกหรือไม่
     const lastSaveAt = useRef(0); // เวลาเริ่มบันทึกล่าสุด — ใช้ทิ้งผล auto-refresh ที่ค้างท่อ (กันข้อมูลเก่าทับของที่เพิ่งเซฟ)
     const switchingRef = useRef(false); // กำลังสลับระบบ — ใช้ให้ธีมแสดงสีของโหมดใหม่ทันที (ไม่รอ db โหลด)
-    const [mode, setModeState] = useState("academic"); // academic = สีวิชาการ (APP_DATA) · sport = กีฬาสี (SPORT_DATA) — เริ่มที่วิชาการเสมอ (หน้าแรกใช้ APP_DATA) · เลือกกิจกรรมจะตั้งค่าให้
+    const [mode, setModeState] = useState(() => { try {
+        if (!localStorage.getItem("auth"))
+            return "academic";
+        return localStorage.getItem("actmode") === "sport" ? "sport" : "academic";
+    }
+    catch (e) {
+        return "academic";
+    } }); // จำกิจกรรมตอนรีเฟรช (เฉพาะตอนล็อกอินอยู่) · หน้าแรกใช้ academic เสมอ
     const modeRef = useRef("academic");
     modeRef.current = mode;
     const sheetQS = () => modeRef.current === "sport" ? "?sheet=sport" : "";
