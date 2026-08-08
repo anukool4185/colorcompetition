@@ -2592,9 +2592,13 @@ function CombinedOrg({ db, cat, ui, comp }) {
 }
 // node id ของผังที่เกี่ยวกับรายการ comp (กรรมการที่รายการระบุ + สายหัวหน้าขึ้นไป) — ใช้กรองผังเฉพาะรายการ
 function compOrgNodeIds(db, comp, which) {
-    const key = which === "orgTeacher" ? "judgeTeachers" : "judgeStudents";
     const set = new Set();
-    ((comp && comp[key]) || []).forEach((nid) => { orgPathIds(db[which] || [], nid).forEach((id) => set.add(String(id))); });
+    if (!comp)
+        return set;
+    const arr = db[which] || [];
+    arr.filter((n) => String(n.compId) === String(comp.id)).forEach((n) => { orgPathIds(arr, n.id).forEach((id) => set.add(String(id))); });
+    const key = which === "orgTeacher" ? "judgeTeachers" : "judgeStudents";
+    (comp[key] || []).forEach((nid) => { orgPathIds(arr, nid).forEach((id) => set.add(String(id))); });
     return set;
 }
 function OrgViewManager({ db, setDb, ui, editable, committee, orgComp }) {
@@ -2659,7 +2663,29 @@ function OrgViewManager({ db, setDb, ui, editable, committee, orgComp }) {
         window.__commitRemote(apply);
     else
         setDb(apply); ui.notify("ส่งคำร้องแล้ว — เชิญผู้มาแทน + แจ้งหัวหน้าตามสาย"); }); setWdPick(null); };
-    const treeMode = editable ? "names" : (canSelf ? "selfsignup" : "view");
+    // ── สร้าง/แก้โครงสร้างผังในเมนูย่อยรายการ (ผูก compId อัตโนมัติ) — แอดมิน + กรรมการ ──
+    const canBuild = compObj && (editable || !!committee);
+    const [buildMode, setBuildMode] = useState(false);
+    const [structForm, setStructForm] = useState(null);
+    const [structConfirm, setStructConfirm] = useState(null);
+    const [structMove, setStructMove] = useState(null);
+    const saveOrg = () => setTimeout(() => window.__forceSave && window.__forceSave(), 500);
+    const descIds = (arr, id) => { const set = new Set([id]); let ch = true; while (ch) {
+        ch = false;
+        arr.forEach((n) => { if (n.parent && set.has(n.parent) && !set.has(n.id)) {
+            set.add(n.id);
+            ch = true;
+        } });
+    } return set; };
+    const stAdd = ({ title }, parent) => ui.run("กำลังเพิ่มตำแหน่ง...", () => { const node = { id: "n" + Date.now() + Math.random().toString(36).slice(2, 5), personId: "", title, compId: pickComp, cat: effCat, parent: parent || null }; setDb((p) => { const ot = [...p.orgTeacher, node]; return { ...p, orgTeacher: ot, orgStudent: syncStudentToTeacher(ot, p.orgStudent) }; }); setStructForm(null); saveOrg(); });
+    const stEdit = (nodeId, { title }) => ui.run("กำลังบันทึก...", () => { setDb((p) => { const ot = p.orgTeacher.map((n) => n.id === nodeId ? { ...n, title, compId: pickComp } : n); return { ...p, orgTeacher: ot, orgStudent: syncStudentToTeacher(ot, p.orgStudent) }; }); setStructForm(null); saveOrg(); });
+    const stDel = (node) => ui.run("กำลังลบตำแหน่ง...", () => { const all = db.orgTeacher; const toDel = descIds(all, node.id); const remT = all.filter((n) => toDel.has(n.id)); const remS = db.orgStudent.filter((n) => toDel.has(n.id)); setDb((p) => { const ot = p.orgTeacher.filter((n) => !toDel.has(n.id)); return { ...p, orgTeacher: ot, orgStudent: syncStudentToTeacher(ot, p.orgStudent), trash: [makeTrash("orgNodes", `ผังครู: ${node.title} (${remT.length})`, remT, { which: "orgTeacher" }), makeTrash("orgNodes", `ผังนักเรียน: ${node.title} (${remS.length})`, remS, { which: "orgStudent" }), ...(p.trash || [])] }; }); setStructConfirm(null); saveOrg(); });
+    const stMoveNode = (nodeId, val) => ui.run("กำลังย้ายตำแหน่ง...", () => { const parent = (!val || val === "__root") ? null : val; setDb((p) => { const ot = p.orgTeacher.map((n) => n.id === nodeId ? { ...n, parent } : n); return { ...p, orgTeacher: ot, orgStudent: syncStudentToTeacher(ot, p.orgStudent) }; }); setStructMove(null); saveOrg(); });
+    const stReorder = (node, dir) => ui.run("กำลังจัดลำดับ...", () => { const reArr = (arr) => { const sibs = arr.filter((n) => (n.parent || null) === (node.parent || null) && (n.cat || "comp") === (node.cat || "comp")); const pos = sibs.findIndex((n) => n.id === node.id); const tgt = sibs[pos + dir]; if (!tgt)
+        return arr; const i = arr.findIndex((n) => n.id === node.id), j = arr.findIndex((n) => n.id === tgt.id); if (i < 0 || j < 0)
+        return arr; const c = [...arr]; [c[i], c[j]] = [c[j], c[i]]; return c; }; setDb((p) => { const ot = reArr(p.orgTeacher); return { ...p, orgTeacher: ot, orgStudent: syncStudentToTeacher(ot, p.orgStudent) }; }); saveOrg(); });
+    const stInsertParent = (node, { title }) => ui.run("กำลังแทรกหัวหน้า...", () => { const npId = "n" + Date.now() + Math.random().toString(36).slice(2, 5); const np = { id: npId, personId: "", title, compId: pickComp, cat: node.cat || effCat, parent: node.parent || null }; setDb((p) => { const ot = [...p.orgTeacher.map((n) => n.id === node.id ? { ...n, parent: npId } : n), np]; return { ...p, orgTeacher: ot, orgStudent: syncStudentToTeacher(ot, p.orgStudent) }; }); setStructForm(null); saveOrg(); });
+    const treeMode = buildMode ? "structure" : (editable ? "names" : (canSelf ? "selfsignup" : "view"));
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23", sub: editable ? "เลือกรายการเพื่อดูผังเฉพาะรายการนั้น · หรือดูผังรวมทั้งหมด" : (committee ? "ช่องที่มีชื่อแล้ว = อ่านอย่างเดียว · ช่องว่างฝั่งคุณ = กดลงชื่อฉันได้" : "ดูอย่างเดียว") }),
         React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" } },
@@ -2677,6 +2703,13 @@ function OrgViewManager({ db, setDb, ui, editable, committee, orgComp }) {
         view === "combined" && React.createElement(Card, { style: { padding: 16 } },
             React.createElement(CombinedOrg, { db: db, cat: effCat, ui: ui, comp: compObj })),
         view !== "combined" && (React.createElement(Card, { style: { padding: 16, overflowX: "auto" } },
+            canBuild && (React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center", background: buildMode ? "#fff6e9" : "#f3f7ff", padding: "8px 10px", borderRadius: 10 } },
+                React.createElement(Btn, { small: true, variant: buildMode ? "soft" : "ghost", onClick: () => setBuildMode((b) => !b) }, buildMode ? "✍️ กลับไปลงชื่อ" : "🔧 จัดโครงสร้าง (เพิ่ม/แก้ตำแหน่ง)"),
+                buildMode && React.createElement(Btn, { small: true, onClick: () => setStructForm({ parent: null }) }, "+ \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E2A\u0E39\u0E07\u0E2A\u0E38\u0E14"),
+                buildMode && React.createElement("span", { style: { fontSize: 12, color: C.muted } },
+                    "\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E17\u0E35\u0E48\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E08\u0E30\u0E1C\u0E39\u0E01\u0E01\u0E31\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \"",
+                    compObj.name,
+                    "\" \u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34"))),
             React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 6, flexWrap: "wrap", alignItems: "center" } },
                 React.createElement(Btn, { small: true, variant: horiz ? "soft" : "ghost", onClick: () => setHoriz((h) => !h) }, horiz ? "↕ แนวตั้ง" : "↔ แนวนอน"),
                 React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E23\u0E30\u0E22\u0E30\u0E2B\u0E48\u0E32\u0E07:"),
@@ -2701,8 +2734,24 @@ function OrgViewManager({ db, setDb, ui, editable, committee, orgComp }) {
                     compObj ? compObj.name : (effCat === "comp" ? "รายการแข่งขัน" : "รายการกิจกรรม"),
                     " \u00B7 ",
                     view === "teacher" ? "ครู" : "นักเรียน",
-                    canSelf ? " · ลงชื่อฉันในช่องว่างได้" : ""),
-                React.createElement(OrgTree, { nodes: nodes, pool: pool, accent: view === "teacher" ? C.primary : C.gold, mode: treeMode, comps: db.competitions, horiz: horiz, spacing: spacing, meId: committee ? committee.meId : undefined, pendingIds: (db.orgRequests || []).filter((r) => r.side === which && r.status === "pending").map((r) => r.nodeId), onAssign: (node) => setAssign(node), onClearName: clearName, onSelfAssign: selfAssign })))),
+                    buildMode ? " · โหมดจัดโครงสร้าง" : (canSelf ? " · ลงชื่อฉันในช่องว่างได้" : "")),
+                buildMode && nodes.length === 0 && React.createElement(Empty, { text: `ยังไม่มีตำแหน่งในรายการนี้ — กด "+ เพิ่มหัวหน้าสูงสุด" เพื่อเริ่มสร้างผัง` }),
+                React.createElement(OrgTree, { nodes: nodes, pool: pool, accent: view === "teacher" ? C.primary : C.gold, mode: treeMode, comps: db.competitions, horiz: horiz, spacing: spacing, meId: committee ? committee.meId : undefined, pendingIds: (db.orgRequests || []).filter((r) => r.side === which && r.status === "pending").map((r) => r.nodeId), onAssign: (node) => setAssign(node), onClearName: clearName, onSelfAssign: selfAssign, onAddChild: (node) => setStructForm({ parent: node.id }), onEditTitle: (node) => setStructForm({ node }), onDelete: (node) => setStructConfirm(node), onMove: (node) => setStructMove(node), onReorder: stReorder, onInsertParent: (node) => setStructForm({ insertAbove: node }) })))),
+        structForm && React.createElement(NodeForm, { node: structForm.node, dutyList: db.dutyList || [], comps: db.competitions.filter((c) => (c.kind === "แข่งขัน" ? "comp" : "act") === effCat), onClose: () => setStructForm(null), onSave: (v) => structForm.insertAbove ? stInsertParent(structForm.insertAbove, v) : (structForm.node ? stEdit(structForm.node.id, v) : stAdd(v, structForm.parent)) }),
+        structConfirm && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E01\u0E32\u0E23\u0E25\u0E1A", message: `ลบตำแหน่ง "${structConfirm.title}" และตำแหน่งลูกทั้งหมด (ทั้งครูและนักเรียน)? เก็บในถังขยะ กู้คืนได้`, onConfirm: () => stDel(structConfirm), onClose: () => setStructConfirm(null) }),
+        structMove && (() => {
+            const bad = descIds(db.orgTeacher, structMove.id);
+            const opts = db.orgTeacher.filter((n) => (n.cat || "comp") === (structMove.cat || "comp") && !bad.has(n.id));
+            return (React.createElement(Modal, { title: `ย้ายตำแหน่ง: ${structMove.title}`, onClose: () => setStructMove(null) },
+                React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 6 } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E43\u0E2B\u0E21\u0E48 (\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E25\u0E39\u0E01\u0E22\u0E49\u0E32\u0E22\u0E15\u0E32\u0E21\u0E44\u0E1B\u0E14\u0E49\u0E27\u0E22)"),
+                React.createElement("select", { defaultValue: "", onChange: (e) => { if (e.target.value)
+                        stMoveNode(structMove.id, e.target.value); }, style: selCss },
+                    React.createElement("option", { value: "", disabled: true }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E43\u0E2B\u0E21\u0E48 \u2014"),
+                    React.createElement("option", { value: "__root" }, "\u2605 \u0E40\u0E1B\u0E47\u0E19\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E2A\u0E39\u0E07\u0E2A\u0E38\u0E14"),
+                    opts.map((n) => React.createElement("option", { key: n.id, value: n.id }, n.title))),
+                React.createElement("div", { style: { marginTop: 10 } },
+                    React.createElement(Btn, { variant: "ghost", onClick: () => setStructMove(null) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"))));
+        })(),
         assign && React.createElement(SearchPersonPopup, { title: `ลงชื่อในตำแหน่ง: ${assign.title}`, pool: pickPool, emptyText: `ยังไม่มี${view === "teacher" ? "กรรมการครู" : "กรรมการนักเรียน"} — ตั้งที่ บุคลากร → บัญชีผู้ใช้ ก่อน`, onClose: () => setAssign(null), onPick: (p) => setPerson(assign.id, p.id) }),
         wdPick && React.createElement(ReplacementPicker, { title: `ขอถอนจากตำแหน่ง "${wdPick.title}" — เลือกผู้มาแทน`, note: "\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 \u00B7 \u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19\u0E43\u0E2B\u0E49\u0E40\u0E02\u0E32\u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A \u0E41\u0E25\u0E30\u0E41\u0E08\u0E49\u0E07\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E15\u0E32\u0E21\u0E2A\u0E32\u0E22\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15 (\u0E0A\u0E37\u0E48\u0E2D\u0E04\u0E38\u0E13\u0E08\u0E30\u0E22\u0E31\u0E07\u0E2D\u0E22\u0E39\u0E48\u0E08\u0E19\u0E01\u0E27\u0E48\u0E32\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A \u0E2B\u0E23\u0E37\u0E2D\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15)", pool: pool.filter((x) => String(x.id) !== String(committee.meId) && (which === "orgStudent" ? x.committee : true)), onPick: (s) => doWithdraw(wdPick, s), onClose: () => setWdPick(null) }),
         confirmIn && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E01\u0E32\u0E23\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D", message: `ต้องการลงชื่อของคุณในตำแหน่ง "${confirmIn.title}"${confirmIn.compId ? ` (ดูแล ${(db.competitions.find((c) => c.id === confirmIn.compId) || {}).name || ""})` : ""} ใช่หรือไม่?`, confirmLabel: "\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D", onConfirm: () => doSignIn(confirmIn), onClose: () => setConfirmIn(null) })));
@@ -3462,6 +3511,8 @@ function CompTable({ kind, db, setDb, ui }) {
                             c.reserveCount || "ไม่จำกัด",
                             " \u00B7 \u0E0A\u0E31\u0E49\u0E19 ",
                             gradesLabel(c),
+                            c.sportType ? ` · ${c.sportType}` : "",
+                            c.gender && c.gender !== "รวม" ? ` · เฉพาะ${c.gender}` : (c.gender === "รวม" ? " · รวมเพศ" : ""),
                             " \u00B7 \u0E2A\u0E21\u0E31\u0E04\u0E23 ",
                             c.regStart,
                             " \u0E16\u0E36\u0E07 ",
@@ -3536,12 +3587,19 @@ function JudgeAssign({ comp, cat, db, setDb, onClose }) {
             React.createElement(Btn, { onClick: onClose }, "\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E2A\u0E34\u0E49\u0E19"))));
 }
 function CompForm({ kind, comp, db, onClose, onSave }) {
-    const [f, setF] = useState(comp || { kind, name: "", mainCount: 0, reserveCount: 0, regStart: "", regEnd: "", grades: [] });
+    const [f, setF] = useState(comp || { kind, name: "", mainCount: 0, reserveCount: 0, regStart: "", regEnd: "", grades: [], sportType: "กีฬา", gender: "รวม" });
     const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
     const gsel = f.grades || [];
     const toggleG = (g) => setF((p) => { const cur = p.grades || []; return { ...p, grades: cur.includes(g) ? cur.filter((x) => x !== g) : [...cur, g] }; });
+    const isSport = typeof window !== "undefined" && window.__thisModeName && window.__thisModeName() === "กีฬาสี";
+    const pill = (val, cur, onClick, activeColor) => React.createElement("button", { onClick: onClick, style: { padding: "6px 16px", borderRadius: 16, border: `1px solid ${val === cur ? activeColor : C.line}`, background: val === cur ? C.soft : C.surface, color: val === cur ? C.primaryDark : C.ink, fontSize: 13, fontWeight: 700, cursor: "pointer" } }, val);
     return (React.createElement(Modal, { title: comp ? "แก้ไขรายการ" : `เพิ่มรายการ${kind}`, onClose: onClose },
         React.createElement(Field, { label: "\u0E0A\u0E37\u0E48\u0E2D\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", value: f.name, onChange: set("name") }),
+        isSport && (React.createElement("div", { style: { marginBottom: 12 } },
+            React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17"),
+            React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, ["กีฬา", "กรีฑา"].map((t) => pill(t, f.sportType || "กีฬา", () => set("sportType")(t), C.primary))),
+            React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E40\u0E1E\u0E28\u0E17\u0E35\u0E48\u0E23\u0E31\u0E1A\u0E2A\u0E21\u0E31\u0E04\u0E23"),
+            React.createElement("div", { style: { display: "flex", gap: 8 } }, ["ชาย", "หญิง", "รวม"].map((g) => pill(g, f.gender || "รวม", () => set("gender")(g), C.primary))))),
         React.createElement("div", { className: "md:grid md:grid-cols-2 md:gap-x-3" },
             React.createElement(Field, { label: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07 (0 = \u0E44\u0E21\u0E48\u0E08\u0E33\u0E01\u0E31\u0E14)", value: String(f.mainCount), onChange: (v) => set("mainCount")(Number(v) || 0) }),
             React.createElement(Field, { label: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E15\u0E31\u0E27\u0E2A\u0E33\u0E23\u0E2D\u0E07 (0 = \u0E44\u0E21\u0E48\u0E08\u0E33\u0E01\u0E31\u0E14)", value: String(f.reserveCount), onChange: (v) => set("reserveCount")(Number(v) || 0) }),
@@ -3583,6 +3641,16 @@ function eligibleForGrade(c, grade) {
     if (!c.grades || c.grades.length === 0)
         return true;
     return c.grades.includes(grade);
+}
+// เกณฑ์สมัคร: ระดับชั้น + เพศของรายการ (กีฬา) — รายการ "รวม" หรือไม่ระบุ = รับทุกเพศ
+function eligibleForStudent(c, s) {
+    if (!s)
+        return false;
+    if (!eligibleForGrade(c, s.grade))
+        return false;
+    if (c.gender && c.gender !== "รวม" && s.gender && String(c.gender) !== String(s.gender))
+        return false;
+    return true;
 }
 function gradesLabel(c) {
     if (!c.grades || c.grades.length === 0)
@@ -4442,7 +4510,7 @@ function CommitteeRegister({ myCompIds, db, setDb, ui, role, meId }) {
     const myMain = me ? db.competitions.filter((c) => c.participants.some((p) => p.sid === me.id && p.status === "main")).length : 0;
     const quota = Number(db.settings.maxMain) || 0;
     const quotaFull = me && quota > 0 && myMain >= quota;
-    const selfList = me ? db.competitions.filter((c) => c.kind === kind && eligibleForGrade(c, me.grade)) : [];
+    const selfList = me ? db.competitions.filter((c) => c.kind === kind && eligibleForStudent(c, me)) : [];
     const enrollSelf = (compId, status) => { if (quotaFull) {
         ui.notify("ครบโควตาแล้ว — ติดต่อกรรมการสี(นักเรียน)");
         return;
@@ -5267,7 +5335,7 @@ function reserveSelFull(c) { const n = Number(c.reserveCount) || 0; return n > 0
 function regClosed(c) { return mainSelFull(c) && reserveSelFull(c); }
 function StudentRegister({ me, db, setDb, ui }) {
     const [kind, setKind] = useState("แข่งขัน");
-    const list = db.competitions.filter((c) => c.kind === kind && eligibleForGrade(c, me.grade));
+    const list = db.competitions.filter((c) => c.kind === kind && eligibleForStudent(c, me));
     const myMain = db.competitions.filter((c) => c.participants.some((p) => p.sid === me.id && p.status === "main")).length;
     const quota = Number(db.settings.maxMain) || 0;
     const quotaFull = quota > 0 && myMain >= quota;
