@@ -680,7 +680,8 @@ function Shell({ role, nav, view, setView, onExit, children, ui }) {
                 React.createElement(Brand, { sub: roleLabel })),
             React.createElement("nav", { style: { padding: 10, flex: 1, overflowY: "auto" } },
                 nav.map((n) => n.children ? (React.createElement("div", { key: n.key },
-                    React.createElement("button", { onClick: () => setExpanded((e) => ({ ...e, [n.key]: !e[n.key] })), style: { width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, border: "none", cursor: "pointer", marginBottom: 3, background: String(view).startsWith(n.key) ? C.soft : "transparent", color: String(view).startsWith(n.key) ? C.primaryDark : C.ink, fontWeight: String(view).startsWith(n.key) ? 700 : 500, fontSize: 14 } },
+                    React.createElement("button", { onClick: () => { setExpanded((e) => ({ ...e, [n.key]: !e[n.key] })); if (n.defaultKey)
+                            setView(n.defaultKey); }, style: { width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, border: "none", cursor: "pointer", marginBottom: 3, background: String(view).startsWith(n.key) ? C.soft : "transparent", color: String(view).startsWith(n.key) ? C.primaryDark : C.ink, fontWeight: String(view).startsWith(n.key) ? 700 : 500, fontSize: 14 } },
                         React.createElement("span", { style: { fontSize: 16 } }, n.icon),
                         n.label,
                         React.createElement("span", { style: { marginLeft: "auto", fontSize: 11, color: C.muted } }, expanded[n.key] ? "▾" : "▸")),
@@ -1034,6 +1035,7 @@ function AdminApp({ db, setDb, onExit }) {
 }
 function AdminHome({ db, setDb, ui }) {
     const [confirmReset, setConfirmReset] = useState(false);
+    const [confirmClearAct, setConfirmClearAct] = useState(false);
     const stats = [
         { label: "นักเรียนในระบบ", value: db.students.length, color: HOUSES[1] },
         { label: "ครู/กรรมการ", value: db.teachers.length, color: HOUSES[2] },
@@ -1053,11 +1055,26 @@ function AdminHome({ db, setDb, ui }) {
         React.createElement(ConnTest, null),
         React.createElement(Card, { style: { padding: 16 } },
             React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 4 } }, "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14\u0E17\u0E35\u0E48\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E43\u0E19 Google Sheet"),
-            React.createElement("p", { style: { fontSize: 12, color: C.muted, marginTop: 0, marginBottom: 10 } }, "\u0E17\u0E38\u0E01\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E16\u0E39\u0E01\u0E40\u0E01\u0E47\u0E1A\u0E40\u0E1B\u0E47\u0E19 JSON \u0E01\u0E49\u0E2D\u0E19\u0E40\u0E14\u0E35\u0E22\u0E27\u0E43\u0E19\u0E41\u0E17\u0E47\u0E1A APP_DATA (\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2D\u0E22\u0E39\u0E48\u0E43\u0E19\u0E44\u0E1F\u0E25\u0E4C HTML) \u00B7 \u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A\u0E44\u0E14\u0E49\u0E42\u0E14\u0E22\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E2B\u0E32\u0E22"),
+            React.createElement("p", { style: { fontSize: 12, color: C.muted, marginTop: 0, marginBottom: 10 } },
+                "\u0E17\u0E38\u0E01\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E16\u0E39\u0E01\u0E40\u0E01\u0E47\u0E1A\u0E40\u0E1B\u0E47\u0E19 JSON \u0E01\u0E49\u0E2D\u0E19\u0E40\u0E14\u0E35\u0E22\u0E27\u0E43\u0E19\u0E41\u0E17\u0E47\u0E1A\u0E02\u0E2D\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E35\u0E48\u0E40\u0E02\u0E49\u0E32\u0E2D\u0E22\u0E39\u0E48 \u2014 ",
+                React.createElement("b", null, "\u0E2A\u0E35\u0E27\u0E34\u0E0A\u0E32\u0E01\u0E32\u0E23 \u2192 APP_DATA"),
+                " \u00B7 ",
+                React.createElement("b", null, "\u0E01\u0E35\u0E2C\u0E32\u0E2A\u0E35 \u2192 SPORT_DATA"),
+                " (\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2D\u0E22\u0E39\u0E48\u0E43\u0E19\u0E44\u0E1F\u0E25\u0E4C HTML) \u00B7 \u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A\u0E44\u0E14\u0E49\u0E42\u0E14\u0E22\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E2B\u0E32\u0E22"),
             React.createElement("div", { style: { display: "grid", gap: 8 }, className: "grid-cols-2 md:grid-cols-4" }, [["นักเรียน", db.students.length], ["ครู", db.teachers.length], ["รายการแข่งขัน", db.competitions.filter((c) => c.kind === "แข่งขัน").length], ["รายการกิจกรรม", db.competitions.filter((c) => c.kind === "กิจกรรม").length], ["ตำแหน่งผังครู", db.orgTeacher.length], ["ตำแหน่งผังนักเรียน", db.orgStudent.length], ["สำรอง(จบ)", (db.archived || []).length], ["ถังขยะ", (db.trash || []).length]].map(([k, v]) => (React.createElement("div", { key: k, style: { padding: 10, borderRadius: 10, border: `1px solid ${C.line}`, textAlign: "center" } },
                 React.createElement("div", { style: { fontSize: 20, fontWeight: 800, color: C.primary } }, v),
                 React.createElement("div", { style: { fontSize: 11, color: C.muted } }, k)))))),
         React.createElement(BackupCard, { db: db, setDb: setDb, ui: ui }),
+        React.createElement(Card, { style: { padding: 16, border: `1px solid #f0dcc0` } },
+            React.createElement("div", { style: { fontWeight: 700, color: "#b3762f", marginBottom: 6 } }, "\uD83E\uDDF9 \u0E25\u0E49\u0E32\u0E07\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E19\u0E35\u0E49 (\u0E40\u0E01\u0E47\u0E1A\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19/\u0E04\u0E23\u0E39)"),
+            React.createElement("p", { style: { fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 10, lineHeight: 1.6 } },
+                "\u0E25\u0E1A\u0E40\u0E09\u0E1E\u0E32\u0E30 ",
+                React.createElement("b", null, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \u00B7 \u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23 \u00B7 \u0E1C\u0E25 \u00B7 \u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21 \u00B7 \u0E04\u0E33\u0E23\u0E49\u0E2D\u0E07 \u00B7 \u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19"),
+                " \u0E02\u0E2D\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E19\u0E35\u0E49 \u2014 ",
+                React.createElement("b", { style: { color: "#2f9e6b" } }, "\u0E44\u0E21\u0E48\u0E25\u0E1A\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19/\u0E04\u0E23\u0E39/\u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22"),
+                " (\u0E43\u0E0A\u0E49\u0E23\u0E48\u0E27\u0E21\u0E2D\u0E35\u0E01\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21) \u00B7 \u0E43\u0E0A\u0E49\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E19\u0E35\u0E49\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E02\u0E2D\u0E07\u0E2D\u0E35\u0E01\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E1B\u0E19\u0E2D\u0E22\u0E39\u0E48 \u0E2D\u0E22\u0E32\u0E01\u0E40\u0E23\u0E34\u0E48\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E2B\u0E21\u0E48"),
+            React.createElement(Btn, { variant: "danger", small: true, onClick: () => setConfirmClearAct(true) }, "\u0E25\u0E49\u0E32\u0E07\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E19\u0E35\u0E49")),
+        confirmClearAct && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E25\u0E49\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E19\u0E35\u0E49", message: "\u0E08\u0E30\u0E25\u0E1A \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \u00B7 \u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23 \u00B7 \u0E1C\u0E25 \u00B7 \u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21 \u00B7 \u0E04\u0E33\u0E23\u0E49\u0E2D\u0E07 \u00B7 \u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19 \u0E02\u0E2D\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E19\u0E35\u0E49 (\u0E40\u0E01\u0E47\u0E1A\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19/\u0E04\u0E23\u0E39/\u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22 \u0E41\u0E25\u0E30\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E44\u0E27\u0E49) \u2014 \u0E22\u0E49\u0E2D\u0E19\u0E01\u0E25\u0E31\u0E1A\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 \u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E21\u0E48?", onConfirm: () => ui.run("กำลังล้างข้อมูลกิจกรรม...", () => { setDb((p) => ({ ...p, competitions: [], orgTeacher: [], orgStudent: [], dutyList: [], orgRequests: [], training: [], finance: [] })); setConfirmClearAct(false); ui.notify("ล้างข้อมูลกิจกรรมนี้แล้ว (บุคลากรยังอยู่ครบ)"); setTimeout(() => window.__forceSave && window.__forceSave(), 400); }), onClose: () => setConfirmClearAct(false) }),
         React.createElement(Card, { style: { padding: 16, border: `1px solid #eccdcd` } },
             React.createElement("div", { style: { fontWeight: 700, color: "#b3453f", marginBottom: 6 } }, "\u0E25\u0E49\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E31\u0E49\u0E07\u0E23\u0E30\u0E1A\u0E1A (\u0E40\u0E23\u0E34\u0E48\u0E21\u0E43\u0E2B\u0E21\u0E48)"),
             React.createElement("p", { style: { fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 10, lineHeight: 1.6 } }, "\u0E25\u0E1A\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19/\u0E04\u0E23\u0E39 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07 \u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23 \u0E41\u0E25\u0E30\u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 (\u0E04\u0E07\u0E44\u0E27\u0E49\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E2A\u0E35\u0E17\u0E35\u0E21/\u0E1B\u0E23\u0E30\u0E0A\u0E32\u0E2A\u0E31\u0E21\u0E1E\u0E31\u0E19\u0E18\u0E4C) \u0E43\u0E0A\u0E49\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E2D\u0E22\u0E32\u0E01\u0E40\u0E23\u0E34\u0E48\u0E21\u0E15\u0E49\u0E19\u0E43\u0E2B\u0E21\u0E48\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14"),
@@ -2514,8 +2531,10 @@ function HalfBlock({ person, title, comps, accent, side }) {
         React.createElement("div", { style: { fontSize: 10.5, color: accent, fontWeight: 600 } }, title || "—"),
         comps && comps.length > 0 && React.createElement("div", { style: { fontSize: 9.5, color: C.muted, marginTop: 2 } }, comps.join(", "))));
 }
-function CombinedOrg({ db, cat, ui, compId }) {
-    const tForest = buildForest((db.orgTeacher || []).filter((n) => !compId || String(n.compId) === String(compId)), cat);
+function CombinedOrg({ db, cat, ui, comp }) {
+    const tIds = comp ? compOrgNodeIds(db, comp, "orgTeacher") : null;
+    const sIds = comp ? compOrgNodeIds(db, comp, "orgStudent") : null;
+    const tForest = buildForest((db.orgTeacher || []).filter((n) => !comp || tIds.has(String(n.id))), cat);
     const sById = {};
     (db.orgStudent || []).forEach((n) => { sById[n.id] = n; });
     const itemName = (compId) => { if (!compId)
@@ -2551,6 +2570,13 @@ function CombinedOrg({ db, cat, ui, compId }) {
         React.createElement("div", { style: { overflowX: "auto" } },
             React.createElement("div", { id: "orgPrintArea", className: "orgtree", style: { ["--tl"]: C.line } }, tForest.length ? renderForest(tForest) : React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E31\u0E07 (\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E42\u0E04\u0E23\u0E07\u0E17\u0E35\u0E48\u0E40\u0E21\u0E19\u0E39 \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48 \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19 \u0E41\u0E25\u0E49\u0E27\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E19\u0E1C\u0E31\u0E07)" })))));
 }
+// node id ของผังที่เกี่ยวกับรายการ comp (กรรมการที่รายการระบุ + สายหัวหน้าขึ้นไป) — ใช้กรองผังเฉพาะรายการ
+function compOrgNodeIds(db, comp, which) {
+    const key = which === "orgTeacher" ? "judgeTeachers" : "judgeStudents";
+    const set = new Set();
+    ((comp && comp[key]) || []).forEach((nid) => { orgPathIds(db[which] || [], nid).forEach((id) => set.add(String(id))); });
+    return set;
+}
 function OrgViewManager({ db, setDb, ui, editable, committee, orgComp }) {
     const [cat, setCat] = useState("comp");
     const [view, setView] = useState("teacher"); // combined | teacher | student
@@ -2568,7 +2594,8 @@ function OrgViewManager({ db, setDb, ui, editable, committee, orgComp }) {
     const which = view === "teacher" ? "orgTeacher" : "orgStudent";
     const pool = view === "teacher" ? db.teachers : db.students;
     const pickPool = view === "teacher" ? db.teachers.filter((t) => t.user) : db.students.filter((s) => s.committee);
-    const nodes = db[which].filter((n) => (n.cat || "comp") === effCat && (!compObj || String(n.compId) === String(pickComp)));
+    const relIds = compObj ? compOrgNodeIds(db, compObj, which) : null;
+    const nodes = db[which].filter((n) => (n.cat || "comp") === effCat && (!compObj || relIds.has(String(n.id))));
     const setPerson = (nodeId, personId) => ui.run("กำลังลงชื่อ...", () => { const apply = (p) => ({ ...p, [which]: p[which].map((n) => n.id === nodeId ? { ...n, personId } : n) }); if (window.__commitRemote)
         window.__commitRemote(apply);
     else
@@ -2627,7 +2654,7 @@ function OrgViewManager({ db, setDb, ui, editable, committee, orgComp }) {
         React.createElement("div", { style: { marginBottom: 6 } },
             React.createElement(Tabs, { tabs: [{ key: "teacher", label: editable ? "ลงชื่อครู" : "ผังครู" }, { key: "student", label: editable ? "ลงชื่อนักเรียน" : "ผังนักเรียน" }, { key: "combined", label: "ผังรวม (ครู+นักเรียน)" }], active: view, onChange: setView })),
         view === "combined" && React.createElement(Card, { style: { padding: 16 } },
-            React.createElement(CombinedOrg, { db: db, cat: effCat, ui: ui, compId: pickComp })),
+            React.createElement(CombinedOrg, { db: db, cat: effCat, ui: ui, comp: compObj })),
         view !== "combined" && (React.createElement(Card, { style: { padding: 16, overflowX: "auto" } },
             React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 6, flexWrap: "wrap", alignItems: "center" } },
                 React.createElement(Btn, { small: true, variant: horiz ? "soft" : "ghost", onClick: () => setHoriz((h) => !h) }, horiz ? "↕ แนวตั้ง" : "↔ แนวนอน"),
@@ -5522,24 +5549,8 @@ function toast(msg) {
    ROOT
    ============================================================ */
 function App() {
-    const [screen, setScreen] = useState(() => {
-        try {
-            const stored = localStorage.getItem("auth");
-            if (stored)
-                return "app";
-        }
-        catch (e) { }
-        return "landing";
-    });
-    const [auth, setAuth] = useState(() => {
-        try {
-            const stored = localStorage.getItem("auth");
-            if (stored)
-                return JSON.parse(stored);
-        }
-        catch (e) { }
-        return null;
-    });
+    const [screen, setScreen] = useState("landing"); // เปิด/รีเฟรชหน้า → เริ่มที่หน้าแรกเสมอ (เลือกกิจกรรม + ล็อกอินใหม่ทุกครั้ง เพื่อกันเข้าผิดกิจกรรม)
+    const [auth, setAuth] = useState(null);
     const [db, setDb] = useState(seed);
     const [sync, setSync] = useState(API_URL ? "loading" : "local");
     const [lastSaved, setLastSaved] = useState(null);
@@ -5554,7 +5565,7 @@ function App() {
     const dirtyRef = useRef(false); // มีการแก้ไขที่ยังไม่ถูกบันทึกหรือไม่
     const lastSaveAt = useRef(0); // เวลาเริ่มบันทึกล่าสุด — ใช้ทิ้งผล auto-refresh ที่ค้างท่อ (กันข้อมูลเก่าทับของที่เพิ่งเซฟ)
     const switchingRef = useRef(false); // กำลังสลับระบบ — ใช้ให้ธีมแสดงสีของโหมดใหม่ทันที (ไม่รอ db โหลด)
-    const [mode, setModeState] = useState("academic"); // academic = สีวิชาการ (APP_DATA) · sport = กีฬาสี (SPORT_DATA)
+    const [mode, setModeState] = useState("academic"); // academic = สีวิชาการ (APP_DATA) · sport = กีฬาสี (SPORT_DATA) — เริ่มที่วิชาการเสมอ (หน้าแรกใช้ APP_DATA) · เลือกกิจกรรมจะตั้งค่าให้
     const modeRef = useRef("academic");
     modeRef.current = mode;
     const sheetQS = () => modeRef.current === "sport" ? "?sheet=sport" : "";
@@ -5830,7 +5841,10 @@ function App() {
     else
         C = ACAD_THEME;
     HOUSES = teamColors.map((h) => h.color);
-    const exit = () => { localStorage.removeItem("auth"); setAuth(null); setScreen("landing"); if (modeRef.current !== "academic")
+    const exit = () => { localStorage.removeItem("auth"); try {
+        localStorage.setItem("actmode", "academic");
+    }
+    catch (e) { } setAuth(null); setScreen("landing"); if (modeRef.current !== "academic")
         switchMode("academic"); };
     return (React.createElement("div", { style: { fontFamily: "'Noto Sans Thai', system-ui, sans-serif", color: C.ink } },
         React.createElement("style", null, `
@@ -5850,7 +5864,10 @@ function App() {
         screen === "app" && (React.createElement("div", { style: { display: "flex", justifyContent: "center", gap: 8, padding: "6px 10px", background: mode === "sport" ? "#eaf4ff" : "#f3eefc", borderBottom: `1px solid ${C.line}`, position: "sticky", top: 0, zIndex: 40 } },
             React.createElement("span", { style: { fontSize: 12.5, fontWeight: 800, color: "#fff", background: mode === "sport" ? "#2f6fb0" : C.primary, borderRadius: 20, padding: "3px 16px" } }, mode === "sport" ? "🏅 แข่งขันกีฬา" : "🎓 วิชาการสี"))),
         screen === "landing" && React.createElement(Landing, { onLogin: () => setScreen("choose"), announce: db.settings.announce, comps: db.competitions, db: db, setDb: setDb, ui: { notify: toast }, sportDb: landingSport }),
-        screen === "choose" && React.createElement(ChooseActivity, { onPick: (m) => { modeRef.current = m; setModeState(m); switchingRef.current = true; loadedRef.current = false; everLoadedRef.current = false; dirtyRef.current = false; justLoaded.current = true; setSync("loading"); clearTimeout(timerRef.current); setTimeout(() => loadData(), 60); setScreen("login"); }, onBack: () => setScreen("landing") }),
+        screen === "choose" && React.createElement(ChooseActivity, { onPick: (m) => { try {
+                localStorage.setItem("actmode", m);
+            }
+            catch (e) { } modeRef.current = m; setModeState(m); switchingRef.current = true; loadedRef.current = false; everLoadedRef.current = false; dirtyRef.current = false; justLoaded.current = true; setSync("loading"); clearTimeout(timerRef.current); setTimeout(() => loadData(), 60); setScreen("login"); }, onBack: () => setScreen("landing") }),
         screen === "login" && React.createElement(Login, { db: db, mode: mode, onEnter: (a) => { setAuth(a); setScreen("app"); }, onBack: () => setScreen("choose") }),
         screen === "app" && (auth === null || auth === void 0 ? void 0 : auth.role) === "admin" && React.createElement(AdminApp, { db: db, setDb: setDb, onExit: exit }),
         screen === "app" && ((auth === null || auth === void 0 ? void 0 : auth.role) === "teacher" || (auth === null || auth === void 0 ? void 0 : auth.role) === "studentcom") && React.createElement(CommitteeApp, { role: auth.role, db: db, setDb: setDb, onExit: exit, meId: auth.id }),
