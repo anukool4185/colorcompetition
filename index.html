@@ -3851,10 +3851,11 @@ function JudgeAssign({ comp, cat, db, setDb, onClose }) {
             React.createElement(Btn, { onClick: onClose }, "\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E2A\u0E34\u0E49\u0E19"))));
 }
 function CompForm({ kind, comp, db, onClose, onSave }) {
-    const [f, setF] = useState(comp || { kind, name: "", mainCount: 0, reserveCount: 0, regStart: "", regEnd: "", grades: [], sportType: "กีฬา", gender: "รวม" });
+    const [f, setF] = useState(comp || { kind, name: "", mainCount: 0, reserveCount: 0, regStart: "", regEnd: "", grades: [], sportType: "กีฬา", gender: "รวม", orgLevels: [] });
     const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
     const gsel = f.grades || [];
     const toggleG = (g) => setF((p) => { const cur = p.grades || []; return { ...p, grades: cur.includes(g) ? cur.filter((x) => x !== g) : [...cur, g] }; });
+    const toggleLvl = (n) => setF((p) => { const cur = p.orgLevels || []; return { ...p, orgLevels: cur.includes(n) ? cur.filter((x) => x !== n) : [...cur, n].sort((a, b) => a - b) }; });
     const isSport = typeof window !== "undefined" && window.__thisModeName && window.__thisModeName() === "กีฬาสี";
     const pill = (val, cur, onClick, activeColor) => React.createElement("button", { onClick: onClick, style: { padding: "6px 16px", borderRadius: 16, border: `1px solid ${val === cur ? activeColor : C.line}`, background: val === cur ? C.soft : C.surface, color: val === cur ? C.primaryDark : C.ink, fontSize: 13, fontWeight: 700, cursor: "pointer" } }, val);
     return (React.createElement(Modal, { title: comp ? "แก้ไขรายการ" : `เพิ่มรายการ${kind}`, onClose: onClose },
@@ -3864,6 +3865,17 @@ function CompForm({ kind, comp, db, onClose, onSave }) {
             React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, ["กีฬา", "กรีฑา", "อื่นๆ"].map((t) => pill(t, f.sportType || "กีฬา", () => set("sportType")(t), C.primary))),
             React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E40\u0E1E\u0E28\u0E17\u0E35\u0E48\u0E23\u0E31\u0E1A\u0E2A\u0E21\u0E31\u0E04\u0E23"),
             React.createElement("div", { style: { display: "flex", gap: 8 } }, ["ชาย", "หญิง", "รวม"].map((g) => pill(g, f.gender || "รวม", () => set("gender")(g), C.primary))))),
+        React.createElement("div", { style: { marginBottom: 12 } },
+            React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E41\u0E2A\u0E14\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49\u0E43\u0E19\u0E1C\u0E31\u0E07\u0E17\u0E35\u0E48\u0E23\u0E30\u0E14\u0E31\u0E1A (\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E14\u0E49\u0E2B\u0E25\u0E32\u0E22\u0E23\u0E30\u0E14\u0E31\u0E1A)"),
+            React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, DUTY_RANKS.map((r, i) => {
+                const n = i + 1;
+                const on = (f.orgLevels || []).includes(n);
+                return (React.createElement("button", { key: n, onClick: () => toggleLvl(n), style: { padding: "6px 12px", borderRadius: 16, border: `1px solid ${on ? C.primary : C.line}`, background: on ? C.primary : C.surface, color: on ? "#fff" : C.ink, fontSize: 12.5, fontWeight: 700, cursor: "pointer" } },
+                    on ? "✓ " : "",
+                    n,
+                    ". ",
+                    r));
+            }))),
         React.createElement("div", { className: "md:grid md:grid-cols-2 md:gap-x-3" },
             React.createElement(Field, { label: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07 (0 = \u0E44\u0E21\u0E48\u0E08\u0E33\u0E01\u0E31\u0E14)", value: String(f.mainCount), onChange: (v) => set("mainCount")(Number(v) || 0) }),
             React.createElement(Field, { label: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E15\u0E31\u0E27\u0E2A\u0E33\u0E23\u0E2D\u0E07 (0 = \u0E44\u0E21\u0E48\u0E08\u0E33\u0E01\u0E31\u0E14)", value: String(f.reserveCount), onChange: (v) => set("reserveCount")(Number(v) || 0) }),
