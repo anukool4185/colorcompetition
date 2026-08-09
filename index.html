@@ -909,7 +909,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
         return null; const d = (db.departments || []).find((x) => "D:" + x.id === String(id)); return d ? (d.comps || []).map(String) : []; };
     const canEditRow = (f) => { if (acc.full)
         return true; const dc = deptComps(f.dept); if (dc)
-        return dc.some((cid) => acc.depts.has(String(cid))); return acc.depts.has(String(f.dept)); };
+        return acc.depts.size > 0 || dc.some((cid) => acc.depts.has(String(cid))); return acc.depts.has(String(f.dept)); };
     const [form, setForm] = useState({ dept: "", type: "in", title: "", amount: "", date: todayStr(), note: "", billDataUrl: "", billUrl: "", billId: "" });
     const [editId, setEditId] = useState(null);
     const [fDept, setFDept] = useState("");
@@ -1004,7 +1004,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E02\u0E49\u0E32 \u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1D\u0E48\u0E32\u0E22 (\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21) \u0E2B\u0E23\u0E37\u0E2D \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21"),
             React.createElement("select", { value: form.dept, onChange: (e) => setForm((p) => ({ ...p, dept: e.target.value })), style: selCss },
                 React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01 \u2014"),
-                (db.departments || []).filter((d) => acc.full || (d.comps || []).some((cid) => acc.depts.has(String(cid)))).length > 0 && React.createElement("optgroup", { label: "\uD83C\uDFE2 \u0E1D\u0E48\u0E32\u0E22 (\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21 \u0E44\u0E21\u0E48\u0E41\u0E22\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)" }, (db.departments || []).filter((d) => acc.full || (d.comps || []).some((cid) => acc.depts.has(String(cid)))).map((d) => React.createElement("option", { key: d.id, value: "D:" + d.id }, d.name))),
+                (db.departments || []).length > 0 && React.createElement("optgroup", { label: "\uD83C\uDFE2 \u0E1D\u0E48\u0E32\u0E22 (\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21 \u0E44\u0E21\u0E48\u0E41\u0E22\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)" }, (db.departments || []).map((d) => React.createElement("option", { key: d.id, value: "D:" + d.id }, d.name))),
                 React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19" }, allowedComps.filter((c) => c.kind === "แข่งขัน").map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name))),
                 React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }, allowedComps.filter((c) => c.kind === "กิจกรรม").map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name)))),
             React.createElement("div", { style: { display: "flex", gap: 8, margin: "8px 0" } },
