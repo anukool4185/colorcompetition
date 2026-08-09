@@ -2646,6 +2646,7 @@ function DutyListManager({ db, setDb, ui }) {
         os = (p.orgStudent || []).map((n) => n.title === dn ? { ...n, personId } : n); return { ...p, dutyList: arr, orgTeacher: ot, orgStudent: os }; }); save(); });
     const perCss = { padding: "5px 8px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 12, background: "#fbfaff", color: C.ink, maxWidth: 150 };
     const [assignFor, setAssignFor] = useState(null); // index ของหน้าที่ที่กำลังเพิ่มคน
+    const [pickPerson, setPickPerson] = useState(null); // {i, field}
     const applyAssignees = (dutyNm, assignees) => {
         setDb((p) => {
             let ot = [...(p.orgTeacher || [])];
@@ -2714,16 +2715,23 @@ function DutyListManager({ db, setDb, ui }) {
                 React.createElement("button", { onClick: () => remove(i), style: { border: "none", background: "#fbeeee", color: "#c0392b", borderRadius: 8, padding: "4px 10px", fontWeight: 700, fontSize: 12, cursor: "pointer" } }, "\u0E25\u0E1A"),
                 React.createElement("div", { style: { flexBasis: "100%", height: 0 } }),
                 React.createElement("span", { style: { fontSize: 11.5, color: C.muted } }, "\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E17\u0E38\u0E01\u0E1C\u0E31\u0E07 \u2192"),
-                React.createElement("span", { style: { fontSize: 11, color: C.primary } }, "\u0E04\u0E23\u0E39:"),
-                React.createElement("select", { value: (typeof d === "object" && d.teacherId) || "", onChange: (e) => setDutyPerson(i, "teacherId", e.target.value), style: perCss },
-                    React.createElement("option", { value: "" }, "\u2014 \u0E44\u0E21\u0E48\u0E23\u0E30\u0E1A\u0E38 \u2014"),
-                    (db.teachers || []).map((t) => React.createElement("option", { key: t.id, value: t.id }, fullName(t)))),
-                React.createElement("span", { style: { fontSize: 11, color: C.gold } }, "\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19:"),
-                React.createElement("select", { value: (typeof d === "object" && d.studentId) || "", onChange: (e) => setDutyPerson(i, "studentId", e.target.value), style: perCss },
-                    React.createElement("option", { value: "" }, "\u2014 \u0E44\u0E21\u0E48\u0E23\u0E30\u0E1A\u0E38 \u2014"),
-                    (db.students || []).map((s) => React.createElement("option", { key: s.id, value: s.id },
-                        fullName(s),
-                        s.grade ? ` (${s.grade}${s.room ? "/" + s.room : ""})` : ""))),
+                (() => {
+                    const tid = (typeof d === "object" && d.teacherId) || "";
+                    const tp = (db.teachers || []).find((x) => String(x.id) === String(tid));
+                    return (React.createElement("button", { onClick: () => setPickPerson({ i, field: "teacherId" }), style: { ...perCss, cursor: "pointer", textAlign: "left" } },
+                        "\u0E04\u0E23\u0E39: ",
+                        tp ? fullName(tp) : "— เลือก —"));
+                })(),
+                (() => {
+                    const sid = (typeof d === "object" && d.studentId) || "";
+                    const sp = (db.students || []).find((x) => String(x.id) === String(sid));
+                    return (React.createElement("button", { onClick: () => setPickPerson({ i, field: "studentId" }), style: { ...perCss, cursor: "pointer", textAlign: "left" } },
+                        "\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19: ",
+                        sp ? fullName(sp) : "— เลือก —"));
+                })(),
+                (typeof d === "object" && (d.teacherId || d.studentId)) && React.createElement("button", { onClick: () => { if (d.teacherId)
+                        setDutyPerson(i, "teacherId", ""); if (d.studentId)
+                        setDutyPerson(i, "studentId", ""); }, style: { border: "none", background: "none", color: "#c0392b", fontSize: 11, cursor: "pointer", fontWeight: 700 } }, "\u0E25\u0E49\u0E32\u0E07"),
                 React.createElement("div", { style: { flexBasis: "100%", height: 0 } }),
                 React.createElement("div", { style: { width: "100%", background: "#f7f9ff", borderRadius: 8, padding: "8px 10px" } },
                     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
@@ -2742,29 +2750,39 @@ function DutyListManager({ db, setDb, ui }) {
                             React.createElement("button", { onClick: () => removeAssignee(i, a.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800, padding: 0 } }, "\u2715")));
                     })))))),
             list.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48 \u2014 \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19\u0E01\u0E48\u0E2D\u0E19" })),
-        assignFor !== null && React.createElement(AssigneeModal, { db: db, onClose: () => setAssignFor(null), onSave: (a) => addAssignee(assignFor, a) })));
+        assignFor !== null && React.createElement(AssigneeModal, { db: db, onClose: () => setAssignFor(null), onSave: (a) => addAssignee(assignFor, a) }),
+        pickPerson && React.createElement(SearchPersonPopup, { title: pickPerson.field === "teacherId" ? "ค้นหาครู (ลงทุกผัง)" : "ค้นหานักเรียน (ลงทุกผัง)", pool: pickPerson.field === "teacherId" ? (db.teachers || []) : (db.students || []), emptyText: "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E0A\u0E37\u0E48\u0E2D", onClose: () => setPickPerson(null), onPick: (p) => { setDutyPerson(pickPerson.i, pickPerson.field, p.id); setPickPerson(null); } })));
 }
 function AssigneeModal({ db, onClose, onSave }) {
     const [side, setSide] = useState("teacher");
     const [personId, setPersonId] = useState("");
     const [comps, setComps] = useState([]);
+    const [q, setQ] = useState("");
     const pool = side === "student" ? (db.students || []) : (db.teachers || []);
+    const filtered = pool.filter((x) => (fullName(x) + " " + (x.id || "")).toLowerCase().includes(q.toLowerCase()));
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, background: "#fbfaff", color: C.ink, marginBottom: 10 };
     const toggleC = (id) => setComps((cur) => cur.map(String).includes(String(id)) ? cur.filter((x) => String(x) !== String(id)) : [...cur, id]);
+    const chosen = pool.find((x) => String(x.id) === String(personId));
     return (React.createElement(Modal, { title: "\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E04\u0E19\u0E43\u0E19\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E19\u0E35\u0E49", onClose: onClose },
         React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17"),
-        React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, [{ k: "teacher", l: "ครู" }, { k: "student", l: "นักเรียน" }].map((s) => React.createElement("button", { key: s.k, onClick: () => { setSide(s.k); setPersonId(""); }, style: { padding: "6px 16px", borderRadius: 16, border: `1px solid ${side === s.k ? C.primary : C.line}`, background: side === s.k ? C.primary : C.surface, color: side === s.k ? "#fff" : C.ink, fontWeight: 700, fontSize: 13, cursor: "pointer" } }, s.l))),
-        React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E04\u0E19"),
-        React.createElement("select", { value: personId, onChange: (e) => setPersonId(e.target.value), style: selCss },
-            React.createElement("option", { value: "" },
-                "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01",
-                side === "student" ? "นักเรียน" : "ครู",
-                " \u2014"),
-            pool.map((x) => React.createElement("option", { key: x.id, value: x.id },
-                fullName(x),
-                side === "student" && x.grade ? ` (${x.grade}${x.room ? "/" + x.room : ""})` : ""))),
+        React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, [{ k: "teacher", l: "ครู" }, { k: "student", l: "นักเรียน" }].map((s) => React.createElement("button", { key: s.k, onClick: () => { setSide(s.k); setPersonId(""); setQ(""); }, style: { padding: "6px 16px", borderRadius: 16, border: `1px solid ${side === s.k ? C.primary : C.line}`, background: side === s.k ? C.primary : C.surface, color: side === s.k ? "#fff" : C.ink, fontWeight: 700, fontSize: 13, cursor: "pointer" } }, s.l))),
+        React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } },
+            "\u0E04\u0E49\u0E19\u0E2B\u0E32",
+            side === "student" ? "นักเรียน" : "ครู",
+            " (\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E0A\u0E37\u0E48\u0E2D)",
+            chosen ? ` · เลือก: ${fullName(chosen)}` : ""),
+        React.createElement("input", { value: q, onChange: (e) => setQ(e.target.value), placeholder: "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E0A\u0E37\u0E48\u0E2D...", style: { ...selCss, marginBottom: 6 } }),
+        React.createElement("div", { style: { maxHeight: 180, overflowY: "auto", border: `1px solid ${C.line}`, borderRadius: 10, marginBottom: 10 } },
+            filtered.slice(0, 80).map((x) => {
+                const on = String(x.id) === String(personId);
+                return (React.createElement("div", { key: x.id, onClick: () => setPersonId(x.id), style: { padding: "8px 12px", cursor: "pointer", background: on ? C.soft : "transparent", borderBottom: `1px solid ${C.line}`, fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? C.primaryDark : C.ink } },
+                    on ? "✓ " : "",
+                    fullName(x),
+                    side === "student" && x.grade ? ` (${x.grade}${x.room ? "/" + x.room : ""})` : ""));
+            }),
+            filtered.length === 0 && React.createElement("div", { style: { padding: "10px 12px", fontSize: 12.5, color: C.muted } }, "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E0A\u0E37\u0E48\u0E2D\u0E17\u0E35\u0E48\u0E04\u0E49\u0E19\u0E2B\u0E32")),
         React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E25\u0E07\u0E43\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 (\u0E44\u0E21\u0E48\u0E15\u0E34\u0E4A\u0E01 = \u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)"),
-        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5, maxHeight: 220, overflowY: "auto", marginBottom: 10 } },
+        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5, maxHeight: 200, overflowY: "auto", marginBottom: 10 } },
             (db.competitions || []).map((c) => {
                 const on = comps.map(String).includes(String(c.id));
                 return (React.createElement("label", { key: c.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "6px 10px", border: `1px solid ${on ? C.primary : C.line}`, borderRadius: 8, background: on ? C.soft : C.surface, cursor: "pointer" } },
