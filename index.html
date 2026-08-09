@@ -691,6 +691,9 @@ function Shell({ role, nav, view, setView, onExit, children, ui }) {
     const [confirmOut, setConfirmOut] = useState(false);
     const [confirmClose, setConfirmClose] = useState(false);
     const [expanded, setExpanded] = useState({});
+    const navScrollRef = useRef(null);
+    const scrollNav = (dir) => { const el = navScrollRef.current; if (el)
+        el.scrollBy({ left: dir * 150, behavior: "smooth" }); };
     return (React.createElement("div", { style: { minHeight: "100vh", background: C.bg, display: "flex" } },
         React.createElement("aside", { className: "hidden md:flex", style: { width: 220, background: C.surface, borderRight: `1px solid ${C.line}`, flexDirection: "column", position: "sticky", top: 0, height: "100vh" } },
             React.createElement("div", { style: { padding: "18px 18px 10px" } },
@@ -706,7 +709,7 @@ function Shell({ role, nav, view, setView, onExit, children, ui }) {
                     React.createElement("span", { style: { fontSize: 16 } }, n.icon),
                     n.label))),
                 React.createElement("button", { onClick: () => setConfirmOut(true), style: { width: "100%", textAlign: "left", padding: "10px 12px", border: "none", background: "transparent", color: C.muted, cursor: "pointer", fontSize: 14, marginTop: 2 } }, "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A"))),
-        React.createElement("div", { style: { flex: 1, minWidth: 0, paddingBottom: 74 }, className: "md:pb-0" },
+        React.createElement("div", { style: { flex: 1, minWidth: 0, paddingBottom: 96 }, className: "md:pb-0" },
             React.createElement("div", { className: "md:hidden", style: { background: C.surface, borderBottom: `1px solid ${C.line}`, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10 } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
                     React.createElement("div", { style: { width: 32, height: 32, borderRadius: 9, background: C.primary, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14 } }, "\u0E2A\u0E35"),
@@ -716,13 +719,16 @@ function Shell({ role, nav, view, setView, onExit, children, ui }) {
                     React.createElement("button", { onClick: () => setConfirmClose(true), "aria-label": "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", style: { fontSize: 16, fontWeight: 700, color: "#c0392b", background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1 } }, "\u2715"))),
             React.createElement("div", { style: { maxWidth: 960, margin: "0 auto", padding: 16 } },
                 React.createElement(ErrorBoundary, { key: view }, children))),
-        React.createElement("nav", { className: "md:hidden", style: { position: "fixed", bottom: 0, left: 0, right: 0, width: "100%", background: C.surface, borderTop: `1px solid ${C.line}`, display: "flex", flexWrap: "nowrap", overflowX: "auto", zIndex: 20 } }, nav.map((n) => {
-            const key = n.children ? (n.defaultKey || "org:all") : n.key;
-            const active = n.children ? String(view).startsWith(n.key) : view === n.key;
-            return (React.createElement("button", { key: n.key, onClick: () => setView(key), style: { flex: "1 0 0", minWidth: 52, padding: "9px 2px 8px", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, color: active ? C.primary : C.muted } },
-                React.createElement("span", { style: { fontSize: 18 } }, n.icon),
-                React.createElement("span", { style: { fontSize: 10, fontWeight: active ? 700 : 500, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, n.label)));
-        })),
+        React.createElement("nav", { className: "md:hidden", style: { position: "fixed", bottom: 0, left: 0, right: 0, width: "100%", background: C.surface, borderTop: `1px solid ${C.line}`, display: "flex", alignItems: "stretch", zIndex: 20, boxShadow: "0 -2px 10px rgba(0,0,0,.06)" } },
+            React.createElement("button", { onClick: () => scrollNav(-1), "aria-label": "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E0B\u0E49\u0E32\u0E22", style: { flex: "0 0 auto", width: 40, border: "none", borderRight: `1px solid ${C.line}`, background: C.soft, color: C.primary, fontSize: 26, fontWeight: 800, cursor: "pointer", lineHeight: 1 } }, "\u2039"),
+            React.createElement("div", { ref: navScrollRef, style: { flex: 1, minWidth: 0, display: "flex", flexWrap: "nowrap", overflowX: "auto" } }, nav.map((n) => {
+                const key = n.children ? (n.defaultKey || "org:all") : n.key;
+                const active = n.children ? String(view).startsWith(n.key) : view === n.key;
+                return (React.createElement("button", { key: n.key, onClick: () => setView(key), style: { flex: "1 0 auto", minWidth: 66, padding: "11px 4px 9px", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, color: active ? C.primary : C.muted } },
+                    React.createElement("span", { style: { fontSize: 24 } }, n.icon),
+                    React.createElement("span", { style: { fontSize: 12, fontWeight: active ? 700 : 500, maxWidth: 72, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, n.label)));
+            })),
+            React.createElement("button", { onClick: () => scrollNav(1), "aria-label": "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E02\u0E27\u0E32", style: { flex: "0 0 auto", width: 40, border: "none", borderLeft: `1px solid ${C.line}`, background: C.soft, color: C.primary, fontSize: 26, fontWeight: 800, cursor: "pointer", lineHeight: 1 } }, "\u203A")),
         React.createElement("button", { className: "hidden md:flex", onClick: () => setConfirmClose(true), title: "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", "aria-label": "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", style: { position: "fixed", top: 12, right: 14, zIndex: 40, width: 36, height: 36, borderRadius: 10, border: `1px solid ${C.line}`, background: C.surface, color: "#c0392b", fontSize: 18, fontWeight: 700, cursor: "pointer", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 6px rgba(0,0,0,.08)" } }, "\u2715"),
         confirmOut && React.createElement(ConfirmModal, { title: "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A", message: "\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A\u0E43\u0E0A\u0E48\u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E21\u0E48? \u0E04\u0E23\u0E31\u0E49\u0E07\u0E15\u0E48\u0E2D\u0E44\u0E1B\u0E15\u0E49\u0E2D\u0E07\u0E25\u0E47\u0E2D\u0E01\u0E2D\u0E34\u0E19\u0E43\u0E2B\u0E21\u0E48", confirmLabel: "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A", onConfirm: () => { setConfirmOut(false); onExit(); }, onClose: () => setConfirmOut(false) }),
         confirmClose && React.createElement(ConfirmModal, { title: "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", message: "\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A\u0E19\u0E35\u0E49\u0E43\u0E0A\u0E48\u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E21\u0E48? (\u0E23\u0E30\u0E1A\u0E1A\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E02\u0E36\u0E49\u0E19 Sheet \u0E41\u0E25\u0E49\u0E27)", confirmLabel: "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", variant: "danger", onConfirm: () => { setConfirmClose(false); closeWin(); }, onClose: () => setConfirmClose(false) }),
