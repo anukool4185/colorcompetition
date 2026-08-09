@@ -809,6 +809,7 @@ function nextGrade(g) {
     return GRADE_ORDER[i + 1];
 }
 function StudentIncomeGrid({ db, setDb, ui, viewer }) {
+    const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff" };
     const rooms = Array.from(new Set((db.students || []).map((s) => `${s.grade}/${s.room}`))).filter((r) => r !== "/").sort();
     const [room, setRoom] = useState(rooms[0] || "");
     const cols = db.incomeCols || 5;
