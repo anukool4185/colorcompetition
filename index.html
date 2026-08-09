@@ -828,6 +828,17 @@ function StudentIncomeGrid({ db, setDb, ui, viewer }) {
     const setAmt = (sid, i, val) => { const v = val.replace(/[^0-9.]/g, ""); dirtyRef.current = true; setDb((p) => { const si = { ...(p.studentIncome || {}) }; const rec = { ...(si[sid] || { amounts: [] }) }; const amts = [...(rec.amounts || [])]; while (amts.length < cols)
         amts.push(""); amts[i] = v; si[sid] = { ...rec, amounts: amts }; return { ...p, studentIncome: si }; }); };
     const addCol = () => { ui.run("กำลังเพิ่มช่อง...", () => { setDb((p) => ({ ...p, incomeCols: (p.incomeCols || 5) + 1 })); save(); }); };
+    const [delColIdx, setDelColIdx] = useState(null);
+    const delCol = (idx) => { if ((db.incomeCols || 5) <= 1) {
+        ui.notify("ต้องมีอย่างน้อย 1 ช่อง");
+        setDelColIdx(null);
+        return;
+    } ui.run("กำลังลบช่อง...", () => { setDb((p) => { const si = { ...(p.studentIncome || {}) }; Object.keys(si).forEach((sid) => { if (sid === "_bills")
+        return; const rec = si[sid]; if (rec && Array.isArray(rec.amounts)) {
+        const a = [...rec.amounts];
+        a.splice(idx, 1);
+        si[sid] = { ...rec, amounts: a };
+    } }); return { ...p, studentIncome: si, incomeCols: Math.max(1, (p.incomeCols || 5) - 1) }; }); setDelColIdx(null); save(); }); };
     const rowTotal = (sid) => { const r = inc[sid]; if (!r || !r.amounts)
         return 0; return r.amounts.reduce((s, x) => s + (Number(x) || 0), 0); };
     const grand = roomStudents.reduce((s, st) => s + rowTotal(st.id), 0);
@@ -862,8 +873,10 @@ function StudentIncomeGrid({ db, setDb, ui, viewer }) {
                     React.createElement("tr", { style: { background: C.soft } },
                         React.createElement("th", { style: { padding: "8px 6px", textAlign: "left", position: "sticky", left: 0, background: C.soft, minWidth: 150 } }, "\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19"),
                         Array.from({ length: cols }).map((_, i) => React.createElement("th", { key: i, style: { padding: "8px 6px", minWidth: 74 } },
-                            "\u0E04\u0E23\u0E31\u0E49\u0E07\u0E17\u0E35\u0E48 ",
-                            i + 1)),
+                            React.createElement("div", null,
+                                "\u0E04\u0E23\u0E31\u0E49\u0E07\u0E17\u0E35\u0E48 ",
+                                i + 1),
+                            cols > 1 && React.createElement("button", { onClick: () => setDelColIdx(i), title: "\u0E25\u0E1A\u0E0A\u0E48\u0E2D\u0E07\u0E19\u0E35\u0E49", style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontSize: 11, fontWeight: 700, padding: 0 } }, "\u2715 \u0E25\u0E1A"))),
                         React.createElement("th", { style: { padding: "8px 6px", minWidth: 80 } }, "\u0E23\u0E27\u0E21"))),
                 React.createElement("tbody", null,
                     roomStudents.map((s) => {
@@ -894,7 +907,8 @@ function StudentIncomeGrid({ db, setDb, ui, viewer }) {
                 React.createElement("div", { style: { color: C.primary, fontWeight: 700 } },
                     b.date,
                     " \u2197"))))),
-        React.createElement("p", { style: { fontSize: 11.5, color: C.muted, marginTop: 8 } }, "\u0E23\u0E39\u0E1B\u0E16\u0E39\u0E01\u0E40\u0E01\u0E47\u0E1A\u0E43\u0E19\u0E42\u0E1F\u0E25\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E0A\u0E37\u0E48\u0E2D \"\u0E1A\u0E34\u0E25\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08_[\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48]\" \u0E1A\u0E19 Google Drive (\u0E23\u0E39\u0E1B\u0E27\u0E31\u0E19\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19\u0E23\u0E27\u0E21\u0E42\u0E1F\u0E25\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19)")));
+        React.createElement("p", { style: { fontSize: 11.5, color: C.muted, marginTop: 8 } }, "\u0E23\u0E39\u0E1B\u0E16\u0E39\u0E01\u0E40\u0E01\u0E47\u0E1A\u0E43\u0E19\u0E42\u0E1F\u0E25\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E0A\u0E37\u0E48\u0E2D \"\u0E1A\u0E34\u0E25\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08_[\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48]\" \u0E1A\u0E19 Google Drive (\u0E23\u0E39\u0E1B\u0E27\u0E31\u0E19\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19\u0E23\u0E27\u0E21\u0E42\u0E1F\u0E25\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19)"),
+        delColIdx !== null && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E25\u0E1A\u0E0A\u0E48\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A", message: `ลบ "ครั้งที่ ${delColIdx + 1}" ของนักเรียนทุกคน (ข้อมูลในช่องนี้จะหายทั้งหมด)? ย้อนกลับไม่ได้`, onConfirm: () => delCol(delColIdx), onClose: () => setDelColIdx(null) })));
 }
 function FinanceManager({ db, setDb, ui, viewer }) {
     const acc = financeAccess(db, viewer.id, viewer.role);
@@ -963,7 +977,15 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     };
     const startEdit = (f) => { setForm({ dept: f.dept, type: f.type, title: f.title, amount: String(f.amount), date: f.date, note: f.note || "", billDataUrl: "", billUrl: f.billUrl || "", billId: f.billId || "" }); setEditId(f.id); setTab("add"); };
     const del = (f) => ui.run("กำลังลบ...", () => { commit((p) => ({ ...p, finance: (p.finance || []).filter((x) => x.id !== f.id) })); ui.notify("ลบรายการแล้ว"); });
-    const rows = (db.finance || []).filter((f) => (!fDept || String(f.dept) === fDept) && (!fType || f.type === fType) && (!fFrom || (f.date || "") >= fFrom) && (!fTo || (f.date || "") <= fTo)).slice().sort((a, b) => (b.date + "" + b.at).localeCompare(a.date + "" + a.at));
+    const deptMatch = (f) => { if (!fDept)
+        return true; if (String(fDept).indexOf("DALL:") === 0) {
+        const d = (db.departments || []).find((x) => "DALL:" + x.id === fDept);
+        if (!d)
+            return false;
+        const mem = (d.comps || []).map(String);
+        return String(f.dept) === "D:" + d.id || mem.includes(String(f.dept));
+    } return String(f.dept) === fDept; };
+    const rows = (db.finance || []).filter((f) => deptMatch(f) && (!fType || f.type === fType) && (!fFrom || (f.date || "") >= fFrom) && (!fTo || (f.date || "") <= fTo)).slice().sort((a, b) => (b.date + "" + b.at).localeCompare(a.date + "" + a.at));
     const stats = financeStats(db);
     const money = (n) => (Number(n) || 0).toLocaleString("th-TH");
     const rowsIn = rows.filter((f) => f.type !== "out").reduce((s, f) => s + (Number(f.amount) || 0), 0);
@@ -1027,8 +1049,9 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" } },
                 React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E1D\u0E48\u0E32\u0E22:"),
                 React.createElement("select", { value: fDept, onChange: (e) => setFDept(e.target.value), style: selCss },
-                    React.createElement("option", { value: "" }, "\u0E17\u0E38\u0E01\u0E1D\u0E48\u0E32\u0E22"),
-                    db.competitions.map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name))),
+                    React.createElement("option", { value: "" }, "\u0E17\u0E38\u0E01\u0E1D\u0E48\u0E32\u0E22/\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"),
+                    (db.departments || []).length > 0 && React.createElement("optgroup", { label: "\uD83C\uDFE2 \u0E15\u0E32\u0E21\u0E1D\u0E48\u0E32\u0E22 (\u0E23\u0E27\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19\u0E1D\u0E48\u0E32\u0E22)" }, (db.departments || []).map((d) => React.createElement("option", { key: d.id, value: "DALL:" + d.id }, d.name))),
+                    React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }, db.competitions.map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name)))),
                 React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17:"),
                 React.createElement(Select, { value: fType, onChange: setFType },
                     React.createElement("option", { value: "" }, "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14"),
