@@ -2612,24 +2612,56 @@ function DutyManager({ db, setDb, ui }) {
         tab === "structure" && React.createElement(OrgStructureEditor, { db: db, setDb: setDb, ui: ui }),
         tab === "dept" && React.createElement(DepartmentManager, { db: db, setDb: setDb, ui: ui })));
 }
+const DUTY_RANKS = ["ที่ปรึกษา", "ประธานสี", "รองประธานสี", "หัวหน้า", "ผู้ดูแล", "ผู้ช่วย"];
+const dutyName = (d) => typeof d === "string" ? d : ((d && d.name) || "");
+const dutyRank = (d) => (typeof d === "object" && d && d.rank) ? d.rank : 0;
 function DutyListManager({ db, setDb, ui }) {
     const list = db.dutyList || [];
     const [name, setName] = useState("");
+    const [rank, setRank] = useState(0);
+    const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 500);
     const add = () => { if (!name.trim())
-        return; ui.run("กำลังเพิ่มหน้าที่...", () => { setDb((p) => ({ ...p, dutyList: [...(p.dutyList || []), name.trim()] })); setName(""); setTimeout(() => window.__forceSave && window.__forceSave(), 500); }); };
-    const remove = (i) => ui.run("กำลังลบ...", () => { setDb((p) => ({ ...p, dutyList: (p.dutyList || []).filter((_, j) => j !== i) })); setTimeout(() => window.__forceSave && window.__forceSave(), 500); });
+        return; ui.run("กำลังเพิ่มหน้าที่...", () => { setDb((p) => ({ ...p, dutyList: [...(p.dutyList || []), { name: name.trim(), rank: Number(rank) || 0 }] })); setName(""); setRank(0); save(); }); };
+    const remove = (i) => ui.run("กำลังลบ...", () => { setDb((p) => ({ ...p, dutyList: (p.dutyList || []).filter((_, j) => j !== i) })); save(); });
     const move = (i, dir) => ui.run("กำลังจัดลำดับ...", () => { setDb((p) => { const arr = [...(p.dutyList || [])]; const j = i + dir; if (j < 0 || j >= arr.length)
-        return p; [arr[i], arr[j]] = [arr[j], arr[i]]; return { ...p, dutyList: arr }; }); setTimeout(() => window.__forceSave && window.__forceSave(), 500); });
-    return (React.createElement("div", { style: { maxWidth: 560 } },
-        React.createElement("p", { style: { fontSize: 12.5, color: C.muted, marginTop: 0 } }, "\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E0A\u0E37\u0E48\u0E2D\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48/\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E44\u0E27\u0E49\u0E25\u0E48\u0E27\u0E07\u0E2B\u0E19\u0E49\u0E32 (\u0E40\u0E0A\u0E48\u0E19 \u0E1B\u0E23\u0E30\u0E18\u0E32\u0E19, \u0E23\u0E2D\u0E07\u0E1B\u0E23\u0E30\u0E18\u0E32\u0E19, \u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23, \u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E1B\u0E23\u0E30\u0E08\u0E33\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23) \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E43\u0E0A\u0E49\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E15\u0E2D\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E42\u0E04\u0E23\u0E07\u0E1C\u0E31\u0E07 \u2014 \u0E40\u0E23\u0E35\u0E22\u0E07\u0E25\u0E33\u0E14\u0E31\u0E1A = \u0E41\u0E19\u0E30\u0E19\u0E33\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E02\u0E2D\u0E07\u0E15\u0E49\u0E19\u0E44\u0E21\u0E49\u0E08\u0E32\u0E01\u0E1A\u0E19\u0E25\u0E07\u0E25\u0E48\u0E32\u0E07"),
-        React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 14 } },
+        return p; [arr[i], arr[j]] = [arr[j], arr[i]]; return { ...p, dutyList: arr }; }); save(); });
+    const setItemRank = (i, r) => ui.run("กำลังบันทึกลำดับ...", () => { setDb((p) => { const arr = (p.dutyList || []).map((d, j) => j === i ? { name: dutyName(d), rank: Number(r) || 0 } : (typeof d === "string" ? { name: d, rank: 0 } : d)); return { ...p, dutyList: arr }; }); save(); });
+    const sortByRank = () => ui.run("กำลังเรียงตามลำดับ...", () => { setDb((p) => { const arr = [...(p.dutyList || [])].map((d) => typeof d === "string" ? { name: d, rank: 0 } : d); arr.sort((a, b) => { const ra = a.rank || 99, rb = b.rank || 99; return ra - rb; }); return { ...p, dutyList: arr }; }); save(); });
+    const rankLabel = (r) => r > 0 ? `${r}. ${DUTY_RANKS[r - 1]}` : "(ไม่ระบุลำดับ)";
+    const rankCss = { padding: "8px 10px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 13.5, background: "#fbfaff", color: C.ink };
+    return (React.createElement("div", { style: { maxWidth: 620 } },
+        React.createElement("p", { style: { fontSize: 12.5, color: C.muted, marginTop: 0 } },
+            "\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E0A\u0E37\u0E48\u0E2D\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48/\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07 + ",
+            React.createElement("b", null, "\u0E25\u0E33\u0E14\u0E31\u0E1A\u0E43\u0E19\u0E1C\u0E31\u0E07"),
+            " \u0E25\u0E48\u0E27\u0E07\u0E2B\u0E19\u0E49\u0E32 \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E43\u0E0A\u0E49\u0E15\u0E2D\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E42\u0E04\u0E23\u0E07\u0E1C\u0E31\u0E07 \u00B7 \u0E25\u0E33\u0E14\u0E31\u0E1A\u0E21\u0E32\u0E15\u0E23\u0E10\u0E32\u0E19: 1.\u0E17\u0E35\u0E48\u0E1B\u0E23\u0E36\u0E01\u0E29\u0E32 2.\u0E1B\u0E23\u0E30\u0E18\u0E32\u0E19\u0E2A\u0E35 3.\u0E23\u0E2D\u0E07\u0E1B\u0E23\u0E30\u0E18\u0E32\u0E19\u0E2A\u0E35 4.\u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32 5.\u0E1C\u0E39\u0E49\u0E14\u0E39\u0E41\u0E25 6.\u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22"),
+        React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" } },
             React.createElement("input", { value: name, onChange: (e) => setName(e.target.value), onKeyDown: (e) => { if (e.key === "Enter")
-                    add(); }, placeholder: "\u0E40\u0E0A\u0E48\u0E19 \u0E1B\u0E23\u0E30\u0E18\u0E32\u0E19\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23", style: { flex: 1, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14 } }),
+                    add(); }, placeholder: "\u0E0A\u0E37\u0E48\u0E2D\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48 \u0E40\u0E0A\u0E48\u0E19 \u0E1B\u0E23\u0E30\u0E18\u0E32\u0E19\u0E2A\u0E35", style: { flex: 1, minWidth: 160, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14 } }),
+            React.createElement("select", { value: rank, onChange: (e) => setRank(e.target.value), style: rankCss },
+                React.createElement("option", { value: 0 }, "\u0E25\u0E33\u0E14\u0E31\u0E1A (\u0E44\u0E21\u0E48\u0E23\u0E30\u0E1A\u0E38)"),
+                DUTY_RANKS.map((r, i) => React.createElement("option", { key: i, value: i + 1 },
+                    i + 1,
+                    ". ",
+                    r))),
             React.createElement(Btn, { onClick: add, disabled: !name.trim() }, "+ \u0E40\u0E1E\u0E34\u0E48\u0E21")),
+        React.createElement("div", { style: { marginBottom: 12 } },
+            React.createElement(Btn, { small: true, variant: "ghost", onClick: sortByRank }, "\u2195 \u0E40\u0E23\u0E35\u0E22\u0E07\u0E15\u0E32\u0E21\u0E25\u0E33\u0E14\u0E31\u0E1A (1\u21926)")),
         React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
-            list.map((d, i) => (React.createElement(Card, { key: i, style: { padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 } },
-                React.createElement("span", { style: { width: 26, height: 26, borderRadius: 8, background: C.soft, color: C.primaryDark, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12 } }, i + 1),
-                React.createElement("span", { style: { flex: 1, fontWeight: 600, color: C.ink } }, d),
+            list.map((d, i) => (React.createElement(Card, { key: i, style: { padding: "10px 12px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } },
+                React.createElement("span", { style: { width: 26, height: 26, borderRadius: 8, background: dutyRank(d) ? C.primary : C.soft, color: dutyRank(d) ? "#fff" : C.primaryDark, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12 } }, dutyRank(d) || "–"),
+                React.createElement("span", { style: { flex: 1, minWidth: 120, fontWeight: 600, color: C.ink } },
+                    dutyName(d),
+                    " ",
+                    dutyRank(d) ? React.createElement("span", { style: { fontSize: 11, color: C.muted, fontWeight: 500 } },
+                        "(",
+                        DUTY_RANKS[dutyRank(d) - 1],
+                        ")") : null),
+                React.createElement("select", { value: dutyRank(d), onChange: (e) => setItemRank(i, e.target.value), style: { ...rankCss, padding: "5px 8px", fontSize: 12.5 } },
+                    React.createElement("option", { value: 0 }, "\u0E25\u0E33\u0E14\u0E31\u0E1A \u2013"),
+                    DUTY_RANKS.map((r, j) => React.createElement("option", { key: j, value: j + 1 },
+                        j + 1,
+                        ". ",
+                        r))),
                 React.createElement("button", { onClick: () => move(i, -1), disabled: i === 0, style: { border: `1px solid ${C.line}`, background: C.surface, borderRadius: 6, cursor: i === 0 ? "default" : "pointer", color: i === 0 ? C.line : C.primary, width: 28, height: 24 } }, "\u25B2"),
                 React.createElement("button", { onClick: () => move(i, 1), disabled: i === list.length - 1, style: { border: `1px solid ${C.line}`, background: C.surface, borderRadius: 6, cursor: i === list.length - 1 ? "default" : "pointer", color: i === list.length - 1 ? C.line : C.primary, width: 28, height: 24 } }, "\u25BC"),
                 React.createElement("button", { onClick: () => remove(i), style: { border: "none", background: "#fbeeee", color: "#c0392b", borderRadius: 8, padding: "4px 10px", fontWeight: 700, fontSize: 12, cursor: "pointer" } }, "\u0E25\u0E1A")))),
@@ -3087,7 +3119,7 @@ function NodeForm({ node, dutyList, comps, onClose, onSave, hideComp, compName }
             "\u0E0A\u0E37\u0E48\u0E2D\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07 / \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48 ",
             opts.length > 0 ? "(เลือกจากรายการหน้าที่ หรือพิมพ์เอง)" : ""),
         React.createElement("input", { list: "dutyOptions", value: title, onChange: (e) => setTitle(e.target.value), placeholder: "\u0E40\u0E0A\u0E48\u0E19 \u0E1B\u0E23\u0E30\u0E18\u0E32\u0E19, \u0E23\u0E2D\u0E07\u0E1B\u0E23\u0E30\u0E18\u0E32\u0E19, \u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E1B\u0E23\u0E30\u0E08\u0E33\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", style: { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, marginBottom: 10 } }),
-        React.createElement("datalist", { id: "dutyOptions" }, opts.map((d, i) => React.createElement("option", { key: i, value: d }))),
+        React.createElement("datalist", { id: "dutyOptions" }, opts.map((d, i) => React.createElement("option", { key: i, value: dutyName(d) }, dutyRank(d) ? `${dutyRank(d)}. ${dutyName(d)}` : dutyName(d)))),
         hideComp ? (React.createElement("p", { style: { fontSize: 12.5, color: "#2f9e6b", marginTop: 0, marginBottom: 8, fontWeight: 600 } },
             "\u2713 \u0E1C\u0E39\u0E01\u0E01\u0E31\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \"",
             compName,
