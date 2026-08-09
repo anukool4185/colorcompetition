@@ -3198,12 +3198,12 @@ function pruneOrg(nodes, removedSet) {
 }
 function OrgTree({ nodes, pool, accent, mode, comps, onAddChild, onEditTitle, onDelete, onAssign, onClearName, onSelfAssign, meId, pendingIds, horiz, spacing, onMove, onReorder, onInsertParent }) {
     const ids = new Set(nodes.map((n) => n.id));
-    const roots = nodes.filter((n) => !n.parent || !ids.has(n.parent));
+    const roots = nodes.filter((n) => !n.parent || !ids.has(n.parent)).slice().sort((a, b) => ((a.rank || 99) - (b.rank || 99)));
     const mini = (bg, col, brd) => ({ border: `1px solid ${brd || bg}`, background: bg, color: col, borderRadius: 14, padding: "3px 9px", fontSize: 11, fontWeight: 700, cursor: "pointer" });
     const structure = mode === "structure", names = mode === "names", self = mode === "selfsignup";
     const renderLi = (node) => {
         const p = pool.find((x) => String(x.id) === String(node.personId));
-        const kids = nodes.filter((n) => n.parent === node.id);
+        const kids = nodes.filter((n) => n.parent === node.id).slice().sort((a, b) => ((a.rank || 99) - (b.rank || 99)));
         const clickable = names || (self && !p);
         const isMe = p && meId && String(p.id) === String(meId);
         return (React.createElement("li", { key: node.id },
