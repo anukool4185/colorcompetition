@@ -2615,15 +2615,17 @@ function DutyManager({ db, setDb, ui }) {
 const DUTY_RANKS = ["ที่ปรึกษา", "ประธานสี", "รองประธานสี", "หัวหน้า", "ผู้ดูแล", "ผู้ช่วย"];
 const dutyName = (d) => typeof d === "string" ? d : ((d && d.name) || "");
 const dutyRank = (d) => (typeof d === "object" && d && d.rank) ? d.rank : 0;
-// สร้างผังอัตโนมัติ: ห่วงโซ่ตำแหน่งตามระดับที่เลือก (หรือครบ 6 ระดับ) ผูก compId ของรายการ
-function buildAutoOrg(comp, cat) {
-    const levels = ((comp.orgLevels && comp.orgLevels.length) ? comp.orgLevels : [1, 2, 3, 4, 5, 6]).slice().sort((a, b) => a - b);
+// สร้างผังอัตโนมัติครบ 6 ลำดับเสมอ (ตามรายการหน้าที่) · ระดับที่รายการเลือกไว้ = ทำเครื่องหมาย linked (ตำแหน่งเฉพาะของรายการนั้น เช่น หัวหน้า/ผู้ดูแล/ผู้ช่วย)
+function buildAutoOrg(comp, cat, dutyList) {
+    const linked = new Set(comp.orgLevels || []);
+    const dl = dutyList || [];
     const nodes = [];
     let parent = null;
     const stamp = Date.now();
-    levels.forEach((lv, idx) => {
+    [1, 2, 3, 4, 5, 6].forEach((lv, idx) => {
         const id = "n" + stamp + idx + Math.random().toString(36).slice(2, 6);
-        nodes.push({ id, personId: "", title: DUTY_RANKS[lv - 1], compId: comp.id, cat, parent, rank: lv });
+        const du = dl.find((d) => dutyName(d) === DUTY_RANKS[lv - 1]);
+        nodes.push({ id, personId: (du && du.teacherId) || "", title: DUTY_RANKS[lv - 1], compId: comp.id, cat, parent, rank: lv, linked: linked.has(lv) });
         parent = id;
     });
     return nodes;
@@ -2639,6 +2641,10 @@ function DutyListManager({ db, setDb, ui }) {
     const move = (i, dir) => ui.run("กำลังจัดลำดับ...", () => { setDb((p) => { const arr = [...(p.dutyList || [])]; const j = i + dir; if (j < 0 || j >= arr.length)
         return p; [arr[i], arr[j]] = [arr[j], arr[i]]; return { ...p, dutyList: arr }; }); save(); });
     const setItemRank = (i, r) => ui.run("กำลังบันทึกลำดับ...", () => { setDb((p) => { const arr = (p.dutyList || []).map((d, j) => j === i ? { name: dutyName(d), rank: Number(r) || 0 } : (typeof d === "string" ? { name: d, rank: 0 } : d)); return { ...p, dutyList: arr }; }); save(); });
+    const setDutyPerson = (i, field, personId) => ui.run("กำลังลงชื่อในทุกผัง...", () => { setDb((p) => { const arr = (p.dutyList || []).map((d, j) => j === i ? { ...(typeof d === "string" ? { name: d, rank: 0 } : d), [field]: personId } : d); const dn = dutyName(arr[i]); let ot = p.orgTeacher, os = p.orgStudent; if (field === "teacherId")
+        ot = (p.orgTeacher || []).map((n) => n.title === dn ? { ...n, personId } : n); if (field === "studentId")
+        os = (p.orgStudent || []).map((n) => n.title === dn ? { ...n, personId } : n); return { ...p, dutyList: arr, orgTeacher: ot, orgStudent: os }; }); save(); });
+    const perCss = { padding: "5px 8px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 12, background: "#fbfaff", color: C.ink, maxWidth: 150 };
     const sortByRank = () => ui.run("กำลังเรียงตามลำดับ...", () => { setDb((p) => { const arr = [...(p.dutyList || [])].map((d) => typeof d === "string" ? { name: d, rank: 0 } : d); arr.sort((a, b) => { const ra = a.rank || 99, rb = b.rank || 99; return ra - rb; }); return { ...p, dutyList: arr }; }); save(); });
     const rankLabel = (r) => r > 0 ? `${r}. ${DUTY_RANKS[r - 1]}` : "(ไม่ระบุลำดับ)";
     const rankCss = { padding: "8px 10px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 13.5, background: "#fbfaff", color: C.ink };
@@ -2677,7 +2683,19 @@ function DutyListManager({ db, setDb, ui }) {
                         r))),
                 React.createElement("button", { onClick: () => move(i, -1), disabled: i === 0, style: { border: `1px solid ${C.line}`, background: C.surface, borderRadius: 6, cursor: i === 0 ? "default" : "pointer", color: i === 0 ? C.line : C.primary, width: 28, height: 24 } }, "\u25B2"),
                 React.createElement("button", { onClick: () => move(i, 1), disabled: i === list.length - 1, style: { border: `1px solid ${C.line}`, background: C.surface, borderRadius: 6, cursor: i === list.length - 1 ? "default" : "pointer", color: i === list.length - 1 ? C.line : C.primary, width: 28, height: 24 } }, "\u25BC"),
-                React.createElement("button", { onClick: () => remove(i), style: { border: "none", background: "#fbeeee", color: "#c0392b", borderRadius: 8, padding: "4px 10px", fontWeight: 700, fontSize: 12, cursor: "pointer" } }, "\u0E25\u0E1A")))),
+                React.createElement("button", { onClick: () => remove(i), style: { border: "none", background: "#fbeeee", color: "#c0392b", borderRadius: 8, padding: "4px 10px", fontWeight: 700, fontSize: 12, cursor: "pointer" } }, "\u0E25\u0E1A"),
+                React.createElement("div", { style: { flexBasis: "100%", height: 0 } }),
+                React.createElement("span", { style: { fontSize: 11.5, color: C.muted } }, "\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E17\u0E38\u0E01\u0E1C\u0E31\u0E07 \u2192"),
+                React.createElement("span", { style: { fontSize: 11, color: C.primary } }, "\u0E04\u0E23\u0E39:"),
+                React.createElement("select", { value: (typeof d === "object" && d.teacherId) || "", onChange: (e) => setDutyPerson(i, "teacherId", e.target.value), style: perCss },
+                    React.createElement("option", { value: "" }, "\u2014 \u0E44\u0E21\u0E48\u0E23\u0E30\u0E1A\u0E38 \u2014"),
+                    (db.teachers || []).map((t) => React.createElement("option", { key: t.id, value: t.id }, fullName(t)))),
+                React.createElement("span", { style: { fontSize: 11, color: C.gold } }, "\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19:"),
+                React.createElement("select", { value: (typeof d === "object" && d.studentId) || "", onChange: (e) => setDutyPerson(i, "studentId", e.target.value), style: perCss },
+                    React.createElement("option", { value: "" }, "\u2014 \u0E44\u0E21\u0E48\u0E23\u0E30\u0E1A\u0E38 \u2014"),
+                    (db.students || []).map((s) => React.createElement("option", { key: s.id, value: s.id },
+                        fullName(s),
+                        s.grade ? ` (${s.grade}${s.room ? "/" + s.room : ""})` : "")))))),
             list.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48 \u2014 \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19\u0E01\u0E48\u0E2D\u0E19" }))));
 }
 async function snapshotEl(elId) {
@@ -2948,7 +2966,7 @@ function OrgViewManager({ db, setDb, ui, editable, committee, orgComp }) {
     const stReorder = (node, dir) => ui.run("กำลังจัดลำดับ...", () => { const reArr = (arr) => { const sibs = arr.filter((n) => (n.parent || null) === (node.parent || null) && (n.cat || "comp") === (node.cat || "comp")); const pos = sibs.findIndex((n) => n.id === node.id); const tgt = sibs[pos + dir]; if (!tgt)
         return arr; const i = arr.findIndex((n) => n.id === node.id), j = arr.findIndex((n) => n.id === tgt.id); if (i < 0 || j < 0)
         return arr; const c = [...arr]; [c[i], c[j]] = [c[j], c[i]]; return c; }; setDb((p) => { const ot = reArr(p.orgTeacher); return { ...p, orgTeacher: ot, orgStudent: syncStudentToTeacher(ot, p.orgStudent) }; }); saveOrg(); });
-    const stAutoBuild = () => ui.run("กำลังสร้างผังอัตโนมัติ...", () => { const orgNodes = buildAutoOrg(compObj, effCat); setDb((p) => { const ot = [...(p.orgTeacher || []), ...orgNodes]; const comps = p.competitions.map((c) => c.id === compObj.id ? { ...c, judgeTeachers: [...(c.judgeTeachers || []), ...orgNodes.map((n) => n.id)], judgeStudents: [...(c.judgeStudents || []), ...orgNodes.map((n) => n.id)] } : c); return { ...p, competitions: comps, orgTeacher: ot, orgStudent: syncStudentToTeacher(ot, p.orgStudent) }; }); saveOrg(); });
+    const stAutoBuild = () => ui.run("กำลังสร้างผังอัตโนมัติ...", () => { const orgNodes = buildAutoOrg(compObj, effCat, db.dutyList); setDb((p) => { const ot = [...(p.orgTeacher || []), ...orgNodes]; let os = syncStudentToTeacher(ot, p.orgStudent); os = os.map((n) => { const d = (p.dutyList || []).find((x) => dutyName(x) === n.title); return (d && d.studentId && !n.personId) ? { ...n, personId: d.studentId } : n; }); const comps = p.competitions.map((c) => c.id === compObj.id ? { ...c, judgeTeachers: [...(c.judgeTeachers || []), ...orgNodes.map((n) => n.id)], judgeStudents: [...(c.judgeStudents || []), ...orgNodes.map((n) => n.id)] } : c); return { ...p, competitions: comps, orgTeacher: ot, orgStudent: os }; }); saveOrg(); });
     const stInsertParent = (node, { title }) => ui.run("กำลังแทรกหัวหน้า...", () => { const npId = "n" + Date.now() + Math.random().toString(36).slice(2, 5); const np = { id: npId, personId: "", title, compId: pickComp, cat: node.cat || effCat, parent: node.parent || null }; setDb((p) => { const ot = [...p.orgTeacher.map((n) => n.id === node.id ? { ...n, parent: npId } : n), np]; return { ...p, orgTeacher: ot, orgStudent: syncStudentToTeacher(ot, p.orgStudent) }; }); setStructForm(null); saveOrg(); });
     const treeMode = buildMode ? "structure" : (editable ? "names" : (canSelf ? "selfsignup" : "view"));
     return (React.createElement("div", null,
@@ -3102,7 +3120,9 @@ function OrgTree({ nodes, pool, accent, mode, comps, onAddChild, onEditTitle, on
                     React.createElement("div", { style: { display: "flex", justifyContent: "center" } },
                         React.createElement(Avatar, { person: p || { first: "", last: "" }, size: 42 })),
                     React.createElement("div", { style: { fontSize: 12.5, fontWeight: 700, color: p ? C.ink : C.muted, textAlign: "center", marginTop: 4, lineHeight: 1.2 } }, p ? `${p.first} ${p.last}${p.grade ? ` (${p.grade}${p.room ? "/" + p.room : ""})` : ""}` : (names ? "＋ เพิ่มชื่อ" : (self ? "＋ ลงชื่อฉัน" : "(ยังไม่ลงชื่อ)"))),
-                    React.createElement("div", { style: { fontSize: 11, color: accent, textAlign: "center", fontWeight: 600 } }, node.title),
+                    React.createElement("div", { style: { fontSize: 11, color: accent, textAlign: "center", fontWeight: 600 } },
+                        node.title,
+                        node.linked ? React.createElement("span", { style: { fontSize: 9, color: "#fff", background: accent, borderRadius: 8, padding: "1px 6px", marginLeft: 4, fontWeight: 700 } }, "\uD83D\uDD17 \u0E40\u0E09\u0E1E\u0E32\u0E30\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23") : null),
                     node.compId && comps && (() => { const cc = comps.find((x) => String(x.id) === String(node.compId)); return cc ? React.createElement("div", { style: { fontSize: 10, color: C.muted, textAlign: "center", marginTop: 1 } },
                         "\u25B9 ",
                         cc.name) : null; })(),
@@ -3772,10 +3792,10 @@ function CompTable({ kind, db, setDb, ui }) {
         const newId = (kind === "แข่งขัน" ? "C" : "A") + Date.now();
         const cat = kind === "แข่งขัน" ? "comp" : "act";
         const comp = { ...c, id: newId, participants: [], schedule: [], results: {}, judgeTeachers: [], judgeStudents: [] };
-        const orgNodes = buildAutoOrg(comp, cat);
+        const orgNodes = buildAutoOrg(comp, cat, db.dutyList);
         comp.judgeTeachers = orgNodes.map((n) => n.id);
         comp.judgeStudents = orgNodes.map((n) => n.id);
-        setDb((p) => { const ot = [...(p.orgTeacher || []), ...orgNodes]; return { ...p, competitions: [...p.competitions, comp], orgTeacher: ot, orgStudent: syncStudentToTeacher(ot, p.orgStudent) }; });
+        setDb((p) => { const ot = [...(p.orgTeacher || []), ...orgNodes]; let os = syncStudentToTeacher(ot, p.orgStudent); os = os.map((n) => { const d = (p.dutyList || []).find((x) => dutyName(x) === n.title); return (d && d.studentId && !n.personId) ? { ...n, personId: d.studentId } : n; }); return { ...p, competitions: [...p.competitions, comp], orgTeacher: ot, orgStudent: os }; });
         setAdd(false);
         setEdit(null);
         setTimeout(() => window.__forceSave && window.__forceSave(), 500);
@@ -3897,7 +3917,7 @@ function CompForm({ kind, comp, db, onClose, onSave }) {
             React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E40\u0E1E\u0E28\u0E17\u0E35\u0E48\u0E23\u0E31\u0E1A\u0E2A\u0E21\u0E31\u0E04\u0E23"),
             React.createElement("div", { style: { display: "flex", gap: 8 } }, ["ชาย", "หญิง", "รวม"].map((g) => pill(g, f.gender || "รวม", () => set("gender")(g), C.primary))))),
         React.createElement("div", { style: { marginBottom: 12 } },
-            React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E41\u0E2A\u0E14\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49\u0E43\u0E19\u0E1C\u0E31\u0E07\u0E17\u0E35\u0E48\u0E23\u0E30\u0E14\u0E31\u0E1A (\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E14\u0E49\u0E2B\u0E25\u0E32\u0E22\u0E23\u0E30\u0E14\u0E31\u0E1A)"),
+            React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E17\u0E35\u0E48\u0E40\u0E1B\u0E47\u0E19\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07 \"\u0E40\u0E09\u0E1E\u0E32\u0E30\" \u0E02\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49 (\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2B\u0E25\u0E32\u0E22\u0E44\u0E14\u0E49) \u2014 \u0E1C\u0E31\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E04\u0E23\u0E1A 6 \u0E25\u0E33\u0E14\u0E31\u0E1A\u0E40\u0E2A\u0E21\u0E2D \u0E23\u0E30\u0E14\u0E31\u0E1A\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E08\u0E30\u0E17\u0E33\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E2B\u0E21\u0E32\u0E22\u0E27\u0E48\u0E32\u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21\u0E42\u0E22\u0E07\u0E01\u0E31\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49 (\u0E40\u0E0A\u0E48\u0E19 \u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32/\u0E1C\u0E39\u0E49\u0E14\u0E39\u0E41\u0E25/\u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22)"),
             React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, DUTY_RANKS.map((r, i) => {
                 const n = i + 1;
                 const on = (f.orgLevels || []).includes(n);
