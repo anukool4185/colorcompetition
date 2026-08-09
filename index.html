@@ -719,16 +719,16 @@ function Shell({ role, nav, view, setView, onExit, children, ui }) {
                     React.createElement("button", { onClick: () => setConfirmClose(true), "aria-label": "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", style: { fontSize: 16, fontWeight: 700, color: "#c0392b", background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1 } }, "\u2715"))),
             React.createElement("div", { style: { maxWidth: 960, margin: "0 auto", padding: 16 } },
                 React.createElement(ErrorBoundary, { key: view }, children))),
-        React.createElement("nav", { className: "md:hidden", style: { position: "fixed", bottom: 0, left: 0, right: 0, width: "100%", background: C.surface, borderTop: `1px solid ${C.line}`, display: "flex", alignItems: "stretch", zIndex: 20, boxShadow: "0 -2px 10px rgba(0,0,0,.06)" } },
-            React.createElement("button", { onClick: () => scrollNav(-1), "aria-label": "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E0B\u0E49\u0E32\u0E22", style: { flex: "0 0 auto", width: 40, border: "none", borderRight: `1px solid ${C.line}`, background: C.soft, color: C.primary, fontSize: 26, fontWeight: 800, cursor: "pointer", lineHeight: 1 } }, "\u2039"),
-            React.createElement("div", { ref: navScrollRef, style: { flex: 1, minWidth: 0, display: "flex", flexWrap: "nowrap", overflowX: "auto" } }, nav.map((n) => {
+        React.createElement("nav", { className: "md:hidden", style: { position: "fixed", bottom: 0, left: 0, right: 0, boxSizing: "border-box", maxWidth: "100%", overflow: "hidden", background: C.surface, borderTop: `1px solid ${C.line}`, display: "flex", alignItems: "stretch", zIndex: 20, boxShadow: "0 -2px 10px rgba(0,0,0,.06)" } },
+            React.createElement("button", { onClick: () => scrollNav(-1), "aria-label": "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E0B\u0E49\u0E32\u0E22", style: { flex: "0 0 auto", width: 36, border: "none", borderRight: `1px solid ${C.line}`, background: C.soft, color: C.primary, fontSize: 24, fontWeight: 800, cursor: "pointer", lineHeight: 1, padding: 0 } }, "\u2039"),
+            React.createElement("div", { ref: navScrollRef, style: { flex: "1 1 auto", minWidth: 0, display: "flex", flexWrap: "nowrap", overflowX: "auto", WebkitOverflowScrolling: "touch" } }, nav.map((n) => {
                 const key = n.children ? (n.defaultKey || "org:all") : n.key;
                 const active = n.children ? String(view).startsWith(n.key) : view === n.key;
-                return (React.createElement("button", { key: n.key, onClick: () => setView(key), style: { flex: "1 0 auto", minWidth: 66, padding: "11px 4px 9px", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, color: active ? C.primary : C.muted } },
+                return (React.createElement("button", { key: n.key, onClick: () => setView(key), style: { flex: "1 0 auto", minWidth: 62, padding: "11px 4px 9px", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, color: active ? C.primary : C.muted } },
                     React.createElement("span", { style: { fontSize: 24 } }, n.icon),
-                    React.createElement("span", { style: { fontSize: 12, fontWeight: active ? 700 : 500, maxWidth: 72, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, n.label)));
+                    React.createElement("span", { style: { fontSize: 12, fontWeight: active ? 700 : 500, maxWidth: 70, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, n.label)));
             })),
-            React.createElement("button", { onClick: () => scrollNav(1), "aria-label": "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E02\u0E27\u0E32", style: { flex: "0 0 auto", width: 40, border: "none", borderLeft: `1px solid ${C.line}`, background: C.soft, color: C.primary, fontSize: 26, fontWeight: 800, cursor: "pointer", lineHeight: 1 } }, "\u203A")),
+            React.createElement("button", { onClick: () => scrollNav(1), "aria-label": "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E02\u0E27\u0E32", style: { flex: "0 0 auto", width: 36, border: "none", borderLeft: `1px solid ${C.line}`, background: C.soft, color: C.primary, fontSize: 24, fontWeight: 800, cursor: "pointer", lineHeight: 1, padding: 0 } }, "\u203A")),
         React.createElement("button", { className: "hidden md:flex", onClick: () => setConfirmClose(true), title: "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", "aria-label": "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", style: { position: "fixed", top: 12, right: 14, zIndex: 40, width: 36, height: 36, borderRadius: 10, border: `1px solid ${C.line}`, background: C.surface, color: "#c0392b", fontSize: 18, fontWeight: 700, cursor: "pointer", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 6px rgba(0,0,0,.08)" } }, "\u2715"),
         confirmOut && React.createElement(ConfirmModal, { title: "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A", message: "\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A\u0E43\u0E0A\u0E48\u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E21\u0E48? \u0E04\u0E23\u0E31\u0E49\u0E07\u0E15\u0E48\u0E2D\u0E44\u0E1B\u0E15\u0E49\u0E2D\u0E07\u0E25\u0E47\u0E2D\u0E01\u0E2D\u0E34\u0E19\u0E43\u0E2B\u0E21\u0E48", confirmLabel: "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A", onConfirm: () => { setConfirmOut(false); onExit(); }, onClose: () => setConfirmOut(false) }),
         confirmClose && React.createElement(ConfirmModal, { title: "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", message: "\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A\u0E19\u0E35\u0E49\u0E43\u0E0A\u0E48\u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E21\u0E48? (\u0E23\u0E30\u0E1A\u0E1A\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E02\u0E36\u0E49\u0E19 Sheet \u0E41\u0E25\u0E49\u0E27)", confirmLabel: "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", variant: "danger", onConfirm: () => { setConfirmClose(false); closeWin(); }, onClose: () => setConfirmClose(false) }),
@@ -997,8 +997,42 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 React.createElement(Card, { style: { padding: 14, borderTop: `4px solid ${C.primary}` } },
                     React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u0E04\u0E07\u0E40\u0E2B\u0E25\u0E37\u0E2D"),
                     React.createElement("div", { style: { fontSize: 22, fontWeight: 800, color: stats.balance < 0 ? "#c0392b" : C.primaryDark } }, money(stats.balance)))),
+            (db.departments || []).length > 0 && (React.createElement(Card, { style: { padding: 16 } },
+                React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 4 } }, "\uD83C\uDFE2 \u0E2A\u0E23\u0E38\u0E1B\u0E15\u0E32\u0E21\u0E1D\u0E48\u0E32\u0E22 (\u0E23\u0E27\u0E21\u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E02\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19\u0E1D\u0E48\u0E32\u0E22)"),
+                React.createElement("div", { style: { fontSize: 12, color: C.muted, marginBottom: 10 } }, "\u0E41\u0E15\u0E48\u0E25\u0E30\u0E1D\u0E48\u0E32\u0E22\u0E23\u0E27\u0E21\u0E22\u0E2D\u0E14\u0E02\u0E2D\u0E07\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E35\u0E48\u0E16\u0E39\u0E01\u0E15\u0E34\u0E4A\u0E01\u0E40\u0E02\u0E49\u0E32\u0E1D\u0E48\u0E32\u0E22 (\u0E08\u0E31\u0E14\u0E1D\u0E48\u0E32\u0E22\u0E17\u0E35\u0E48\u0E40\u0E21\u0E19\u0E39 \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E2F \u2192 \u0E08\u0E31\u0E14\u0E1D\u0E48\u0E32\u0E22)"),
+                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, (db.departments || []).map((d) => {
+                    let din = 0, dout = 0;
+                    const memIds = (d.comps || []).map(String);
+                    (db.finance || []).forEach((f) => { if (memIds.includes(String(f.dept))) {
+                        if (f.type === "out")
+                            dout += Number(f.amount) || 0;
+                        else
+                            din += Number(f.amount) || 0;
+                    } });
+                    const bal = din - dout;
+                    return (React.createElement("div", { key: d.id, style: { padding: "10px 12px", border: `1px solid ${C.primary}`, borderRadius: 10, background: C.soft } },
+                        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" } },
+                            React.createElement("span", { style: { fontWeight: 800, color: C.primaryDark } },
+                                d.name,
+                                " ",
+                                React.createElement("span", { style: { fontSize: 11, color: C.muted, fontWeight: 500 } },
+                                    "(",
+                                    (d.comps || []).length,
+                                    " \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)")),
+                            React.createElement("span", { style: { fontSize: 13 } },
+                                React.createElement("span", { style: { color: "#2f9e6b", fontWeight: 700 } },
+                                    "+",
+                                    money(din)),
+                                " \u00B7 ",
+                                React.createElement("span", { style: { color: "#c0392b", fontWeight: 700 } },
+                                    "-",
+                                    money(dout)),
+                                " \u00B7 \u0E04\u0E07\u0E40\u0E2B\u0E25\u0E37\u0E2D ",
+                                React.createElement("b", { style: { color: bal < 0 ? "#c0392b" : C.primaryDark } }, money(bal)))),
+                        (d.comps || []).length > 0 && React.createElement("div", { style: { fontSize: 11.5, color: C.muted, marginTop: 4 } }, (d.comps || []).map((cid) => { const c = db.competitions.find((x) => String(x.id) === String(cid)); return c ? c.name : null; }).filter(Boolean).join(" · "))));
+                })))),
             React.createElement(Card, { style: { padding: 16 } },
-                React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 10 } }, "\u0E2A\u0E23\u0E38\u0E1B\u0E23\u0E32\u0E22\u0E1D\u0E48\u0E32\u0E22 (\u0E17\u0E31\u0E49\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21)"),
+                React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 10 } }, "\u0E2A\u0E23\u0E38\u0E1B\u0E23\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 (\u0E41\u0E15\u0E48\u0E25\u0E30\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21)"),
                 Object.keys(stats.byDept).length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25" }),
                 React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, Object.keys(stats.byDept).map((k) => {
                     const s = stats.byDept[k];
@@ -1100,12 +1134,12 @@ function AdminHome({ db, setDb, ui }) {
                 React.createElement("b", { style: { color: "#2f9e6b" } }, "\u0E44\u0E21\u0E48\u0E25\u0E1A\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19/\u0E04\u0E23\u0E39/\u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22"),
                 " (\u0E43\u0E0A\u0E49\u0E23\u0E48\u0E27\u0E21\u0E2D\u0E35\u0E01\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21) \u00B7 \u0E43\u0E0A\u0E49\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E19\u0E35\u0E49\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E02\u0E2D\u0E07\u0E2D\u0E35\u0E01\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E1B\u0E19\u0E2D\u0E22\u0E39\u0E48 \u0E2D\u0E22\u0E32\u0E01\u0E40\u0E23\u0E34\u0E48\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E2B\u0E21\u0E48"),
             React.createElement(Btn, { variant: "danger", small: true, onClick: () => setConfirmClearAct(true) }, "\u0E25\u0E49\u0E32\u0E07\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E19\u0E35\u0E49")),
-        confirmClearAct && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E25\u0E49\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E19\u0E35\u0E49", message: "\u0E08\u0E30\u0E25\u0E1A \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \u00B7 \u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23 \u00B7 \u0E1C\u0E25 \u00B7 \u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21 \u00B7 \u0E04\u0E33\u0E23\u0E49\u0E2D\u0E07 \u00B7 \u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19 \u0E02\u0E2D\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E19\u0E35\u0E49 (\u0E40\u0E01\u0E47\u0E1A\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19/\u0E04\u0E23\u0E39/\u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22 \u0E41\u0E25\u0E30\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E44\u0E27\u0E49) \u2014 \u0E22\u0E49\u0E2D\u0E19\u0E01\u0E25\u0E31\u0E1A\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 \u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E21\u0E48?", onConfirm: () => ui.run("กำลังล้างข้อมูลกิจกรรม...", () => { setDb((p) => ({ ...p, competitions: [], orgTeacher: [], orgStudent: [], dutyList: [], orgRequests: [], training: [], finance: [] })); setConfirmClearAct(false); ui.notify("ล้างข้อมูลกิจกรรมนี้แล้ว (บุคลากรยังอยู่ครบ)"); setTimeout(() => window.__forceSave && window.__forceSave(), 400); }), onClose: () => setConfirmClearAct(false) }),
+        confirmClearAct && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E25\u0E49\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E19\u0E35\u0E49", message: "\u0E08\u0E30\u0E25\u0E1A \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \u00B7 \u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23 \u00B7 \u0E1C\u0E25 \u00B7 \u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21 \u00B7 \u0E04\u0E33\u0E23\u0E49\u0E2D\u0E07 \u00B7 \u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19 \u0E02\u0E2D\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E19\u0E35\u0E49 (\u0E40\u0E01\u0E47\u0E1A\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19/\u0E04\u0E23\u0E39/\u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22 \u0E41\u0E25\u0E30\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E44\u0E27\u0E49) \u2014 \u0E22\u0E49\u0E2D\u0E19\u0E01\u0E25\u0E31\u0E1A\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 \u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E21\u0E48?", onConfirm: () => ui.run("กำลังล้างข้อมูลกิจกรรม...", () => { setDb((p) => ({ ...p, competitions: [], orgTeacher: [], orgStudent: [], dutyList: [], orgRequests: [], training: [], finance: [], departments: [] })); setConfirmClearAct(false); ui.notify("ล้างข้อมูลกิจกรรมนี้แล้ว (บุคลากรยังอยู่ครบ)"); setTimeout(() => window.__forceSave && window.__forceSave(), 400); }), onClose: () => setConfirmClearAct(false) }),
         React.createElement(Card, { style: { padding: 16, border: `1px solid #eccdcd` } },
             React.createElement("div", { style: { fontWeight: 700, color: "#b3453f", marginBottom: 6 } }, "\u0E25\u0E49\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E31\u0E49\u0E07\u0E23\u0E30\u0E1A\u0E1A (\u0E40\u0E23\u0E34\u0E48\u0E21\u0E43\u0E2B\u0E21\u0E48)"),
             React.createElement("p", { style: { fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 10, lineHeight: 1.6 } }, "\u0E25\u0E1A\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19/\u0E04\u0E23\u0E39 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07 \u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23 \u0E41\u0E25\u0E30\u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 (\u0E04\u0E07\u0E44\u0E27\u0E49\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E2A\u0E35\u0E17\u0E35\u0E21/\u0E1B\u0E23\u0E30\u0E0A\u0E32\u0E2A\u0E31\u0E21\u0E1E\u0E31\u0E19\u0E18\u0E4C) \u0E43\u0E0A\u0E49\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E2D\u0E22\u0E32\u0E01\u0E40\u0E23\u0E34\u0E48\u0E21\u0E15\u0E49\u0E19\u0E43\u0E2B\u0E21\u0E48\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14"),
             React.createElement(Btn, { variant: "danger", small: true, onClick: () => setConfirmReset(true) }, "\u0E25\u0E49\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14")),
-        confirmReset && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E25\u0E49\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E31\u0E49\u0E07\u0E23\u0E30\u0E1A\u0E1A", message: "\u0E08\u0E30\u0E25\u0E1A\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 (\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 \u0E04\u0E23\u0E39 \u0E1A\u0E31\u0E0D\u0E0A\u0E35 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07 \u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23) \u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E01\u0E32\u0E23\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E2A\u0E35\u0E17\u0E35\u0E21/\u0E1B\u0E23\u0E30\u0E0A\u0E32\u0E2A\u0E31\u0E21\u0E1E\u0E31\u0E19\u0E18\u0E4C \u2014 \u0E22\u0E49\u0E2D\u0E19\u0E01\u0E25\u0E31\u0E1A\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 \u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E21\u0E48?", onConfirm: () => ui.run("กำลังล้างข้อมูล...", () => { setDb((p) => ({ students: [], teachers: [], assistants: [], competitions: [], orgTeacher: [], orgStudent: [], dutyList: [], orgRequests: [], archived: [], trash: [], finance: [], settings: p.settings })); setConfirmReset(false); ui.notify("ล้างข้อมูลแล้ว"); }), onClose: () => setConfirmReset(false) })));
+        confirmReset && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E25\u0E49\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E31\u0E49\u0E07\u0E23\u0E30\u0E1A\u0E1A", message: "\u0E08\u0E30\u0E25\u0E1A\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 (\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 \u0E04\u0E23\u0E39 \u0E1A\u0E31\u0E0D\u0E0A\u0E35 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07 \u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23) \u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E01\u0E32\u0E23\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E2A\u0E35\u0E17\u0E35\u0E21/\u0E1B\u0E23\u0E30\u0E0A\u0E32\u0E2A\u0E31\u0E21\u0E1E\u0E31\u0E19\u0E18\u0E4C \u2014 \u0E22\u0E49\u0E2D\u0E19\u0E01\u0E25\u0E31\u0E1A\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 \u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E21\u0E48?", onConfirm: () => ui.run("กำลังล้างข้อมูล...", () => { setDb((p) => ({ students: [], teachers: [], assistants: [], competitions: [], orgTeacher: [], orgStudent: [], dutyList: [], orgRequests: [], archived: [], trash: [], finance: [], departments: [], settings: p.settings })); setConfirmReset(false); ui.notify("ล้างข้อมูลแล้ว"); }), onClose: () => setConfirmReset(false) })));
 }
 function BackupCard({ db, setDb, ui }) {
     const fileRef = useRef();
@@ -2389,15 +2423,73 @@ function CredForm({ kind, person, onClose, onSave }) {
             React.createElement(Btn, { variant: "ghost", onClick: onClose }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"))));
 }
 /* ----- Org manager ----- */
+function DepartmentManager({ db, setDb, ui }) {
+    const depts = db.departments || [];
+    const [name, setName] = useState("");
+    const [editId, setEditId] = useState(null);
+    const [editName, setEditName] = useState("");
+    const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 500);
+    const add = () => { if (!name.trim())
+        return; ui.run("กำลังเพิ่มฝ่าย...", () => { setDb((p) => ({ ...p, departments: [...(p.departments || []), { id: "D" + Date.now() + Math.random().toString(36).slice(2, 5), name: name.trim(), comps: [] }] })); setName(""); save(); }); };
+    const rename = (id) => { if (!editName.trim())
+        return; ui.run("กำลังบันทึก...", () => { setDb((p) => ({ ...p, departments: (p.departments || []).map((d) => d.id === id ? { ...d, name: editName.trim() } : d) })); setEditId(null); save(); }); };
+    const remove = (id) => ui.run("กำลังลบฝ่าย...", () => { setDb((p) => ({ ...p, departments: (p.departments || []).filter((d) => d.id !== id) })); save(); });
+    const toggleComp = (deptId, compId) => ui.run("กำลังบันทึก...", () => { setDb((p) => ({ ...p, departments: (p.departments || []).map((d) => { if (d.id !== deptId)
+            return d; const has = (d.comps || []).map(String).includes(String(compId)); return { ...d, comps: has ? d.comps.filter((c) => String(c) !== String(compId)) : [...(d.comps || []), compId] }; }) })); save(); });
+    const comps = db.competitions || [];
+    return (React.createElement("div", null,
+        React.createElement("p", { style: { fontSize: 12.5, color: C.muted, marginTop: 0 } },
+            "\u0E2A\u0E23\u0E49\u0E32\u0E07 \"\u0E1D\u0E48\u0E32\u0E22\" \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E08\u0E31\u0E14\u0E01\u0E25\u0E38\u0E48\u0E21\u0E2B\u0E25\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E44\u0E27\u0E49\u0E14\u0E49\u0E27\u0E22\u0E01\u0E31\u0E19 \u2192 \u0E43\u0E0A\u0E49\u0E17\u0E33 ",
+            React.createElement("b", null, "\u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E1D\u0E48\u0E32\u0E22"),
+            " (\u0E23\u0E27\u0E21\u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E02\u0E2D\u0E07\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19\u0E1D\u0E48\u0E32\u0E22) \u0E17\u0E35\u0E48\u0E40\u0E21\u0E19\u0E39\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19-\u0E1E\u0E31\u0E2A\u0E14\u0E38 \u00B7 \u0E15\u0E34\u0E4A\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E19\u0E33\u0E40\u0E02\u0E49\u0E32\u0E1D\u0E48\u0E32\u0E22"),
+        React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 16, maxWidth: 560 } },
+            React.createElement("input", { value: name, onChange: (e) => setName(e.target.value), onKeyDown: (e) => { if (e.key === "Enter")
+                    add(); }, placeholder: "\u0E0A\u0E37\u0E48\u0E2D\u0E1D\u0E48\u0E32\u0E22 \u0E40\u0E0A\u0E48\u0E19 \u0E1D\u0E48\u0E32\u0E22\u0E01\u0E35\u0E2C\u0E32\u0E2A\u0E35, \u0E1D\u0E48\u0E32\u0E22\u0E27\u0E34\u0E0A\u0E32\u0E01\u0E32\u0E23, \u0E1D\u0E48\u0E32\u0E22\u0E1E\u0E31\u0E2A\u0E14\u0E38", style: { flex: 1, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14 } }),
+            React.createElement(Btn, { onClick: add, disabled: !name.trim() }, "+ \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E1D\u0E48\u0E32\u0E22")),
+        depts.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1D\u0E48\u0E32\u0E22 \u2014 \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E1D\u0E48\u0E32\u0E22\u0E14\u0E49\u0E32\u0E19\u0E1A\u0E19" }),
+        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } }, depts.map((d) => {
+            const memN = (d.comps || []).length;
+            return (React.createElement(Card, { key: d.id, style: { padding: 14 } },
+                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" } }, editId === d.id ? (React.createElement(React.Fragment, null,
+                    React.createElement("input", { value: editName, onChange: (e) => setEditName(e.target.value), style: { flex: 1, minWidth: 160, padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14 } }),
+                    React.createElement(Btn, { small: true, onClick: () => rename(d.id) }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01"),
+                    React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setEditId(null) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"))) : (React.createElement(React.Fragment, null,
+                    React.createElement("span", { style: { fontWeight: 800, color: C.primaryDark, fontSize: 15 } },
+                        "\uD83C\uDFE2 ",
+                        d.name),
+                    React.createElement("span", { style: { fontSize: 12, color: C.muted } },
+                        "(",
+                        memN,
+                        " \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)"),
+                    React.createElement("span", { style: { flex: 1 } }),
+                    React.createElement(Btn, { small: true, variant: "ghost", onClick: () => { setEditId(d.id); setEditName(d.name); } }, "\u0E41\u0E01\u0E49\u0E0A\u0E37\u0E48\u0E2D"),
+                    React.createElement(Btn, { small: true, variant: "danger", onClick: () => remove(d.id) }, "\u0E25\u0E1A")))),
+                React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 6 } }, "\u0E15\u0E34\u0E4A\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48\u0E43\u0E19\u0E1D\u0E48\u0E32\u0E22\u0E19\u0E35\u0E49:"),
+                comps.length === 0 && React.createElement("div", { style: { fontSize: 12.5, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21"),
+                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5, maxHeight: 260, overflowY: "auto" } }, comps.map((c) => {
+                    const on = (d.comps || []).map(String).includes(String(c.id));
+                    return (React.createElement("label", { key: c.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", border: `1px solid ${on ? C.primary : C.line}`, borderRadius: 8, background: on ? C.soft : C.surface, cursor: "pointer" } },
+                        React.createElement("input", { type: "checkbox", checked: on, onChange: () => toggleComp(d.id, c.id), style: { width: 17, height: 17 } }),
+                        React.createElement("span", { style: { fontSize: 13, color: C.ink } },
+                            c.name,
+                            " ",
+                            React.createElement("span", { style: { fontSize: 11, color: C.muted } },
+                                "(",
+                                c.kind,
+                                ")"))));
+                }))));
+        }))));
+}
 function DutyManager({ db, setDb, ui }) {
     const [tab, setTab] = useState("dutylist");
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48 \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19", sub: "\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48 (\u0E19\u0E33\u0E17\u0E32\u0E07\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E1C\u0E31\u0E07) \u2192 \u0E2A\u0E23\u0E49\u0E32\u0E07\u0E42\u0E04\u0E23\u0E07\u0E1C\u0E31\u0E07 \u2192 \u0E44\u0E1B\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E17\u0E35\u0E48\u0E40\u0E21\u0E19\u0E39 \u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23" }),
-        React.createElement(Tabs, { tabs: [{ key: "dutylist", label: "รายการหน้าที่" }, { key: "comp", label: "รายการแข่งขัน" }, { key: "act", label: "รายการกิจกรรม" }, { key: "structure", label: "ผังโครงสร้าง" }], active: tab, onChange: setTab }),
+        React.createElement(Tabs, { tabs: [{ key: "dutylist", label: "รายการหน้าที่" }, { key: "comp", label: "รายการแข่งขัน" }, { key: "act", label: "รายการกิจกรรม" }, { key: "structure", label: "ผังโครงสร้าง" }, { key: "dept", label: "จัดฝ่าย" }], active: tab, onChange: setTab }),
         tab === "dutylist" && React.createElement(DutyListManager, { db: db, setDb: setDb, ui: ui }),
         tab === "comp" && React.createElement(CompTable, { kind: "\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19", db: db, setDb: setDb, ui: ui }),
         tab === "act" && React.createElement(CompTable, { kind: "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21", db: db, setDb: setDb, ui: ui }),
-        tab === "structure" && React.createElement(OrgStructureEditor, { db: db, setDb: setDb, ui: ui })));
+        tab === "structure" && React.createElement(OrgStructureEditor, { db: db, setDb: setDb, ui: ui }),
+        tab === "dept" && React.createElement(DepartmentManager, { db: db, setDb: setDb, ui: ui })));
 }
 function DutyListManager({ db, setDb, ui }) {
     const list = db.dutyList || [];
@@ -2743,7 +2835,7 @@ function OrgViewManager({ db, setDb, ui, editable, committee, orgComp }) {
                     buildMode ? " · โหมดจัดโครงสร้าง" : (canSelf ? " · ลงชื่อฉันในช่องว่างได้" : "")),
                 buildMode && nodes.length === 0 && React.createElement(Empty, { text: `ยังไม่มีตำแหน่งในรายการนี้ — กด "+ เพิ่มหัวหน้าสูงสุด" เพื่อเริ่มสร้างผัง` }),
                 React.createElement(OrgTree, { nodes: nodes, pool: pool, accent: view === "teacher" ? C.primary : C.gold, mode: treeMode, comps: db.competitions, horiz: horiz, spacing: spacing, meId: committee ? committee.meId : undefined, pendingIds: (db.orgRequests || []).filter((r) => r.side === which && r.status === "pending").map((r) => r.nodeId), onAssign: (node) => setAssign(node), onClearName: clearName, onSelfAssign: selfAssign, onAddChild: (node) => setStructForm({ parent: node.id }), onEditTitle: (node) => setStructForm({ node }), onDelete: (node) => setStructConfirm(node), onMove: (node) => setStructMove(node), onReorder: stReorder, onInsertParent: (node) => setStructForm({ insertAbove: node }) })))),
-        structForm && React.createElement(NodeForm, { node: structForm.node, dutyList: db.dutyList || [], comps: db.competitions.filter((c) => (c.kind === "แข่งขัน" ? "comp" : "act") === effCat), onClose: () => setStructForm(null), onSave: (v) => structForm.insertAbove ? stInsertParent(structForm.insertAbove, v) : (structForm.node ? stEdit(structForm.node.id, v) : stAdd(v, structForm.parent)) }),
+        structForm && React.createElement(NodeForm, { node: structForm.node, dutyList: db.dutyList || [], comps: db.competitions.filter((c) => (c.kind === "แข่งขัน" ? "comp" : "act") === effCat), hideComp: true, compName: compObj ? compObj.name : "", onClose: () => setStructForm(null), onSave: (v) => structForm.insertAbove ? stInsertParent(structForm.insertAbove, v) : (structForm.node ? stEdit(structForm.node.id, v) : stAdd(v, structForm.parent)) }),
         structConfirm && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E01\u0E32\u0E23\u0E25\u0E1A", message: `ลบตำแหน่ง "${structConfirm.title}" และตำแหน่งลูกทั้งหมด (ทั้งครูและนักเรียน)? เก็บในถังขยะ กู้คืนได้`, onConfirm: () => stDel(structConfirm), onClose: () => setStructConfirm(null) }),
         structMove && (() => {
             const bad = descIds(db.orgTeacher, structMove.id);
@@ -2864,7 +2956,7 @@ function OrgTree({ nodes, pool, accent, mode, comps, onAddChild, onEditTitle, on
     return React.createElement("div", { className: "orgtree" + (horiz ? " horiz" : "") + (spacing === "tight" ? " sp-tight" : spacing === "loose" ? " sp-loose" : ""), style: { ["--tl"]: C.line } },
         React.createElement("ul", null, roots.map(renderLi)));
 }
-function NodeForm({ node, dutyList, comps, onClose, onSave }) {
+function NodeForm({ node, dutyList, comps, onClose, onSave, hideComp, compName }) {
     const [title, setTitle] = useState((node === null || node === void 0 ? void 0 : node.title) || "");
     const [compId, setCompId] = useState((node === null || node === void 0 ? void 0 : node.compId) || "");
     const opts = dutyList || [];
@@ -2875,12 +2967,16 @@ function NodeForm({ node, dutyList, comps, onClose, onSave }) {
             opts.length > 0 ? "(เลือกจากรายการหน้าที่ หรือพิมพ์เอง)" : ""),
         React.createElement("input", { list: "dutyOptions", value: title, onChange: (e) => setTitle(e.target.value), placeholder: "\u0E40\u0E0A\u0E48\u0E19 \u0E1B\u0E23\u0E30\u0E18\u0E32\u0E19, \u0E23\u0E2D\u0E07\u0E1B\u0E23\u0E30\u0E18\u0E32\u0E19, \u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E1B\u0E23\u0E30\u0E08\u0E33\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", style: { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, marginBottom: 10 } }),
         React.createElement("datalist", { id: "dutyOptions" }, opts.map((d, i) => React.createElement("option", { key: i, value: d }))),
-        React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E19\u0E35\u0E49\u0E14\u0E39\u0E41\u0E25 (\u0E44\u0E21\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01 = \u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E1A\u0E23\u0E34\u0E2B\u0E32\u0E23/\u0E44\u0E21\u0E48\u0E1C\u0E39\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)"),
-        React.createElement("select", { value: compId, onChange: (e) => setCompId(e.target.value), style: selCss },
-            React.createElement("option", { value: "" }, "\u2014 \u0E44\u0E21\u0E48\u0E1C\u0E39\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2014"),
-            (comps || []).map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name))),
-        (comps || []).length === 0 && React.createElement("p", { style: { fontSize: 12, color: C.muted, marginTop: 0 } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19\u0E2B\u0E21\u0E27\u0E14\u0E19\u0E35\u0E49 \u2014 \u0E44\u0E1B\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E17\u0E35\u0E48\u0E41\u0E17\u0E47\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E01\u0E48\u0E2D\u0E19"),
-        React.createElement("p", { style: { fontSize: 12, color: C.muted, marginTop: 0 } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E2A\u0E48\u0E0A\u0E37\u0E48\u0E2D\u0E04\u0E19 \u2014 \u0E44\u0E1B\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E17\u0E35\u0E48\u0E40\u0E21\u0E19\u0E39 \"\u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23\""),
+        hideComp ? (React.createElement("p", { style: { fontSize: 12.5, color: "#2f9e6b", marginTop: 0, marginBottom: 8, fontWeight: 600 } },
+            "\u2713 \u0E1C\u0E39\u0E01\u0E01\u0E31\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \"",
+            compName,
+            "\" \u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34 \u2014 \u0E41\u0E04\u0E48\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E1E\u0E2D")) : (React.createElement(React.Fragment, null,
+            React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E19\u0E35\u0E49\u0E14\u0E39\u0E41\u0E25 (\u0E44\u0E21\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01 = \u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E1A\u0E23\u0E34\u0E2B\u0E32\u0E23/\u0E44\u0E21\u0E48\u0E1C\u0E39\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)"),
+            React.createElement("select", { value: compId, onChange: (e) => setCompId(e.target.value), style: selCss },
+                React.createElement("option", { value: "" }, "\u2014 \u0E44\u0E21\u0E48\u0E1C\u0E39\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2014"),
+                (comps || []).map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name))),
+            (comps || []).length === 0 && React.createElement("p", { style: { fontSize: 12, color: C.muted, marginTop: 0 } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19\u0E2B\u0E21\u0E27\u0E14\u0E19\u0E35\u0E49 \u2014 \u0E44\u0E1B\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E17\u0E35\u0E48\u0E41\u0E17\u0E47\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E01\u0E48\u0E2D\u0E19"))),
+        React.createElement("p", { style: { fontSize: 12, color: C.muted, marginTop: 0 } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E2A\u0E48\u0E0A\u0E37\u0E48\u0E2D\u0E04\u0E19 \u2014 \u0E44\u0E1B\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E17\u0E35\u0E48\u0E42\u0E2B\u0E21\u0E14 \"\u270D\uFE0F \u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\""),
         React.createElement("div", { style: { display: "flex", gap: 8 } },
             React.createElement(Btn, { onClick: () => onSave({ title, compId }), disabled: !title }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01"),
             React.createElement(Btn, { variant: "ghost", onClick: onClose }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"))));
@@ -5611,6 +5707,7 @@ function mergeDb(loaded) {
         orgRequests: (loaded && loaded.orgRequests) || [],
         training: (loaded && loaded.training) || [],
         finance: (loaded && loaded.finance) || [],
+        departments: (loaded && loaded.departments) || [],
         archived: (loaded && loaded.archived) || [],
         trash: (loaded && loaded.trash) || [],
         settings: {
