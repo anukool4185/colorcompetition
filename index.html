@@ -810,6 +810,13 @@ function nextGrade(g) {
 }
 function StudentIncomeGrid({ db, setDb, ui, viewer }) {
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff" };
+    const dirtyRef = useRef(false);
+    useEffect(() => () => { if (dirtyRef.current) {
+        try {
+            window.__forceSave && window.__forceSave();
+        }
+        catch (e) { }
+    } }, []); // ออกจากหน้า → บังคับบันทึกทันที
     const rooms = Array.from(new Set((db.students || []).map((s) => `${s.grade}/${s.room}`))).filter((r) => r !== "/").sort();
     const [room, setRoom] = useState(rooms[0] || "");
     const cols = db.incomeCols || 5;
@@ -818,7 +825,7 @@ function StudentIncomeGrid({ db, setDb, ui, viewer }) {
     const [billData, setBillData] = useState("");
     const roomStudents = (db.students || []).filter((s) => `${s.grade}/${s.room}` === room).sort((a, b) => (a.first || "").localeCompare(b.first || "", "th"));
     const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 500);
-    const setAmt = (sid, i, val) => { const v = val.replace(/[^0-9.]/g, ""); setDb((p) => { const si = { ...(p.studentIncome || {}) }; const rec = { ...(si[sid] || { amounts: [] }) }; const amts = [...(rec.amounts || [])]; while (amts.length < cols)
+    const setAmt = (sid, i, val) => { const v = val.replace(/[^0-9.]/g, ""); dirtyRef.current = true; setDb((p) => { const si = { ...(p.studentIncome || {}) }; const rec = { ...(si[sid] || { amounts: [] }) }; const amts = [...(rec.amounts || [])]; while (amts.length < cols)
         amts.push(""); amts[i] = v; si[sid] = { ...rec, amounts: amts }; return { ...p, studentIncome: si }; }); };
     const addCol = () => { ui.run("กำลังเพิ่มช่อง...", () => { setDb((p) => ({ ...p, incomeCols: (p.incomeCols || 5) + 1 })); save(); }); };
     const rowTotal = (sid) => { const r = inc[sid]; if (!r || !r.amounts)
@@ -838,7 +845,7 @@ function StudentIncomeGrid({ db, setDb, ui, viewer }) {
     else
         ui.notify("อัปโหลดไม่สำเร็จ"); }); };
     const bills = (inc["_bills"] || []).filter((b) => !room || b.room === room);
-    const saveAll = () => ui.run("บันทึกแล้ว", () => { save(); });
+    const saveAll = () => ui.run("บันทึกแล้ว", () => { dirtyRef.current = false; save(); });
     return (React.createElement("div", null,
         React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 10 } },
             "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\u0E08\u0E32\u0E01\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E32\u0E22\u0E04\u0E19 (\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1D\u0E48\u0E32\u0E22\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19/\u0E1A\u0E31\u0E0D\u0E0A\u0E35) \u00B7 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2B\u0E49\u0E2D\u0E07 \u2192 \u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E41\u0E15\u0E48\u0E25\u0E30\u0E04\u0E23\u0E31\u0E49\u0E07 \u00B7 \u0E01\u0E14 \"\uFF0B \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E0A\u0E48\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\" \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E04\u0E23\u0E31\u0E49\u0E07\u0E17\u0E35\u0E48\u0E21\u0E32\u0E01\u0E01\u0E27\u0E48\u0E32 ",
