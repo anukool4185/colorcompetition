@@ -878,6 +878,17 @@ function StudentIncomeGrid({ db, setDb, ui, viewer }) {
     else
         ui.notify("อัปโหลดไม่สำเร็จ"); }); };
     const bills = (inc["_bills"] || []).filter((b) => !room || b.room === room);
+    const [subAmt, setSubAmt] = useState("");
+    const [subDate, setSubDate] = useState(todayStr());
+    const [subNote, setSubNote] = useState("");
+    const submits = (inc["_submits"] || []).filter((x) => x.room === room).sort((a, b) => (a.date + "").localeCompare(b.date + ""));
+    const submitSum = submits.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+    const addSubmit = () => { const amt = Number(String(subAmt).replace(/[^0-9.]/g, "")); if (!amt) {
+        ui.notify("ใส่จำนวนเงินก่อน");
+        return;
+    } ui.run("บันทึกการส่งเงินแล้ว", () => { setDb((p) => ({ ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: [...(((p.studentIncome || {})["_submits"]) || []), { id: "sub" + Date.now(), room, amount: amt, date: subDate, note: subNote, by: viewer.name || "", at: Date.now() }] } })); setSubAmt(""); setSubNote(""); save(); }); };
+    const removeSubmit = (id) => ui.run("ลบแล้ว", () => { setDb((p) => ({ ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: (((p.studentIncome || {})["_submits"]) || []).filter((x) => x.id !== id) } })); save(); });
+    const diff = submitSum - grand;
     const saveAll = () => ui.run("บันทึกแล้ว", () => { dirtyRef.current = false; save(); });
     return (React.createElement("div", null,
         React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 10 } },
@@ -916,6 +927,38 @@ function StudentIncomeGrid({ db, setDb, ui, viewer }) {
                         React.createElement("td", { style: { padding: "8px 6px", fontWeight: 800, position: "sticky", left: 0, background: C.soft } }, "\u0E23\u0E27\u0E21\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E49\u0E2D\u0E07"),
                         React.createElement("td", { colSpan: cols }),
                         React.createElement("td", { style: { padding: "8px 6px", textAlign: "right", fontWeight: 800, color: "#2f9e6b" } }, grand.toLocaleString("th-TH"))))))),
+        React.createElement(Card, { style: { padding: 14, marginTop: 14 } },
+            React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 8 } },
+                "\uD83D\uDCB5 \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E01\u0E32\u0E23\u0E2A\u0E48\u0E07\u0E40\u0E07\u0E34\u0E19\u0E02\u0E2D\u0E07\u0E2B\u0E49\u0E2D\u0E07 ",
+                room),
+            React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 } },
+                React.createElement("input", { value: subAmt, onChange: (e) => setSubAmt(e.target.value), inputMode: "decimal", placeholder: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19\u0E17\u0E35\u0E48\u0E2A\u0E48\u0E07", style: { width: 130, padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14, textAlign: "right" } }),
+                React.createElement("input", { type: "date", value: subDate, onChange: (e) => setSubDate(e.target.value), style: { ...selCss, width: "auto" } }),
+                React.createElement("input", { value: subNote, onChange: (e) => setSubNote(e.target.value), placeholder: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 (\u0E40\u0E0A\u0E48\u0E19 \u0E2A\u0E48\u0E07\u0E07\u0E27\u0E14\u0E17\u0E35\u0E48 1)", style: { flex: 1, minWidth: 140, padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14 } }),
+                React.createElement(Btn, { small: true, onClick: addSubmit }, "+ \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E2A\u0E48\u0E07\u0E40\u0E07\u0E34\u0E19")),
+            submits.length > 0 && (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5, marginBottom: 10 } }, submits.map((x) => (React.createElement("div", { key: x.id, style: { display: "flex", alignItems: "center", gap: 8, fontSize: 13, padding: "6px 10px", background: "#f7f9ff", borderRadius: 8 } },
+                React.createElement("span", { style: { fontWeight: 700, color: C.primaryDark, minWidth: 90, textAlign: "right" } },
+                    (Number(x.amount) || 0).toLocaleString("th-TH"),
+                    " \u0E3F"),
+                React.createElement("span", { style: { color: C.muted } }, x.date),
+                x.note && React.createElement("span", { style: { color: C.ink } },
+                    "\u00B7 ",
+                    x.note),
+                React.createElement("span", { style: { flex: 1 } }),
+                x.by && React.createElement("span", { style: { fontSize: 11, color: C.muted } }, x.by),
+                React.createElement("button", { onClick: () => removeSubmit(x.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715")))))),
+            React.createElement("div", { style: { borderTop: `1px solid ${C.line}`, paddingTop: 10, display: "flex", flexDirection: "column", gap: 4, fontSize: 13.5 } },
+                React.createElement("div", { style: { display: "flex", justifyContent: "space-between" } },
+                    React.createElement("span", { style: { color: C.muted } }, "\u0E22\u0E2D\u0E14\u0E23\u0E27\u0E21\u0E43\u0E19\u0E15\u0E32\u0E23\u0E32\u0E07 (\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\u0E17\u0E35\u0E48\u0E01\u0E23\u0E2D\u0E01)"),
+                    React.createElement("b", { style: { color: C.primaryDark } },
+                        grand.toLocaleString("th-TH"),
+                        " \u0E3F")),
+                React.createElement("div", { style: { display: "flex", justifyContent: "space-between" } },
+                    React.createElement("span", { style: { color: C.muted } }, "\u0E22\u0E2D\u0E14\u0E23\u0E27\u0E21\u0E17\u0E35\u0E48\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E2A\u0E48\u0E07\u0E40\u0E07\u0E34\u0E19"),
+                    React.createElement("b", { style: { color: "#2f9e6b" } },
+                        submitSum.toLocaleString("th-TH"),
+                        " \u0E3F")),
+                React.createElement("div", { style: { marginTop: 6, padding: "8px 12px", borderRadius: 10, background: diff === 0 ? "#e8f8ef" : "#fdeeee", color: diff === 0 ? "#1e7a4d" : "#c0392b", fontWeight: 800, textAlign: "center" } }, diff === 0 ? "✓ ยอดตรงกัน" : (diff > 0 ? `⚠ ส่งเงินเกินยอดในตาราง ${Math.abs(diff).toLocaleString("th-TH")} ฿` : `⚠ ส่งเงินขาดจากยอดในตาราง ${Math.abs(diff).toLocaleString("th-TH")} ฿`)))),
         React.createElement(Card, { style: { padding: 14, marginTop: 14 } },
             React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 6 } }, "\uD83D\uDCF7 \u0E41\u0E19\u0E1A\u0E23\u0E39\u0E1B\u0E1A\u0E34\u0E25/\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 (\u0E40\u0E01\u0E47\u0E1A\u0E43\u0E19\u0E42\u0E1F\u0E25\u0E40\u0E14\u0E2D\u0E23\u0E4C \"\u0E1A\u0E34\u0E25\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\" \u0E15\u0E32\u0E21\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48)"),
             React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 } },
