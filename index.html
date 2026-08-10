@@ -13,7 +13,17 @@
 <style>
   html, body, #root { height: 100%; margin: 0; }
   body { font-family: 'Noto Sans Thai', system-ui, sans-serif; -webkit-text-size-adjust: 100%; }
-  @media (max-width: 640px) { body { zoom: 0.6; } }
+  @media (max-width: 640px) {
+    body { zoom: 0.6; }
+    [style*="font-size:10px"]{font-size:15px !important}
+    [style*="font-size:10.5px"]{font-size:16px !important}
+    [style*="font-size:11px"]{font-size:16.5px !important}
+    [style*="font-size:11.5px"]{font-size:17px !important}
+    [style*="font-size:12px"]{font-size:18px !important}
+    [style*="font-size:12.5px"]{font-size:19px !important}
+    [style*="font-size:13px"]{font-size:19.5px !important}
+    [style*="font-size:13.5px"]{font-size:20px !important}
+  }
   .hidden { display: none !important; }
   .grid-cols-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .orgtree { display: inline-block; min-width: 100%; text-align: center; }
@@ -725,8 +735,8 @@ function Shell({ role, nav, view, setView, onExit, children, ui }) {
                 const key = n.children ? (n.defaultKey || "org:all") : n.key;
                 const active = n.children ? String(view).startsWith(n.key) : view === n.key;
                 return (React.createElement("button", { key: n.key, onClick: () => setView(key), style: { flex: "1 0 auto", minWidth: 62, padding: "11px 4px 9px", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, color: active ? C.primary : C.muted } },
-                    React.createElement("span", { style: { fontSize: 24 } }, n.icon),
-                    React.createElement("span", { style: { fontSize: 12, fontWeight: active ? 700 : 500, maxWidth: 70, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, n.label)));
+                    React.createElement("span", { style: { fontSize: 31 } }, n.icon),
+                    React.createElement("span", { style: { fontSize: 12, fontWeight: active ? 700 : 500, maxWidth: 74, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, n.label)));
             })),
             React.createElement("button", { onClick: () => scrollNav(1), "aria-label": "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E02\u0E27\u0E32", style: { flex: "0 0 auto", width: 36, border: "none", borderLeft: `1px solid ${C.line}`, background: C.soft, color: C.primary, fontSize: 24, fontWeight: 800, cursor: "pointer", lineHeight: 1, padding: 0 } }, "\u203A")),
         React.createElement("button", { className: "hidden md:flex", onClick: () => setConfirmClose(true), title: "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", "aria-label": "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", style: { position: "fixed", top: 12, right: 14, zIndex: 40, width: 36, height: 36, borderRadius: 10, border: `1px solid ${C.line}`, background: C.surface, color: "#c0392b", fontSize: 18, fontWeight: 700, cursor: "pointer", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 6px rgba(0,0,0,.08)" } }, "\u2715"),
