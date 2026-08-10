@@ -3023,6 +3023,29 @@ function OrgViewManager({ db, setDb, ui, editable, committee, orgComp }) {
     const relIds = compObj ? compOrgNodeIds(db, compObj, which) : null;
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff" };
     const nodes = relinkOrgByRank((db[which] || []).filter((n) => (n.cat || "comp") === effCat && (!compObj || (relIds && relIds.has(String(n.id))))));
+    const autoFillRef = useRef({});
+    useEffect(() => {
+        if (!compObj || !(editable || committee))
+            return;
+        const cid = compObj.id;
+        if (autoFillRef.current[cid])
+            return;
+        const missing = DUTY_RANKS.some((rn, idx) => !(db.orgTeacher || []).some((n) => String(n.compId) === String(cid) && (n.rank === idx + 1 || n.title === rn)));
+        if (!missing)
+            return;
+        autoFillRef.current[cid] = true;
+        const ccat = compObj.kind === "กิจกรรม" ? "act" : "comp";
+        setDb((p) => {
+            let ot = [...(p.orgTeacher || [])];
+            DUTY_RANKS.forEach((rn, idx) => { const rk = idx + 1; const has = ot.some((n) => String(n.compId) === String(cid) && (n.rank === rk || n.title === rn)); if (!has) {
+                const du = (p.dutyList || []).find((x) => dutyName(x) === rn);
+                ot.push({ id: "n" + Date.now() + Math.random().toString(36).slice(2, 6) + rk, personId: (du && du.teacherId) || "", title: rn, compId: cid, cat: ccat, parent: null, rank: rk, linked: (compObj.orgLevels || []).includes(rk) });
+            } });
+            ot = relinkOrgByRank(ot);
+            return { ...p, orgTeacher: ot, orgStudent: syncStudentToTeacher(ot, p.orgStudent) };
+        });
+        setTimeout(() => window.__forceSave && window.__forceSave(), 700);
+    }, [pickComp, compObj && compObj.id]);
     const setPerson = (nodeId, personId) => ui.run("กำลังลงชื่อ...", () => { const apply = (p) => ({ ...p, [which]: p[which].map((n) => n.id === nodeId ? { ...n, personId } : n) }); if (window.__commitRemote)
         window.__commitRemote(apply);
     else
