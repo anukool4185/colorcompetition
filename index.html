@@ -2659,9 +2659,10 @@ function DutyListManager({ db, setDb, ui }) {
             const need = {};
             (assignees || []).forEach((a) => { if (!a.personId)
                 return; const comps = (a.comps && a.comps.length) ? a.comps.map(String) : allComps; comps.forEach((cid) => { const k = cid + "|" + a.side; (need[k] = need[k] || []).push(a.personId); }); });
+            const dutyR = dutyRank((p.dutyList || []).find((d) => dutyName(d) === dutyNm)) || (DUTY_RANKS.indexOf(dutyNm) + 1) || 0;
             Object.keys(need).forEach((k) => { const cid = k.split("|")[0]; const persons = need[k]; let slots = ot.filter((n) => n.title === dutyNm && String(n.compId) === cid); const base = slots[0]; while (slots.length < persons.length) {
                 const id = "n" + Date.now() + Math.random().toString(36).slice(2, 6) + slots.length;
-                const nn = { id, personId: "", title: dutyNm, compId: cid, cat: base ? base.cat : "comp", parent: base ? base.parent : null, rank: base ? base.rank : 0, linked: base ? base.linked : false };
+                const nn = { id, personId: "", title: dutyNm, compId: cid, cat: base ? base.cat : "comp", parent: base ? base.parent : null, rank: base ? (base.rank || dutyR) : dutyR, linked: base ? base.linked : false };
                 ot.push(nn);
                 slots.push(nn);
             } });
@@ -2968,17 +2969,18 @@ function CombinedOrg({ db, cat, ui, comp }) {
 // node id ของผังที่เกี่ยวกับรายการ comp (กรรมการที่รายการระบุ + สายหัวหน้าขึ้นไป) — ใช้กรองผังเฉพาะรายการ
 // เชื่อมสายโซ่ผังตามลำดับ rank ต่อรายการ: rank1 เป็นหัวสุด, rank ถัดไปเป็นลูกของ rank ก่อนหน้า (1→2→...→6)
 function relinkOrgByRank(nodes) {
+    const rankOf = (n) => n.rank || (DUTY_RANKS.indexOf(n.title) + 1) || 0; // ไม่มี rank → เดาจากชื่อตำแหน่ง
     const byComp = {};
     (nodes || []).forEach((n) => { const k = String(n.compId || ""); (byComp[k] = byComp[k] || []).push(n); });
     const parentOf = {};
     Object.keys(byComp).forEach((k) => {
         if (!k)
             return;
-        const ranked = byComp[k].filter((n) => n.rank);
+        const ranked = byComp[k].filter((n) => rankOf(n) > 0);
         if (!ranked.length)
             return;
         const byRank = {};
-        ranked.forEach((n) => { (byRank[n.rank] = byRank[n.rank] || []).push(n); });
+        ranked.forEach((n) => { const r = rankOf(n); (byRank[r] = byRank[r] || []).push(n); });
         const ranks = Object.keys(byRank).map(Number).sort((a, b) => a - b);
         for (let ri = 0; ri < ranks.length; ri++) {
             const pid = ri > 0 ? byRank[ranks[ri - 1]][0].id : null;
