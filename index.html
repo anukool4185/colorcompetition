@@ -2668,6 +2668,7 @@ function DutyListManager({ db, setDb, ui }) {
             Object.keys(need).forEach((k) => { const [cid, side] = k.split("|"); if (side !== "teacher")
                 return; const persons = need[k]; const slots = ot.filter((n) => n.title === dutyNm && String(n.compId) === cid); persons.forEach((pid, idx) => { if (slots[idx])
                 ot = ot.map((n) => n.id === slots[idx].id ? { ...n, personId: pid } : n); }); });
+            ot = relinkOrgByRank(ot);
             let os = syncStudentToTeacher(ot, p.orgStudent).map((n) => n.title === dutyNm ? { ...n, personId: "" } : n);
             Object.keys(need).forEach((k) => { const [cid, side] = k.split("|"); if (side !== "student")
                 return; const persons = need[k]; const slots = os.filter((n) => n.title === dutyNm && String(n.compId) === cid); persons.forEach((pid, idx) => { if (slots[idx])
@@ -2965,6 +2966,27 @@ function CombinedOrg({ db, cat, ui, comp }) {
             React.createElement("div", { id: "orgPrintArea", className: "orgtree", style: { ["--tl"]: C.line } }, tForest.length ? renderForest(tForest) : React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E31\u0E07 (\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E42\u0E04\u0E23\u0E07\u0E17\u0E35\u0E48\u0E40\u0E21\u0E19\u0E39 \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48 \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19 \u0E41\u0E25\u0E49\u0E27\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E19\u0E1C\u0E31\u0E07)" })))));
 }
 // node id ของผังที่เกี่ยวกับรายการ comp (กรรมการที่รายการระบุ + สายหัวหน้าขึ้นไป) — ใช้กรองผังเฉพาะรายการ
+// เชื่อมสายโซ่ผังตามลำดับ rank ต่อรายการ: rank1 เป็นหัวสุด, rank ถัดไปเป็นลูกของ rank ก่อนหน้า (1→2→...→6)
+function relinkOrgByRank(nodes) {
+    const byComp = {};
+    (nodes || []).forEach((n) => { const k = String(n.compId || ""); (byComp[k] = byComp[k] || []).push(n); });
+    const parentOf = {};
+    Object.keys(byComp).forEach((k) => {
+        if (!k)
+            return;
+        const ranked = byComp[k].filter((n) => n.rank);
+        if (!ranked.length)
+            return;
+        const byRank = {};
+        ranked.forEach((n) => { (byRank[n.rank] = byRank[n.rank] || []).push(n); });
+        const ranks = Object.keys(byRank).map(Number).sort((a, b) => a - b);
+        for (let ri = 0; ri < ranks.length; ri++) {
+            const pid = ri > 0 ? byRank[ranks[ri - 1]][0].id : null;
+            byRank[ranks[ri]].forEach((n) => { parentOf[n.id] = pid; });
+        }
+    });
+    return (nodes || []).map((n) => (n.id in parentOf) ? { ...n, parent: parentOf[n.id] } : n);
+}
 function compOrgNodeIds(db, comp, which) {
     const set = new Set();
     if (!comp)
@@ -2994,7 +3016,7 @@ function OrgViewManager({ db, setDb, ui, editable, committee, orgComp }) {
     const pickPool = view === "teacher" ? db.teachers.filter((t) => t.user) : db.students.filter((s) => s.committee);
     const relIds = compObj ? compOrgNodeIds(db, compObj, which) : null;
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff" };
-    const nodes = (db[which] || []).filter((n) => (n.cat || "comp") === effCat && (!compObj || (relIds && relIds.has(String(n.id)))));
+    const nodes = relinkOrgByRank((db[which] || []).filter((n) => (n.cat || "comp") === effCat && (!compObj || (relIds && relIds.has(String(n.id))))));
     const setPerson = (nodeId, personId) => ui.run("กำลังลงชื่อ...", () => { const apply = (p) => ({ ...p, [which]: p[which].map((n) => n.id === nodeId ? { ...n, personId } : n) }); if (window.__commitRemote)
         window.__commitRemote(apply);
     else
