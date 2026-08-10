@@ -2660,9 +2660,9 @@ function DutyListManager({ db, setDb, ui }) {
             (assignees || []).forEach((a) => { if (!a.personId)
                 return; const comps = (a.comps && a.comps.length) ? a.comps.map(String) : allComps; comps.forEach((cid) => { const k = cid + "|" + a.side; (need[k] = need[k] || []).push(a.personId); }); });
             const dutyR = dutyRank((p.dutyList || []).find((d) => dutyName(d) === dutyNm)) || (DUTY_RANKS.indexOf(dutyNm) + 1) || 0;
-            Object.keys(need).forEach((k) => { const cid = k.split("|")[0]; const persons = need[k]; let slots = ot.filter((n) => n.title === dutyNm && String(n.compId) === cid); const base = slots[0]; while (slots.length < persons.length) {
+            Object.keys(need).forEach((k) => { const cid = k.split("|")[0]; const persons = need[k]; let slots = ot.filter((n) => n.title === dutyNm && String(n.compId) === cid); const base = slots[0]; const ccat = (p.competitions.find((c) => String(c.id) === String(cid)) || {}).kind === "กิจกรรม" ? "act" : "comp"; while (slots.length < persons.length) {
                 const id = "n" + Date.now() + Math.random().toString(36).slice(2, 6) + slots.length;
-                const nn = { id, personId: "", title: dutyNm, compId: cid, cat: base ? base.cat : "comp", parent: base ? base.parent : null, rank: base ? (base.rank || dutyR) : dutyR, linked: base ? base.linked : false };
+                const nn = { id, personId: "", title: dutyNm, compId: cid, cat: base ? base.cat : ccat, parent: base ? base.parent : null, rank: base ? (base.rank || dutyR) : dutyR, linked: base ? base.linked : false };
                 ot.push(nn);
                 slots.push(nn);
             } });
@@ -3030,14 +3030,18 @@ function OrgViewManager({ db, setDb, ui, editable, committee, orgComp }) {
         const cid = compObj.id;
         if (autoFillRef.current[cid])
             return;
-        const missing = DUTY_RANKS.some((rn, idx) => !(db.orgTeacher || []).some((n) => String(n.compId) === String(cid) && (n.rank === idx + 1 || n.title === rn)));
-        if (!missing)
+        const ccat = compObj.kind === "กิจกรรม" ? "act" : "comp";
+        const needsFix = DUTY_RANKS.some((rn, idx) => { const ex = (db.orgTeacher || []).find((n) => String(n.compId) === String(cid) && (n.rank === idx + 1 || n.title === rn)); return !ex || ex.cat !== ccat || ex.rank !== idx + 1; });
+        if (!needsFix)
             return;
         autoFillRef.current[cid] = true;
-        const ccat = compObj.kind === "กิจกรรม" ? "act" : "comp";
         setDb((p) => {
             let ot = [...(p.orgTeacher || [])];
-            DUTY_RANKS.forEach((rn, idx) => { const rk = idx + 1; const has = ot.some((n) => String(n.compId) === String(cid) && (n.rank === rk || n.title === rn)); if (!has) {
+            DUTY_RANKS.forEach((rn, idx) => { const rk = idx + 1; const existing = ot.find((n) => String(n.compId) === String(cid) && (n.rank === rk || n.title === rn)); if (existing) {
+                if (existing.cat !== ccat || existing.rank !== rk)
+                    ot = ot.map((n) => n.id === existing.id ? { ...n, cat: ccat, rank: rk } : n);
+            }
+            else {
                 const du = (p.dutyList || []).find((x) => dutyName(x) === rn);
                 ot.push({ id: "n" + Date.now() + Math.random().toString(36).slice(2, 6) + rk, personId: (du && du.teacherId) || "", title: rn, compId: cid, cat: ccat, parent: null, rank: rk, linked: (compObj.orgLevels || []).includes(rk) });
             } });
@@ -3113,7 +3117,11 @@ function OrgViewManager({ db, setDb, ui, editable, committee, orgComp }) {
         setDb((p) => {
             let ot = [...(p.orgTeacher || [])];
             const cid = compObj.id;
-            DUTY_RANKS.forEach((rn, idx) => { const rk = idx + 1; const has = ot.some((n) => String(n.compId) === String(cid) && (n.rank === rk || n.title === rn)); if (!has) {
+            DUTY_RANKS.forEach((rn, idx) => { const rk = idx + 1; const existing = ot.find((n) => String(n.compId) === String(cid) && (n.rank === rk || n.title === rn)); if (existing) {
+                if (existing.cat !== effCat || existing.rank !== rk || existing.title !== rn)
+                    ot = ot.map((n) => n.id === existing.id ? { ...n, cat: effCat, rank: rk, title: n.title || rn } : n);
+            }
+            else {
                 const du = (p.dutyList || []).find((x) => dutyName(x) === rn);
                 ot.push({ id: "n" + Date.now() + Math.random().toString(36).slice(2, 6) + rk, personId: (du && du.teacherId) || "", title: rn, compId: cid, cat: effCat, parent: null, rank: rk, linked: (compObj.orgLevels || []).includes(rk) });
             } });
