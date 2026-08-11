@@ -1192,6 +1192,111 @@ function FundManager({ db, setDb, ui, viewer }) {
                 (Number(r.amount) || 0).toLocaleString("th-TH")),
             React.createElement("button", { onClick: () => del(r.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715"))))))));
 }
+function RefundManager({ db, ui }) {
+    const selCss = { padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 13.5, background: "#fbfaff", color: C.ink };
+    const fundBal = (db.finance || []).filter((f) => String(f.dept) === "FUND").reduce((s, f) => s + (f.type === "out" ? -(Number(f.amount) || 0) : (Number(f.amount) || 0)), 0);
+    const [useFund, setUseFund] = useState(true);
+    const [useOther, setUseOther] = useState(false);
+    const [other, setOther] = useState("");
+    const [roundWhole, setRoundWhole] = useState(true);
+    const [scope, setScope] = useState("all");
+    const paidOf = (sid) => { const r = (db.studentIncome || {})[sid]; if (!r || !r.amounts)
+        return 0; return r.amounts.reduce((s, x) => s + (Number(x) || 0), 0); };
+    const allStudents = (db.students || []).map((s) => ({ s, paid: paidOf(s.id) })).filter((x) => x.paid > 0);
+    const totalPaid = allStudents.reduce((s, x) => s + x.paid, 0);
+    const pool = (useFund ? fundBal : 0) + (useOther ? (Number(String(other).replace(/[^0-9.]/g, "")) || 0) : 0);
+    const rows = allStudents.map((x) => { const pct = totalPaid > 0 ? (x.paid / totalPaid * 100) : 0; let refund = totalPaid > 0 ? (x.paid / totalPaid * pool) : 0; if (roundWhole)
+        refund = Math.round(refund); return { ...x, pct, refund }; }).sort((a, b) => (a.s.grade || "").localeCompare(b.s.grade || "") || (a.s.room || "").localeCompare(b.s.room || "") || fullName(a.s).localeCompare(fullName(b.s), "th"));
+    const grades = Array.from(new Set(rows.map((r) => r.s.grade))).filter(Boolean).sort();
+    const rooms = Array.from(new Set(rows.map((r) => `${r.s.grade}/${r.s.room}`))).filter((r) => r !== "/").sort();
+    const [pickG, setPickG] = useState("");
+    const [pickR, setPickR] = useState("");
+    const shown = rows.filter((r) => scope === "all" ? true : scope === "grade" ? (r.s.grade === pickG) : (`${r.s.grade}/${r.s.room}` === pickR));
+    const refundSum = shown.reduce((s, r) => s + r.refund, 0);
+    const exportExcel = () => { try {
+        const aoa = [["ชื่อ-สกุล", "ชั้น", "ห้อง", "ยอดที่จ่าย", "เปอร์เซ็นต์ (%)", "เงินคืน"]];
+        shown.forEach((r) => aoa.push([fullName(r.s), r.s.grade || "", r.s.room || "", r.paid, Number(r.pct.toFixed(2)), r.refund]));
+        aoa.push(["รวม", "", "", shown.reduce((s, r) => s + r.paid, 0), "", refundSum]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "เฉลี่ยคืน");
+        XLSX.writeFile(wb, `เฉลี่ยคืน-${scope === "all" ? "ทั้งหมด" : scope === "grade" ? pickG : pickR.replace("/", "-")}.xlsx`);
+    }
+    catch (e) {
+        ui.notify("ดาวน์โหลดไม่สำเร็จ");
+    } };
+    return (React.createElement("div", null,
+        React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 12 } }, "\u0E04\u0E34\u0E14\u0E2A\u0E31\u0E14\u0E2A\u0E48\u0E27\u0E19 (%) \u0E02\u0E2D\u0E07\u0E41\u0E15\u0E48\u0E25\u0E30\u0E04\u0E19\u0E08\u0E32\u0E01\u0E22\u0E2D\u0E14\u0E40\u0E07\u0E34\u0E19\u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22\u0E21\u0E32 (\u0E23\u0E27\u0E21\u0E17\u0E38\u0E01\u0E2B\u0E49\u0E2D\u0E07 = 100%) \u0E41\u0E25\u0E49\u0E27\u0E40\u0E09\u0E25\u0E35\u0E48\u0E22\u0E04\u0E37\u0E19\u0E08\u0E32\u0E01\u0E40\u0E07\u0E34\u0E19\u0E17\u0E35\u0E48\u0E40\u0E2B\u0E25\u0E37\u0E2D \u00B7 \u0E17\u0E28\u0E19\u0E34\u0E22\u0E21 2 \u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07"),
+        React.createElement(Card, { style: { padding: 16, marginBottom: 14 } },
+            React.createElement("div", { style: { fontWeight: 700, marginBottom: 10 } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E17\u0E35\u0E48\u0E19\u0E33\u0E21\u0E32\u0E04\u0E33\u0E19\u0E27\u0E13\u0E04\u0E37\u0E19"),
+            React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8, cursor: "pointer" } },
+                React.createElement("input", { type: "checkbox", checked: useFund, onChange: () => setUseFund((v) => !v), style: { width: 17, height: 17 } }),
+                React.createElement("span", { style: { fontSize: 14 } }, "\uD83C\uDFE6 \u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19\u0E2A\u0E33\u0E23\u0E2D\u0E07 (\u0E04\u0E07\u0E40\u0E2B\u0E25\u0E37\u0E2D)"),
+                React.createElement("b", { style: { marginLeft: "auto", color: fundBal < 0 ? "#c0392b" : "#1e7a4d" } },
+                    fundBal.toLocaleString("th-TH"),
+                    " \u0E3F")),
+            React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 10, cursor: "pointer" } },
+                React.createElement("input", { type: "checkbox", checked: useOther, onChange: () => setUseOther((v) => !v), style: { width: 17, height: 17 } }),
+                React.createElement("span", { style: { fontSize: 14 } }, "\uD83D\uDCB0 \u0E40\u0E07\u0E34\u0E19\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E2D\u0E37\u0E48\u0E19\u0E46"),
+                React.createElement("input", { value: other, onChange: (e) => setOther(e.target.value), inputMode: "decimal", placeholder: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19", style: { ...selCss, width: 130, textAlign: "right", marginLeft: "auto" } })),
+            React.createElement("div", { style: { borderTop: `1px solid ${C.line}`, marginTop: 12, paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 } },
+                React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13.5 } },
+                    React.createElement("input", { type: "checkbox", checked: roundWhole, onChange: () => setRoundWhole((v) => !v), style: { width: 16, height: 16 } }),
+                    " \u0E1B\u0E31\u0E14\u0E40\u0E1B\u0E47\u0E19\u0E40\u0E07\u0E34\u0E19\u0E16\u0E49\u0E27\u0E19 (\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E15\u0E32\u0E07\u0E04\u0E4C)"),
+                React.createElement("div", { style: { fontSize: 14 } },
+                    "\u0E40\u0E07\u0E34\u0E19\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E23\u0E27\u0E21\u0E17\u0E35\u0E48\u0E08\u0E30\u0E04\u0E37\u0E19: ",
+                    React.createElement("b", { style: { color: C.primaryDark, fontSize: 17 } },
+                        pool.toLocaleString("th-TH"),
+                        " \u0E3F")))),
+        React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 } },
+            React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u0E14\u0E39\u0E15\u0E32\u0E21:"),
+            React.createElement(Select, { value: scope, onChange: setScope },
+                React.createElement("option", { value: "all" }, "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 (\u0E23\u0E32\u0E22\u0E04\u0E19)"),
+                React.createElement("option", { value: "grade" }, "\u0E23\u0E32\u0E22\u0E0A\u0E31\u0E49\u0E19"),
+                React.createElement("option", { value: "room" }, "\u0E23\u0E32\u0E22\u0E2B\u0E49\u0E2D\u0E07")),
+            scope === "grade" && React.createElement(Select, { value: pickG, onChange: setPickG },
+                React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E0A\u0E31\u0E49\u0E19 \u2014"),
+                grades.map((g) => React.createElement("option", { key: g, value: g }, g))),
+            scope === "room" && React.createElement(Select, { value: pickR, onChange: setPickR },
+                React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2B\u0E49\u0E2D\u0E07 \u2014"),
+                rooms.map((r) => React.createElement("option", { key: r, value: r }, r))),
+            React.createElement("span", { style: { flex: 1 } }),
+            React.createElement(Btn, { small: true, onClick: exportExcel }, "\u2B07 Excel"),
+            React.createElement(Btn, { small: true, variant: "ghost", onClick: () => pdfFromEl("refundArea", "portrait", "เฉลี่ยคืน.pdf", ui && ui.notify, "width") }, "\u2B07 PDF")),
+        React.createElement("div", { id: "refundArea", style: { background: "#fff", padding: 8, borderRadius: 10 } },
+            React.createElement("div", { style: { textAlign: "center", fontWeight: 800, color: C.primaryDark, marginBottom: 8 } },
+                "\u0E15\u0E32\u0E23\u0E32\u0E07\u0E40\u0E09\u0E25\u0E35\u0E48\u0E22\u0E40\u0E07\u0E34\u0E19\u0E04\u0E37\u0E19",
+                scope === "grade" && pickG ? ` · ชั้น ${pickG}` : scope === "room" && pickR ? ` · ห้อง ${pickR}` : " · ทั้งหมด",
+                " (\u0E40\u0E07\u0E34\u0E19\u0E40\u0E2B\u0E25\u0E37\u0E2D ",
+                pool.toLocaleString("th-TH"),
+                " \u0E3F)"),
+            shown.length === 0 ? React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 (\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 \u0E2B\u0E23\u0E37\u0E2D\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E0A\u0E31\u0E49\u0E19/\u0E2B\u0E49\u0E2D\u0E07)" }) : (React.createElement("div", { style: { overflowX: "auto" } },
+                React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 13 } },
+                    React.createElement("thead", null,
+                        React.createElement("tr", { style: { background: C.soft } },
+                            React.createElement("th", { style: { padding: "8px 6px", textAlign: "left" } }, "\u0E0A\u0E37\u0E48\u0E2D-\u0E2A\u0E01\u0E38\u0E25"),
+                            React.createElement("th", { style: { padding: "8px 6px" } }, "\u0E0A\u0E31\u0E49\u0E19/\u0E2B\u0E49\u0E2D\u0E07"),
+                            React.createElement("th", { style: { padding: "8px 6px", textAlign: "right" } }, "\u0E22\u0E2D\u0E14\u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22"),
+                            React.createElement("th", { style: { padding: "8px 6px", textAlign: "right" } }, "%"),
+                            React.createElement("th", { style: { padding: "8px 6px", textAlign: "right" } }, "\u0E40\u0E07\u0E34\u0E19\u0E04\u0E37\u0E19"))),
+                    React.createElement("tbody", null,
+                        shown.map((r) => React.createElement("tr", { key: r.s.id, style: { borderTop: `1px solid ${C.line}` } },
+                            React.createElement("td", { style: { padding: "6px", fontWeight: 600 } }, fullName(r.s)),
+                            React.createElement("td", { style: { padding: "6px", textAlign: "center", color: C.muted } },
+                                r.s.grade,
+                                "/",
+                                r.s.room),
+                            React.createElement("td", { style: { padding: "6px", textAlign: "right" } }, r.paid.toLocaleString("th-TH")),
+                            React.createElement("td", { style: { padding: "6px", textAlign: "right", color: C.muted } }, r.pct.toFixed(2)),
+                            React.createElement("td", { style: { padding: "6px", textAlign: "right", fontWeight: 800, color: "#1e7a4d" } }, r.refund.toLocaleString("th-TH")))),
+                        React.createElement("tr", { style: { borderTop: `2px solid ${C.primary}`, background: C.soft } },
+                            React.createElement("td", { style: { padding: "8px 6px", fontWeight: 800 }, colSpan: 2 },
+                                "\u0E23\u0E27\u0E21 ",
+                                shown.length,
+                                " \u0E04\u0E19"),
+                            React.createElement("td", { style: { padding: "8px 6px", textAlign: "right", fontWeight: 800 } }, shown.reduce((s, r) => s + r.paid, 0).toLocaleString("th-TH")),
+                            React.createElement("td", null),
+                            React.createElement("td", { style: { padding: "8px 6px", textAlign: "right", fontWeight: 800, color: "#1e7a4d" } }, refundSum.toLocaleString("th-TH"))))))))));
+}
 function FinanceManager({ db, setDb, ui, viewer }) {
     const acc = financeAccess(db, viewer.id, viewer.role);
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff" };
@@ -1331,8 +1436,9 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                     acc.full && React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setTab("income") }, "\u0E44\u0E1B\u0E2B\u0E19\u0E49\u0E32\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\u0E2B\u0E49\u0E2D\u0E07\u0E19\u0E35\u0E49"),
                     React.createElement(Btn, { small: true, onClick: () => markRead(n.id) }, "\u2713 \u0E17\u0E23\u0E32\u0E1A\u0E41\u0E25\u0E49\u0E27")))))));
         })(),
-        React.createElement(Tabs, { tabs: [...(acc.full ? [{ key: "income", label: "รายรับนักเรียน" }, { key: "loan", label: "บันทึกยืมเงิน" }] : []), ...(canRecordAny ? [{ key: "fund", label: "🏦 กองทุนสำรอง" }, { key: "add", label: editId ? "แก้ไขรายการ" : "＋ บันทึกรายการ" }] : []), { key: "list", label: "แสดงรายการรับ-จ่าย" }, { key: "summary", label: "ภาพรวม/สรุป" }], active: tab, onChange: (k) => { setTab(k); if (k !== "add")
+        React.createElement(Tabs, { tabs: [...(acc.full ? [{ key: "income", label: "รายรับนักเรียน" }, { key: "loan", label: "บันทึกยืมเงิน" }] : []), ...(canRecordAny ? [{ key: "fund", label: "🏦 กองทุนสำรอง" }, { key: "add", label: editId ? "แก้ไขรายการ" : "＋ บันทึกรายการ" }] : []), { key: "list", label: "แสดงรายการรับ-จ่าย" }, { key: "summary", label: "ภาพรวม/สรุป" }, ...(acc.full ? [{ key: "refund", label: "เฉลี่ยคืน" }] : [])], active: tab, onChange: (k) => { setTab(k); if (k !== "add")
                 reset(); } }),
+        tab === "refund" && acc.full && React.createElement(RefundManager, { db: db, ui: ui }),
         tab === "loan" && acc.full && React.createElement(LoanManager, { db: db, setDb: setDb, ui: ui, viewer: viewer }),
         tab === "fund" && canRecordAny && React.createElement(FundManager, { db: db, setDb: setDb, ui: ui, viewer: viewer }),
         tab === "income" && acc.full && React.createElement(StudentIncomeGrid, { db: db, setDb: setDb, ui: ui, viewer: viewer, acc: acc }),
