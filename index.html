@@ -1309,9 +1309,9 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     } const c = db.competitions.find((x) => String(x.id) === String(id)); return c ? c.name : "ทั่วไป/ไม่ระบุฝ่าย"; };
     const deptComps = (id) => { if (!String(id).startsWith("D:"))
         return null; const d = (db.departments || []).find((x) => "D:" + x.id === String(id)); return d ? (d.comps || []).map(String) : []; };
-    const canEditRow = (f) => { if (acc.full)
-        return true; const dc = deptComps(f.dept); if (dc)
-        return acc.depts.size > 0 || dc.some((cid) => acc.depts.has(String(cid))); return acc.depts.has(String(f.dept)); };
+    // แก้ไขรายการการเงินได้เฉพาะ "ผู้มีหน้าที่ถือเงิน" (ตรวจจากตำแหน่งในผัง) หรือแอดมิน
+    const isMoneyHolder = String(viewer.role) === "admin" || [...(db.orgTeacher || []), ...(db.orgStudent || [])].some((n) => String(n.personId) === String(viewer.id) && /ถือเงิน|เก็บเงิน|เหรัญญิก|เหรัญ|การเงิน|คลัง|บัญชี/.test(n.title || ""));
+    const canEditRow = (f) => isMoneyHolder;
     const [form, setForm] = useState({ dept: "", type: "in", title: "", amount: "", date: todayStr(), time: nowTime(), note: "", billDataUrl: "", billUrl: "", billId: "" });
     const [editId, setEditId] = useState(null);
     const [fDept, setFDept] = useState("");
@@ -1340,8 +1340,11 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             ui.notify("ใส่จำนวนเงินให้ถูกต้อง");
             return;
         }
-        if (!acc.full && !canEditRow({ dept: form.dept })) {
-            ui.notify("คุณไม่มีสิทธิ์บันทึกของฝ่าย/รายการนี้");
+        const canRecordDept = (dept) => { if (acc.full)
+            return true; const dc = deptComps(dept); if (dc)
+            return acc.depts.size > 0 || dc.some((cid) => acc.depts.has(String(cid))); return acc.depts.has(String(dept)); };
+        if (editId ? !isMoneyHolder : (!acc.full && !canRecordDept(form.dept))) {
+            ui.notify(editId ? "แก้ไขได้เฉพาะผู้มีหน้าที่ถือเงินหรือแอดมิน" : "คุณไม่มีสิทธิ์บันทึกของฝ่าย/รายการนี้");
             return;
         }
         ui.runAsync(form.billDataUrl ? "กำลังอัปโหลดบิล..." : "กำลังบันทึก...", async () => {
