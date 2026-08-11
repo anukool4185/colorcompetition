@@ -156,6 +156,7 @@ function scoreOf(r, cfg) {
     return s;
 }
 function todayStr() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+function nowTime() { const d = new Date(); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; }
 function nowHM() { const d = new Date(); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; }
 // รวมผลรายคนของรายการหนึ่ง (รองรับผลแบบรอบ resultSets และผลแบบเดิม c.results)
 // คืน [{ sid, outcome, medal, date, time, setId, mode }]
@@ -1138,6 +1139,7 @@ function FundManager({ db, setDb, ui, viewer }) {
     const [title, setTitle] = useState("");
     const [amount, setAmount] = useState("");
     const [date, setDate] = useState(todayStr());
+    const [fundTime, setFundTime] = useState(nowTime());
     const [note, setNote] = useState("");
     const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 500);
     const rows = (db.finance || []).filter((f) => String(f.dept) === "FUND").slice().sort((a, b) => (b.date + "" + b.at).localeCompare(a.date + "" + a.at));
@@ -1147,7 +1149,7 @@ function FundManager({ db, setDb, ui, viewer }) {
     const add = () => { const amt = Number(String(amount).replace(/[^0-9.]/g, "")); if (!title.trim() || !amt) {
         ui.notify("กรอกชื่อรายการ + จำนวนเงิน");
         return;
-    } ui.run("บันทึกกองทุนสำรองแล้ว", () => { setDb((p) => ({ ...p, finance: [...(p.finance || []), { id: "fn" + Date.now(), dept: "FUND", type, title: title.trim(), amount: amt, date, note, by: viewer.name || "", at: Date.now() }] })); setTitle(""); setAmount(""); setNote(""); save(); }); };
+    } ui.run("บันทึกกองทุนสำรองแล้ว", () => { setDb((p) => ({ ...p, finance: [...(p.finance || []), { id: "fn" + Date.now(), dept: "FUND", type, title: title.trim(), amount: amt, date, time: fundTime || nowTime(), note, by: viewer.name || "", at: Date.now() }] })); setTitle(""); setAmount(""); setNote(""); save(); }); };
     const del = (id) => ui.run("ลบแล้ว", () => { setDb((p) => ({ ...p, finance: (p.finance || []).filter((f) => f.id !== id) })); save(); });
     return (React.createElement("div", null,
         React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 10 } },
@@ -1168,6 +1170,7 @@ function FundManager({ db, setDb, ui, viewer }) {
             React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
                 React.createElement("input", { value: amount, onChange: (e) => setAmount(e.target.value), inputMode: "decimal", placeholder: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19", style: { width: 130, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, textAlign: "right" } }),
                 React.createElement("input", { type: "date", value: date, onChange: (e) => setDate(e.target.value), style: { ...selCss, width: "auto", marginBottom: 0 } }),
+                React.createElement("input", { type: "time", value: fundTime, onChange: (e) => setFundTime(e.target.value), style: { ...selCss, width: "auto", marginBottom: 0 } }),
                 React.createElement("input", { value: note, onChange: (e) => setNote(e.target.value), placeholder: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", style: { flex: 1, minWidth: 120, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14 } }),
                 React.createElement(Btn, { onClick: add }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01"))),
         rows.length === 0 ? React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19\u0E2A\u0E33\u0E23\u0E2D\u0E07" }) : (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, rows.map((r) => (React.createElement("div", { key: r.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: `1px solid ${C.line}`, borderRadius: 10 } },
@@ -1198,7 +1201,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     const canEditRow = (f) => { if (acc.full)
         return true; const dc = deptComps(f.dept); if (dc)
         return acc.depts.size > 0 || dc.some((cid) => acc.depts.has(String(cid))); return acc.depts.has(String(f.dept)); };
-    const [form, setForm] = useState({ dept: "", type: "in", title: "", amount: "", date: todayStr(), note: "", billDataUrl: "", billUrl: "", billId: "" });
+    const [form, setForm] = useState({ dept: "", type: "in", title: "", amount: "", date: todayStr(), time: nowTime(), note: "", billDataUrl: "", billUrl: "", billId: "" });
     const [editId, setEditId] = useState(null);
     const [fDept, setFDept] = useState("");
     const [fType, setFType] = useState("");
@@ -1242,7 +1245,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                     ui.notify("อัปโหลดบิลไม่สำเร็จ — บันทึกรายการอย่างเดียว");
                 }
             }
-            const rec = { dept: form.dept, type: form.type, title: form.title.trim(), amount: amt, date: form.date, note: form.note.trim(), billUrl, billId, by: viewer.id, byName: viewer.name || "", at: Date.now() };
+            const rec = { dept: form.dept, type: form.type, title: form.title.trim(), amount: amt, date: form.date, time: form.time || nowTime(), note: form.note.trim(), billUrl, billId, by: viewer.id, byName: viewer.name || "", at: Date.now() };
             commit((p) => ({ ...p, finance: editId ? (p.finance || []).map((x) => x.id === editId ? { ...x, ...rec } : x) : [...(p.finance || []), { ...rec, id: "fn" + Date.now() + Math.random().toString(36).slice(2, 6) }] }));
             ui.notify(editId ? "แก้ไขแล้ว" : "บันทึกรายการแล้ว");
             reset();
@@ -1259,7 +1262,9 @@ function FinanceManager({ db, setDb, ui, viewer }) {
         const mem = (d.comps || []).map(String);
         return String(f.dept) === "D:" + d.id || mem.includes(String(f.dept));
     } return String(f.dept) === fDept; };
-    const rows = (db.finance || []).filter((f) => deptMatch(f) && (!fType || f.type === fType) && (!fFrom || (f.date || "") >= fFrom) && (!fTo || (f.date || "") <= fTo)).slice().sort((a, b) => (b.date + "" + b.at).localeCompare(a.date + "" + a.at));
+    const [sortDir, setSortDir] = useState("desc");
+    const rowKey = (f) => (f.date || "") + " " + (f.time || "00:00") + " " + (f.at || 0);
+    const rows = (db.finance || []).filter((f) => deptMatch(f) && (!fType || f.type === fType) && (!fFrom || (f.date || "") >= fFrom) && (!fTo || (f.date || "") <= fTo)).slice().sort((a, b) => sortDir === "asc" ? rowKey(a).localeCompare(rowKey(b)) : rowKey(b).localeCompare(rowKey(a)));
     const stats = financeStats(db);
     const money = (n) => (Number(n) || 0).toLocaleString("th-TH");
     const rowsIn = rows.filter((f) => f.type !== "out").reduce((s, f) => s + (Number(f.amount) || 0), 0);
@@ -1339,6 +1344,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             React.createElement(Field, { label: "\u0E0A\u0E37\u0E48\u0E2D\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", value: form.title, onChange: (v) => setForm((p) => ({ ...p, title: v })), placeholder: "\u0E40\u0E0A\u0E48\u0E19 \u0E04\u0E48\u0E32\u0E2D\u0E38\u0E1B\u0E01\u0E23\u0E13\u0E4C, \u0E40\u0E07\u0E34\u0E19\u0E2A\u0E19\u0E31\u0E1A\u0E2A\u0E19\u0E38\u0E19" }),
             React.createElement(Field, { label: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19 (\u0E1A\u0E32\u0E17)", type: "number", value: form.amount, onChange: (v) => setForm((p) => ({ ...p, amount: v })), placeholder: "0" }),
             React.createElement(Field, { label: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48", type: "date", value: form.date, onChange: (v) => setForm((p) => ({ ...p, date: v })) }),
+            React.createElement(Field, { label: "\u0E40\u0E27\u0E25\u0E32", type: "time", value: form.time, onChange: (v) => setForm((p) => ({ ...p, time: v })) }),
             React.createElement(Field, { label: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", value: form.note, onChange: (v) => setForm((p) => ({ ...p, note: v })), placeholder: "\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E40\u0E15\u0E34\u0E21 (\u0E16\u0E49\u0E32\u0E21\u0E35)" }),
             React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, margin: "2px 0 5px" } }, "\uD83D\uDCCE \u0E41\u0E19\u0E1A\u0E1A\u0E34\u0E25/\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 (\u0E23\u0E39\u0E1B \u2014 \u0E40\u0E01\u0E47\u0E1A\u0E43\u0E19 Google Drive)"),
             React.createElement("input", { type: "file", accept: "image/*", onChange: (e) => pickBill(e.target.files && e.target.files[0]), style: { fontSize: 12.5, marginBottom: 8 } }),
@@ -1367,6 +1373,10 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E16\u0E36\u0E07:"),
                 React.createElement("input", { type: "date", value: fTo, onChange: (e) => setFTo(e.target.value), style: selCss }),
                 (fFrom || fTo || fDept || fType) && React.createElement(Btn, { small: true, variant: "ghost", onClick: () => { setFFrom(""); setFTo(""); setFDept(""); setFType(""); } }, "\u0E25\u0E49\u0E32\u0E07\u0E15\u0E31\u0E27\u0E01\u0E23\u0E2D\u0E07"),
+                React.createElement("span", { style: { flex: 1 } }),
+                React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E40\u0E23\u0E35\u0E22\u0E07:"),
+                React.createElement(Btn, { small: true, variant: sortDir === "desc" ? "soft" : "ghost", onClick: () => setSortDir("desc") }, "\u0E25\u0E48\u0E32\u0E2A\u0E38\u0E14\u0E1A\u0E19\u0E2A\u0E38\u0E14 \u2193"),
+                React.createElement(Btn, { small: true, variant: sortDir === "asc" ? "soft" : "ghost", onClick: () => setSortDir("asc") }, "\u0E27\u0E31\u0E19\u0E41\u0E23\u0E01\u0E1A\u0E19\u0E2A\u0E38\u0E14 \u2191"),
                 React.createElement(Btn, { small: true, variant: "ghost", onClick: exportExcel }, "\u2B07 \u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 Excel")),
             React.createElement("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12, fontSize: 13 } },
                 React.createElement("span", { style: { background: "#eaf7f0", color: "#2f9e6b", fontWeight: 700, borderRadius: 8, padding: "4px 12px" } },
@@ -1395,6 +1405,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                             compName(f.dept),
                             " \u00B7 \uD83D\uDCC5 ",
                             f.date,
+                            f.time ? ` ${f.time} น.` : "",
                             f.byName ? ` · โดย ${f.byName}` : ""),
                         f.note && React.createElement("div", { style: { fontSize: 12, color: C.ink, marginTop: 2 } },
                             "\uD83D\uDCDD ",
