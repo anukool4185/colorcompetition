@@ -845,6 +845,7 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc }) {
     const cols = db.incomeCols || 5;
     const inc = db.studentIncome || {};
     const [billDate, setBillDate] = useState(todayStr());
+    const [billTime, setBillTime] = useState(nowTime());
     const [billData, setBillData] = useState("");
     const roomStudents = (db.students || []).filter((s) => `${s.grade}/${s.room}` === room).sort((a, b) => (a.first || "").localeCompare(b.first || "", "th"));
     const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 500);
@@ -871,7 +872,7 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc }) {
         ui.notify("เลือกรูปก่อน");
         return;
     } ui.runAsync("กำลังอัปโหลดรูปเข้าโฟลเดอร์...", async () => { const up = await uploadImageRemote(billData, { id: "inc" + Date.now(), first: "รายรับนักเรียน", last: (room + " " + billDate).replace(/\//g, "-") }, "บิลใบเสร็จ_" + billDate); if (up) {
-        setDb((p) => ({ ...p, studentIncome: { ...(p.studentIncome || {}), ["_bills"]: [...(((p.studentIncome || {})["_bills"]) || []), { url: up.photoUrl, id: up.photoId, date: billDate, room, by: viewer.name || "", at: Date.now() }] } }));
+        setDb((p) => ({ ...p, studentIncome: { ...(p.studentIncome || {}), ["_bills"]: [...(((p.studentIncome || {})["_bills"]) || []), { url: up.photoUrl, id: up.photoId, date: billDate, time: billTime || nowTime(), room, by: viewer.name || "", at: Date.now() }] } }));
         setBillData("");
         ui.notify("อัปโหลดรูปแล้ว (โฟลเดอร์ บิลใบเสร็จ วันที่ " + billDate + ")");
         save();
@@ -881,13 +882,14 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc }) {
     const bills = (inc["_bills"] || []).filter((b) => !room || b.room === room);
     const [subAmt, setSubAmt] = useState("");
     const [subDate, setSubDate] = useState(todayStr());
+    const [subTime, setSubTime] = useState(nowTime());
     const [subNote, setSubNote] = useState("");
     const submits = (inc["_submits"] || []).filter((x) => x.room === room).sort((a, b) => (a.date + "").localeCompare(b.date + ""));
     const submitSum = submits.reduce((s, x) => s + (Number(x.amount) || 0), 0);
     const addSubmit = () => { const amt = Number(String(subAmt).replace(/[^0-9.]/g, "")); if (!amt) {
         ui.notify("ใส่จำนวนเงินก่อน");
         return;
-    } ui.run("บันทึกการส่งเงินแล้ว — แจ้งฝ่ายการเงิน/แอดมิน", () => { setDb((p) => ({ ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: [...(((p.studentIncome || {})["_submits"]) || []), { id: "sub" + Date.now(), room, amount: amt, date: subDate, note: subNote, by: viewer.name || "", byId: viewer.id, at: Date.now(), status: "pending" }] } })); setSubAmt(""); setSubNote(""); save(); }); };
+    } ui.run("บันทึกการส่งเงินแล้ว — แจ้งฝ่ายการเงิน/แอดมิน", () => { setDb((p) => ({ ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: [...(((p.studentIncome || {})["_submits"]) || []), { id: "sub" + Date.now(), room, amount: amt, date: subDate, time: subTime || nowTime(), note: subNote, by: viewer.name || "", byId: viewer.id, at: Date.now(), status: "pending" }] } })); setSubAmt(""); setSubNote(""); save(); }); };
     const removeSubmit = (id) => ui.run("ลบแล้ว", () => { setDb((p) => ({ ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: (((p.studentIncome || {})["_submits"]) || []).filter((x) => x.id !== id) } })); save(); });
     const acceptSubmit = (id) => ui.run("ยอมรับเงินแล้ว — แจ้งผู้ดูแลระดับสูง", () => { const sub = submits.find((x) => x.id === id); const amt = sub ? (Number(sub.amount) || 0) : 0; const dref = amt - grand; setDb((p) => ({ ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: (((p.studentIncome || {})["_submits"]) || []).map((x) => x.id === id ? { ...x, status: "accepted", acceptedBy: viewer.name || "", acceptedAt: Date.now() } : x) }, financeNotis: [{ id: "fnoti" + Date.now(), room, amount: amt, tableTotal: grand, diff: dref, acceptedBy: viewer.name || "", acceptorRank: myRankNum, date: sub ? sub.date : todayStr(), at: Date.now(), readBy: [] }, ...((p.financeNotis) || [])] })); save(); });
     const diff = submitSum - grand;
@@ -952,13 +954,16 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc }) {
             React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 } },
                 React.createElement("input", { value: subAmt, onChange: (e) => setSubAmt(e.target.value), inputMode: "decimal", placeholder: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19\u0E17\u0E35\u0E48\u0E2A\u0E48\u0E07", style: { width: 130, padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14, textAlign: "right" } }),
                 React.createElement("input", { type: "date", value: subDate, onChange: (e) => setSubDate(e.target.value), style: { ...selCss, width: "auto" } }),
+                React.createElement("input", { type: "time", value: subTime, onChange: (e) => setSubTime(e.target.value), style: { ...selCss, width: "auto" } }),
                 React.createElement("input", { value: subNote, onChange: (e) => setSubNote(e.target.value), placeholder: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 (\u0E40\u0E0A\u0E48\u0E19 \u0E2A\u0E48\u0E07\u0E07\u0E27\u0E14\u0E17\u0E35\u0E48 1)", style: { flex: 1, minWidth: 140, padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14 } }),
                 React.createElement(Btn, { small: true, onClick: addSubmit }, "+ \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E2A\u0E48\u0E07\u0E40\u0E07\u0E34\u0E19")),
             submits.length > 0 && (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5, marginBottom: 10 } }, submits.map((x) => (React.createElement("div", { key: x.id, style: { display: "flex", alignItems: "center", gap: 8, fontSize: 13, padding: "6px 10px", background: x.status === "accepted" ? "#e8f8ef" : "#fff6e9", borderRadius: 8 } },
                 React.createElement("span", { style: { fontWeight: 700, color: C.primaryDark, minWidth: 90, textAlign: "right" } },
                     (Number(x.amount) || 0).toLocaleString("th-TH"),
                     " \u0E3F"),
-                React.createElement("span", { style: { color: C.muted } }, x.date),
+                React.createElement("span", { style: { color: C.muted } },
+                    x.date,
+                    x.time ? " " + x.time + " น." : ""),
                 x.note && React.createElement("span", { style: { color: C.ink } },
                     "\u00B7 ",
                     x.note),
@@ -984,6 +989,7 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc }) {
             React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 8 } },
                 React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48:"),
                 React.createElement("input", { type: "date", value: billDate, onChange: (e) => setBillDate(e.target.value), style: { ...selCss, width: "auto" } }),
+                React.createElement("input", { type: "time", value: billTime, onChange: (e) => setBillTime(e.target.value), style: { ...selCss, width: "auto" } }),
                 React.createElement("input", { type: "file", accept: "image/*", onChange: (e) => pickBill(e.target.files && e.target.files[0]), style: { fontSize: 12.5 } }),
                 React.createElement(Btn, { small: true, onClick: uploadBill, disabled: !billData }, "\u0E2D\u0E31\u0E1B\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E39\u0E1B")),
             billData && React.createElement("img", { src: billData, alt: "preview", style: { maxWidth: 150, maxHeight: 150, borderRadius: 8, border: `1px solid ${C.line}`, marginBottom: 8 } }),
