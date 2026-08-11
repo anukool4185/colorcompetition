@@ -861,7 +861,8 @@ function nextGrade(g) {
         return null; // ไม่รู้จัก หรือ ชั้นสูงสุด → จบออก
     return GRADE_ORDER[i + 1];
 }
-function StudentIncomeGrid({ db, setDb, ui, viewer, acc }) {
+function StudentIncomeGrid({ db, setDb, ui, viewer, acc, canEntry = true }) {
+    const roEntry = !canEntry;
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff" };
     const dirtyRef = useRef(false);
     useEffect(() => () => { if (dirtyRef.current) {
@@ -955,6 +956,7 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc }) {
             "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\u0E08\u0E32\u0E01\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E32\u0E22\u0E04\u0E19 (\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1D\u0E48\u0E32\u0E22\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19/\u0E1A\u0E31\u0E0D\u0E0A\u0E35) \u00B7 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2B\u0E49\u0E2D\u0E07 \u2192 \u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E41\u0E15\u0E48\u0E25\u0E30\u0E04\u0E23\u0E31\u0E49\u0E07 \u00B7 \u0E01\u0E14 \"\uFF0B \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E0A\u0E48\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\" \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E04\u0E23\u0E31\u0E49\u0E07\u0E17\u0E35\u0E48\u0E21\u0E32\u0E01\u0E01\u0E27\u0E48\u0E32 ",
             cols,
             " \u00B7 \u0E41\u0E19\u0E1A\u0E23\u0E39\u0E1B\u0E1A\u0E34\u0E25\u0E15\u0E32\u0E21\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48"),
+        roEntry && React.createElement("div", { style: { background: "#fff6e9", color: "#b3762f", borderRadius: 10, padding: "8px 12px", fontSize: 12.5, fontWeight: 700, marginBottom: 10 } }, "\uD83D\uDC41 \u0E42\u0E2B\u0E21\u0E14\u0E14\u0E39\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27 \u2014 \u0E01\u0E23\u0E2D\u0E01/\u0E41\u0E01\u0E49\u0E22\u0E2D\u0E14\u0E44\u0E14\u0E49\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19\u0E41\u0E25\u0E30\u0E1C\u0E39\u0E49\u0E16\u0E37\u0E2D\u0E40\u0E07\u0E34\u0E19 (\u0E04\u0E38\u0E13\u0E14\u0E39\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E14\u0E49)"),
         React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" } },
             React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u0E2B\u0E49\u0E2D\u0E07:"),
             React.createElement("select", { value: room, onChange: (e) => setRoom(e.target.value), style: { ...selCss, width: "auto", minWidth: 120 } }, rooms.map((r) => React.createElement("option", { key: r, value: r }, r))),
@@ -980,7 +982,7 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc }) {
                                 " ",
                                 s.last),
                             Array.from({ length: cols }).map((_, i) => React.createElement("td", { key: i, style: { padding: "2px" } },
-                                React.createElement("input", { value: (rec.amounts && rec.amounts[i]) || "", onChange: (e) => setAmt(s.id, i, e.target.value), inputMode: "decimal", style: { width: 40, padding: "5px 3px", borderRadius: 5, border: `1px solid ${C.line}`, fontSize: 12, textAlign: "right" } }))),
+                                React.createElement("input", { value: (rec.amounts && rec.amounts[i]) || "", disabled: roEntry, onChange: (e) => setAmt(s.id, i, e.target.value), inputMode: "decimal", style: { width: 40, padding: "5px 3px", borderRadius: 5, border: `1px solid ${C.line}`, fontSize: 12, textAlign: "right" } }))),
                             React.createElement("td", { style: { padding: "6px", textAlign: "right", fontWeight: 800, color: C.primaryDark } }, rowTotal(s.id).toLocaleString("th-TH"))));
                     }),
                     React.createElement("tr", { style: { borderTop: `2px solid ${C.primary}`, background: C.soft } },
@@ -992,11 +994,11 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc }) {
                 "\uD83D\uDCB5 \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E01\u0E32\u0E23\u0E2A\u0E48\u0E07\u0E40\u0E07\u0E34\u0E19\u0E02\u0E2D\u0E07\u0E2B\u0E49\u0E2D\u0E07 ",
                 room),
             React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 } },
-                React.createElement("input", { value: subAmt, onChange: (e) => setSubAmt(e.target.value), inputMode: "decimal", placeholder: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19\u0E17\u0E35\u0E48\u0E2A\u0E48\u0E07", style: { width: 130, padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14, textAlign: "right" } }),
+                React.createElement("input", { value: subAmt, disabled: roEntry, onChange: (e) => setSubAmt(e.target.value), inputMode: "decimal", placeholder: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19\u0E17\u0E35\u0E48\u0E2A\u0E48\u0E07", style: { width: 130, padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14, textAlign: "right" } }),
                 React.createElement("input", { type: "date", value: subDate, onChange: (e) => setSubDate(e.target.value), style: { ...selCss, width: "auto" } }),
                 React.createElement("input", { type: "time", value: subTime, onChange: (e) => setSubTime(e.target.value), style: { ...selCss, width: "auto" } }),
                 React.createElement("input", { value: subNote, onChange: (e) => setSubNote(e.target.value), placeholder: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 (\u0E40\u0E0A\u0E48\u0E19 \u0E2A\u0E48\u0E07\u0E07\u0E27\u0E14\u0E17\u0E35\u0E48 1)", style: { flex: 1, minWidth: 140, padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14 } }),
-                React.createElement(Btn, { small: true, onClick: addSubmit }, editSubId ? "บันทึกการแก้ไข" : "+ บันทึกส่งเงิน"),
+                !roEntry && React.createElement(Btn, { small: true, onClick: addSubmit }, editSubId ? "บันทึกการแก้ไข" : "+ บันทึกส่งเงิน"),
                 editSubId && React.createElement(Btn, { small: true, variant: "ghost", onClick: cancelEditSub }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01")),
             submits.length > 0 && (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5, marginBottom: 10 } }, submits.map((x) => (React.createElement("div", { key: x.id, style: { display: "flex", alignItems: "center", gap: 8, fontSize: 13, padding: "6px 10px", background: x.status === "accepted" ? "#e8f8ef" : "#fff6e9", borderRadius: 8 } },
                 React.createElement("span", { style: { fontWeight: 700, color: C.primaryDark, minWidth: 90, textAlign: "right" } },
@@ -1524,13 +1526,13 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                     acc.full && React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setTab("income") }, "\u0E44\u0E1B\u0E2B\u0E19\u0E49\u0E32\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\u0E2B\u0E49\u0E2D\u0E07\u0E19\u0E35\u0E49"),
                     React.createElement(Btn, { small: true, onClick: () => markRead(n.id) }, "\u2713 \u0E17\u0E23\u0E32\u0E1A\u0E41\u0E25\u0E49\u0E27")))))));
         })(),
-        React.createElement(Tabs, { tabs: [...(isFinance ? [{ key: "income", label: "รายรับนักเรียน" }] : []), ...(financeMoneyHolder ? [{ key: "loan", label: "บันทึกยืมเงิน" }, { key: "fund", label: "🏦 กองทุนสำรอง" }, { key: "add", label: editId ? "แก้ไขรายการ" : "＋ บันทึกรายการ" }] : []), { key: "list", label: "แสดงรายการรับ-จ่าย" }, { key: "summary", label: "ภาพรวม/สรุป" }, ...(isFinance ? [{ key: "refund", label: "เฉลี่ยคืน" }] : [])], active: tab, onChange: (k) => { setTab(k); if (k !== "add")
+        React.createElement(Tabs, { tabs: [...(isFinance ? [{ key: "income", label: "รายรับนักเรียน" }] : []), ...(finFull ? [{ key: "loan", label: "บันทึกยืมเงิน" }, { key: "fund", label: "🏦 กองทุนสำรอง" }, { key: "add", label: editId ? "แก้ไขรายการ" : "＋ บันทึกรายการ" }] : []), { key: "list", label: "แสดงรายการรับ-จ่าย" }, { key: "summary", label: "ภาพรวม/สรุป" }, ...(isFinance ? [{ key: "refund", label: "เฉลี่ยคืน" }] : [])], active: tab, onChange: (k) => { setTab(k); if (k !== "add")
                 reset(); } }),
         tab === "refund" && isFinance && React.createElement(RefundManager, { db: db, ui: ui, canEdit: financeMoneyHolder }),
-        tab === "loan" && financeMoneyHolder && React.createElement(LoanManager, { db: db, setDb: setDb, ui: ui, viewer: viewer }),
-        tab === "fund" && financeMoneyHolder && React.createElement(FundManager, { db: db, setDb: setDb, ui: ui, viewer: viewer, editRec: fundEdit, onDoneEdit: () => setFundEdit(null) }),
-        tab === "income" && isFinance && React.createElement(StudentIncomeGrid, { db: db, setDb: setDb, ui: ui, viewer: viewer, acc: acc }),
-        tab === "add" && financeMoneyHolder && (React.createElement(Card, { style: { padding: 16, marginBottom: 12 } },
+        tab === "loan" && finFull && React.createElement(LoanManager, { db: db, setDb: setDb, ui: ui, viewer: viewer }),
+        tab === "fund" && finFull && React.createElement(FundManager, { db: db, setDb: setDb, ui: ui, viewer: viewer, editRec: fundEdit, onDoneEdit: () => setFundEdit(null) }),
+        tab === "income" && isFinance && React.createElement(StudentIncomeGrid, { db: db, setDb: setDb, ui: ui, viewer: viewer, acc: acc, canEntry: financeMoneyHolder || (isFinance && finRank >= 6) }),
+        tab === "add" && finFull && (React.createElement(Card, { style: { padding: 16, marginBottom: 12 } },
             React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 10 } }, editId ? "แก้ไขรายการ" : "บันทึกรายรับ / รายจ่าย"),
             React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E02\u0E49\u0E32 \u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1D\u0E48\u0E32\u0E22 (\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21) \u0E2B\u0E23\u0E37\u0E2D \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21"),
             React.createElement("select", { value: form.dept, onChange: (e) => setForm((p) => ({ ...p, dept: e.target.value })), style: selCss },
