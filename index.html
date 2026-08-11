@@ -736,16 +736,16 @@ function Shell({ role, nav, view, setView, onExit, children, ui }) {
                     React.createElement("button", { onClick: () => setConfirmClose(true), "aria-label": "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", style: { fontSize: 16, fontWeight: 700, color: "#c0392b", background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1 } }, "\u2715"))),
             React.createElement("div", { style: { maxWidth: 960, margin: "0 auto", padding: 16 } },
                 React.createElement(ErrorBoundary, { key: view }, children))),
-        React.createElement("nav", { className: "md:hidden", style: { position: "fixed", bottom: 0, left: 0, right: 0, boxSizing: "border-box", maxWidth: "100%", overflow: "hidden", background: C.surface, borderTop: `1px solid ${C.line}`, display: "flex", alignItems: "stretch", zIndex: 20, boxShadow: "0 -2px 10px rgba(0,0,0,.06)" } },
-            React.createElement("button", { onClick: () => scrollNav(-1), "aria-label": "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E0B\u0E49\u0E32\u0E22", style: { flex: "0 0 auto", width: 36, border: "none", borderRight: `1px solid ${C.line}`, background: C.soft, color: C.primary, fontSize: 24, fontWeight: 800, cursor: "pointer", lineHeight: 1, padding: 0 } }, "\u2039"),
-            React.createElement("div", { ref: navScrollRef, style: { flex: "1 1 auto", minWidth: 0, display: "flex", flexWrap: "nowrap", overflowX: "auto", WebkitOverflowScrolling: "touch" } }, nav.map((n) => {
+        React.createElement("nav", { className: "md:hidden", style: { position: "fixed", bottom: 0, left: 0, right: 0, boxSizing: "border-box", maxWidth: "100%", overflow: "hidden", paddingLeft: "max(4px, env(safe-area-inset-left))", paddingRight: "max(4px, env(safe-area-inset-right))", paddingBottom: "env(safe-area-inset-bottom)", background: C.surface, borderTop: `1px solid ${C.line}`, display: "flex", alignItems: "stretch", zIndex: 20, boxShadow: "0 -2px 10px rgba(0,0,0,.06)" } },
+            React.createElement("button", { onClick: () => scrollNav(-1), "aria-label": "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E0B\u0E49\u0E32\u0E22", style: { flex: "0 0 auto", width: 34, border: "none", borderRight: `1px solid ${C.line}`, borderRadius: "8px 0 0 8px", background: C.soft, color: C.primary, fontSize: 24, fontWeight: 800, cursor: "pointer", lineHeight: 1, padding: 0 } }, "\u2039"),
+            React.createElement("div", { ref: navScrollRef, style: { flex: "1 1 auto", minWidth: 0, display: "flex", flexWrap: "nowrap", overflowX: "auto", WebkitOverflowScrolling: "touch", scrollPaddingLeft: 6, scrollPaddingRight: 6, paddingLeft: 4, paddingRight: 4 } }, nav.map((n) => {
                 const key = n.children ? (n.defaultKey || "org:all") : n.key;
                 const active = n.children ? String(view).startsWith(n.key) : view === n.key;
                 return (React.createElement("button", { key: n.key, onClick: () => setView(key), style: { flex: "1 0 auto", minWidth: 62, padding: "11px 4px 9px", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, color: active ? C.primary : C.muted } },
                     React.createElement("span", { style: { fontSize: 31 } }, n.icon),
                     React.createElement("span", { style: { fontSize: 12, fontWeight: active ? 700 : 500, maxWidth: 74, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, n.label)));
             })),
-            React.createElement("button", { onClick: () => scrollNav(1), "aria-label": "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E02\u0E27\u0E32", style: { flex: "0 0 auto", width: 36, border: "none", borderLeft: `1px solid ${C.line}`, background: C.soft, color: C.primary, fontSize: 24, fontWeight: 800, cursor: "pointer", lineHeight: 1, padding: 0 } }, "\u203A")),
+            React.createElement("button", { onClick: () => scrollNav(1), "aria-label": "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E02\u0E27\u0E32", style: { flex: "0 0 auto", width: 34, border: "none", borderLeft: `1px solid ${C.line}`, borderRadius: "0 8px 8px 0", background: C.soft, color: C.primary, fontSize: 24, fontWeight: 800, cursor: "pointer", lineHeight: 1, padding: 0 } }, "\u203A")),
         React.createElement("button", { className: "hidden md:flex", onClick: () => setConfirmClose(true), title: "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", "aria-label": "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", style: { position: "fixed", top: 12, right: 14, zIndex: 40, width: 36, height: 36, borderRadius: 10, border: `1px solid ${C.line}`, background: C.surface, color: "#c0392b", fontSize: 18, fontWeight: 700, cursor: "pointer", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 6px rgba(0,0,0,.08)" } }, "\u2715"),
         confirmOut && React.createElement(ConfirmModal, { title: "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A", message: "\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A\u0E43\u0E0A\u0E48\u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E21\u0E48? \u0E04\u0E23\u0E31\u0E49\u0E07\u0E15\u0E48\u0E2D\u0E44\u0E1B\u0E15\u0E49\u0E2D\u0E07\u0E25\u0E47\u0E2D\u0E01\u0E2D\u0E34\u0E19\u0E43\u0E2B\u0E21\u0E48", confirmLabel: "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A", onConfirm: () => { setConfirmOut(false); onExit(); }, onClose: () => setConfirmOut(false) }),
         confirmClose && React.createElement(ConfirmModal, { title: "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", message: "\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A\u0E19\u0E35\u0E49\u0E43\u0E0A\u0E48\u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E21\u0E48? (\u0E23\u0E30\u0E1A\u0E1A\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E02\u0E36\u0E49\u0E19 Sheet \u0E41\u0E25\u0E49\u0E27)", confirmLabel: "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", variant: "danger", onConfirm: () => { setConfirmClose(false); closeWin(); }, onClose: () => setConfirmClose(false) }),
@@ -886,9 +886,24 @@ function StudentIncomeGrid({ db, setDb, ui, viewer }) {
     const addSubmit = () => { const amt = Number(String(subAmt).replace(/[^0-9.]/g, "")); if (!amt) {
         ui.notify("ใส่จำนวนเงินก่อน");
         return;
-    } ui.run("บันทึกการส่งเงินแล้ว", () => { setDb((p) => ({ ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: [...(((p.studentIncome || {})["_submits"]) || []), { id: "sub" + Date.now(), room, amount: amt, date: subDate, note: subNote, by: viewer.name || "", at: Date.now() }] } })); setSubAmt(""); setSubNote(""); save(); }); };
+    } ui.run("บันทึกการส่งเงินแล้ว — แจ้งฝ่ายการเงิน/แอดมิน", () => { setDb((p) => ({ ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: [...(((p.studentIncome || {})["_submits"]) || []), { id: "sub" + Date.now(), room, amount: amt, date: subDate, note: subNote, by: viewer.name || "", byId: viewer.id, at: Date.now(), status: "pending" }] } })); setSubAmt(""); setSubNote(""); save(); }); };
     const removeSubmit = (id) => ui.run("ลบแล้ว", () => { setDb((p) => ({ ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: (((p.studentIncome || {})["_submits"]) || []).filter((x) => x.id !== id) } })); save(); });
+    const acceptSubmit = (id) => ui.run("ยอมรับเงินแล้ว — แจ้งผู้ดูแลระดับสูง", () => { const sub = submits.find((x) => x.id === id); const amt = sub ? (Number(sub.amount) || 0) : 0; const dref = amt - grand; setDb((p) => ({ ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: (((p.studentIncome || {})["_submits"]) || []).map((x) => x.id === id ? { ...x, status: "accepted", acceptedBy: viewer.name || "", acceptedAt: Date.now() } : x) }, financeNotis: [{ id: "fnoti" + Date.now(), room, amount: amt, tableTotal: grand, diff: dref, acceptedBy: viewer.name || "", acceptorRank: myRankNum, date: sub ? sub.date : todayStr(), at: Date.now(), readBy: [] }, ...((p.financeNotis) || [])] })); save(); });
     const diff = submitSum - grand;
+    // สิทธิ์กดยอมรับเงิน: แอดมิน หรือ ผู้ดูแล(ลำดับ5)ขึ้นไป · ผู้ช่วย(ลำดับ6)เท่านั้น = กดไม่ได้ (เป็นผู้รวบรวมเงิน)
+    const canAcceptMoney = (() => {
+        if (String(viewer.role) === "admin")
+            return true;
+        const myNodes = [...(db.orgTeacher || []), ...(db.orgStudent || [])].filter((n) => String(n.personId) === String(viewer.id));
+        if (!myNodes.length)
+            return false;
+        const ranks = myNodes.map((n) => n.rank || (DUTY_RANKS.indexOf(n.title) + 1) || 0).filter((r) => r > 0);
+        if (!ranks.length)
+            return true;
+        return ranks.some((r) => r <= 5);
+    })();
+    const myRankNum = (() => { if (String(viewer.role) === "admin")
+        return 0; const myNodes = [...(db.orgTeacher || []), ...(db.orgStudent || [])].filter((n) => String(n.personId) === String(viewer.id)); const ranks = myNodes.map((n) => n.rank || (DUTY_RANKS.indexOf(n.title) + 1) || 0).filter((r) => r > 0); return ranks.length ? Math.min(...ranks) : 6; })();
     const saveAll = () => ui.run("บันทึกแล้ว", () => { dirtyRef.current = false; save(); });
     return (React.createElement("div", null,
         React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 10 } },
@@ -936,7 +951,7 @@ function StudentIncomeGrid({ db, setDb, ui, viewer }) {
                 React.createElement("input", { type: "date", value: subDate, onChange: (e) => setSubDate(e.target.value), style: { ...selCss, width: "auto" } }),
                 React.createElement("input", { value: subNote, onChange: (e) => setSubNote(e.target.value), placeholder: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 (\u0E40\u0E0A\u0E48\u0E19 \u0E2A\u0E48\u0E07\u0E07\u0E27\u0E14\u0E17\u0E35\u0E48 1)", style: { flex: 1, minWidth: 140, padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14 } }),
                 React.createElement(Btn, { small: true, onClick: addSubmit }, "+ \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E2A\u0E48\u0E07\u0E40\u0E07\u0E34\u0E19")),
-            submits.length > 0 && (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5, marginBottom: 10 } }, submits.map((x) => (React.createElement("div", { key: x.id, style: { display: "flex", alignItems: "center", gap: 8, fontSize: 13, padding: "6px 10px", background: "#f7f9ff", borderRadius: 8 } },
+            submits.length > 0 && (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5, marginBottom: 10 } }, submits.map((x) => (React.createElement("div", { key: x.id, style: { display: "flex", alignItems: "center", gap: 8, fontSize: 13, padding: "6px 10px", background: x.status === "accepted" ? "#e8f8ef" : "#fff6e9", borderRadius: 8 } },
                 React.createElement("span", { style: { fontWeight: 700, color: C.primaryDark, minWidth: 90, textAlign: "right" } },
                     (Number(x.amount) || 0).toLocaleString("th-TH"),
                     " \u0E3F"),
@@ -945,7 +960,9 @@ function StudentIncomeGrid({ db, setDb, ui, viewer }) {
                     "\u00B7 ",
                     x.note),
                 React.createElement("span", { style: { flex: 1 } }),
-                x.by && React.createElement("span", { style: { fontSize: 11, color: C.muted } }, x.by),
+                x.status === "accepted" ? React.createElement("span", { style: { fontSize: 11.5, color: "#1e7a4d", fontWeight: 700 } },
+                    "\u2713 \u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A\u0E41\u0E25\u0E49\u0E27",
+                    x.acceptedBy ? ` (${x.acceptedBy})` : "") : (canAcceptMoney ? React.createElement(Btn, { small: true, onClick: () => acceptSubmit(x.id) }, "\u2713 \u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19") : React.createElement("span", { style: { fontSize: 11.5, color: "#b3762f", fontWeight: 700 } }, "\u23F3 \u0E23\u0E2D\u0E1C\u0E39\u0E49\u0E14\u0E39\u0E41\u0E25\u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A")),
                 React.createElement("button", { onClick: () => removeSubmit(x.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715")))))),
             React.createElement("div", { style: { borderTop: `1px solid ${C.line}`, paddingTop: 10, display: "flex", flexDirection: "column", gap: 4, fontSize: 13.5 } },
                 React.createElement("div", { style: { display: "flex", justifyContent: "space-between" } },
@@ -975,12 +992,64 @@ function StudentIncomeGrid({ db, setDb, ui, viewer }) {
         React.createElement("p", { style: { fontSize: 11.5, color: C.muted, marginTop: 8 } }, "\u0E23\u0E39\u0E1B\u0E16\u0E39\u0E01\u0E40\u0E01\u0E47\u0E1A\u0E43\u0E19\u0E42\u0E1F\u0E25\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E0A\u0E37\u0E48\u0E2D \"\u0E1A\u0E34\u0E25\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08_[\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48]\" \u0E1A\u0E19 Google Drive (\u0E23\u0E39\u0E1B\u0E27\u0E31\u0E19\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19\u0E23\u0E27\u0E21\u0E42\u0E1F\u0E25\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19)"),
         delColIdx !== null && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E25\u0E1A\u0E0A\u0E48\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A", message: `ลบ "ครั้งที่ ${delColIdx + 1}" ของนักเรียนทุกคน (ข้อมูลในช่องนี้จะหายทั้งหมด)? ย้อนกลับไม่ได้`, onConfirm: () => delCol(delColIdx), onClose: () => setDelColIdx(null) })));
 }
+function FundManager({ db, setDb, ui, viewer }) {
+    const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff", marginBottom: 10 };
+    const [type, setType] = useState("in");
+    const [title, setTitle] = useState("");
+    const [amount, setAmount] = useState("");
+    const [date, setDate] = useState(todayStr());
+    const [note, setNote] = useState("");
+    const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 500);
+    const rows = (db.finance || []).filter((f) => String(f.dept) === "FUND").slice().sort((a, b) => (b.date + "" + b.at).localeCompare(a.date + "" + a.at));
+    const inSum = rows.filter((r) => r.type !== "out").reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    const outSum = rows.filter((r) => r.type === "out").reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    const bal = inSum - outSum;
+    const add = () => { const amt = Number(String(amount).replace(/[^0-9.]/g, "")); if (!title.trim() || !amt) {
+        ui.notify("กรอกชื่อรายการ + จำนวนเงิน");
+        return;
+    } ui.run("บันทึกกองทุนสำรองแล้ว", () => { setDb((p) => ({ ...p, finance: [...(p.finance || []), { id: "fn" + Date.now(), dept: "FUND", type, title: title.trim(), amount: amt, date, note, by: viewer.name || "", at: Date.now() }] })); setTitle(""); setAmount(""); setNote(""); save(); }); };
+    const del = (id) => ui.run("ลบแล้ว", () => { setDb((p) => ({ ...p, finance: (p.finance || []).filter((f) => f.id !== id) })); save(); });
+    return (React.createElement("div", null,
+        React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 10 } },
+            "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E31\u0E1A-\u0E08\u0E48\u0E32\u0E22\u0E02\u0E2D\u0E07 \"\u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19\u0E2A\u0E33\u0E23\u0E2D\u0E07\" \u0E41\u0E22\u0E01\u0E15\u0E48\u0E32\u0E07\u0E2B\u0E32\u0E01 \u00B7 ",
+            React.createElement("b", null, "\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\u0E1A\u0E27\u0E01\u0E40\u0E02\u0E49\u0E32"),
+            " \u0E41\u0E25\u0E30 ",
+            React.createElement("b", null, "\u0E23\u0E32\u0E22\u0E08\u0E48\u0E32\u0E22\u0E2B\u0E31\u0E01\u0E2D\u0E2D\u0E01"),
+            " \u0E08\u0E32\u0E01\u0E40\u0E07\u0E34\u0E19\u0E23\u0E27\u0E21\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 (\u0E23\u0E27\u0E21\u0E43\u0E19\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21/\u0E2A\u0E23\u0E38\u0E1B\u0E14\u0E49\u0E27\u0E22)"),
+        React.createElement("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 } }, [{ k: "in", l: "💰 คงเหลือกองทุน", v: bal, c: bal < 0 ? "#c0392b" : "#1e7a4d" }, { k: "i", l: "รับเข้ากองทุน", v: inSum, c: "#2f9e6b" }, { k: "o", l: "จ่ายจากกองทุน", v: outSum, c: "#c0392b" }].map((b) => (React.createElement("div", { key: b.k, style: { flex: 1, minWidth: 130, background: C.soft, borderRadius: 12, padding: 12 } },
+            React.createElement("div", { style: { fontSize: 12, color: C.muted } }, b.l),
+            React.createElement("div", { style: { fontSize: 20, fontWeight: 800, color: b.c } },
+                b.v.toLocaleString("th-TH"),
+                " \u0E3F"))))),
+        React.createElement(Card, { style: { padding: 16, marginBottom: 14 } },
+            React.createElement("div", { style: { fontWeight: 700, marginBottom: 10 } }, "\uFF0B \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19\u0E2A\u0E33\u0E23\u0E2D\u0E07"),
+            React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, [{ k: "in", l: "รับเข้า" }, { k: "out", l: "จ่ายออก" }].map((t) => React.createElement("button", { key: t.k, onClick: () => setType(t.k), style: { padding: "8px 18px", borderRadius: 16, border: `1px solid ${type === t.k ? C.primary : C.line}`, background: type === t.k ? C.primary : C.surface, color: type === t.k ? "#fff" : C.ink, fontWeight: 700, cursor: "pointer" } }, t.l))),
+            React.createElement("input", { value: title, onChange: (e) => setTitle(e.target.value), placeholder: "\u0E0A\u0E37\u0E48\u0E2D\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u0E40\u0E0A\u0E48\u0E19 \u0E40\u0E07\u0E34\u0E19\u0E2A\u0E21\u0E17\u0E1A\u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19", style: { ...selCss, marginBottom: 8 } }),
+            React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
+                React.createElement("input", { value: amount, onChange: (e) => setAmount(e.target.value), inputMode: "decimal", placeholder: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19", style: { width: 130, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, textAlign: "right" } }),
+                React.createElement("input", { type: "date", value: date, onChange: (e) => setDate(e.target.value), style: { ...selCss, width: "auto", marginBottom: 0 } }),
+                React.createElement("input", { value: note, onChange: (e) => setNote(e.target.value), placeholder: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", style: { flex: 1, minWidth: 120, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14 } }),
+                React.createElement(Btn, { onClick: add }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01"))),
+        rows.length === 0 ? React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19\u0E2A\u0E33\u0E23\u0E2D\u0E07" }) : (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, rows.map((r) => (React.createElement("div", { key: r.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: `1px solid ${C.line}`, borderRadius: 10 } },
+            React.createElement("span", { style: { fontSize: 20 } }, r.type === "out" ? "🔻" : "🔺"),
+            React.createElement("div", { style: { flex: 1 } },
+                React.createElement("div", { style: { fontWeight: 600, color: C.ink } }, r.title),
+                React.createElement("div", { style: { fontSize: 11.5, color: C.muted } },
+                    r.date,
+                    r.note ? " · " + r.note : "",
+                    r.by ? " · " + r.by : "")),
+            React.createElement("span", { style: { fontWeight: 800, color: r.type === "out" ? "#c0392b" : "#2f9e6b" } },
+                r.type === "out" ? "-" : "+",
+                (Number(r.amount) || 0).toLocaleString("th-TH")),
+            React.createElement("button", { onClick: () => del(r.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715"))))))));
+}
 function FinanceManager({ db, setDb, ui, viewer }) {
     const acc = financeAccess(db, viewer.id, viewer.role);
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff" };
     const canRecordAny = acc.full || acc.depts.size > 0;
     const allowedComps = db.competitions.filter((c) => acc.full || acc.depts.has(String(c.id)));
-    const compName = (id) => { if (String(id).startsWith("D:")) {
+    const compName = (id) => { if (String(id) === "FUND")
+        return "🏦 กองทุนสำรอง"; if (String(id).startsWith("D:")) {
         const d = (db.departments || []).find((x) => "D:" + x.id === String(id));
         return d ? "🏢 " + d.name : "🏢 ฝ่าย (ถูกลบ)";
     } const c = db.competitions.find((x) => String(x.id) === String(id)); return c ? c.name : "ทั่วไป/ไม่ระบุฝ่าย"; };
@@ -1083,8 +1152,37 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     };
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\uD83D\uDCB0 \u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19-\u0E1E\u0E31\u0E2A\u0E14\u0E38", sub: acc.full ? "บันทึก/ดูได้ทุกฝ่าย + ภาพรวมทั้งกิจกรรม" : canRecordAny ? "บันทึก/ดูฝ่ายที่คุณดูแล · ฝ่ายอื่นดูได้" : "ดูรายการรับ-จ่ายทุกฝ่าย (อ่านอย่างเดียว)" }),
-        React.createElement(Tabs, { tabs: [...(acc.full ? [{ key: "income", label: "รายรับจากนักเรียน" }] : []), { key: "list", label: "รายการรับ-จ่าย" }, ...(canRecordAny ? [{ key: "add", label: editId ? "แก้ไขรายการ" : "＋ บันทึกรายการ" }] : []), { key: "summary", label: "ภาพรวม/สรุป" }], active: tab, onChange: (k) => { setTab(k); if (k !== "add")
+        (() => {
+            const myRankNum = String(viewer.role) === "admin" ? 0 : (() => { const my = [...(db.orgTeacher || []), ...(db.orgStudent || [])].filter((n) => String(n.personId) === String(viewer.id)); const rs = my.map((n) => n.rank || 0).filter((r) => r > 0); return rs.length ? Math.min(...rs) : 6; })();
+            const myNotis = (db.financeNotis || []).filter((n) => (String(viewer.role) === "admin" || myRankNum < (n.acceptorRank || 6)) && !((n.readBy) || []).includes(viewer.id));
+            if (!myNotis.length)
+                return null;
+            const markRead = (nid) => ui.run("รับทราบแล้ว", () => { setDb((p) => ({ ...p, financeNotis: (p.financeNotis || []).map((x) => x.id === nid ? { ...x, readBy: [...((x.readBy) || []), viewer.id] } : x) })); setTimeout(() => window.__forceSave && window.__forceSave(), 400); });
+            return (React.createElement("div", { style: { marginBottom: 14, display: "flex", flexDirection: "column", gap: 8 } }, myNotis.map((n) => (React.createElement("div", { key: n.id, style: { border: `1px solid ${n.diff === 0 ? "#8fd4ad" : "#e6a23c"}`, background: n.diff === 0 ? "#eafaf1" : "#fff8ec", borderRadius: 12, padding: "12px 14px" } },
+                React.createElement("div", { style: { fontWeight: 800, color: C.ink, marginBottom: 4 } },
+                    "\uD83D\uDD14 \u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19\u0E2B\u0E49\u0E2D\u0E07 ",
+                    n.room,
+                    " \u2014 \u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A\u0E42\u0E14\u0E22 ",
+                    n.acceptedBy || "-"),
+                React.createElement("div", { style: { fontSize: 13, color: C.ink } },
+                    "\u0E40\u0E07\u0E34\u0E19\u0E17\u0E35\u0E48\u0E23\u0E31\u0E1A\u0E08\u0E23\u0E34\u0E07 ",
+                    React.createElement("b", null,
+                        (n.amount || 0).toLocaleString("th-TH"),
+                        " \u0E3F"),
+                    " \u00B7 \u0E22\u0E2D\u0E14\u0E43\u0E19\u0E43\u0E1A\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D ",
+                    React.createElement("b", null,
+                        (n.tableTotal || 0).toLocaleString("th-TH"),
+                        " \u0E3F")),
+                React.createElement("div", { style: { fontSize: 13, marginTop: 2, fontWeight: 800, color: n.diff === 0 ? "#1e7a4d" : "#c0392b" } }, n.diff === 0 ? "✓ ยอดตรงกัน" : (n.diff > 0 ? `เกิน ${Math.abs(n.diff).toLocaleString("th-TH")} ฿` : `ขาด ${Math.abs(n.diff).toLocaleString("th-TH")} ฿`)),
+                React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8, alignItems: "center", flexWrap: "wrap" } },
+                    React.createElement("span", { style: { fontSize: 11.5, color: C.muted } }, n.date),
+                    React.createElement("span", { style: { flex: 1 } }),
+                    acc.full && React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setTab("income") }, "\u0E44\u0E1B\u0E2B\u0E19\u0E49\u0E32\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\u0E2B\u0E49\u0E2D\u0E07\u0E19\u0E35\u0E49"),
+                    React.createElement(Btn, { small: true, onClick: () => markRead(n.id) }, "\u2713 \u0E17\u0E23\u0E32\u0E1A\u0E41\u0E25\u0E49\u0E27")))))));
+        })(),
+        React.createElement(Tabs, { tabs: [...(acc.full ? [{ key: "income", label: "รายรับนักเรียน" }] : []), ...(canRecordAny ? [{ key: "fund", label: "🏦 กองทุนสำรอง" }, { key: "add", label: editId ? "แก้ไขรายการ" : "＋ บันทึกรายการ" }] : []), { key: "list", label: "แสดงรายการรับ-จ่าย" }, { key: "summary", label: "ภาพรวม/สรุป" }], active: tab, onChange: (k) => { setTab(k); if (k !== "add")
                 reset(); } }),
+        tab === "fund" && canRecordAny && React.createElement(FundManager, { db: db, setDb: setDb, ui: ui, viewer: viewer }),
         tab === "income" && acc.full && React.createElement(StudentIncomeGrid, { db: db, setDb: setDb, ui: ui, viewer: viewer }),
         tab === "add" && canRecordAny && (React.createElement(Card, { style: { padding: 16, marginBottom: 12 } },
             React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 10 } }, editId ? "แก้ไขรายการ" : "บันทึกรายรับ / รายจ่าย"),
@@ -6154,6 +6252,7 @@ function mergeDb(loaded) {
         finance: (loaded && loaded.finance) || [],
         departments: (loaded && loaded.departments) || [],
         studentIncome: (loaded && loaded.studentIncome) || {},
+        financeNotis: (loaded && loaded.financeNotis) || [],
         incomeCols: (loaded && loaded.incomeCols) || 5,
         archived: (loaded && loaded.archived) || [],
         trash: (loaded && loaded.trash) || [],
