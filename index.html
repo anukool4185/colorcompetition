@@ -1371,8 +1371,12 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     const acc = financeAccess(db, viewer.id, viewer.role);
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff" };
     const canRecordAny = acc.full || acc.depts.size > 0;
-    // สิทธิ์ตามลำดับในฝ่ายการเงิน/บัญชี
-    const finNodes = [...(db.orgTeacher || []), ...(db.orgStudent || [])].filter((n) => String(n.personId) === String(viewer.id) && /การเงิน|บัญชี|เหรัญญิก|เหรัญ|คลัง|ถือเงิน|เก็บเงิน/.test(n.title || ""));
+    // ตรวจฝ่ายการเงิน/บัญชี: จากชื่อตำแหน่ง หรือ รายการ/ฝ่ายที่สังกัดมีชื่อการเงิน/บัญชี/พัสดุ
+    const finRe = /การเงิน|บัญชี|เหรัญญิก|เหรัญ|คลัง|ถือเงิน|เก็บเงิน|พัสดุ/;
+    const compIsFinance = (compId) => { if (!compId)
+        return false; const c = db.competitions.find((x) => String(x.id) === String(compId)); if (c && finRe.test(c.name || ""))
+        return true; return (db.departments || []).some((d) => finRe.test(d.name || "") && (d.comps || []).map(String).includes(String(compId))); };
+    const finNodes = [...(db.orgTeacher || []), ...(db.orgStudent || [])].filter((n) => String(n.personId) === String(viewer.id) && (finRe.test(n.title || "") || compIsFinance(n.compId)));
     const finRank = String(viewer.role) === "admin" ? 0 : (finNodes.length ? Math.min(...finNodes.map((n) => n.rank || (DUTY_RANKS.indexOf(n.title) + 1) || 6)) : (acc.full ? 5 : 99));
     const isFinance = acc.full || finNodes.length > 0; // เป็นฝ่ายการเงิน/บัญชี (รวมผู้ช่วย) หรือแอดมิน
     const finFull = String(viewer.role) === "admin" || (isFinance && finRank <= 5); // ผู้ดูแลขึ้นไป = ใช้ได้ทุกแท็บ
