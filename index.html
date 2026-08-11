@@ -1252,7 +1252,8 @@ function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit }) {
             React.createElement("button", { onClick: () => { setType(r.type); setTitle(r.title); setAmount(String(r.amount)); setDate(r.date); setFundTime(r.time || nowTime()); setNote(r.note || ""); setEditId(r.id); }, style: { border: "none", background: "none", color: C.primary, cursor: "pointer", fontWeight: 700, fontSize: 12 } }, "\u0E41\u0E01\u0E49\u0E44\u0E02"),
             React.createElement("button", { onClick: () => del(r.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715"))))))));
 }
-function RefundManager({ db, ui }) {
+function RefundManager({ db, ui, canEdit }) {
+    const ro = !canEdit;
     const selCss = { padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 13.5, background: "#fbfaff", color: C.ink };
     const fundBal = (db.finance || []).filter((f) => String(f.dept) === "FUND").reduce((s, f) => s + (f.type === "out" ? -(Number(f.amount) || 0) : (Number(f.amount) || 0)), 0);
     const nonFundBal = (db.finance || []).filter((f) => String(f.dept) !== "FUND").reduce((s, f) => s + (f.type === "out" ? -(Number(f.amount) || 0) : (Number(f.amount) || 0)), 0);
@@ -1287,18 +1288,19 @@ function RefundManager({ db, ui }) {
     } };
     return (React.createElement("div", null,
         React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 12 } }, "\u0E04\u0E34\u0E14\u0E2A\u0E31\u0E14\u0E2A\u0E48\u0E27\u0E19 (%) \u0E02\u0E2D\u0E07\u0E41\u0E15\u0E48\u0E25\u0E30\u0E04\u0E19\u0E08\u0E32\u0E01\u0E22\u0E2D\u0E14\u0E40\u0E07\u0E34\u0E19\u0E17\u0E35\u0E48\u0E08\u0E48\u0E32\u0E22\u0E21\u0E32 (\u0E23\u0E27\u0E21\u0E17\u0E38\u0E01\u0E2B\u0E49\u0E2D\u0E07 = 100%) \u0E41\u0E25\u0E49\u0E27\u0E40\u0E09\u0E25\u0E35\u0E48\u0E22\u0E04\u0E37\u0E19\u0E08\u0E32\u0E01\u0E40\u0E07\u0E34\u0E19\u0E17\u0E35\u0E48\u0E40\u0E2B\u0E25\u0E37\u0E2D \u00B7 \u0E17\u0E28\u0E19\u0E34\u0E22\u0E21 2 \u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07"),
+        ro && React.createElement("div", { style: { background: "#fff6e9", color: "#b3762f", borderRadius: 10, padding: "8px 12px", fontSize: 12.5, fontWeight: 700, marginBottom: 12 } }, "\uD83D\uDC41 \u0E42\u0E2B\u0E21\u0E14\u0E14\u0E39\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27 \u2014 \u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1C\u0E39\u0E49\u0E16\u0E37\u0E2D\u0E40\u0E07\u0E34\u0E19\u0E1B\u0E23\u0E31\u0E1A\u0E04\u0E48\u0E32/\u0E04\u0E33\u0E19\u0E27\u0E13\u0E44\u0E14\u0E49 (\u0E04\u0E38\u0E13\u0E14\u0E39\u0E1C\u0E25\u0E44\u0E14\u0E49)"),
         React.createElement(Card, { style: { padding: 16, marginBottom: 14 } },
             React.createElement("div", { style: { fontWeight: 700, marginBottom: 10 } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E17\u0E35\u0E48\u0E19\u0E33\u0E21\u0E32\u0E04\u0E33\u0E19\u0E27\u0E13\u0E04\u0E37\u0E19"),
             React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8, cursor: "pointer" } },
-                React.createElement("input", { type: "checkbox", checked: useFund, onChange: () => setUseFund((v) => !v), style: { width: 17, height: 17 } }),
+                React.createElement("input", { type: "checkbox", disabled: ro, checked: useFund, onChange: () => setUseFund((v) => !v), style: { width: 17, height: 17 } }),
                 React.createElement("span", { style: { fontSize: 14 } }, "\uD83C\uDFE6 \u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19\u0E2A\u0E33\u0E23\u0E2D\u0E07 (\u0E04\u0E07\u0E40\u0E2B\u0E25\u0E37\u0E2D)"),
                 React.createElement("b", { style: { marginLeft: "auto", color: fundBal < 0 ? "#c0392b" : "#1e7a4d" } },
                     fundBal.toLocaleString("th-TH"),
                     " \u0E3F")),
             React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 10, cursor: "pointer" } },
-                React.createElement("input", { type: "checkbox", checked: useOther, onChange: () => setUseOther((v) => !v), style: { width: 17, height: 17 } }),
+                React.createElement("input", { type: "checkbox", disabled: ro, checked: useOther, onChange: () => setUseOther((v) => !v), style: { width: 17, height: 17 } }),
                 React.createElement("span", { style: { fontSize: 14 } }, "\uD83D\uDCB0 \u0E40\u0E07\u0E34\u0E19\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E2D\u0E37\u0E48\u0E19\u0E46"),
-                React.createElement("input", { value: other, onChange: (e) => setOther(e.target.value), inputMode: "decimal", placeholder: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19", style: { ...selCss, width: 130, textAlign: "right", marginLeft: "auto" } })),
+                React.createElement("input", { value: other, disabled: ro, onChange: (e) => setOther(e.target.value), inputMode: "decimal", placeholder: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19", style: { ...selCss, width: 130, textAlign: "right", marginLeft: "auto" } })),
             React.createElement("div", { style: { fontSize: 11.5, color: C.muted, marginTop: 4, paddingLeft: 27, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
                 React.createElement("span", null,
                     "= \u0E40\u0E07\u0E34\u0E19\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E08\u0E32\u0E01\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 \u0E22\u0E01\u0E40\u0E27\u0E49\u0E19\u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19 \u00B7 \u0E22\u0E2D\u0E14\u0E04\u0E07\u0E40\u0E2B\u0E25\u0E37\u0E2D (\u0E44\u0E21\u0E48\u0E23\u0E27\u0E21\u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19) \u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A: ",
@@ -1308,7 +1310,7 @@ function RefundManager({ db, ui }) {
                 React.createElement("button", { onClick: () => { setOther(String(nonFundBal)); setUseOther(true); }, style: { border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "2px 10px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" } }, "\u0E43\u0E0A\u0E49\u0E22\u0E2D\u0E14\u0E19\u0E35\u0E49")),
             React.createElement("div", { style: { borderTop: `1px solid ${C.line}`, marginTop: 12, paddingTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 } },
                 React.createElement("label", { style: { display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13.5 } },
-                    React.createElement("input", { type: "checkbox", checked: roundWhole, onChange: () => setRoundWhole((v) => !v), style: { width: 16, height: 16 } }),
+                    React.createElement("input", { type: "checkbox", disabled: ro, checked: roundWhole, onChange: () => setRoundWhole((v) => !v), style: { width: 16, height: 16 } }),
                     " \u0E1B\u0E31\u0E14\u0E40\u0E1B\u0E47\u0E19\u0E40\u0E07\u0E34\u0E19\u0E16\u0E49\u0E27\u0E19 (\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E15\u0E32\u0E07\u0E04\u0E4C)"),
                 React.createElement("div", { style: { fontSize: 14 } },
                     "\u0E40\u0E07\u0E34\u0E19\u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E23\u0E27\u0E21\u0E17\u0E35\u0E48\u0E08\u0E30\u0E04\u0E37\u0E19: ",
@@ -1369,6 +1371,12 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     const acc = financeAccess(db, viewer.id, viewer.role);
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff" };
     const canRecordAny = acc.full || acc.depts.size > 0;
+    // สิทธิ์ตามลำดับในฝ่ายการเงิน/บัญชี
+    const finNodes = [...(db.orgTeacher || []), ...(db.orgStudent || [])].filter((n) => String(n.personId) === String(viewer.id) && /การเงิน|บัญชี|เหรัญญิก|เหรัญ|คลัง|ถือเงิน|เก็บเงิน/.test(n.title || ""));
+    const finRank = String(viewer.role) === "admin" ? 0 : (finNodes.length ? Math.min(...finNodes.map((n) => n.rank || (DUTY_RANKS.indexOf(n.title) + 1) || 6)) : (acc.full ? 5 : 99));
+    const isFinance = acc.full; // เป็นฝ่ายการเงิน/บัญชี (หรือแอดมิน)
+    const finFull = String(viewer.role) === "admin" || (isFinance && finRank <= 5); // ผู้ดูแลขึ้นไป = ใช้ได้ทุกแท็บ
+    const financeMoneyHolder = String(viewer.role) === "admin" || [...(db.orgTeacher || []), ...(db.orgStudent || [])].some((n) => String(n.personId) === String(viewer.id) && /ถือเงิน|เก็บเงิน|เหรัญญิก|เหรัญ|การเงิน|คลัง|บัญชี/.test(n.title || ""));
     const allowedComps = db.competitions.filter((c) => acc.full || acc.depts.has(String(c.id)));
     const compName = (id) => { if (String(id) === "FUND")
         return "🏦 กองทุนสำรอง"; if (String(id).startsWith("D:")) {
@@ -1512,12 +1520,12 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                     acc.full && React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setTab("income") }, "\u0E44\u0E1B\u0E2B\u0E19\u0E49\u0E32\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\u0E2B\u0E49\u0E2D\u0E07\u0E19\u0E35\u0E49"),
                     React.createElement(Btn, { small: true, onClick: () => markRead(n.id) }, "\u2713 \u0E17\u0E23\u0E32\u0E1A\u0E41\u0E25\u0E49\u0E27")))))));
         })(),
-        React.createElement(Tabs, { tabs: [...(acc.full ? [{ key: "income", label: "รายรับนักเรียน" }, { key: "loan", label: "บันทึกยืมเงิน" }] : []), ...(canRecordAny ? [{ key: "fund", label: "🏦 กองทุนสำรอง" }, { key: "add", label: editId ? "แก้ไขรายการ" : "＋ บันทึกรายการ" }] : []), { key: "list", label: "แสดงรายการรับ-จ่าย" }, { key: "summary", label: "ภาพรวม/สรุป" }, ...(acc.full ? [{ key: "refund", label: "เฉลี่ยคืน" }] : [])], active: tab, onChange: (k) => { setTab(k); if (k !== "add")
+        React.createElement(Tabs, { tabs: [...(isFinance ? [{ key: "income", label: "รายรับนักเรียน" }] : []), ...(finFull ? [{ key: "loan", label: "บันทึกยืมเงิน" }, { key: "fund", label: "🏦 กองทุนสำรอง" }] : []), ...(finFull || canRecordAny ? [{ key: "add", label: editId ? "แก้ไขรายการ" : "＋ บันทึกรายการ" }] : []), { key: "list", label: "แสดงรายการรับ-จ่าย" }, { key: "summary", label: "ภาพรวม/สรุป" }, ...(isFinance ? [{ key: "refund", label: "เฉลี่ยคืน" }] : [])], active: tab, onChange: (k) => { setTab(k); if (k !== "add")
                 reset(); } }),
-        tab === "refund" && acc.full && React.createElement(RefundManager, { db: db, ui: ui }),
-        tab === "loan" && acc.full && React.createElement(LoanManager, { db: db, setDb: setDb, ui: ui, viewer: viewer }),
+        tab === "refund" && isFinance && React.createElement(RefundManager, { db: db, ui: ui, canEdit: financeMoneyHolder }),
+        tab === "loan" && finFull && React.createElement(LoanManager, { db: db, setDb: setDb, ui: ui, viewer: viewer }),
         tab === "fund" && canRecordAny && React.createElement(FundManager, { db: db, setDb: setDb, ui: ui, viewer: viewer, editRec: fundEdit, onDoneEdit: () => setFundEdit(null) }),
-        tab === "income" && acc.full && React.createElement(StudentIncomeGrid, { db: db, setDb: setDb, ui: ui, viewer: viewer, acc: acc }),
+        tab === "income" && isFinance && React.createElement(StudentIncomeGrid, { db: db, setDb: setDb, ui: ui, viewer: viewer, acc: acc }),
         tab === "add" && canRecordAny && (React.createElement(Card, { style: { padding: 16, marginBottom: 12 } },
             React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 10 } }, editId ? "แก้ไขรายการ" : "บันทึกรายรับ / รายจ่าย"),
             React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E02\u0E49\u0E32 \u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1D\u0E48\u0E32\u0E22 (\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21) \u0E2B\u0E23\u0E37\u0E2D \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21"),
