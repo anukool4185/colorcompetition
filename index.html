@@ -157,6 +157,41 @@ function scoreOf(r, cfg) {
 }
 function todayStr() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
 function nowTime() { const d = new Date(); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; }
+function buddhistYear() { return new Date().getFullYear() + 543; }
+// สร้างใบเสร็จเป็น PDF (หัวใบเสร็จ / เลขที่ใบเสร็จ/ปีพ.ศ. / วันที่ เวลา / ตารางรายการ)
+async function makeReceiptPdf({ orgName, title, receiptNo, date, time, rows, notify, kind }) {
+    if (typeof html2canvas === "undefined" || !window.jspdf) {
+        notify && notify("ต้องเปิดผ่านหน้าเว็บจริง (มีอินเทอร์เน็ต)");
+        return;
+    }
+    const total = (rows || []).reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    const holder = document.createElement("div");
+    holder.style.cssText = "position:fixed;left:-9999px;top:0;width:720px;background:#fff;padding:34px;font-family:'Noto Sans Thai',system-ui,sans-serif;color:#1f2937";
+    const th = (t) => `<th style="border:1px solid #bbb;padding:7px;background:#eef4fb;font-size:13px">${t}</th>`;
+    holder.innerHTML =
+        `<div style="text-align:center;font-size:24px;font-weight:800">${title || "ใบเสร็จรับเงิน"}</div>` +
+            `<div style="text-align:center;font-size:15px;margin-top:2px;color:#555">${orgName || ""}</div>` +
+            `<div style="display:flex;justify-content:space-between;margin-top:16px;font-size:15px;font-weight:600"><span>เลขที่ ${receiptNo}</span><span>วันที่ ${date || ""}${time ? "  เวลา " + time + " น." : ""}</span></div>` +
+            `<table style="width:100%;border-collapse:collapse;margin-top:12px">` +
+            `<thead><tr>${th("ลำดับ")}${th("รายการ")}${th("จำนวนเงิน (บาท)")}</tr></thead><tbody>` +
+            (rows || []).map((r, i) => `<tr><td style="border:1px solid #bbb;padding:7px;text-align:center;font-size:13px">${i + 1}</td><td style="border:1px solid #bbb;padding:7px;font-size:13px">${r.label || ""}</td><td style="border:1px solid #bbb;padding:7px;text-align:right;font-size:13px">${(Number(r.amount) || 0).toLocaleString("th-TH")}</td></tr>`).join("") +
+            `<tr><td colspan="2" style="border:1px solid #bbb;padding:7px;text-align:right;font-weight:800;font-size:13px">รวมทั้งสิ้น</td><td style="border:1px solid #bbb;padding:7px;text-align:right;font-weight:800;font-size:13px">${total.toLocaleString("th-TH")}</td></tr>` +
+            `</tbody></table>` +
+            `<div style="margin-top:48px;text-align:right;font-size:15px">ผู้${kind === "out" ? "จ่ายเงิน" : "รับเงิน"} ..................................................</div>`;
+    document.body.appendChild(holder);
+    try {
+        const canvas = await html2canvas(holder, { scale: 2, backgroundColor: "#ffffff" });
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+        const w = 190, h = canvas.height * w / canvas.width;
+        pdf.addImage(canvas.toDataURL("image/jpeg", 0.92), "JPEG", 10, 10, w, Math.min(h, 277));
+        pdf.save(`ใบเสร็จ-${String(receiptNo).replace(/\//g, "-")}.pdf`);
+    }
+    catch (e) {
+        notify && notify("สร้าง PDF ไม่สำเร็จ");
+    }
+    document.body.removeChild(holder);
+}
 function nowHM() { const d = new Date(); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; }
 // รวมผลรายคนของรายการหนึ่ง (รองรับผลแบบรอบ resultSets และผลแบบเดิม c.results)
 // คืน [{ sid, outcome, medal, date, time, setId, mode }]
@@ -895,7 +930,8 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc }) {
     const startEditSub = (x) => { setEditSubId(x.id); setSubAmt(String(x.amount || "")); setSubDate(x.date || todayStr()); setSubTime(x.time || nowTime()); setSubNote(x.note || ""); };
     const cancelEditSub = () => { setEditSubId(null); setSubAmt(""); setSubNote(""); };
     const removeSubmit = (id) => ui.run("ลบแล้ว", () => { setDb((p) => ({ ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: (((p.studentIncome || {})["_submits"]) || []).filter((x) => x.id !== id) } })); save(); });
-    const acceptSubmit = (id) => ui.run("ยอมรับเงินแล้ว — แจ้งผู้ดูแลระดับสูง", () => { const sub = submits.find((x) => x.id === id); const amt = sub ? (Number(sub.amount) || 0) : 0; const dref = amt - grand; setDb((p) => ({ ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: (((p.studentIncome || {})["_submits"]) || []).map((x) => x.id === id ? { ...x, status: "accepted", acceptedBy: viewer.name || "", acceptedAt: Date.now() } : x) }, financeNotis: [{ id: "fnoti" + Date.now(), room, amount: amt, tableTotal: grand, diff: dref, acceptedBy: viewer.name || "", acceptorRank: myRankNum, date: sub ? sub.date : todayStr(), at: Date.now(), readBy: [] }, ...((p.financeNotis) || [])] })); save(); });
+    const acceptSubmit = (id) => ui.run("ยอมรับเงินแล้ว — ออกใบเสร็จ + แจ้งผู้ดูแล", () => { const sub = submits.find((x) => x.id === id); const amt = sub ? (Number(sub.amount) || 0) : 0; const dref = amt - grand; setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const receiptNo = seq + "/" + buddhistYear(); return { ...p, receiptSeq: seq, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: (((p.studentIncome || {})["_submits"]) || []).map((x) => x.id === id ? { ...x, status: "accepted", acceptedBy: viewer.name || "", acceptedAt: Date.now(), receiptNo } : x) }, financeNotis: [{ id: "fnoti" + Date.now(), room, amount: amt, tableTotal: grand, diff: dref, acceptedBy: viewer.name || "", acceptorRank: myRankNum, date: sub ? sub.date : todayStr(), at: Date.now(), readBy: [] }, ...((p.financeNotis) || [])] }; }); save(); });
+    const receiptFor = (x) => makeReceiptPdf({ title: "ใบเสร็จรับเงิน (รายรับนักเรียน)", receiptNo: x.receiptNo, date: x.date, time: x.time, rows: [{ label: "รับเงินห้อง " + x.room + (x.note ? " · " + x.note : ""), amount: x.amount }], notify: ui.notify });
     const diff = submitSum - grand;
     // สิทธิ์กดยอมรับเงิน: แอดมิน หรือ ผู้ดูแล(ลำดับ5)ขึ้นไป · ผู้ช่วย(ลำดับ6)เท่านั้น = กดไม่ได้ (เป็นผู้รวบรวมเงิน)
     const canAcceptMoney = (() => {
@@ -976,6 +1012,9 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc }) {
                 x.status === "accepted" ? React.createElement("span", { style: { fontSize: 11.5, color: "#1e7a4d", fontWeight: 700 } },
                     "\u2713 \u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A\u0E41\u0E25\u0E49\u0E27",
                     x.acceptedBy ? ` (${x.acceptedBy})` : "") : (canAcceptMoney ? React.createElement(Btn, { small: true, onClick: () => acceptSubmit(x.id) }, "\u2713 \u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19") : React.createElement("span", { style: { fontSize: 11.5, color: "#b3762f", fontWeight: 700 } }, "\u23F3 \u0E23\u0E2D\u0E1C\u0E39\u0E49\u0E14\u0E39\u0E41\u0E25\u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A")),
+                x.status === "accepted" && x.receiptNo && React.createElement("button", { onClick: () => receiptFor(x), title: "ใบเสร็จเลขที่ " + x.receiptNo, style: { border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" } },
+                    "\u2B07 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 ",
+                    x.receiptNo),
                 isMoneyHolder && x.status !== "accepted" && React.createElement("button", { onClick: () => startEditSub(x), style: { border: "none", background: "none", color: C.primary, cursor: "pointer", fontWeight: 700, fontSize: 11.5 } }, "\u0E41\u0E01\u0E49\u0E44\u0E02"),
                 React.createElement("button", { onClick: () => removeSubmit(x.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715")))))),
             React.createElement("div", { style: { borderTop: `1px solid ${C.line}`, paddingTop: 10, display: "flex", flexDirection: "column", gap: 4, fontSize: 13.5 } },
@@ -1217,8 +1256,8 @@ function RefundManager({ db, ui }) {
     const selCss = { padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 13.5, background: "#fbfaff", color: C.ink };
     const fundBal = (db.finance || []).filter((f) => String(f.dept) === "FUND").reduce((s, f) => s + (f.type === "out" ? -(Number(f.amount) || 0) : (Number(f.amount) || 0)), 0);
     const nonFundBal = (db.finance || []).filter((f) => String(f.dept) !== "FUND").reduce((s, f) => s + (f.type === "out" ? -(Number(f.amount) || 0) : (Number(f.amount) || 0)), 0);
-    const [useFund, setUseFund] = useState(true);
-    const [useOther, setUseOther] = useState(false);
+    const [useFund, setUseFund] = useState(false);
+    const [useOther, setUseOther] = useState(true);
     const [other, setOther] = useState("");
     const [roundWhole, setRoundWhole] = useState(true);
     const [scope, setScope] = useState("all");
@@ -6555,6 +6594,7 @@ function mergeDb(loaded) {
         studentIncome: (loaded && loaded.studentIncome) || {},
         financeNotis: (loaded && loaded.financeNotis) || [],
         loans: (loaded && loaded.loans) || [],
+        receiptSeq: (loaded && loaded.receiptSeq) || 0,
         incomeCols: (loaded && loaded.incomeCols) || 5,
         archived: (loaded && loaded.archived) || [],
         trash: (loaded && loaded.trash) || [],
