@@ -884,12 +884,16 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc }) {
     const [subDate, setSubDate] = useState(todayStr());
     const [subTime, setSubTime] = useState(nowTime());
     const [subNote, setSubNote] = useState("");
+    const [editSubId, setEditSubId] = useState(null);
+    const isMoneyHolder = String(viewer.role) === "admin" || [...(db.orgTeacher || []), ...(db.orgStudent || [])].some((n) => String(n.personId) === String(viewer.id) && /ถือเงิน|เก็บเงิน|เหรัญญิก|เหรัญ|การเงิน|คลัง|บัญชี/.test(n.title || ""));
     const submits = (inc["_submits"] || []).filter((x) => x.room === room).sort((a, b) => (a.date + "").localeCompare(b.date + ""));
     const submitSum = submits.reduce((s, x) => s + (Number(x.amount) || 0), 0);
     const addSubmit = () => { const amt = Number(String(subAmt).replace(/[^0-9.]/g, "")); if (!amt) {
         ui.notify("ใส่จำนวนเงินก่อน");
         return;
-    } ui.run("บันทึกการส่งเงินแล้ว — แจ้งฝ่ายการเงิน/แอดมิน", () => { setDb((p) => ({ ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: [...(((p.studentIncome || {})["_submits"]) || []), { id: "sub" + Date.now(), room, amount: amt, date: subDate, time: subTime || nowTime(), note: subNote, by: viewer.name || "", byId: viewer.id, at: Date.now(), status: "pending" }] } })); setSubAmt(""); setSubNote(""); save(); }); };
+    } ui.run(editSubId ? "บันทึกการแก้ไขแล้ว" : "บันทึกการส่งเงินแล้ว — แจ้งฝ่ายการเงิน/แอดมิน", () => { setDb((p) => { const list = ((p.studentIncome || {})["_submits"]) || []; const newList = editSubId ? list.map((x) => x.id === editSubId ? { ...x, amount: amt, date: subDate, time: subTime, note: subNote } : x) : [...list, { id: "sub" + Date.now(), room, amount: amt, date: subDate, time: subTime || nowTime(), note: subNote, by: viewer.name || "", byId: viewer.id, at: Date.now(), status: "pending" }]; return { ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: newList } }; }); setSubAmt(""); setSubNote(""); setEditSubId(null); save(); }); };
+    const startEditSub = (x) => { setEditSubId(x.id); setSubAmt(String(x.amount || "")); setSubDate(x.date || todayStr()); setSubTime(x.time || nowTime()); setSubNote(x.note || ""); };
+    const cancelEditSub = () => { setEditSubId(null); setSubAmt(""); setSubNote(""); };
     const removeSubmit = (id) => ui.run("ลบแล้ว", () => { setDb((p) => ({ ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: (((p.studentIncome || {})["_submits"]) || []).filter((x) => x.id !== id) } })); save(); });
     const acceptSubmit = (id) => ui.run("ยอมรับเงินแล้ว — แจ้งผู้ดูแลระดับสูง", () => { const sub = submits.find((x) => x.id === id); const amt = sub ? (Number(sub.amount) || 0) : 0; const dref = amt - grand; setDb((p) => ({ ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: (((p.studentIncome || {})["_submits"]) || []).map((x) => x.id === id ? { ...x, status: "accepted", acceptedBy: viewer.name || "", acceptedAt: Date.now() } : x) }, financeNotis: [{ id: "fnoti" + Date.now(), room, amount: amt, tableTotal: grand, diff: dref, acceptedBy: viewer.name || "", acceptorRank: myRankNum, date: sub ? sub.date : todayStr(), at: Date.now(), readBy: [] }, ...((p.financeNotis) || [])] })); save(); });
     const diff = submitSum - grand;
@@ -956,7 +960,8 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc }) {
                 React.createElement("input", { type: "date", value: subDate, onChange: (e) => setSubDate(e.target.value), style: { ...selCss, width: "auto" } }),
                 React.createElement("input", { type: "time", value: subTime, onChange: (e) => setSubTime(e.target.value), style: { ...selCss, width: "auto" } }),
                 React.createElement("input", { value: subNote, onChange: (e) => setSubNote(e.target.value), placeholder: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38 (\u0E40\u0E0A\u0E48\u0E19 \u0E2A\u0E48\u0E07\u0E07\u0E27\u0E14\u0E17\u0E35\u0E48 1)", style: { flex: 1, minWidth: 140, padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14 } }),
-                React.createElement(Btn, { small: true, onClick: addSubmit }, "+ \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E2A\u0E48\u0E07\u0E40\u0E07\u0E34\u0E19")),
+                React.createElement(Btn, { small: true, onClick: addSubmit }, editSubId ? "บันทึกการแก้ไข" : "+ บันทึกส่งเงิน"),
+                editSubId && React.createElement(Btn, { small: true, variant: "ghost", onClick: cancelEditSub }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01")),
             submits.length > 0 && (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5, marginBottom: 10 } }, submits.map((x) => (React.createElement("div", { key: x.id, style: { display: "flex", alignItems: "center", gap: 8, fontSize: 13, padding: "6px 10px", background: x.status === "accepted" ? "#e8f8ef" : "#fff6e9", borderRadius: 8 } },
                 React.createElement("span", { style: { fontWeight: 700, color: C.primaryDark, minWidth: 90, textAlign: "right" } },
                     (Number(x.amount) || 0).toLocaleString("th-TH"),
@@ -971,6 +976,7 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc }) {
                 x.status === "accepted" ? React.createElement("span", { style: { fontSize: 11.5, color: "#1e7a4d", fontWeight: 700 } },
                     "\u2713 \u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A\u0E41\u0E25\u0E49\u0E27",
                     x.acceptedBy ? ` (${x.acceptedBy})` : "") : (canAcceptMoney ? React.createElement(Btn, { small: true, onClick: () => acceptSubmit(x.id) }, "\u2713 \u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19") : React.createElement("span", { style: { fontSize: 11.5, color: "#b3762f", fontWeight: 700 } }, "\u23F3 \u0E23\u0E2D\u0E1C\u0E39\u0E49\u0E14\u0E39\u0E41\u0E25\u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A")),
+                isMoneyHolder && x.status !== "accepted" && React.createElement("button", { onClick: () => startEditSub(x), style: { border: "none", background: "none", color: C.primary, cursor: "pointer", fontWeight: 700, fontSize: 11.5 } }, "\u0E41\u0E01\u0E49\u0E44\u0E02"),
                 React.createElement("button", { onClick: () => removeSubmit(x.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715")))))),
             React.createElement("div", { style: { borderTop: `1px solid ${C.line}`, paddingTop: 10, display: "flex", flexDirection: "column", gap: 4, fontSize: 13.5 } },
                 React.createElement("div", { style: { display: "flex", justifyContent: "space-between" } },
@@ -1139,7 +1145,7 @@ function LoanManager({ db, setDb, ui, viewer }) {
                 " \u0E3F"),
             React.createElement("button", { onClick: () => del(x.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715"))))))));
 }
-function FundManager({ db, setDb, ui, viewer }) {
+function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit }) {
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff", marginBottom: 10 };
     const [type, setType] = useState("in");
     const [title, setTitle] = useState("");
@@ -1147,6 +1153,16 @@ function FundManager({ db, setDb, ui, viewer }) {
     const [date, setDate] = useState(todayStr());
     const [fundTime, setFundTime] = useState(nowTime());
     const [note, setNote] = useState("");
+    const [editId, setEditId] = useState(null);
+    useEffect(() => { if (editRec) {
+        setType(editRec.type || "in");
+        setTitle(editRec.title || "");
+        setAmount(String(editRec.amount || ""));
+        setDate(editRec.date || todayStr());
+        setFundTime(editRec.time || nowTime());
+        setNote(editRec.note || "");
+        setEditId(editRec.id);
+    } }, [editRec && editRec.id]);
     const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 500);
     const rows = (db.finance || []).filter((f) => String(f.dept) === "FUND").slice().sort((a, b) => (b.date + "" + b.at).localeCompare(a.date + "" + a.at));
     const inSum = rows.filter((r) => r.type !== "out").reduce((s, r) => s + (Number(r.amount) || 0), 0);
@@ -1155,7 +1171,10 @@ function FundManager({ db, setDb, ui, viewer }) {
     const add = () => { const amt = Number(String(amount).replace(/[^0-9.]/g, "")); if (!title.trim() || !amt) {
         ui.notify("กรอกชื่อรายการ + จำนวนเงิน");
         return;
-    } ui.run("บันทึกกองทุนสำรองแล้ว", () => { setDb((p) => ({ ...p, finance: [...(p.finance || []), { id: "fn" + Date.now(), dept: "FUND", type, title: title.trim(), amount: amt, date, time: fundTime || nowTime(), note, by: viewer.name || "", at: Date.now() }] })); setTitle(""); setAmount(""); setNote(""); save(); }); };
+    } ui.run(editId ? "บันทึกการแก้ไขแล้ว" : "บันทึกกองทุนสำรองแล้ว", () => { setDb((p) => editId ? ({ ...p, finance: (p.finance || []).map((f) => f.id === editId ? { ...f, type, title: title.trim(), amount: amt, date, time: fundTime || nowTime(), note } : f) }) : ({ ...p, finance: [...(p.finance || []), { id: "fn" + Date.now(), dept: "FUND", type, title: title.trim(), amount: amt, date, time: fundTime || nowTime(), note, by: viewer.name || "", at: Date.now() }] })); setTitle(""); setAmount(""); setNote(""); setEditId(null); if (onDoneEdit)
+        onDoneEdit(); save(); }); };
+    const cancelEdit = () => { setEditId(null); setTitle(""); setAmount(""); setNote(""); if (onDoneEdit)
+        onDoneEdit(); };
     const del = (id) => ui.run("ลบแล้ว", () => { setDb((p) => ({ ...p, finance: (p.finance || []).filter((f) => f.id !== id) })); save(); });
     return (React.createElement("div", null,
         React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 10 } },
@@ -1170,7 +1189,7 @@ function FundManager({ db, setDb, ui, viewer }) {
                 b.v.toLocaleString("th-TH"),
                 " \u0E3F"))))),
         React.createElement(Card, { style: { padding: 16, marginBottom: 14 } },
-            React.createElement("div", { style: { fontWeight: 700, marginBottom: 10 } }, "\uFF0B \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19\u0E2A\u0E33\u0E23\u0E2D\u0E07"),
+            React.createElement("div", { style: { fontWeight: 700, marginBottom: 10 } }, editId ? "✏️ แก้ไขรายการกองทุนสำรอง" : "＋ บันทึกรายการกองทุนสำรอง"),
             React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, [{ k: "in", l: "รับเข้า" }, { k: "out", l: "จ่ายออก" }].map((t) => React.createElement("button", { key: t.k, onClick: () => setType(t.k), style: { padding: "8px 18px", borderRadius: 16, border: `1px solid ${type === t.k ? C.primary : C.line}`, background: type === t.k ? C.primary : C.surface, color: type === t.k ? "#fff" : C.ink, fontWeight: 700, cursor: "pointer" } }, t.l))),
             React.createElement("input", { value: title, onChange: (e) => setTitle(e.target.value), placeholder: "\u0E0A\u0E37\u0E48\u0E2D\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u0E40\u0E0A\u0E48\u0E19 \u0E40\u0E07\u0E34\u0E19\u0E2A\u0E21\u0E17\u0E1A\u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19", style: { ...selCss, marginBottom: 8 } }),
             React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
@@ -1178,7 +1197,8 @@ function FundManager({ db, setDb, ui, viewer }) {
                 React.createElement("input", { type: "date", value: date, onChange: (e) => setDate(e.target.value), style: { ...selCss, width: "auto", marginBottom: 0 } }),
                 React.createElement("input", { type: "time", value: fundTime, onChange: (e) => setFundTime(e.target.value), style: { ...selCss, width: "auto", marginBottom: 0 } }),
                 React.createElement("input", { value: note, onChange: (e) => setNote(e.target.value), placeholder: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", style: { flex: 1, minWidth: 120, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14 } }),
-                React.createElement(Btn, { onClick: add }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01"))),
+                React.createElement(Btn, { onClick: add }, editId ? "บันทึกการแก้ไข" : "บันทึก"),
+                editId && React.createElement(Btn, { variant: "ghost", onClick: cancelEdit }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"))),
         rows.length === 0 ? React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19\u0E2A\u0E33\u0E23\u0E2D\u0E07" }) : (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, rows.map((r) => (React.createElement("div", { key: r.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: `1px solid ${C.line}`, borderRadius: 10 } },
             React.createElement("span", { style: { fontSize: 20 } }, r.type === "out" ? "🔻" : "🔺"),
             React.createElement("div", { style: { flex: 1 } },
@@ -1190,6 +1210,7 @@ function FundManager({ db, setDb, ui, viewer }) {
             React.createElement("span", { style: { fontWeight: 800, color: r.type === "out" ? "#c0392b" : "#2f9e6b" } },
                 r.type === "out" ? "-" : "+",
                 (Number(r.amount) || 0).toLocaleString("th-TH")),
+            React.createElement("button", { onClick: () => { setType(r.type); setTitle(r.title); setAmount(String(r.amount)); setDate(r.date); setFundTime(r.time || nowTime()); setNote(r.note || ""); setEditId(r.id); }, style: { border: "none", background: "none", color: C.primary, cursor: "pointer", fontWeight: 700, fontSize: 12 } }, "\u0E41\u0E01\u0E49\u0E44\u0E02"),
             React.createElement("button", { onClick: () => del(r.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715"))))))));
 }
 function RefundManager({ db, ui }) {
@@ -1366,7 +1387,12 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             setTab("list");
         });
     };
-    const startEdit = (f) => { setForm({ dept: f.dept, type: f.type, title: f.title, amount: String(f.amount), date: f.date, note: f.note || "", billDataUrl: "", billUrl: f.billUrl || "", billId: f.billId || "" }); setEditId(f.id); setTab("add"); };
+    const [fundEdit, setFundEdit] = useState(null);
+    const startEdit = (f) => { if (String(f.dept) === "FUND") {
+        setFundEdit(f);
+        setTab("fund");
+        return;
+    } setForm({ dept: f.dept, type: f.type, title: f.title, amount: String(f.amount), date: f.date, time: f.time || nowTime(), note: f.note || "", billDataUrl: "", billUrl: f.billUrl || "", billId: f.billId || "" }); setEditId(f.id); setTab("add"); };
     const del = (f) => ui.run("กำลังลบ...", () => { commit((p) => ({ ...p, finance: (p.finance || []).filter((x) => x.id !== f.id) })); ui.notify("ลบรายการแล้ว"); });
     const deptMatch = (f) => { if (!fDept)
         return true; if (String(fDept).indexOf("DALL:") === 0) {
@@ -1443,7 +1469,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 reset(); } }),
         tab === "refund" && acc.full && React.createElement(RefundManager, { db: db, ui: ui }),
         tab === "loan" && acc.full && React.createElement(LoanManager, { db: db, setDb: setDb, ui: ui, viewer: viewer }),
-        tab === "fund" && canRecordAny && React.createElement(FundManager, { db: db, setDb: setDb, ui: ui, viewer: viewer }),
+        tab === "fund" && canRecordAny && React.createElement(FundManager, { db: db, setDb: setDb, ui: ui, viewer: viewer, editRec: fundEdit, onDoneEdit: () => setFundEdit(null) }),
         tab === "income" && acc.full && React.createElement(StudentIncomeGrid, { db: db, setDb: setDb, ui: ui, viewer: viewer, acc: acc }),
         tab === "add" && canRecordAny && (React.createElement(Card, { style: { padding: 16, marginBottom: 12 } },
             React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 10 } }, editId ? "แก้ไขรายการ" : "บันทึกรายรับ / รายจ่าย"),
