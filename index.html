@@ -825,7 +825,7 @@ function nextGrade(g) {
         return null; // ไม่รู้จัก หรือ ชั้นสูงสุด → จบออก
     return GRADE_ORDER[i + 1];
 }
-function StudentIncomeGrid({ db, setDb, ui, viewer }) {
+function StudentIncomeGrid({ db, setDb, ui, viewer, acc }) {
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff" };
     const dirtyRef = useRef(false);
     useEffect(() => () => { if (dirtyRef.current) {
@@ -894,6 +894,8 @@ function StudentIncomeGrid({ db, setDb, ui, viewer }) {
     const canAcceptMoney = (() => {
         if (String(viewer.role) === "admin")
             return true;
+        if (!(acc && acc.full))
+            return false; // ต้องเป็นฝ่ายการเงินเท่านั้น
         const myNodes = [...(db.orgTeacher || []), ...(db.orgStudent || [])].filter((n) => String(n.personId) === String(viewer.id));
         if (!myNodes.length)
             return false;
@@ -991,6 +993,144 @@ function StudentIncomeGrid({ db, setDb, ui, viewer }) {
                     " \u2197"))))),
         React.createElement("p", { style: { fontSize: 11.5, color: C.muted, marginTop: 8 } }, "\u0E23\u0E39\u0E1B\u0E16\u0E39\u0E01\u0E40\u0E01\u0E47\u0E1A\u0E43\u0E19\u0E42\u0E1F\u0E25\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E0A\u0E37\u0E48\u0E2D \"\u0E1A\u0E34\u0E25\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08_[\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48]\" \u0E1A\u0E19 Google Drive (\u0E23\u0E39\u0E1B\u0E27\u0E31\u0E19\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19\u0E23\u0E27\u0E21\u0E42\u0E1F\u0E25\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19)"),
         delColIdx !== null && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E25\u0E1A\u0E0A\u0E48\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A", message: `ลบ "ครั้งที่ ${delColIdx + 1}" ของนักเรียนทุกคน (ข้อมูลในช่องนี้จะหายทั้งหมด)? ย้อนกลับไม่ได้`, onConfirm: () => delCol(delColIdx), onClose: () => setDelColIdx(null) })));
+}
+function LoanManager({ db, setDb, ui, viewer }) {
+    const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff", marginBottom: 10 };
+    const now = new Date();
+    const [date, setDate] = useState(todayStr());
+    const [time, setTime] = useState(`${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`);
+    const [q, setQ] = useState("");
+    const [studentId, setStudentId] = useState("");
+    const [selComps, setSelComps] = useState([]);
+    const [amount, setAmount] = useState("");
+    const [note, setNote] = useState("");
+    const [photo, setPhoto] = useState("");
+    const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 500);
+    const commIds = new Set((db.orgStudent || []).map((n) => String(n.personId)).filter(Boolean));
+    let commStudents = (db.students || []).filter((s) => commIds.has(String(s.id)) || s.committee);
+    if (!commStudents.length)
+        commStudents = db.students || [];
+    const filtered = commStudents.filter((s) => (fullName(s) + " " + (s.id || "")).toLowerCase().includes(q.toLowerCase()));
+    const chosen = commStudents.find((s) => String(s.id) === String(studentId));
+    const myComps = (() => { if (!studentId)
+        return []; const ids = new Set([...(db.orgTeacher || []), ...(db.orgStudent || [])].filter((n) => String(n.personId) === String(studentId) && n.compId).map((n) => String(n.compId))); return (db.competitions || []).filter((c) => ids.has(String(c.id))); })();
+    const toggleComp = (id) => setSelComps((cur) => cur.map(String).includes(String(id)) ? cur.filter((x) => String(x) !== String(id)) : [...cur, id]);
+    const selDepts = (db.departments || []).filter((d) => (d.comps || []).some((cid) => selComps.map(String).includes(String(cid))));
+    const loans = (db.loans || []).slice().sort((a, b) => (b.date + b.time + b.at).localeCompare(a.date + a.time + a.at));
+    const pickPhoto = (file) => { if (!file)
+        return; const rd = new FileReader(); rd.onload = () => setPhoto(rd.result); rd.readAsDataURL(file); };
+    const add = () => {
+        if (!studentId) {
+            ui.notify("เลือกนักเรียนก่อน");
+            return;
+        }
+        const amt = Number(String(amount).replace(/[^0-9.]/g, ""));
+        if (!amt) {
+            ui.notify("ใส่จำนวนเงินที่ยืม");
+            return;
+        }
+        ui.runAsync("กำลังบันทึกการยืมเงิน...", async () => {
+            let photoUrl = "", photoId = "";
+            if (photo) {
+                const up = await uploadImageRemote(photo, { id: "loan" + Date.now(), first: "ยืมเงิน", last: (fullName(chosen) + " " + date + " " + time).replace(/[:/]/g, "-") }, "ยืมเงิน_" + date + "_" + time.replace(":", "."));
+                if (up) {
+                    photoUrl = up.photoUrl;
+                    photoId = up.photoId;
+                }
+            }
+            setDb((p) => ({ ...p, loans: [...(p.loans || []), { id: "L" + Date.now(), date, time, studentId, studentName: fullName(chosen), comps: selComps, deptNames: selDepts.map((d) => d.name), amount: amt, note, photoUrl, photoId, by: viewer.name || "", at: Date.now() }] }));
+            setStudentId("");
+            setQ("");
+            setSelComps([]);
+            setAmount("");
+            setNote("");
+            setPhoto("");
+            ui.notify("บันทึกการยืมเงินแล้ว");
+            save();
+        });
+    };
+    const del = (id) => ui.run("ลบแล้ว", () => { setDb((p) => ({ ...p, loans: (p.loans || []).filter((x) => x.id !== id) })); save(); });
+    const total = loans.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+    return (React.createElement("div", null,
+        React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 10 } }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E01\u0E32\u0E23\u0E22\u0E37\u0E21\u0E40\u0E07\u0E34\u0E19\u0E02\u0E2D\u0E07\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23 \u00B7 \u0E41\u0E19\u0E1A\u0E23\u0E39\u0E1B\u0E2B\u0E25\u0E31\u0E01\u0E10\u0E32\u0E19 (\u0E40\u0E01\u0E47\u0E1A\u0E43\u0E19 Google Drive \u0E42\u0E1F\u0E25\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E15\u0E32\u0E21\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48-\u0E40\u0E27\u0E25\u0E32)"),
+        React.createElement(Card, { style: { padding: 16, marginBottom: 14 } },
+            React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 } },
+                React.createElement("div", null,
+                    React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48"),
+                    React.createElement("input", { type: "date", value: date, onChange: (e) => setDate(e.target.value), style: { ...selCss, marginBottom: 0, width: "auto" } })),
+                React.createElement("div", null,
+                    React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E40\u0E27\u0E25\u0E32"),
+                    React.createElement("input", { type: "time", value: time, onChange: (e) => setTime(e.target.value), style: { ...selCss, marginBottom: 0, width: "auto" } }))),
+            React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } },
+                "\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 (\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23)",
+                chosen ? ` · เลือก: ${fullName(chosen)}` : ""),
+            React.createElement("input", { value: q, onChange: (e) => setQ(e.target.value), placeholder: "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E0A\u0E37\u0E48\u0E2D\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19...", style: { ...selCss, marginBottom: 6 } }),
+            React.createElement("div", { style: { maxHeight: 160, overflowY: "auto", border: `1px solid ${C.line}`, borderRadius: 10, marginBottom: 10 } },
+                filtered.slice(0, 60).map((s) => {
+                    const on = String(s.id) === String(studentId);
+                    return (React.createElement("div", { key: s.id, onClick: () => { setStudentId(s.id); setSelComps([]); }, style: { padding: "8px 12px", cursor: "pointer", background: on ? C.soft : "transparent", borderBottom: `1px solid ${C.line}`, fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? C.primaryDark : C.ink } },
+                        on ? "✓ " : "",
+                        fullName(s),
+                        s.grade ? ` (${s.grade}${s.room ? "/" + s.room : ""})` : ""));
+                }),
+                filtered.length === 0 && React.createElement("div", { style: { padding: "10px 12px", fontSize: 12.5, color: C.muted } }, "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E0A\u0E37\u0E48\u0E2D")),
+            chosen && (React.createElement("div", { style: { marginBottom: 10 } },
+                React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } },
+                    "\u0E2A\u0E31\u0E07\u0E01\u0E31\u0E14 \u2014 ",
+                    fullName(chosen),
+                    " \u0E2D\u0E22\u0E39\u0E48\u0E43\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 (\u0E15\u0E34\u0E4A\u0E01\u0E40\u0E25\u0E37\u0E2D\u0E01):"),
+                myComps.length === 0 ? React.createElement("div", { style: { fontSize: 12.5, color: C.muted, padding: "4px 0" } }, "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E27\u0E48\u0E32\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E04\u0E19\u0E19\u0E35\u0E49\u0E2D\u0E22\u0E39\u0E48\u0E43\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E43\u0E14") : (React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } }, myComps.map((c) => {
+                    const on = selComps.map(String).includes(String(c.id));
+                    return (React.createElement("label", { key: c.id, style: { display: "inline-flex", alignItems: "center", gap: 8, padding: "6px 10px", border: `1px solid ${on ? C.primary : C.line}`, borderRadius: 8, background: on ? C.soft : C.surface, cursor: "pointer", fontSize: 13 } },
+                        React.createElement("input", { type: "checkbox", checked: on, onChange: () => toggleComp(c.id), style: { width: 16, height: 16 } }),
+                        c.name,
+                        " ",
+                        React.createElement("span", { style: { fontSize: 11, color: C.muted } },
+                            "(",
+                            c.kind,
+                            ")")));
+                }))),
+                selComps.length > 0 && (React.createElement("div", { style: { marginTop: 8, fontSize: 13 } },
+                    React.createElement("span", { style: { color: C.muted } }, "\u0E1D\u0E48\u0E32\u0E22\u0E17\u0E35\u0E48\u0E2A\u0E31\u0E07\u0E01\u0E31\u0E14: "),
+                    selDepts.length ? selDepts.map((d) => React.createElement("span", { key: d.id, style: { display: "inline-block", background: C.primary, color: "#fff", borderRadius: 12, padding: "2px 12px", marginRight: 6, marginTop: 4, fontWeight: 700, fontSize: 12 } },
+                        "\uD83C\uDFE2 ",
+                        d.name)) : React.createElement("span", { style: { color: "#c0392b" } }, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E08\u0E31\u0E14\u0E40\u0E02\u0E49\u0E32\u0E1D\u0E48\u0E32\u0E22\u0E43\u0E14 (\u0E44\u0E1B\u0E08\u0E31\u0E14\u0E17\u0E35\u0E48 \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E2F \u2192 \u0E08\u0E31\u0E14\u0E1D\u0E48\u0E32\u0E22)"))))),
+            React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 } },
+                React.createElement("input", { value: amount, onChange: (e) => setAmount(e.target.value), inputMode: "decimal", placeholder: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19\u0E17\u0E35\u0E48\u0E22\u0E37\u0E21", style: { width: 150, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, textAlign: "right" } }),
+                React.createElement("input", { value: note, onChange: (e) => setNote(e.target.value), placeholder: "\u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25/\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", style: { flex: 1, minWidth: 140, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14 } })),
+            React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" } },
+                React.createElement("input", { type: "file", accept: "image/*", capture: "environment", onChange: (e) => pickPhoto(e.target.files && e.target.files[0]), style: { fontSize: 12.5 } }),
+                photo && React.createElement("img", { src: photo, alt: "preview", style: { maxHeight: 54, borderRadius: 6, border: `1px solid ${C.line}` } }),
+                React.createElement("span", { style: { flex: 1 } }),
+                React.createElement(Btn, { onClick: add, disabled: !studentId || !amount }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E01\u0E32\u0E23\u0E22\u0E37\u0E21\u0E40\u0E07\u0E34\u0E19"))),
+        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 } },
+            React.createElement("span", { style: { fontWeight: 700, color: C.ink } },
+                "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E22\u0E37\u0E21\u0E40\u0E07\u0E34\u0E19 (",
+                loans.length,
+                ")"),
+            React.createElement("span", { style: { fontWeight: 800, color: C.primaryDark } },
+                "\u0E23\u0E27\u0E21 ",
+                total.toLocaleString("th-TH"),
+                " \u0E3F")),
+        loans.length === 0 ? React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E22\u0E37\u0E21\u0E40\u0E07\u0E34\u0E19" }) : (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, loans.map((x) => (React.createElement("div", { key: x.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: `1px solid ${C.line}`, borderRadius: 10 } },
+            x.photoUrl ? React.createElement("a", { href: x.photoUrl, target: "_blank", rel: "noreferrer" },
+                React.createElement("img", { src: x.photoUrl, alt: "\u0E23\u0E39\u0E1B", style: { width: 42, height: 42, objectFit: "cover", borderRadius: 8, border: `1px solid ${C.line}` } })) : React.createElement("span", { style: { fontSize: 22 } }, "\uD83D\uDCB8"),
+            React.createElement("div", { style: { flex: 1 } },
+                React.createElement("div", { style: { fontWeight: 600, color: C.ink } },
+                    x.studentName,
+                    x.deptNames && x.deptNames.length ? React.createElement("span", { style: { fontSize: 11, color: C.primaryDark, fontWeight: 700 } },
+                        " \u00B7 \uD83C\uDFE2 ",
+                        x.deptNames.join(", ")) : null),
+                React.createElement("div", { style: { fontSize: 11.5, color: C.muted } },
+                    x.date,
+                    " ",
+                    x.time,
+                    x.note ? " · " + x.note : "",
+                    x.by ? " · โดย " + x.by : "")),
+            React.createElement("span", { style: { fontWeight: 800, color: "#c0392b" } },
+                (Number(x.amount) || 0).toLocaleString("th-TH"),
+                " \u0E3F"),
+            React.createElement("button", { onClick: () => del(x.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715"))))))));
 }
 function FundManager({ db, setDb, ui, viewer }) {
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff", marginBottom: 10 };
@@ -1180,10 +1320,11 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                     acc.full && React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setTab("income") }, "\u0E44\u0E1B\u0E2B\u0E19\u0E49\u0E32\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\u0E2B\u0E49\u0E2D\u0E07\u0E19\u0E35\u0E49"),
                     React.createElement(Btn, { small: true, onClick: () => markRead(n.id) }, "\u2713 \u0E17\u0E23\u0E32\u0E1A\u0E41\u0E25\u0E49\u0E27")))))));
         })(),
-        React.createElement(Tabs, { tabs: [...(acc.full ? [{ key: "income", label: "รายรับนักเรียน" }] : []), ...(canRecordAny ? [{ key: "fund", label: "🏦 กองทุนสำรอง" }, { key: "add", label: editId ? "แก้ไขรายการ" : "＋ บันทึกรายการ" }] : []), { key: "list", label: "แสดงรายการรับ-จ่าย" }, { key: "summary", label: "ภาพรวม/สรุป" }], active: tab, onChange: (k) => { setTab(k); if (k !== "add")
+        React.createElement(Tabs, { tabs: [...(acc.full ? [{ key: "income", label: "รายรับนักเรียน" }, { key: "loan", label: "บันทึกยืมเงิน" }] : []), ...(canRecordAny ? [{ key: "fund", label: "🏦 กองทุนสำรอง" }, { key: "add", label: editId ? "แก้ไขรายการ" : "＋ บันทึกรายการ" }] : []), { key: "list", label: "แสดงรายการรับ-จ่าย" }, { key: "summary", label: "ภาพรวม/สรุป" }], active: tab, onChange: (k) => { setTab(k); if (k !== "add")
                 reset(); } }),
+        tab === "loan" && acc.full && React.createElement(LoanManager, { db: db, setDb: setDb, ui: ui, viewer: viewer }),
         tab === "fund" && canRecordAny && React.createElement(FundManager, { db: db, setDb: setDb, ui: ui, viewer: viewer }),
-        tab === "income" && acc.full && React.createElement(StudentIncomeGrid, { db: db, setDb: setDb, ui: ui, viewer: viewer }),
+        tab === "income" && acc.full && React.createElement(StudentIncomeGrid, { db: db, setDb: setDb, ui: ui, viewer: viewer, acc: acc }),
         tab === "add" && canRecordAny && (React.createElement(Card, { style: { padding: 16, marginBottom: 12 } },
             React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 10 } }, editId ? "แก้ไขรายการ" : "บันทึกรายรับ / รายจ่าย"),
             React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E02\u0E49\u0E32 \u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1D\u0E48\u0E32\u0E22 (\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21) \u0E2B\u0E23\u0E37\u0E2D \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21"),
@@ -6253,6 +6394,7 @@ function mergeDb(loaded) {
         departments: (loaded && loaded.departments) || [],
         studentIncome: (loaded && loaded.studentIncome) || {},
         financeNotis: (loaded && loaded.financeNotis) || [],
+        loans: (loaded && loaded.loans) || [],
         incomeCols: (loaded && loaded.incomeCols) || 5,
         archived: (loaded && loaded.archived) || [],
         trash: (loaded && loaded.trash) || [],
