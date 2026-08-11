@@ -920,7 +920,7 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc }) {
     const [subTime, setSubTime] = useState(nowTime());
     const [subNote, setSubNote] = useState("");
     const [editSubId, setEditSubId] = useState(null);
-    const isMoneyHolder = String(viewer.role) === "admin" || [...(db.orgTeacher || []), ...(db.orgStudent || [])].some((n) => String(n.personId) === String(viewer.id) && /ถือเงิน|เก็บเงิน|เหรัญญิก|เหรัญ|การเงิน|คลัง|บัญชี/.test(n.title || ""));
+    const isMoneyHolder = String(viewer.role) === "admin" || [...(db.orgTeacher || []), ...(db.orgStudent || [])].some((n) => String(n.personId) === String(viewer.id) && /ถือเงิน|เก็บเงิน|รักษาเงิน|เหรัญญิก|เหรัญ/.test(n.title || ""));
     const submits = (inc["_submits"] || []).filter((x) => x.room === room).sort((a, b) => (a.date + "").localeCompare(b.date + ""));
     const submitSum = submits.reduce((s, x) => s + (Number(x.amount) || 0), 0);
     const addSubmit = () => { const amt = Number(String(subAmt).replace(/[^0-9.]/g, "")); if (!amt) {
@@ -1374,9 +1374,9 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     // สิทธิ์ตามลำดับในฝ่ายการเงิน/บัญชี
     const finNodes = [...(db.orgTeacher || []), ...(db.orgStudent || [])].filter((n) => String(n.personId) === String(viewer.id) && /การเงิน|บัญชี|เหรัญญิก|เหรัญ|คลัง|ถือเงิน|เก็บเงิน/.test(n.title || ""));
     const finRank = String(viewer.role) === "admin" ? 0 : (finNodes.length ? Math.min(...finNodes.map((n) => n.rank || (DUTY_RANKS.indexOf(n.title) + 1) || 6)) : (acc.full ? 5 : 99));
-    const isFinance = acc.full; // เป็นฝ่ายการเงิน/บัญชี (หรือแอดมิน)
+    const isFinance = acc.full || finNodes.length > 0; // เป็นฝ่ายการเงิน/บัญชี (รวมผู้ช่วย) หรือแอดมิน
     const finFull = String(viewer.role) === "admin" || (isFinance && finRank <= 5); // ผู้ดูแลขึ้นไป = ใช้ได้ทุกแท็บ
-    const financeMoneyHolder = String(viewer.role) === "admin" || [...(db.orgTeacher || []), ...(db.orgStudent || [])].some((n) => String(n.personId) === String(viewer.id) && /ถือเงิน|เก็บเงิน|เหรัญญิก|เหรัญ|การเงิน|คลัง|บัญชี/.test(n.title || ""));
+    const financeMoneyHolder = String(viewer.role) === "admin" || [...(db.orgTeacher || []), ...(db.orgStudent || [])].some((n) => String(n.personId) === String(viewer.id) && /ถือเงิน|เก็บเงิน|รักษาเงิน|เหรัญญิก|เหรัญ/.test(n.title || ""));
     const allowedComps = db.competitions.filter((c) => acc.full || acc.depts.has(String(c.id)));
     const compName = (id) => { if (String(id) === "FUND")
         return "🏦 กองทุนสำรอง"; if (String(id).startsWith("D:")) {
@@ -1386,7 +1386,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     const deptComps = (id) => { if (!String(id).startsWith("D:"))
         return null; const d = (db.departments || []).find((x) => "D:" + x.id === String(id)); return d ? (d.comps || []).map(String) : []; };
     // แก้ไขรายการการเงินได้เฉพาะ "ผู้มีหน้าที่ถือเงิน" (ตรวจจากตำแหน่งในผัง) หรือแอดมิน
-    const isMoneyHolder = String(viewer.role) === "admin" || [...(db.orgTeacher || []), ...(db.orgStudent || [])].some((n) => String(n.personId) === String(viewer.id) && /ถือเงิน|เก็บเงิน|เหรัญญิก|เหรัญ|การเงิน|คลัง|บัญชี/.test(n.title || ""));
+    const isMoneyHolder = String(viewer.role) === "admin" || [...(db.orgTeacher || []), ...(db.orgStudent || [])].some((n) => String(n.personId) === String(viewer.id) && /ถือเงิน|เก็บเงิน|รักษาเงิน|เหรัญญิก|เหรัญ/.test(n.title || ""));
     const canEditRow = (f) => isMoneyHolder;
     const [form, setForm] = useState({ dept: "", type: "in", title: "", amount: "", date: todayStr(), time: nowTime(), note: "", billDataUrl: "", billUrl: "", billId: "" });
     const [editId, setEditId] = useState(null);
@@ -1520,13 +1520,13 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                     acc.full && React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setTab("income") }, "\u0E44\u0E1B\u0E2B\u0E19\u0E49\u0E32\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\u0E2B\u0E49\u0E2D\u0E07\u0E19\u0E35\u0E49"),
                     React.createElement(Btn, { small: true, onClick: () => markRead(n.id) }, "\u2713 \u0E17\u0E23\u0E32\u0E1A\u0E41\u0E25\u0E49\u0E27")))))));
         })(),
-        React.createElement(Tabs, { tabs: [...(isFinance ? [{ key: "income", label: "รายรับนักเรียน" }] : []), ...(finFull ? [{ key: "loan", label: "บันทึกยืมเงิน" }, { key: "fund", label: "🏦 กองทุนสำรอง" }] : []), ...(finFull || canRecordAny ? [{ key: "add", label: editId ? "แก้ไขรายการ" : "＋ บันทึกรายการ" }] : []), { key: "list", label: "แสดงรายการรับ-จ่าย" }, { key: "summary", label: "ภาพรวม/สรุป" }, ...(isFinance ? [{ key: "refund", label: "เฉลี่ยคืน" }] : [])], active: tab, onChange: (k) => { setTab(k); if (k !== "add")
+        React.createElement(Tabs, { tabs: [...(isFinance ? [{ key: "income", label: "รายรับนักเรียน" }] : []), ...(financeMoneyHolder ? [{ key: "loan", label: "บันทึกยืมเงิน" }, { key: "fund", label: "🏦 กองทุนสำรอง" }, { key: "add", label: editId ? "แก้ไขรายการ" : "＋ บันทึกรายการ" }] : []), { key: "list", label: "แสดงรายการรับ-จ่าย" }, { key: "summary", label: "ภาพรวม/สรุป" }, ...(isFinance ? [{ key: "refund", label: "เฉลี่ยคืน" }] : [])], active: tab, onChange: (k) => { setTab(k); if (k !== "add")
                 reset(); } }),
         tab === "refund" && isFinance && React.createElement(RefundManager, { db: db, ui: ui, canEdit: financeMoneyHolder }),
-        tab === "loan" && finFull && React.createElement(LoanManager, { db: db, setDb: setDb, ui: ui, viewer: viewer }),
-        tab === "fund" && canRecordAny && React.createElement(FundManager, { db: db, setDb: setDb, ui: ui, viewer: viewer, editRec: fundEdit, onDoneEdit: () => setFundEdit(null) }),
+        tab === "loan" && financeMoneyHolder && React.createElement(LoanManager, { db: db, setDb: setDb, ui: ui, viewer: viewer }),
+        tab === "fund" && financeMoneyHolder && React.createElement(FundManager, { db: db, setDb: setDb, ui: ui, viewer: viewer, editRec: fundEdit, onDoneEdit: () => setFundEdit(null) }),
         tab === "income" && isFinance && React.createElement(StudentIncomeGrid, { db: db, setDb: setDb, ui: ui, viewer: viewer, acc: acc }),
-        tab === "add" && canRecordAny && (React.createElement(Card, { style: { padding: 16, marginBottom: 12 } },
+        tab === "add" && financeMoneyHolder && (React.createElement(Card, { style: { padding: 16, marginBottom: 12 } },
             React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 10 } }, editId ? "แก้ไขรายการ" : "บันทึกรายรับ / รายจ่าย"),
             React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E02\u0E49\u0E32 \u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1D\u0E48\u0E32\u0E22 (\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21) \u0E2B\u0E23\u0E37\u0E2D \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21"),
             React.createElement("select", { value: form.dept, onChange: (e) => setForm((p) => ({ ...p, dept: e.target.value })), style: selCss },
