@@ -1215,6 +1215,12 @@ function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit }) {
         ui.notify("ติ๊กเลือกรายการรับก่อน");
         return;
     } setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const receiptNo = seq + "/" + buddhistYear(); const ids = new Set(picked.map((x) => x.id)); const fin = (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo } : f); return { ...p, receiptSeq: seq, finance: fin }; }); const seqPreview = (db.receiptSeq || 0) + 1; makeReceiptPdf({ title: "ใบเสร็จรับเงิน (กองทุนสำรอง)", receiptNo: seqPreview + "/" + buddhistYear(), date: picked[0].date, time: picked[0].time, rows: picked.map((r) => ({ label: r.title + (r.note ? " · " + r.note : ""), amount: r.amount })), notify: ui.notify }); setSelIds([]); save(); };
+    const issueFundExpenseNo = () => { const picked = rows.filter((r) => selIds.includes(r.id) && r.type === "out"); if (!picked.length) {
+        ui.notify("ติ๊กเลือกรายการจ่ายก่อน");
+        return;
+    } setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const ids = new Set(picked.map((x) => x.id)); return { ...p, receiptSeq: seq, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear() } : f) }; }); ui.notify("ออกเลขใบเสร็จแล้ว — นำไปเขียนบนใบเสร็จจริง"); setSelIds([]); save(); };
+    const selInc = selIds.filter((id) => (rows.find((r) => r.id === id) || {}).type !== "out").length;
+    const selExp = selIds.filter((id) => (rows.find((r) => r.id === id) || {}).type === "out").length;
     const inSum = rows.filter((r) => r.type !== "out").reduce((s, r) => s + (Number(r.amount) || 0), 0);
     const outSum = rows.filter((r) => r.type === "out").reduce((s, r) => s + (Number(r.amount) || 0), 0);
     const bal = inSum - outSum;
@@ -1250,16 +1256,18 @@ function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit }) {
                 React.createElement(Btn, { onClick: add }, editId ? "บันทึกการแก้ไข" : "บันทึก"),
                 editId && React.createElement(Btn, { variant: "ghost", onClick: cancelEdit }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"))),
         rows.length === 0 ? React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19\u0E2A\u0E33\u0E23\u0E2D\u0E07" }) : (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
-            selIds.filter((id) => (rows.find((r) => r.id === id) || {}).type !== "out").length > 0 && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: C.soft, borderRadius: 10, position: "sticky", top: 0, zIndex: 1 } },
+            (selInc > 0 || selExp > 0) && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: C.soft, borderRadius: 10, position: "sticky", top: 0, zIndex: 1, flexWrap: "wrap" } },
                 React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: C.primaryDark } },
-                    "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A ",
-                    selIds.filter((id) => (rows.find((r) => r.id === id) || {}).type !== "out").length,
+                    "\u0E40\u0E25\u0E37\u0E2D\u0E01 ",
+                    selInc + selExp,
                     " \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"),
                 React.createElement("span", { style: { flex: 1 } }),
-                React.createElement(Btn, { small: true, onClick: combineReceipt }, "\uD83E\uDDFE \u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E23\u0E27\u0E21"),
+                selInc > 0 && selExp === 0 && React.createElement(Btn, { small: true, onClick: combineReceipt }, "\uD83E\uDDFE \u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E23\u0E27\u0E21 (\u0E23\u0E31\u0E1A)"),
+                selExp > 0 && selInc === 0 && React.createElement(Btn, { small: true, onClick: issueFundExpenseNo }, "\uD83D\uDD22 \u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 (\u0E08\u0E48\u0E32\u0E22)"),
+                selInc > 0 && selExp > 0 && React.createElement("span", { style: { fontSize: 11.5, color: "#c0392b" } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E23\u0E31\u0E1A \u0E2B\u0E23\u0E37\u0E2D \u0E40\u0E09\u0E1E\u0E32\u0E30\u0E08\u0E48\u0E32\u0E22"),
                 React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setSelIds([]) }, "\u0E25\u0E49\u0E32\u0E07")),
             rows.map((r) => (React.createElement("div", { key: r.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: `1px solid ${C.line}`, borderRadius: 10 } },
-                r.type !== "out" && React.createElement("input", { type: "checkbox", checked: selIds.includes(r.id), onChange: () => toggleSel(r.id), title: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E23\u0E27\u0E21", style: { width: 16, height: 16 } }),
+                React.createElement("input", { type: "checkbox", checked: selIds.includes(r.id), onChange: () => toggleSel(r.id), title: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08", style: { width: 16, height: 16 } }),
                 React.createElement("span", { style: { fontSize: 20 } }, r.type === "out" ? "🔻" : "🔺"),
                 React.createElement("div", { style: { flex: 1 } },
                     React.createElement("div", { style: { fontWeight: 600, color: C.ink } },
