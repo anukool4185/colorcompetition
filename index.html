@@ -7037,6 +7037,7 @@ function App() {
     useEffect(() => {
         if (!API_URL)
             return;
+        let lastData = null;
         const iv = setInterval(() => {
             if (!loadedRef.current || dirtyRef.current || savingRef.current)
                 return;
@@ -7048,12 +7049,15 @@ function App() {
                     return; // มีการแก้ไข/บันทึกระหว่างดึง — ทิ้งผลค้างท่อ กันทับของที่เพิ่งเซฟ
                 const j = JSON.parse(t);
                 if (j && j.ok && j.data) {
+                    if (j.data === lastData)
+                        return;
+                    lastData = j.data;
                     justLoaded.current = true;
                     setDb(mergeDb(JSON.parse(j.data)));
                     setLastSaved(Date.now());
                 }
             }).catch(() => { });
-        }, 4000);
+        }, 8000);
         return () => clearInterval(iv);
     }, []);
     // ธีมสีแบบตายตัว — วิชาการ = ชมพู · กีฬา = น้ำเงิน · ไม่มีสลับสีตามผู้ใช้/บ้าน · ก่อนล็อกอินใช้ชมพูกลาง
