@@ -1874,6 +1874,7 @@ function AdminHome({ db, setDb, ui }) {
                 React.createElement("div", { style: { fontSize: 20, fontWeight: 800, color: C.primary } }, v),
                 React.createElement("div", { style: { fontSize: 11, color: C.muted } }, k)))))),
         React.createElement(BackupCard, { db: db, setDb: setDb, ui: ui }),
+        React.createElement(DataSizeCard, { db: db, setDb: setDb, ui: ui }),
         React.createElement(Card, { style: { padding: 16, border: `1px solid #f0dcc0` } },
             React.createElement("div", { style: { fontWeight: 700, color: "#b3762f", marginBottom: 6 } }, "\uD83E\uDDF9 \u0E25\u0E49\u0E32\u0E07\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E19\u0E35\u0E49 (\u0E40\u0E01\u0E47\u0E1A\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19/\u0E04\u0E23\u0E39)"),
             React.createElement("p", { style: { fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 10, lineHeight: 1.6 } },
@@ -1889,6 +1890,60 @@ function AdminHome({ db, setDb, ui }) {
             React.createElement("p", { style: { fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 10, lineHeight: 1.6 } }, "\u0E25\u0E1A\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19/\u0E04\u0E23\u0E39 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07 \u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23 \u0E41\u0E25\u0E30\u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 (\u0E04\u0E07\u0E44\u0E27\u0E49\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E2A\u0E35\u0E17\u0E35\u0E21/\u0E1B\u0E23\u0E30\u0E0A\u0E32\u0E2A\u0E31\u0E21\u0E1E\u0E31\u0E19\u0E18\u0E4C) \u0E43\u0E0A\u0E49\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E2D\u0E22\u0E32\u0E01\u0E40\u0E23\u0E34\u0E48\u0E21\u0E15\u0E49\u0E19\u0E43\u0E2B\u0E21\u0E48\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14"),
             React.createElement(Btn, { variant: "danger", small: true, onClick: () => setConfirmReset(true) }, "\u0E25\u0E49\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14")),
         confirmReset && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E25\u0E49\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E31\u0E49\u0E07\u0E23\u0E30\u0E1A\u0E1A", message: "\u0E08\u0E30\u0E25\u0E1A\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 (\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 \u0E04\u0E23\u0E39 \u0E1A\u0E31\u0E0D\u0E0A\u0E35 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07 \u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23) \u0E40\u0E2B\u0E25\u0E37\u0E2D\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E01\u0E32\u0E23\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E2A\u0E35\u0E17\u0E35\u0E21/\u0E1B\u0E23\u0E30\u0E0A\u0E32\u0E2A\u0E31\u0E21\u0E1E\u0E31\u0E19\u0E18\u0E4C \u2014 \u0E22\u0E49\u0E2D\u0E19\u0E01\u0E25\u0E31\u0E1A\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 \u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E21\u0E48?", onConfirm: () => ui.run("กำลังล้างข้อมูล...", () => { setDb((p) => ({ students: [], teachers: [], assistants: [], competitions: [], orgTeacher: [], orgStudent: [], dutyList: [], orgRequests: [], archived: [], trash: [], finance: [], departments: [], settings: p.settings })); setConfirmReset(false); ui.notify("ล้างข้อมูลแล้ว"); }), onClose: () => setConfirmReset(false) })));
+}
+function DataSizeCard({ db, setDb, ui }) {
+    const [report, setReport] = useState(null);
+    const [confirmClean, setConfirmClean] = useState(null);
+    const kb = (obj) => { try {
+        return Math.round(JSON.stringify(obj || {}).length / 1024);
+    }
+    catch (e) {
+        return 0;
+    } };
+    const analyze = () => {
+        const parts = [
+            ["students", db.students], ["teachers", db.teachers], ["orgTeacher", db.orgTeacher], ["orgStudent", db.orgStudent],
+            ["competitions", db.competitions], ["results/resultSets", (db.competitions || []).map((c) => c.resultSets || c.results)], ["finance", db.finance],
+            ["loans", db.loans], ["studentIncome", db.studentIncome], ["attendance", db.attendance], ["financeNotis", db.financeNotis],
+            ["orgRequests", db.orgRequests], ["training", db.training], ["trash", db.trash], ["archived", db.archived], ["dutyList", db.dutyList],
+        ].map(([k, v]) => ({ k, size: kb(v), n: Array.isArray(v) ? v.length : (v && typeof v === "object" ? Object.keys(v).length : 0) })).sort((a, b) => b.size - a.size);
+        setReport({ total: kb(db), parts });
+    };
+    // ล้าง node ผังซ้ำ (compId+title+personId เหมือนกัน เก็บอันแรก) + แจ้งเตือนที่อ่านแล้ว + trash
+    const cleanup = () => {
+        setDb((p) => {
+            const dedup = (arr) => { const seen = new Set(); const out = []; (arr || []).forEach((n) => { const key = `${n.compId}|${n.cat}|${n.title}|${n.parent}|${n.personId || ""}|${n.rank || ""}`; if (seen.has(key))
+                return; seen.add(key); out.push(n); }); return out; };
+            const ot = dedup(p.orgTeacher);
+            const os = dedup(p.orgStudent);
+            const notis = (p.financeNotis || []).filter((x) => (x.readBy || []).length < 3).slice(0, 100); // เก็บที่ยังไม่อ่านครบ/ล่าสุด
+            return { ...p, orgTeacher: ot, orgStudent: os, financeNotis: notis, trash: [], archived: [] };
+        });
+        setTimeout(() => window.__forceSave && window.__forceSave(), 500);
+        setConfirmClean(null);
+        ui.notify("ล้างข้อมูลซ้ำ/ไม่ใช้แล้ว · บันทึกขึ้น Sheet");
+        setTimeout(analyze, 800);
+    };
+    return (React.createElement(Card, { style: { padding: 16, border: `1px solid ${C.gold}66` } },
+        React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 4 } }, "\uD83D\uDCCA \u0E02\u0E19\u0E32\u0E14\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 & \u0E25\u0E49\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E43\u0E0A\u0E49 (\u0E41\u0E01\u0E49\u0E2D\u0E32\u0E01\u0E32\u0E23\u0E0A\u0E49\u0E32)"),
+        React.createElement("p", { style: { fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 12 } }, "\u0E15\u0E23\u0E27\u0E08\u0E27\u0E48\u0E32\u0E2A\u0E48\u0E27\u0E19\u0E44\u0E2B\u0E19\u0E01\u0E34\u0E19\u0E1E\u0E37\u0E49\u0E19\u0E17\u0E35\u0E48\u0E21\u0E32\u0E01\u0E2A\u0E38\u0E14 \u00B7 \u0E25\u0E49\u0E32\u0E07 node \u0E1C\u0E31\u0E07\u0E0B\u0E49\u0E33 / \u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19\u0E40\u0E01\u0E48\u0E32 / \u0E16\u0E31\u0E07\u0E02\u0E22\u0E30 \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E43\u0E2B\u0E49\u0E42\u0E2B\u0E25\u0E14\u0E40\u0E23\u0E47\u0E27\u0E02\u0E36\u0E49\u0E19"),
+        React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 } },
+            React.createElement(Btn, { small: true, onClick: analyze }, "\u0E15\u0E23\u0E27\u0E08\u0E02\u0E19\u0E32\u0E14\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25"),
+            React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setConfirmClean(true) }, "\uD83E\uDDF9 \u0E25\u0E49\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E0B\u0E49\u0E33/\u0E44\u0E21\u0E48\u0E43\u0E0A\u0E49")),
+        report && (React.createElement("div", null,
+            React.createElement("div", { style: { fontWeight: 800, color: C.primaryDark, marginBottom: 6 } },
+                "\u0E23\u0E27\u0E21\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 \u2248 ",
+                report.total.toLocaleString(),
+                " KB"),
+            React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 3 } }, report.parts.filter((x) => x.size > 0).map((x) => (React.createElement("div", { key: x.k, style: { display: "flex", alignItems: "center", gap: 8, fontSize: 12.5 } },
+                React.createElement("span", { style: { width: 130, color: C.ink, fontWeight: 600 } }, x.k),
+                React.createElement("div", { style: { flex: 1, height: 10, background: "#eee", borderRadius: 5, overflow: "hidden" } },
+                    React.createElement("div", { style: { width: `${Math.min(100, x.size / report.total * 100)}%`, height: "100%", background: x.size > report.total * 0.25 ? "#c0392b" : C.primary } })),
+                React.createElement("span", { style: { width: 90, textAlign: "right", color: C.muted } },
+                    x.size,
+                    " KB \u00B7 ",
+                    x.n))))))),
+        confirmClean && React.createElement(ConfirmModal, { title: "\u0E25\u0E49\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E0B\u0E49\u0E33/\u0E44\u0E21\u0E48\u0E43\u0E0A\u0E49", message: "\u0E08\u0E30\u0E25\u0E1A: node \u0E1C\u0E31\u0E07\u0E17\u0E35\u0E48\u0E0B\u0E49\u0E33\u0E01\u0E31\u0E19\u0E40\u0E1B\u0E4A\u0E30, \u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19\u0E17\u0E35\u0E48\u0E2D\u0E48\u0E32\u0E19\u0E04\u0E23\u0E1A\u0E41\u0E25\u0E49\u0E27, \u0E16\u0E31\u0E07\u0E02\u0E22\u0E30/\u0E17\u0E35\u0E48\u0E40\u0E01\u0E47\u0E1A\u0E16\u0E32\u0E27\u0E23 \u2014 \u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2B\u0E25\u0E31\u0E01 (\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19/\u0E1C\u0E25/\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19) \u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E41\u0E15\u0E30 \u00B7 \u0E41\u0E19\u0E30\u0E19\u0E33\u0E2A\u0E33\u0E23\u0E2D\u0E07\u0E44\u0E1F\u0E25\u0E4C\u0E01\u0E48\u0E2D\u0E19 \u0E17\u0E33\u0E15\u0E48\u0E2D\u0E44\u0E2B\u0E21?", confirmLabel: "\u0E25\u0E49\u0E32\u0E07\u0E40\u0E25\u0E22", variant: "danger", onConfirm: cleanup, onClose: () => setConfirmClean(null) })));
 }
 function BackupCard({ db, setDb, ui }) {
     const fileRef = useRef();
@@ -5512,7 +5567,6 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps, sub }) {
         d[compId] = cm;
         att[date] = d;
         setDb((p) => ({ ...p, attendance: att }));
-        saveTimeSport(att);
         save();
     };
     if (sub === "none") {
@@ -7059,6 +7113,7 @@ function App() {
     const savingRef = useRef(false);
     const againRef = useRef(false);
     const dbRef = useRef(db);
+    const lastRawRef = useRef(null); // ข้อมูลดิบล่าสุดที่ดึงมา (กัน mergeDb ซ้ำเมื่อไม่เปลี่ยน)
     dbRef.current = db;
     const dirtyRef = useRef(false); // มีการแก้ไขที่ยังไม่ถูกบันทึกหรือไม่
     const lastSaveAt = useRef(0); // เวลาเริ่มบันทึกล่าสุด — ใช้ทิ้งผล auto-refresh ที่ค้างท่อ (กันข้อมูลเก่าทับของที่เพิ่งเซฟ)
@@ -7081,14 +7136,16 @@ function App() {
             return;
         landingPreloadedRef.current = true;
         let alive = true;
-        fetch(API_URL + "?sheet=sport").then((r) => r.text()).then((t) => { if (!alive)
-            return; try {
-            const j = JSON.parse(t);
-            if (j && j.ok && j.data)
-                setLandingSport(mergeDb(JSON.parse(j.data)));
-        }
-        catch (e) { } }).catch(() => { });
-        return () => { alive = false; };
+        const tid = setTimeout(() => {
+            fetch(API_URL + "?sheet=sport").then((r) => r.text()).then((t) => { if (!alive)
+                return; try {
+                const j = JSON.parse(t);
+                if (j && j.ok && j.data)
+                    setLandingSport(mergeDb(JSON.parse(j.data)));
+            }
+            catch (e) { } }).catch(() => { });
+        }, 2500); // เลื่อนโหลด เพื่อไม่แย่งทรัพยากรตอนเปิดแอป
+        return () => { alive = false; clearTimeout(tid); };
     }, [screen]);
     // แกนบันทึกจริง (ไม่ติดล็อก) — ใช้ทั้งออโต้เซฟและปุ่มบันทึกเอง
     const doSave = () => {
@@ -7155,7 +7212,18 @@ function App() {
             let latest;
             try {
                 const j = JSON.parse(t);
-                latest = (j && j.ok && j.data) ? mergeDb(JSON.parse(j.data)) : dbRef.current;
+                if (j && j.ok && j.data) {
+                    if (j.data === lastRawRef.current) {
+                        latest = dbRef.current;
+                    }
+                    else {
+                        latest = mergeDb(JSON.parse(j.data));
+                        lastRawRef.current = j.data;
+                    }
+                }
+                else {
+                    latest = dbRef.current;
+                }
             }
             catch (e) {
                 latest = dbRef.current;
@@ -7249,6 +7317,7 @@ function App() {
             if (j.data) {
                 try {
                     nd = mergeDb(JSON.parse(j.data));
+                    lastRawRef.current = j.data;
                 }
                 catch (e) {
                     nd = mergeDb({});
@@ -7331,15 +7400,15 @@ function App() {
                     return; // มีการแก้ไข/บันทึกระหว่างดึง — ทิ้งผลค้างท่อ กันทับของที่เพิ่งเซฟ
                 const j = JSON.parse(t);
                 if (j && j.ok && j.data) {
-                    if (j.data === lastData)
+                    if (j.data === lastRawRef.current)
                         return;
-                    lastData = j.data;
+                    lastRawRef.current = j.data;
                     justLoaded.current = true;
                     setDb(mergeDb(JSON.parse(j.data)));
                     setLastSaved(Date.now());
                 }
             }).catch(() => { });
-        }, 20000);
+        }, 30000);
         return () => clearInterval(iv);
     }, []);
     // ธีมสีแบบตายตัว — วิชาการ = ชมพู · กีฬา = น้ำเงิน · ไม่มีสลับสีตามผู้ใช้/บ้าน · ก่อนล็อกอินใช้ชมพูกลาง
