@@ -1092,7 +1092,7 @@ function LoanManager({ db, setDb, ui, viewer }) {
                     photoId = up.photoId;
                 }
             }
-            setDb((p) => ({ ...p, loans: [...(p.loans || []), { id: "L" + Date.now(), date, time, studentId, studentName: fullName(chosen), comps: selComps, deptNames: selDepts.map((d) => d.name), amount: amt, note, photoUrl, photoId, by: viewer.name || "", at: Date.now() }] }));
+            setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const receiptNo = seq + "/" + buddhistYear(); return { ...p, receiptSeq: seq, loans: [...(p.loans || []), { id: "L" + Date.now(), date, time, studentId, studentName: fullName(chosen), comps: selComps, deptNames: selDepts.map((d) => d.name), amount: amt, note, photoUrl, photoId, receiptNo, by: viewer.name || "", at: Date.now() }] }; });
             setStudentId("");
             setQ("");
             setSelComps([]);
@@ -1184,6 +1184,9 @@ function LoanManager({ db, setDb, ui, viewer }) {
             React.createElement("span", { style: { fontWeight: 800, color: "#c0392b" } },
                 (Number(x.amount) || 0).toLocaleString("th-TH"),
                 " \u0E3F"),
+            x.receiptNo && React.createElement("button", { onClick: () => makeReceiptPdf({ title: "ใบเสร็จรับเงิน (ยืมเงิน)", receiptNo: x.receiptNo, date: x.date, time: x.time, rows: [{ label: "ยืมเงิน — " + x.studentName + (x.deptNames && x.deptNames.length ? " (" + x.deptNames.join(", ") + ")" : "") + (x.note ? " · " + x.note : ""), amount: x.amount }], notify: ui.notify }), title: "ใบเสร็จเลขที่ " + x.receiptNo, style: { border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" } },
+                "\u2B07 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 ",
+                x.receiptNo),
             React.createElement("button", { onClick: () => del(x.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715"))))))));
 }
 function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit }) {
@@ -1206,6 +1209,12 @@ function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit }) {
     } }, [editRec && editRec.id]);
     const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 500);
     const rows = (db.finance || []).filter((f) => String(f.dept) === "FUND").slice().sort((a, b) => (b.date + "" + b.at).localeCompare(a.date + "" + a.at));
+    const [selIds, setSelIds] = useState([]);
+    const toggleSel = (id) => setSelIds((c) => c.includes(id) ? c.filter((x) => x !== id) : [...c, id]);
+    const combineReceipt = () => { const picked = rows.filter((r) => selIds.includes(r.id) && r.type !== "out"); if (!picked.length) {
+        ui.notify("ติ๊กเลือกรายการรับก่อน");
+        return;
+    } setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const receiptNo = seq + "/" + buddhistYear(); const ids = new Set(picked.map((x) => x.id)); const fin = (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo } : f); return { ...p, receiptSeq: seq, finance: fin }; }); const seqPreview = (db.receiptSeq || 0) + 1; makeReceiptPdf({ title: "ใบเสร็จรับเงิน (กองทุนสำรอง)", receiptNo: seqPreview + "/" + buddhistYear(), date: picked[0].date, time: picked[0].time, rows: picked.map((r) => ({ label: r.title + (r.note ? " · " + r.note : ""), amount: r.amount })), notify: ui.notify }); setSelIds([]); save(); };
     const inSum = rows.filter((r) => r.type !== "out").reduce((s, r) => s + (Number(r.amount) || 0), 0);
     const outSum = rows.filter((r) => r.type === "out").reduce((s, r) => s + (Number(r.amount) || 0), 0);
     const bal = inSum - outSum;
@@ -1240,19 +1249,35 @@ function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit }) {
                 React.createElement("input", { value: note, onChange: (e) => setNote(e.target.value), placeholder: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", style: { flex: 1, minWidth: 120, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14 } }),
                 React.createElement(Btn, { onClick: add }, editId ? "บันทึกการแก้ไข" : "บันทึก"),
                 editId && React.createElement(Btn, { variant: "ghost", onClick: cancelEdit }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"))),
-        rows.length === 0 ? React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19\u0E2A\u0E33\u0E23\u0E2D\u0E07" }) : (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, rows.map((r) => (React.createElement("div", { key: r.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: `1px solid ${C.line}`, borderRadius: 10 } },
-            React.createElement("span", { style: { fontSize: 20 } }, r.type === "out" ? "🔻" : "🔺"),
-            React.createElement("div", { style: { flex: 1 } },
-                React.createElement("div", { style: { fontWeight: 600, color: C.ink } }, r.title),
-                React.createElement("div", { style: { fontSize: 11.5, color: C.muted } },
-                    r.date,
-                    r.note ? " · " + r.note : "",
-                    r.by ? " · " + r.by : "")),
-            React.createElement("span", { style: { fontWeight: 800, color: r.type === "out" ? "#c0392b" : "#2f9e6b" } },
-                r.type === "out" ? "-" : "+",
-                (Number(r.amount) || 0).toLocaleString("th-TH")),
-            React.createElement("button", { onClick: () => { setType(r.type); setTitle(r.title); setAmount(String(r.amount)); setDate(r.date); setFundTime(r.time || nowTime()); setNote(r.note || ""); setEditId(r.id); }, style: { border: "none", background: "none", color: C.primary, cursor: "pointer", fontWeight: 700, fontSize: 12 } }, "\u0E41\u0E01\u0E49\u0E44\u0E02"),
-            React.createElement("button", { onClick: () => del(r.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715"))))))));
+        rows.length === 0 ? React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19\u0E2A\u0E33\u0E23\u0E2D\u0E07" }) : (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
+            selIds.filter((id) => (rows.find((r) => r.id === id) || {}).type !== "out").length > 0 && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: C.soft, borderRadius: 10, position: "sticky", top: 0, zIndex: 1 } },
+                React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: C.primaryDark } },
+                    "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A ",
+                    selIds.filter((id) => (rows.find((r) => r.id === id) || {}).type !== "out").length,
+                    " \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"),
+                React.createElement("span", { style: { flex: 1 } }),
+                React.createElement(Btn, { small: true, onClick: combineReceipt }, "\uD83E\uDDFE \u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E23\u0E27\u0E21"),
+                React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setSelIds([]) }, "\u0E25\u0E49\u0E32\u0E07")),
+            rows.map((r) => (React.createElement("div", { key: r.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: `1px solid ${C.line}`, borderRadius: 10 } },
+                r.type !== "out" && React.createElement("input", { type: "checkbox", checked: selIds.includes(r.id), onChange: () => toggleSel(r.id), title: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E23\u0E27\u0E21", style: { width: 16, height: 16 } }),
+                React.createElement("span", { style: { fontSize: 20 } }, r.type === "out" ? "🔻" : "🔺"),
+                React.createElement("div", { style: { flex: 1 } },
+                    React.createElement("div", { style: { fontWeight: 600, color: C.ink } },
+                        r.title,
+                        r.receiptNo ? React.createElement("span", { style: { fontSize: 11, color: "#1e7a4d", fontWeight: 700 } },
+                            " \u00B7 \uD83E\uDDFE ",
+                            r.receiptNo) : null),
+                    React.createElement("div", { style: { fontSize: 11.5, color: C.muted } },
+                        r.date,
+                        r.time ? " " + r.time : "",
+                        r.note ? " · " + r.note : "",
+                        r.by ? " · " + r.by : "")),
+                React.createElement("span", { style: { fontWeight: 800, color: r.type === "out" ? "#c0392b" : "#2f9e6b" } },
+                    r.type === "out" ? "-" : "+",
+                    (Number(r.amount) || 0).toLocaleString("th-TH")),
+                r.type !== "out" && r.receiptNo && React.createElement("button", { onClick: () => makeReceiptPdf({ title: "ใบเสร็จรับเงิน (กองทุนสำรอง)", receiptNo: r.receiptNo, date: r.date, time: r.time, rows: [{ label: r.title + (r.note ? " · " + r.note : ""), amount: r.amount }], notify: ui.notify }), style: { border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "2px 7px", fontSize: 11, fontWeight: 700, cursor: "pointer" } }, "\u2B07"),
+                React.createElement("button", { onClick: () => { setType(r.type); setTitle(r.title); setAmount(String(r.amount)); setDate(r.date); setFundTime(r.time || nowTime()); setNote(r.note || ""); setEditId(r.id); }, style: { border: "none", background: "none", color: C.primary, cursor: "pointer", fontWeight: 700, fontSize: 12 } }, "\u0E41\u0E01\u0E49\u0E44\u0E02"),
+                React.createElement("button", { onClick: () => del(r.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715"))))))));
 }
 function RefundManager({ db, ui, canEdit }) {
     const ro = !canEdit;
@@ -1381,8 +1406,8 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     const finNodes = [...(db.orgTeacher || []), ...(db.orgStudent || [])].filter((n) => String(n.personId) === String(viewer.id) && (finRe.test(n.title || "") || compIsFinance(n.compId)));
     const finRank = String(viewer.role) === "admin" ? 0 : (finNodes.length ? Math.min(...finNodes.map((n) => n.rank || (DUTY_RANKS.indexOf(n.title) + 1) || 6)) : (acc.full ? 5 : 99));
     const isFinance = acc.full || finNodes.length > 0; // เป็นฝ่ายการเงิน/บัญชี (รวมผู้ช่วย) หรือแอดมิน
-    const finFull = String(viewer.role) === "admin" || (isFinance && finRank <= 5); // ผู้ดูแลขึ้นไป = ใช้ได้ทุกแท็บ
     const financeMoneyHolder = String(viewer.role) === "admin" || [...(db.orgTeacher || []), ...(db.orgStudent || [])].some((n) => String(n.personId) === String(viewer.id) && /ถือเงิน|เก็บเงิน|รักษาเงิน|เหรัญญิก|เหรัญ/.test(n.title || ""));
+    const finFull = String(viewer.role) === "admin" || financeMoneyHolder || (isFinance && finRank <= 5); // ผู้ถือเงิน/แอดมิน/ผู้ดูแลขึ้นไป = ใช้ได้ทุกแท็บ
     const allowedComps = db.competitions.filter((c) => acc.full || acc.depts.has(String(c.id)));
     const compName = (id) => { if (String(id) === "FUND")
         return "🏦 กองทุนสำรอง"; if (String(id).startsWith("D:")) {
@@ -1464,6 +1489,57 @@ function FinanceManager({ db, setDb, ui, viewer }) {
         return String(f.dept) === "D:" + d.id || mem.includes(String(f.dept));
     } return String(f.dept) === fDept; };
     const [sortDir, setSortDir] = useState("desc");
+    const [selRows, setSelRows] = useState([]);
+    const toggleRow = (id) => setSelRows((c) => c.includes(id) ? c.filter((x) => x !== id) : [...c, id]);
+    const selObjs = () => (db.finance || []).filter((f) => selRows.includes(f.id));
+    const combineIncomeReceipt = () => { const picked = selObjs().filter((r) => r.type !== "out"); if (!picked.length) {
+        ui.notify("ติ๊กเลือกรายการรับก่อน");
+        return;
+    } const preview = (db.receiptSeq || 0) + 1, receiptNo = preview + "/" + buddhistYear(); setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const ids = new Set(picked.map((x) => x.id)); return { ...p, receiptSeq: seq, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear() } : f) }; }); makeReceiptPdf({ title: "ใบเสร็จรับเงิน", receiptNo, date: picked[0].date, time: picked[0].time, rows: picked.map((r) => ({ label: r.title + " (" + compName(r.dept) + ")" + (r.note ? " · " + r.note : ""), amount: r.amount })), notify: ui.notify }); setSelRows([]); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
+    const issueExpenseNo = () => { const picked = selObjs().filter((r) => r.type === "out"); if (!picked.length) {
+        ui.notify("ติ๊กเลือกรายการจ่ายก่อน");
+        return;
+    } setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const ids = new Set(picked.map((x) => x.id)); return { ...p, receiptSeq: seq, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear() } : f) }; }); ui.notify("ออกเลขใบเสร็จแล้ว — นำเลขไปเขียนบนใบเสร็จจริง"); setSelRows([]); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
+    const bundleBills = async () => { const picked = selObjs().filter((r) => r.type === "out" && r.billUrl); if (!picked.length) {
+        ui.notify("ต้องติ๊กรายการจ่ายที่มีรูปบิลก่อน (แนบบิลก่อนสร้าง PDF)");
+        return;
+    } if (!window.jspdf) {
+        ui.notify("ต้องเปิดผ่านเว็บจริง");
+        return;
+    } ui.notify("กำลังรวมบิลเป็น PDF..."); try {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+        let first = true;
+        for (const r of picked) {
+            const dataUrl = await new Promise((res) => { const img = new Image(); img.crossOrigin = "anonymous"; img.onload = () => { const cv = document.createElement("canvas"); cv.width = img.naturalWidth; cv.height = img.naturalHeight; cv.getContext("2d").drawImage(img, 0, 0); try {
+                res(cv.toDataURL("image/jpeg", 0.9));
+            }
+            catch (e) {
+                res("");
+            } }; img.onerror = () => res(""); img.src = r.billUrl; });
+            if (!dataUrl)
+                continue;
+            if (!first)
+                pdf.addPage();
+            first = false;
+            pdf.setFontSize(11);
+            pdf.text((r.receiptNo ? "เลขที่ " + r.receiptNo + "  " : "") + r.title + "  " + (Number(r.amount) || 0).toLocaleString("th-TH") + " บาท", 10, 12);
+            const props = pdf.getImageProperties ? pdf.getImageProperties(dataUrl) : { width: 800, height: 1000 };
+            const w = 190, h = Math.min(props.height * w / props.width, 260);
+            pdf.addImage(dataUrl, "JPEG", 10, 16, w, h);
+        }
+        if (first) {
+            ui.notify("โหลดรูปบิลไม่สำเร็จ (อาจติดสิทธิ์เข้าถึง Drive)");
+            return;
+        }
+        pdf.save("รวมบิล-" + todayStr() + ".pdf");
+        setSelRows([]);
+    }
+    catch (e) {
+        ui.notify("สร้าง PDF บิลไม่สำเร็จ");
+    } };
+    const selHasIncome = selObjs().some((r) => r.type !== "out");
+    const selHasExpense = selObjs().some((r) => r.type === "out");
     const rowKey = (f) => (f.date || "") + " " + (f.time || "00:00") + " " + (f.at || 0);
     const rows = (db.finance || []).filter((f) => deptMatch(f) && (!fType || f.type === fType) && (!fFrom || (f.date || "") >= fFrom) && (!fTo || (f.date || "") <= fTo)).slice().sort((a, b) => sortDir === "asc" ? rowKey(a).localeCompare(rowKey(b)) : rowKey(b).localeCompare(rowKey(a)));
     const stats = financeStats(db);
@@ -1595,31 +1671,49 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                     rows.length,
                     " \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)")),
             rows.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A-\u0E08\u0E48\u0E32\u0E22" }),
+            selRows.length > 0 && canRecordAny && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: C.soft, borderRadius: 10, marginBottom: 8, flexWrap: "wrap", position: "sticky", top: 0, zIndex: 1 } },
+                React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: C.primaryDark } },
+                    "\u0E40\u0E25\u0E37\u0E2D\u0E01 ",
+                    selRows.length,
+                    " \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"),
+                React.createElement("span", { style: { flex: 1 } }),
+                selHasIncome && !selHasExpense && React.createElement(Btn, { small: true, onClick: combineIncomeReceipt }, "\uD83E\uDDFE \u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E23\u0E27\u0E21 (\u0E23\u0E31\u0E1A)"),
+                selHasExpense && !selHasIncome && React.createElement(React.Fragment, null,
+                    React.createElement(Btn, { small: true, onClick: issueExpenseNo }, "\uD83D\uDD22 \u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 (\u0E08\u0E48\u0E32\u0E22)"),
+                    React.createElement(Btn, { small: true, variant: "ghost", onClick: bundleBills }, "\uD83D\uDCCE \u0E23\u0E27\u0E21\u0E1A\u0E34\u0E25 PDF")),
+                selHasIncome && selHasExpense && React.createElement("span", { style: { fontSize: 11.5, color: "#c0392b" } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E23\u0E31\u0E1A \u0E2B\u0E23\u0E37\u0E2D \u0E40\u0E09\u0E1E\u0E32\u0E30\u0E08\u0E48\u0E32\u0E22 \u0E2D\u0E22\u0E48\u0E32\u0E07\u0E43\u0E14\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E2B\u0E19\u0E36\u0E48\u0E07"),
+                React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setSelRows([]) }, "\u0E25\u0E49\u0E32\u0E07")),
             React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, rows.map((f) => (React.createElement("div", { key: f.id, style: { border: `1px solid ${C.line}`, borderLeft: `4px solid ${f.type === "out" ? "#c0392b" : "#2f9e6b"}`, borderRadius: 10, padding: "9px 12px" } },
                 React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "flex-start" } },
-                    React.createElement("div", { style: { minWidth: 0 } },
-                        React.createElement("div", { style: { fontWeight: 700, color: C.ink } },
-                            f.title,
-                            " ",
-                            React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#fff", background: f.type === "out" ? "#c0392b" : "#2f9e6b", borderRadius: 8, padding: "1px 8px" } }, f.type === "out" ? "จ่าย" : "รับ")),
-                        React.createElement("div", { style: { fontSize: 12, color: C.muted, marginTop: 2 } },
-                            "\u25B8 ",
-                            compName(f.dept),
-                            " \u00B7 \uD83D\uDCC5 ",
-                            f.date,
-                            f.time ? ` ${f.time} น.` : "",
-                            f.byName ? ` · โดย ${f.byName}` : ""),
-                        f.note && React.createElement("div", { style: { fontSize: 12, color: C.ink, marginTop: 2 } },
-                            "\uD83D\uDCDD ",
-                            f.note),
-                        f.billUrl && React.createElement("a", { href: f.billUrl, target: "_blank", rel: "noreferrer", style: { display: "inline-block", marginTop: 4 } },
-                            React.createElement("img", { src: f.billUrl, alt: "\u0E1A\u0E34\u0E25", style: { maxHeight: 46, borderRadius: 6, border: `1px solid ${C.line}` } }),
-                            " ",
-                            React.createElement("span", { style: { fontSize: 11, color: C.primary, fontWeight: 700 } }, "\u0E14\u0E39\u0E1A\u0E34\u0E25 \u2197"))),
+                    React.createElement("div", { style: { minWidth: 0, display: "flex", gap: 8 } },
+                        canRecordAny && React.createElement("input", { type: "checkbox", checked: selRows.includes(f.id), onChange: () => toggleRow(f.id), style: { width: 16, height: 16, marginTop: 3 } }),
+                        React.createElement("div", { style: { minWidth: 0 } },
+                            React.createElement("div", { style: { fontWeight: 700, color: C.ink } },
+                                f.title,
+                                " ",
+                                React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#fff", background: f.type === "out" ? "#c0392b" : "#2f9e6b", borderRadius: 8, padding: "1px 8px" } }, f.type === "out" ? "จ่าย" : "รับ"),
+                                f.receiptNo && React.createElement("span", { style: { fontSize: 11, color: "#1e7a4d", fontWeight: 700 } },
+                                    " \u00B7 \uD83E\uDDFE ",
+                                    f.receiptNo)),
+                            React.createElement("div", { style: { fontSize: 12, color: C.muted, marginTop: 2 } },
+                                "\u25B8 ",
+                                compName(f.dept),
+                                " \u00B7 \uD83D\uDCC5 ",
+                                f.date,
+                                f.time ? ` ${f.time} น.` : "",
+                                f.byName ? ` · โดย ${f.byName}` : ""),
+                            f.note && React.createElement("div", { style: { fontSize: 12, color: C.ink, marginTop: 2 } },
+                                "\uD83D\uDCDD ",
+                                f.note),
+                            f.billUrl && React.createElement("a", { href: f.billUrl, target: "_blank", rel: "noreferrer", style: { display: "inline-block", marginTop: 4 } },
+                                React.createElement("img", { src: f.billUrl, alt: "\u0E1A\u0E34\u0E25", style: { maxHeight: 46, borderRadius: 6, border: `1px solid ${C.line}` } }),
+                                " ",
+                                React.createElement("span", { style: { fontSize: 11, color: C.primary, fontWeight: 700 } }, "\u0E14\u0E39\u0E1A\u0E34\u0E25 \u2197")))),
                     React.createElement("div", { style: { textAlign: "right" } },
                         React.createElement("div", { style: { fontWeight: 800, fontSize: 16, color: f.type === "out" ? "#c0392b" : "#2f9e6b" } },
                             f.type === "out" ? "-" : "+",
                             money(f.amount)),
+                        f.receiptNo && f.type !== "out" && React.createElement("button", { onClick: () => makeReceiptPdf({ title: "ใบเสร็จรับเงิน", receiptNo: f.receiptNo, date: f.date, time: f.time, rows: [{ label: f.title + " (" + compName(f.dept) + ")" + (f.note ? " · " + f.note : ""), amount: f.amount }], notify: ui.notify }), style: { fontSize: 11, border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "2px 7px", fontWeight: 700, cursor: "pointer", marginTop: 4 } }, "\u2B07 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08"),
                         canEditRow(f) && React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 4, justifyContent: "flex-end" } },
                             React.createElement("button", { onClick: () => startEdit(f), style: { fontSize: 11.5, border: "none", background: "none", color: C.primary, cursor: "pointer", fontWeight: 700 } }, "\u0E41\u0E01\u0E49\u0E44\u0E02"),
                             React.createElement("button", { onClick: () => del(f), style: { fontSize: 11.5, border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 700 } }, "\u0E25\u0E1A")))))))))),
