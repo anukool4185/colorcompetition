@@ -88,7 +88,7 @@
 <div id="root"></div>
 <script>
 "use strict";
-const { useState, useEffect, useRef } = React;
+const { useState, useEffect, useRef, useMemo } = React;
 /* ============================================================
    ระบบจัดการแข่งขันวิชาการสี — Prototype (Phase 1, ครบทุกหน้า)
    ข้อมูลทั้งหมดเป็น mock ในหน่วยความจำ · ยังไม่เชื่อม Google Sheet/Drive
@@ -3708,7 +3708,7 @@ function OrgViewManager({ db, setDb, ui, editable, committee, orgComp }) {
     const pickPool = view === "teacher" ? db.teachers.filter((t) => t.user) : db.students.filter((s) => s.committee);
     const relIds = compObj ? compOrgNodeIds(db, compObj, which) : null;
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff" };
-    const nodes = relinkOrgByRank((db[which] || []).filter((n) => (n.cat || "comp") === effCat && (!compObj || (relIds && relIds.has(String(n.id))))));
+    const nodes = useMemo(() => relinkOrgByRank((db[which] || []).filter((n) => (n.cat || "comp") === effCat && (!compObj || (relIds && relIds.has(String(n.id)))))), [db[which], effCat, compObj && compObj.id, relIds]);
     const autoFillRef = useRef({});
     // ปิดการเติม node ว่างอัตโนมัติตอนเปิดดู (เดิมทำให้ผังบวมเป็นพันโหนด/โหลดช้า)
     // การแสดงผลใช้ relinkOrgByRank เรียงตามลำดับอยู่แล้ว · ถ้าจะลงชื่อครบ 6 ให้เข้าโหมดจัดโครงสร้าง แล้วกด "เติมผังให้ครบ 6 ลำดับ"
@@ -5680,10 +5680,14 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
         return isReq; if (r.status === "pending")
         return canApp || (isRep && r.replacementStatus !== "declined") || isReq; return false; }).length;
     const which = role === "teacher" ? "orgTeacher" : "orgStudent";
-    const myNodeIds = db[which].filter((n) => String(n.personId) === String(meId)).map((n) => n.id);
-    const managesComp = (c) => db[which].filter((n) => String(n.compId) === String(c.id)).some((n) => orgPathIds(db[which], n.id).some((id) => myNodeIds.includes(id)));
-    const myCompIds = db.competitions.filter(managesComp).map((c) => c.id);
-    const myComps = db.competitions.filter(managesComp);
+    const myComps = useMemo(() => {
+        const sideNodes = db[which] || [];
+        const myNodeIds = sideNodes.filter((n) => String(n.personId) === String(meId)).map((n) => n.id);
+        const managesComp = (c) => sideNodes.filter((n) => String(n.compId) === String(c.id)).some((n) => orgPathIds(sideNodes, n.id).some((id) => myNodeIds.includes(id)));
+        return db.competitions.filter(managesComp);
+    }, [db.competitions, db[which], meId, which]);
+    const myNodeIds = (db[which] || []).filter((n) => String(n.personId) === String(meId)).map((n) => n.id);
+    const myCompIds = myComps.map((c) => c.id);
     const orgDefault = myComps[0] ? "org:" + myComps[0].id : "org:all";
     const orgChildren = [{ header: true, label: "รายการแข่งขัน" }, ...myComps.filter((c) => c.kind === "แข่งขัน").map((c) => ({ key: "org:" + c.id, label: c.name })), { header: true, label: "รายการกิจกรรม" }, ...myComps.filter((c) => c.kind === "กิจกรรม").map((c) => ({ key: "org:" + c.id, label: c.name }))];
     const nav = [
@@ -7156,6 +7160,12 @@ function App() {
             dirtyRef.current = false;
             loadedRef.current = true;
             everLoadedRef.current = true; // บันทึกได้ = เชื่อมต่อได้
+            try {
+                const raw = JSON.stringify(dbRef.current);
+                localStorage.setItem("dbcache_" + (modeRef.current || "academic"), raw);
+                lastRawRef.current = raw;
+            }
+            catch (e) { }
             setSync("saved");
             setLastSaved(Date.now());
         })
@@ -7279,9 +7289,23 @@ function App() {
     window.__otherModeName = () => modeRef.current === "sport" ? "สีวิชาการ" : "กีฬาสี";
     window.__thisModeName = () => modeRef.current === "sport" ? "กีฬาสี" : "สีวิชาการ";
     // โหลดข้อมูลจาก Google Sheet ตอนเปิดหน้า — ต้องสำเร็จก่อนถึงจะอนุญาตให้ออโต้เซฟ
+    const cacheKey = () => "dbcache_" + (modeRef.current || "academic");
     const loadData = () => {
         if (!API_URL)
             return;
+        // แสดงข้อมูลจากแคชในเครื่องทันที (รู้สึกเร็ว) แล้วค่อยดึงของจริงมาอัปเดต
+        try {
+            const c = localStorage.getItem(cacheKey());
+            if (c && !everLoadedRef.current) {
+                const cd = mergeDb(JSON.parse(c));
+                dbRef.current = cd;
+                justLoaded.current = true;
+                setDb(cd);
+                loadedRef.current = true;
+                setSync("loading");
+            }
+        }
+        catch (e) { }
         fetch(API_URL + sheetQS()).then((r) => r.text()).then((t) => {
             let j;
             try {
@@ -7297,6 +7321,10 @@ function App() {
                 try {
                     nd = mergeDb(JSON.parse(j.data));
                     lastRawRef.current = j.data;
+                    try {
+                        localStorage.setItem(cacheKey(), j.data);
+                    }
+                    catch (e) { }
                 }
                 catch (e) {
                     nd = mergeDb({});
