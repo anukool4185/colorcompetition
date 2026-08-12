@@ -846,6 +846,15 @@ function deleteImageRemote(person, kind) {
     const body = JSON.stringify({ type: "deleteImage", fileId: person.photoId, kind, grade: person.grade || "", room: person.room || "" });
     fetch(API_URL, { method: "POST", body }).catch(() => { });
 }
+// เก็บข้อมูลลงเวลาไปยังชีทเฉพาะ time_sport (สำเนาอ่านง่าย แยกจากข้อมูลหลัก)
+function saveTimeSport(attendance) {
+    if (!API_URL)
+        return;
+    try {
+        fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "data", sheet: "time_sport", data: JSON.stringify({ attendance: attendance || {}, savedAt: Date.now() }) }) }).catch(() => { });
+    }
+    catch (e) { }
+}
 // ย้ายไฟล์รูปไปโฟลเดอร์ชั้น/ห้องใหม่ใน Drive (และลบโฟลเดอร์เดิมถ้าว่าง)
 function moveImageRemote(person, kind, toGrade, toRoom) {
     if (!API_URL || !person || !person.photoId)
@@ -5488,24 +5497,22 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps, sub }) {
             return;
         }
         const t = nowHM();
-        setDb((p) => {
-            const att = { ...(p.attendance || {}) };
-            const d = { ...(att[date] || {}) };
-            const cm = { ...(d[compId] || {}) };
-            const cur = { ...(cm[sid] || {}) };
-            cur[kind] = cur[kind] ? undefined : t; // กดซ้ำ = ยกเลิก
-            cm[sid] = cur;
-            // กรรมการเช็คใครในบล็อกนี้ → ลงเวลาตนเองด้วย (ถ้ายังไม่ลง)
-            const meCur = { ...(cm[meId] || {}) };
-            if (kind === "in" && !meCur.in)
-                meCur.in = t;
-            if (kind === "out" && !meCur.out)
-                meCur.out = t;
-            cm[meId] = meCur;
-            d[compId] = cm;
-            att[date] = d;
-            return { ...p, attendance: att };
-        });
+        const att = { ...(db.attendance || {}) };
+        const d = { ...(att[date] || {}) };
+        const cm = { ...(d[compId] || {}) };
+        const cur = { ...(cm[sid] || {}) };
+        cur[kind] = cur[kind] ? undefined : t; // กดซ้ำ = ยกเลิก
+        cm[sid] = cur;
+        const meCur = { ...(cm[meId] || {}) };
+        if (kind === "in" && !meCur.in)
+            meCur.in = t;
+        if (kind === "out" && !meCur.out)
+            meCur.out = t;
+        cm[meId] = meCur;
+        d[compId] = cm;
+        att[date] = d;
+        setDb((p) => ({ ...p, attendance: att }));
+        saveTimeSport(att);
         save();
     };
     if (sub === "none") {
