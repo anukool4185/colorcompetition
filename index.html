@@ -1914,15 +1914,17 @@ function DataSizeCard({ db, setDb, ui }) {
         setDb((p) => {
             const dedup = (arr) => { const seen = new Set(); const out = []; (arr || []).forEach((n) => { const key = `${n.compId}|${n.cat}|${n.title}|${n.parent}|${n.personId || ""}|${n.rank || ""}`; if (seen.has(key))
                 return; seen.add(key); out.push(n); }); return out; };
-            const ot = dedup(p.orgTeacher);
-            const os = dedup(p.orgStudent);
-            const notis = (p.financeNotis || []).filter((x) => (x.readBy || []).length < 3).slice(0, 100); // เก็บที่ยังไม่อ่านครบ/ล่าสุด
+            // เก็บเฉพาะ node ที่มีคนลงชื่อ (personId) — node ว่างลบทิ้ง (แสดงผลจะ relink เรียงตาม rank เอง · เติมโครงได้จากปุ่ม/ลงชื่อ)
+            const keepNode = (n) => n.personId && String(n.personId).trim();
+            const ot = dedup((p.orgTeacher || []).filter(keepNode));
+            const os = dedup((p.orgStudent || []).filter(keepNode));
+            const notis = (p.financeNotis || []).filter((x) => (x.readBy || []).length < 3).slice(0, 100);
             return { ...p, orgTeacher: ot, orgStudent: os, financeNotis: notis, trash: [], archived: [] };
         });
         setTimeout(() => window.__forceSave && window.__forceSave(), 500);
         setConfirmClean(null);
-        ui.notify("ล้างข้อมูลซ้ำ/ไม่ใช้แล้ว · บันทึกขึ้น Sheet");
-        setTimeout(analyze, 800);
+        ui.notify("ล้างข้อมูลซ้ำ/ว่าง/ไม่ใช้แล้ว · บันทึกขึ้น Sheet");
+        setTimeout(analyze, 900);
     };
     return (React.createElement(Card, { style: { padding: 16, border: `1px solid ${C.gold}66` } },
         React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 4 } }, "\uD83D\uDCCA \u0E02\u0E19\u0E32\u0E14\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25 & \u0E25\u0E49\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E43\u0E0A\u0E49 (\u0E41\u0E01\u0E49\u0E2D\u0E32\u0E01\u0E32\u0E23\u0E0A\u0E49\u0E32)"),
@@ -3708,32 +3710,8 @@ function OrgViewManager({ db, setDb, ui, editable, committee, orgComp }) {
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff" };
     const nodes = relinkOrgByRank((db[which] || []).filter((n) => (n.cat || "comp") === effCat && (!compObj || (relIds && relIds.has(String(n.id))))));
     const autoFillRef = useRef({});
-    useEffect(() => {
-        if (!compObj || !(editable || committee))
-            return;
-        const cid = compObj.id;
-        if (autoFillRef.current[cid])
-            return;
-        const ccat = compObj.kind === "กิจกรรม" ? "act" : "comp";
-        const needsFix = DUTY_RANKS.some((rn, idx) => { const ex = (db.orgTeacher || []).find((n) => String(n.compId) === String(cid) && (n.rank === idx + 1 || n.title === rn)); return !ex || ex.cat !== ccat || ex.rank !== idx + 1; });
-        if (!needsFix)
-            return;
-        autoFillRef.current[cid] = true;
-        setDb((p) => {
-            let ot = [...(p.orgTeacher || [])];
-            DUTY_RANKS.forEach((rn, idx) => { const rk = idx + 1; const existing = ot.find((n) => String(n.compId) === String(cid) && (n.rank === rk || n.title === rn)); if (existing) {
-                if (existing.cat !== ccat || existing.rank !== rk)
-                    ot = ot.map((n) => n.id === existing.id ? { ...n, cat: ccat, rank: rk } : n);
-            }
-            else {
-                const du = (p.dutyList || []).find((x) => dutyName(x) === rn);
-                ot.push({ id: "n" + Date.now() + Math.random().toString(36).slice(2, 6) + rk, personId: (du && du.teacherId) || "", title: rn, compId: cid, cat: ccat, parent: null, rank: rk, linked: (compObj.orgLevels || []).includes(rk) });
-            } });
-            ot = relinkOrgByRank(ot);
-            return { ...p, orgTeacher: ot, orgStudent: syncStudentToTeacher(ot, p.orgStudent) };
-        });
-        setTimeout(() => window.__forceSave && window.__forceSave(), 700);
-    }, [pickComp, compObj && compObj.id]);
+    // ปิดการเติม node ว่างอัตโนมัติตอนเปิดดู (เดิมทำให้ผังบวมเป็นพันโหนด/โหลดช้า)
+    // การแสดงผลใช้ relinkOrgByRank เรียงตามลำดับอยู่แล้ว · ถ้าจะลงชื่อครบ 6 ให้เข้าโหมดจัดโครงสร้าง แล้วกด "เติมผังให้ครบ 6 ลำดับ"
     const setPerson = (nodeId, personId) => ui.run("กำลังลงชื่อ...", () => { const apply = (p) => ({ ...p, [which]: p[which].map((n) => n.id === nodeId ? { ...n, personId } : n) }); if (window.__commitRemote)
         window.__commitRemote(apply);
     else
@@ -4679,7 +4657,8 @@ function CompTable({ kind, db, setDb, ui }) {
         const newId = (kind === "แข่งขัน" ? "C" : "A") + Date.now();
         const cat = kind === "แข่งขัน" ? "comp" : "act";
         const comp = { ...c, id: newId, participants: [], schedule: [], results: {}, judgeTeachers: [], judgeStudents: [] };
-        const orgNodes = buildAutoOrg(comp, cat, db.dutyList);
+        const orgNodesAll = buildAutoOrg(comp, cat, db.dutyList);
+        const orgNodes = orgNodesAll.filter((n) => n.personId && String(n.personId).trim()); // เก็บเฉพาะที่มีชื่อ ไม่เก็บ node ว่าง (กันผังบวม)
         comp.judgeTeachers = orgNodes.map((n) => n.id);
         comp.judgeStudents = orgNodes.map((n) => n.id);
         setDb((p) => { const ot = [...(p.orgTeacher || []), ...orgNodes]; let os = syncStudentToTeacher(ot, p.orgStudent); os = os.map((n) => { const d = (p.dutyList || []).find((x) => dutyName(x) === n.title); return (d && d.studentId && !n.personId) ? { ...n, personId: d.studentId } : n; }); return { ...p, competitions: [...p.competitions, comp], orgTeacher: ot, orgStudent: os }; });
