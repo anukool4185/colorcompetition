@@ -1824,6 +1824,7 @@ function AdminApp({ db, setDb, onExit }) {
         { key: "org", label: "ผังองค์กร", icon: "🗂", defaultKey: orgDefault, children: orgChildren },
         { key: "comp", label: "การแข่งขัน", icon: "🏆" },
         { key: "results", label: "จัดการผลการแข่งขัน", icon: "🏅" },
+        { key: "attend", label: "ลงเวลา", icon: "⏱", defaultKey: "attend:day", children: [{ key: "attend:day", label: "ลงเวลาซ้อม-วันจริง" }, { key: "attend:none", label: "บุคคลไม่มีส่วนร่วม" }, { key: "attend:sum", label: "สรุปเวลารวม" }] },
         { key: "promote", label: "เลื่อนชั้น", icon: "⬆" },
         { key: "trash", label: "ถังขยะ", icon: "🗑" },
         { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" },
@@ -1835,6 +1836,7 @@ function AdminApp({ db, setDb, onExit }) {
         view === "people" && React.createElement(PeopleManager, { db: db, setDb: setDb, ui: ui }),
         view === "duties" && React.createElement(DutyManager, { db: db, setDb: setDb, ui: ui }),
         String(view).startsWith("org") && React.createElement(OrgViewManager, { db: db, setDb: setDb, ui: ui, editable: true, orgComp: view === "org:all" ? "" : String(view).replace("org:", "") }),
+        String(view).startsWith("attend") && React.createElement(TimeAttendance, { db: db, setDb: setDb, ui: ui, meId: "admin", role: "admin", myComps: db.competitions, sub: String(view).split(":")[1] || "day" }),
         view === "comp" && React.createElement(CompManager, { db: db, setDb: setDb, ui: ui }),
         view === "results" && React.createElement(ResultsManager, { db: db, setDb: setDb, ui: ui, autoOpen: jumpComp, onAutoOpened: () => setJumpComp(null) }),
         view === "finance" && React.createElement(FinanceManager, { db: db, setDb: setDb, ui: ui, viewer: { role: "admin", id: "admin", name: "แอดมิน" } }),
@@ -5146,6 +5148,32 @@ function AttendWindowSettings({ db, setDb, ui }) {
     const [f, setF] = useState(cur);
     const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
     const save = () => ui.run("บันทึกช่วงเวลาแล้ว", () => { setDb((p) => ({ ...p, settings: { ...p.settings, attendWin: f } })); });
+    const [exporting, setExporting] = useState(false);
+    const exportToTimeSheet = async () => {
+        if (!API_URL) {
+            ui.notify("ยังไม่ได้ตั้งค่า API");
+            return;
+        }
+        setExporting(true);
+        try {
+            // 1) ตรวจก่อนว่า Code.gs รองรับชีท time_sport จริง (กันเขียนทับชีทวิชาการถ้ายังไม่ deploy)
+            const r = await fetch(API_URL + "?sheet=time_sport");
+            const t = await r.text();
+            const j = JSON.parse(t);
+            if (!j || !j.ok || j.sheet !== "time_sport") {
+                ui.notify("⚠️ ยังไม่ได้ deploy Code.gs ใหม่ — โปรด Deploy → New version ก่อน (ยกเลิกเพื่อความปลอดภัย)");
+                setExporting(false);
+                return;
+            }
+            // 2) ปลอดภัยแล้ว เขียน attendance ลงชีท time_sport
+            await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "data", sheet: "time_sport", data: JSON.stringify({ attendance: db.attendance || {}, exportedAt: Date.now() }) }) });
+            ui.notify("✅ ส่งออกข้อมูลลงเวลาไปชีท time_sport แล้ว");
+        }
+        catch (e) {
+            ui.notify("ส่งออกไม่สำเร็จ: " + ((e && e.message) || ""));
+        }
+        setExporting(false);
+    };
     const Row = ({ label, a, b, hint }) => (React.createElement(Card, { style: { padding: 16 } },
         React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 4 } }, label),
         React.createElement("div", { style: { fontSize: 12, color: C.muted, marginBottom: 10 } }, hint),
@@ -5162,7 +5190,16 @@ function AttendWindowSettings({ db, setDb, ui }) {
         React.createElement(Row, { label: "\uD83D\uDFE2 \u0E0A\u0E48\u0E27\u0E07\u0E40\u0E0A\u0E47\u0E04\u0E40\u0E02\u0E49\u0E32 (\u0E40\u0E02\u0E49\u0E32\u0E0B\u0E49\u0E2D\u0E21)", a: "inStart", b: "inEnd", hint: "\u0E40\u0E0A\u0E48\u0E19 15:00 - 16:30" }),
         React.createElement(Row, { label: "\uD83D\uDFE1 \u0E0A\u0E48\u0E27\u0E07\u0E40\u0E0A\u0E47\u0E04\u0E2D\u0E2D\u0E01 (\u0E0B\u0E49\u0E2D\u0E21\u0E40\u0E2A\u0E23\u0E47\u0E08)", a: "outStart", b: "outEnd", hint: "\u0E40\u0E0A\u0E48\u0E19 17:00 - 18:30" }),
         React.createElement("div", null,
-            React.createElement(Btn, { onClick: save }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E0A\u0E48\u0E27\u0E07\u0E40\u0E27\u0E25\u0E32"))));
+            React.createElement(Btn, { onClick: save }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E0A\u0E48\u0E27\u0E07\u0E40\u0E27\u0E25\u0E32")),
+        React.createElement(Card, { style: { padding: 16, background: "#f7f9ff" } },
+            React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 4 } }, "\uD83D\uDCE4 \u0E2A\u0E48\u0E07\u0E2D\u0E2D\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E25\u0E07\u0E40\u0E27\u0E25\u0E32\u0E44\u0E1B\u0E0A\u0E35\u0E17 time_sport"),
+            React.createElement("div", { style: { fontSize: 12, color: C.muted, marginBottom: 10, lineHeight: 1.6 } },
+                "\u0E04\u0E31\u0E14\u0E25\u0E2D\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E25\u0E07\u0E40\u0E27\u0E25\u0E32\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14\u0E44\u0E1B\u0E40\u0E01\u0E47\u0E1A\u0E43\u0E19\u0E0A\u0E35\u0E17\u0E41\u0E22\u0E01\u0E0A\u0E37\u0E48\u0E2D ",
+                React.createElement("b", null, "time_sport"),
+                " (\u0E2D\u0E48\u0E32\u0E19/\u0E2A\u0E33\u0E23\u0E2D\u0E07\u0E41\u0E22\u0E01\u0E44\u0E14\u0E49) \u00B7 \u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30",
+                React.createElement("b", null, "\u0E15\u0E23\u0E27\u0E08\u0E01\u0E48\u0E2D\u0E19\u0E27\u0E48\u0E32 Deploy Code.gs \u0E43\u0E2B\u0E21\u0E48\u0E41\u0E25\u0E49\u0E27\u0E08\u0E23\u0E34\u0E07"),
+                " \u0E16\u0E36\u0E07\u0E08\u0E30\u0E40\u0E02\u0E35\u0E22\u0E19 \u2014 \u0E01\u0E31\u0E19\u0E40\u0E02\u0E35\u0E22\u0E19\u0E17\u0E31\u0E1A\u0E0A\u0E35\u0E17\u0E2D\u0E37\u0E48\u0E19\u0E42\u0E14\u0E22\u0E44\u0E21\u0E48\u0E15\u0E31\u0E49\u0E07\u0E43\u0E08"),
+            React.createElement(Btn, { small: true, variant: "ghost", onClick: exportToTimeSheet, disabled: exporting }, exporting ? "กำลังส่งออก..." : "📤 ส่งออกไปชีท time_sport"))));
 }
 function SettingsManager({ db, setDb, ui }) {
     const [tab, setTab] = useState("theme");
@@ -5481,6 +5518,17 @@ function AttendSummary({ db, myComps, ui }) {
     const fmtMin = (m) => m >= 60 ? `${Math.floor(m / 60)} ชม. ${m % 60} น.` : `${m} น.`;
     const cName = (id) => { if (id === "_none")
         return "บุคคลไม่มีส่วนร่วม"; const c = comps.find((x) => String(x.id) === String(id)); return c ? c.name : id; };
+    const scopeLabel = () => scope === "comp" ? (pick ? cName(pick) : "ทุกรายการ") : scope === "grade" ? (pick ? "ชั้น " + pick : "ทุกชั้น") : scope === "room" ? (pick ? "ห้อง " + pick : "ทุกห้อง") : "ทั้งหมด";
+    const exportExcel = () => { try {
+        const aoa = [["ชื่อ-สกุล", "มา (ครั้ง)", "เวลารวม (นาที)", "เวลารวม"]];
+        display.forEach((r) => aoa.push([r.name, r.present, r.mins, fmtMin(r.mins)]));
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "สรุปเวลา");
+        XLSX.writeFile(wb, `สรุปเวลา-${scopeLabel().replace(/[/\\]/g, "-")}.xlsx`);
+    }
+    catch (e) {
+        ui.notify("ดาวน์โหลด Excel ไม่สำเร็จ (เปิดผ่านเว็บจริง)");
+    } };
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\u23F1 \u0E2A\u0E23\u0E38\u0E1B\u0E40\u0E27\u0E25\u0E32\u0E23\u0E27\u0E21", sub: "\u0E23\u0E27\u0E21\u0E17\u0E38\u0E01\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E25\u0E07\u0E40\u0E27\u0E25\u0E32 \u00B7 \u0E08\u0E33\u0E19\u0E27\u0E19\u0E04\u0E23\u0E31\u0E49\u0E07\u0E17\u0E35\u0E48\u0E21\u0E32 + \u0E40\u0E27\u0E25\u0E32\u0E23\u0E27\u0E21 (\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E21\u0E35\u0E17\u0E31\u0E49\u0E07\u0E40\u0E02\u0E49\u0E32-\u0E2D\u0E2D\u0E01)" }),
         React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
@@ -5499,18 +5547,31 @@ function AttendSummary({ db, myComps, ui }) {
                 grades.map((g) => React.createElement("option", { key: g, value: g }, g))),
             scope === "room" && React.createElement(Select, { value: pick, onChange: setPick },
                 React.createElement("option", { value: "" }, "\u2014 \u0E17\u0E38\u0E01\u0E2B\u0E49\u0E2D\u0E07 \u2014"),
-                rooms.map((r) => React.createElement("option", { key: r, value: r }, r)))),
-        display.length === 0 ? React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E25\u0E07\u0E40\u0E27\u0E25\u0E32" }) : (React.createElement("div", { style: { overflowX: "auto" } },
-            React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 13 } },
-                React.createElement("thead", null,
-                    React.createElement("tr", { style: { background: C.soft } },
-                        React.createElement("th", { style: { padding: "8px 6px", textAlign: "left" } }, "\u0E0A\u0E37\u0E48\u0E2D-\u0E2A\u0E01\u0E38\u0E25"),
-                        React.createElement("th", { style: { padding: "8px 6px", textAlign: "right" } }, "\u0E21\u0E32 (\u0E04\u0E23\u0E31\u0E49\u0E07)"),
-                        React.createElement("th", { style: { padding: "8px 6px", textAlign: "right" } }, "\u0E40\u0E27\u0E25\u0E32\u0E23\u0E27\u0E21"))),
-                React.createElement("tbody", null, display.map((r, i) => React.createElement("tr", { key: i, style: { borderTop: `1px solid ${C.line}` } },
-                    React.createElement("td", { style: { padding: "6px", fontWeight: 600 } }, r.name),
-                    React.createElement("td", { style: { padding: "6px", textAlign: "right", fontWeight: 700, color: C.primaryDark } }, r.present),
-                    React.createElement("td", { style: { padding: "6px", textAlign: "right", color: "#1e7a4d", fontWeight: 700 } }, fmtMin(r.mins))))))))));
+                rooms.map((r) => React.createElement("option", { key: r, value: r }, r))),
+            display.length > 0 && React.createElement(React.Fragment, null,
+                React.createElement("span", { style: { flex: 1 } }),
+                React.createElement(Btn, { small: true, variant: "ghost", onClick: exportExcel }, "\u2B07 Excel"),
+                React.createElement(Btn, { small: true, variant: "ghost", onClick: () => pdfFromEl("attendSumArea", "portrait", `สรุปเวลา-${scopeLabel().replace(/[/\\]/g, "-")}.pdf`, ui.notify) }, "\u2B07 PDF"))),
+        display.length === 0 ? React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E25\u0E07\u0E40\u0E27\u0E25\u0E32" }) : (React.createElement("div", { id: "attendSumArea", style: { background: "#fff", padding: 12, borderRadius: 8 } },
+            React.createElement("div", { style: { fontWeight: 800, color: C.ink, marginBottom: 8 } },
+                "\u0E2A\u0E23\u0E38\u0E1B\u0E40\u0E27\u0E25\u0E32\u0E23\u0E27\u0E21 \u00B7 ",
+                scopeLabel(),
+                " ",
+                React.createElement("span", { style: { fontSize: 12, color: C.muted, fontWeight: 400 } },
+                    "(",
+                    display.length,
+                    " \u0E04\u0E19)")),
+            React.createElement("div", { style: { overflowX: "auto" } },
+                React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 13 } },
+                    React.createElement("thead", null,
+                        React.createElement("tr", { style: { background: C.soft } },
+                            React.createElement("th", { style: { padding: "8px 6px", textAlign: "left" } }, "\u0E0A\u0E37\u0E48\u0E2D-\u0E2A\u0E01\u0E38\u0E25"),
+                            React.createElement("th", { style: { padding: "8px 6px", textAlign: "right" } }, "\u0E21\u0E32 (\u0E04\u0E23\u0E31\u0E49\u0E07)"),
+                            React.createElement("th", { style: { padding: "8px 6px", textAlign: "right" } }, "\u0E40\u0E27\u0E25\u0E32\u0E23\u0E27\u0E21"))),
+                    React.createElement("tbody", null, display.map((r, i) => React.createElement("tr", { key: i, style: { borderTop: `1px solid ${C.line}` } },
+                        React.createElement("td", { style: { padding: "6px", fontWeight: 600 } }, r.name),
+                        React.createElement("td", { style: { padding: "6px", textAlign: "right", fontWeight: 700, color: C.primaryDark } }, r.present),
+                        React.createElement("td", { style: { padding: "6px", textAlign: "right", color: "#1e7a4d", fontWeight: 700 } }, fmtMin(r.mins)))))))))));
 }
 function TimeAttendance({ db, setDb, ui, meId, role, myComps, sub }) {
     const [date, setDate] = useState(todayStr());
@@ -5519,7 +5580,7 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps, sub }) {
     const nowHM = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
     const inOpen = !isToday || (nowHM() >= win.inStart && nowHM() <= win.inEnd);
     const outOpen = !isToday || (nowHM() >= win.outStart && nowHM() <= win.outEnd);
-    const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 400);
+    const save = () => setTimeout(() => window.__saveSoon ? window.__saveSoon() : (window.__forceSave && window.__forceSave()), 100);
     const rec = (compId, sid) => (((db.attendance || {})[date] || {})[compId] || {})[sid] || {};
     const setMark = (compId, sid, kind) => {
         if (kind === "in" && !inOpen) {
@@ -7182,6 +7243,10 @@ function App() {
         return;
     } clearTimeout(timerRef.current); doSave(); }; // บันทึกได้เสมอหลังเคยโหลด/บันทึกสำเร็จอย่างน้อย 1 ครั้ง (กันทับด้วยข้อมูลว่างตอนยังไม่เคยโหลด)
     window.__forceSave = saveNow; // ให้หน้าจอย่อยสั่งบันทึกขึ้น Sheet ทันทีได้
+    // บันทึกแบบรวบ (debounce) — กดรัว ๆ (เช่นเช็คชื่อหลายคน) จะบันทึกครั้งเดียวหลังหยุด ~1.2 วิ ลดการเรียก Apps Script
+    const saveSoonRef = timerRef; // ใช้ timer เดียวกับ auto-save
+    window.__saveSoon = () => { if (!everLoadedRef.current)
+        return; dirtyRef.current = true; clearTimeout(saveSoonRef.current); saveSoonRef.current = setTimeout(() => saveNow(), 1200); };
     // อ่านข้อมูลล่าสุดจาก Sheet ก่อน แล้วแก้เฉพาะจุด แล้วบันทึก (กันการลงชื่อ/ถอน/อนุมัติ ของหลายคนทับกัน)
     // mutator(latest) คืน db ใหม่ ถ้าคืน null/undefined = ยกเลิก (เช่น ตำแหน่งถูกลงไปแล้ว) จะไม่บันทึกทับ แต่จะอัปเดตหน้าจอเป็นข้อมูลล่าสุด
     window.__commitRemote = (mutator, opts) => {
