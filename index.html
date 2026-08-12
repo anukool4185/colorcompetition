@@ -133,7 +133,7 @@ const seed = {
     competitions: [],
     archived: [],
     trash: [],
-    settings: { maxMain: 3, themeColor: DEFAULT_HOUSES[0].color, houses: DEFAULT_HOUSES, scoreConfig: { scheme: "outcome", win: 3, draw: 1, lose: 0, gold: 10, silver: 8, bronze: 6 }, announce: { speed: 18, showLines: 3, lines: [
+    settings: { maxMain: 3, themeColor: DEFAULT_HOUSES[0].color, houses: DEFAULT_HOUSES, scoreConfig: { scheme: "outcome", win: 3, draw: 1, lose: 0, gold: 10, silver: 8, bronze: 6 }, attendWin: { inStart: "15:00", inEnd: "16:30", outStart: "17:00", outEnd: "18:30" }, announce: { speed: 18, showLines: 3, lines: [
                 "ยินดีต้อนรับสู่การแข่งขันวิชาการสี",
             ] } },
 };
@@ -5098,16 +5098,40 @@ function TrainingManager({ db, setDb, ui }) {
                 React.createElement(Btn, { small: true, variant: "danger", onClick: () => del(t.id) }, "\u0E25\u0E1A")))),
             list.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21" }))));
 }
+function AttendWindowSettings({ db, setDb, ui }) {
+    const cur = (db.settings && db.settings.attendWin) || { inStart: "15:00", inEnd: "16:30", outStart: "17:00", outEnd: "18:30" };
+    const [f, setF] = useState(cur);
+    const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
+    const save = () => ui.run("บันทึกช่วงเวลาแล้ว", () => { setDb((p) => ({ ...p, settings: { ...p.settings, attendWin: f } })); });
+    const Row = ({ label, a, b, hint }) => (React.createElement(Card, { style: { padding: 16 } },
+        React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 4 } }, label),
+        React.createElement("div", { style: { fontSize: 12, color: C.muted, marginBottom: 10 } }, hint),
+        React.createElement("div", { style: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" } },
+            React.createElement("span", { style: { fontSize: 13 } }, "\u0E15\u0E31\u0E49\u0E07\u0E41\u0E15\u0E48"),
+            React.createElement("input", { type: "time", value: f[a], onChange: (e) => set(a)(e.target.value), style: { padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14 } }),
+            React.createElement("span", { style: { fontSize: 13 } }, "\u0E16\u0E36\u0E07"),
+            React.createElement("input", { type: "time", value: f[b], onChange: (e) => set(b)(e.target.value), style: { padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14 } }))));
+    return (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14, maxWidth: 520 } },
+        React.createElement("div", { style: { fontSize: 12.5, color: C.muted } },
+            "\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E0A\u0E48\u0E27\u0E07\u0E40\u0E27\u0E25\u0E32\u0E17\u0E35\u0E48\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E40\u0E0A\u0E47\u0E04\u0E40\u0E02\u0E49\u0E32/\u0E2D\u0E2D\u0E01\u0E44\u0E14\u0E49 (\u0E43\u0E0A\u0E49\u0E01\u0E31\u0E1A\u0E17\u0E38\u0E01\u0E01\u0E35\u0E2C\u0E32/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21) \u00B7 ",
+            React.createElement("b", null, "\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E27\u0E31\u0E19\u0E1B\u0E31\u0E08\u0E08\u0E38\u0E1A\u0E31\u0E19"),
+            " \u2014 \u0E19\u0E2D\u0E01\u0E0A\u0E48\u0E27\u0E07\u0E01\u0E14\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49 \u0E01\u0E31\u0E19\u0E40\u0E0A\u0E47\u0E04\u0E21\u0E31\u0E48\u0E27 \u00B7 \u0E16\u0E49\u0E32\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E27\u0E31\u0E19\u0E22\u0E49\u0E2D\u0E19\u0E2B\u0E25\u0E31\u0E07\u0E08\u0E30\u0E40\u0E0A\u0E47\u0E04\u0E44\u0E14\u0E49\u0E40\u0E2A\u0E21\u0E2D"),
+        React.createElement(Row, { label: "\uD83D\uDFE2 \u0E0A\u0E48\u0E27\u0E07\u0E40\u0E0A\u0E47\u0E04\u0E40\u0E02\u0E49\u0E32 (\u0E40\u0E02\u0E49\u0E32\u0E0B\u0E49\u0E2D\u0E21)", a: "inStart", b: "inEnd", hint: "\u0E40\u0E0A\u0E48\u0E19 15:00 - 16:30" }),
+        React.createElement(Row, { label: "\uD83D\uDFE1 \u0E0A\u0E48\u0E27\u0E07\u0E40\u0E0A\u0E47\u0E04\u0E2D\u0E2D\u0E01 (\u0E0B\u0E49\u0E2D\u0E21\u0E40\u0E2A\u0E23\u0E47\u0E08)", a: "outStart", b: "outEnd", hint: "\u0E40\u0E0A\u0E48\u0E19 17:00 - 18:30" }),
+        React.createElement("div", null,
+            React.createElement(Btn, { onClick: save }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E0A\u0E48\u0E27\u0E07\u0E40\u0E27\u0E25\u0E32"))));
+}
 function SettingsManager({ db, setDb, ui }) {
     const [tab, setTab] = useState("theme");
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32", sub: "\u0E18\u0E35\u0E21\u0E2A\u0E35 & \u0E2A\u0E35\u0E17\u0E35\u0E21 \u00B7 \u0E1B\u0E23\u0E30\u0E0A\u0E32\u0E2A\u0E31\u0E21\u0E1E\u0E31\u0E19\u0E18\u0E4C \u00B7 \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19" }),
-        React.createElement(Tabs, { tabs: [{ key: "theme", label: "ธีม & สีทีม" }, { key: "promo", label: "ประชาสัมพันธ์" }, { key: "schedule", label: "กำหนดการแข่งขัน" }, { key: "training", label: "กำหนดการฝึกซ้อม" }, { key: "score", label: "คะแนน" }], active: tab, onChange: setTab }),
+        React.createElement(Tabs, { tabs: [{ key: "theme", label: "ธีม & สีทีม" }, { key: "promo", label: "ประชาสัมพันธ์" }, { key: "schedule", label: "กำหนดการแข่งขัน" }, { key: "training", label: "กำหนดการฝึกซ้อม" }, { key: "score", label: "คะแนน" }, { key: "attend", label: "ช่วงเวลาลงเวลา" }], active: tab, onChange: setTab }),
         tab === "theme" && React.createElement(ThemeCard, { db: db, setDb: setDb, ui: ui }),
         tab === "promo" && React.createElement(PromoCard, { db: db, setDb: setDb, ui: ui }),
         tab === "schedule" && React.createElement(ScheduleSettings, { db: db, setDb: setDb, ui: ui }),
         tab === "training" && React.createElement(TrainingManager, { db: db, setDb: setDb, ui: ui }),
-        tab === "score" && React.createElement(ScoreSettings, { db: db, setDb: setDb, ui: ui })));
+        tab === "score" && React.createElement(ScoreSettings, { db: db, setDb: setDb, ui: ui }),
+        tab === "attend" && React.createElement(AttendWindowSettings, { db: db, setDb: setDb, ui: ui })));
 }
 function ScoreSettings({ db, setDb, ui }) {
     const cfg = db.settings.scoreConfig || { scheme: "outcome", win: 3, draw: 1, lose: 0, gold: 10, silver: 8, bronze: 6 };
@@ -5378,6 +5402,212 @@ function NotificationCenter({ db, setDb, ui, admin, viewerId, viewerRole, onGoRe
         approvePick && React.createElement(ReplacementPicker, { title: "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E01\u0E48\u0E2D\u0E19\u0E2D\u0E19\u0E38\u0E0D\u0E32\u0E15", note: "\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 \u00B7 \u0E15\u0E49\u0E2D\u0E07\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E01\u0E48\u0E2D\u0E19\u0E08\u0E36\u0E07\u0E08\u0E30\u0E16\u0E2D\u0E19\u0E1C\u0E39\u0E49\u0E02\u0E2D\u0E2D\u0E2D\u0E01\u0E44\u0E14\u0E49 (\u0E41\u0E19\u0E30\u0E19\u0E33\u0E1C\u0E39\u0E49\u0E17\u0E35\u0E48\u0E1C\u0E39\u0E49\u0E02\u0E2D\u0E40\u0E2A\u0E19\u0E2D \u0E2B\u0E23\u0E37\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E43\u0E2B\u0E21\u0E48)", pool: poolFor(approvePick), onPick: (s) => doApprove(approvePick, s), onClose: () => setApprovePick(null) }),
         reReq && React.createElement(ReplacementPicker, { title: "\u0E02\u0E2D\u0E16\u0E2D\u0E19\u0E15\u0E31\u0E27\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07 \u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19", note: "\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 \u00B7 \u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E41\u0E08\u0E49\u0E07\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19 + \u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E15\u0E32\u0E21\u0E2A\u0E32\u0E22\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07", pool: poolFor(reReq), onPick: (s) => reRequestPick(reReq, s), onClose: () => setReReq(null) })));
 }
+function AttendSummary({ db, myComps, ui }) {
+    const [scope, setScope] = useState("comp");
+    const [pick, setPick] = useState("");
+    const myIds = new Set(myComps.map((c) => String(c.id)));
+    const hm2min = (t) => { if (!t)
+        return 0; const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+    // รวมทุกวัน: ต่อ นักเรียน+รายการ → นับวันที่มา + รวมนาที (ถ้ามีทั้งเข้า-ออก)
+    const rowsByStudent = {};
+    Object.keys(db.attendance || {}).forEach((date) => { const d = db.attendance[date]; Object.keys(d).forEach((compId) => { if (!myIds.has(String(compId)) && compId !== "_none")
+        return; const cm = d[compId]; Object.keys(cm).forEach((sid) => { const r = cm[sid]; if (!r || (!r.in && !r.out))
+        return; const s = db.students.find((x) => String(x.id) === String(sid)); if (!s)
+        return; const key = sid + "|" + compId; rowsByStudent[key] = rowsByStudent[key] || { s, compId, days: 0, mins: 0, present: 0 }; rowsByStudent[key].present++; if (r.in && r.out)
+        rowsByStudent[key].mins += Math.max(0, hm2min(r.out) - hm2min(r.in)); }); }); });
+    let list = Object.values(rowsByStudent);
+    const comps = myComps;
+    const grades = Array.from(new Set(list.map((r) => r.s.grade))).filter(Boolean).sort();
+    const rooms = Array.from(new Set(list.map((r) => `${r.s.grade}/${r.s.room}`))).filter((r) => r !== "/").sort();
+    if (scope === "comp" && pick)
+        list = list.filter((r) => String(r.compId) === String(pick));
+    if (scope === "grade" && pick)
+        list = list.filter((r) => r.s.grade === pick);
+    if (scope === "room" && pick)
+        list = list.filter((r) => `${r.s.grade}/${r.s.room}` === pick);
+    // รวมรายคน (ข้ามรายการ) เมื่อดูราย ชั้น/ห้อง/ทั้งหมด
+    let display;
+    if (scope === "comp")
+        display = list.map((r) => ({ name: `${r.s.first} ${r.s.last} (${r.s.grade}/${r.s.room})`, present: r.present, mins: r.mins }));
+    else {
+        const byS = {};
+        list.forEach((r) => { const k = r.s.id; byS[k] = byS[k] || { name: `${r.s.first} ${r.s.last} (${r.s.grade}/${r.s.room})`, present: 0, mins: 0 }; byS[k].present += r.present; byS[k].mins += r.mins; });
+        display = Object.values(byS);
+    }
+    display.sort((a, b) => b.present - a.present || b.mins - a.mins);
+    const fmtMin = (m) => m >= 60 ? `${Math.floor(m / 60)} ชม. ${m % 60} น.` : `${m} น.`;
+    const cName = (id) => { if (id === "_none")
+        return "บุคคลไม่มีส่วนร่วม"; const c = comps.find((x) => String(x.id) === String(id)); return c ? c.name : id; };
+    return (React.createElement("div", null,
+        React.createElement(PageHead, { title: "\u23F1 \u0E2A\u0E23\u0E38\u0E1B\u0E40\u0E27\u0E25\u0E32\u0E23\u0E27\u0E21", sub: "\u0E23\u0E27\u0E21\u0E17\u0E38\u0E01\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E25\u0E07\u0E40\u0E27\u0E25\u0E32 \u00B7 \u0E08\u0E33\u0E19\u0E27\u0E19\u0E04\u0E23\u0E31\u0E49\u0E07\u0E17\u0E35\u0E48\u0E21\u0E32 + \u0E40\u0E27\u0E25\u0E32\u0E23\u0E27\u0E21 (\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E21\u0E35\u0E17\u0E31\u0E49\u0E07\u0E40\u0E02\u0E49\u0E32-\u0E2D\u0E2D\u0E01)" }),
+        React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
+            React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u0E14\u0E39\u0E15\u0E32\u0E21:"),
+            React.createElement(Select, { value: scope, onChange: (v) => { setScope(v); setPick(""); } },
+                React.createElement("option", { value: "comp" }, "\u0E23\u0E32\u0E22\u0E01\u0E35\u0E2C\u0E32/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21"),
+                React.createElement("option", { value: "grade" }, "\u0E23\u0E32\u0E22\u0E0A\u0E31\u0E49\u0E19"),
+                React.createElement("option", { value: "room" }, "\u0E23\u0E32\u0E22\u0E2B\u0E49\u0E2D\u0E07"),
+                React.createElement("option", { value: "all" }, "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 (\u0E23\u0E32\u0E22\u0E04\u0E19)")),
+            scope === "comp" && React.createElement(Select, { value: pick, onChange: setPick },
+                React.createElement("option", { value: "" }, "\u2014 \u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2014"),
+                comps.map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name)),
+                React.createElement("option", { value: "_none" }, "\u0E1A\u0E38\u0E04\u0E04\u0E25\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E48\u0E27\u0E19\u0E23\u0E48\u0E27\u0E21")),
+            scope === "grade" && React.createElement(Select, { value: pick, onChange: setPick },
+                React.createElement("option", { value: "" }, "\u2014 \u0E17\u0E38\u0E01\u0E0A\u0E31\u0E49\u0E19 \u2014"),
+                grades.map((g) => React.createElement("option", { key: g, value: g }, g))),
+            scope === "room" && React.createElement(Select, { value: pick, onChange: setPick },
+                React.createElement("option", { value: "" }, "\u2014 \u0E17\u0E38\u0E01\u0E2B\u0E49\u0E2D\u0E07 \u2014"),
+                rooms.map((r) => React.createElement("option", { key: r, value: r }, r)))),
+        display.length === 0 ? React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E25\u0E07\u0E40\u0E27\u0E25\u0E32" }) : (React.createElement("div", { style: { overflowX: "auto" } },
+            React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", fontSize: 13 } },
+                React.createElement("thead", null,
+                    React.createElement("tr", { style: { background: C.soft } },
+                        React.createElement("th", { style: { padding: "8px 6px", textAlign: "left" } }, "\u0E0A\u0E37\u0E48\u0E2D-\u0E2A\u0E01\u0E38\u0E25"),
+                        React.createElement("th", { style: { padding: "8px 6px", textAlign: "right" } }, "\u0E21\u0E32 (\u0E04\u0E23\u0E31\u0E49\u0E07)"),
+                        React.createElement("th", { style: { padding: "8px 6px", textAlign: "right" } }, "\u0E40\u0E27\u0E25\u0E32\u0E23\u0E27\u0E21"))),
+                React.createElement("tbody", null, display.map((r, i) => React.createElement("tr", { key: i, style: { borderTop: `1px solid ${C.line}` } },
+                    React.createElement("td", { style: { padding: "6px", fontWeight: 600 } }, r.name),
+                    React.createElement("td", { style: { padding: "6px", textAlign: "right", fontWeight: 700, color: C.primaryDark } }, r.present),
+                    React.createElement("td", { style: { padding: "6px", textAlign: "right", color: "#1e7a4d", fontWeight: 700 } }, fmtMin(r.mins))))))))));
+}
+function TimeAttendance({ db, setDb, ui, meId, role, myComps, sub }) {
+    const [date, setDate] = useState(todayStr());
+    const isToday = date === todayStr();
+    const win = (db.settings && db.settings.attendWin) || { inStart: "00:00", inEnd: "23:59", outStart: "00:00", outEnd: "23:59" };
+    const nowHM = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
+    const inOpen = !isToday || (nowHM() >= win.inStart && nowHM() <= win.inEnd);
+    const outOpen = !isToday || (nowHM() >= win.outStart && nowHM() <= win.outEnd);
+    const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 400);
+    const rec = (compId, sid) => (((db.attendance || {})[date] || {})[compId] || {})[sid] || {};
+    const setMark = (compId, sid, kind) => {
+        if (kind === "in" && !inOpen) {
+            ui.notify(`ยังไม่ถึงช่วงเช็คเข้า (${win.inStart}-${win.inEnd})`);
+            return;
+        }
+        if (kind === "out" && !outOpen) {
+            ui.notify(`ยังไม่ถึงช่วงเช็คออก (${win.outStart}-${win.outEnd})`);
+            return;
+        }
+        const t = nowHM();
+        setDb((p) => {
+            const att = { ...(p.attendance || {}) };
+            const d = { ...(att[date] || {}) };
+            const cm = { ...(d[compId] || {}) };
+            const cur = { ...(cm[sid] || {}) };
+            cur[kind] = cur[kind] ? undefined : t; // กดซ้ำ = ยกเลิก
+            cm[sid] = cur;
+            // กรรมการเช็คใครในบล็อกนี้ → ลงเวลาตนเองด้วย (ถ้ายังไม่ลง)
+            const meCur = { ...(cm[meId] || {}) };
+            if (kind === "in" && !meCur.in)
+                meCur.in = t;
+            if (kind === "out" && !meCur.out)
+                meCur.out = t;
+            cm[meId] = meCur;
+            d[compId] = cm;
+            att[date] = d;
+            return { ...p, attendance: att };
+        });
+        save();
+    };
+    if (sub === "none") {
+        const registered = new Set();
+        (db.competitions || []).forEach((c) => (c.participants || []).forEach((x) => { if (x.sel === "main" || x.sel === "reserve")
+            registered.add(String(x.sid)); }));
+        const hasDuty = new Set([...(db.orgStudent || []), ...(db.orgTeacher || [])].map((n) => String(n.personId)).filter(Boolean));
+        const nonPart = (db.students || []).filter((s) => !registered.has(String(s.id)) && !hasDuty.has(String(s.id))).sort((a, b) => (a.grade + a.room + a.first).localeCompare(b.grade + b.room + b.first, "th"));
+        return (React.createElement("div", null,
+            React.createElement(PageHead, { title: "\u23F1 \u0E25\u0E07\u0E40\u0E27\u0E25\u0E32 \u2014 \u0E1A\u0E38\u0E04\u0E04\u0E25\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E48\u0E27\u0E19\u0E23\u0E48\u0E27\u0E21", sub: "\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2A\u0E21\u0E31\u0E04\u0E23 + \u0E44\u0E21\u0E48\u0E21\u0E35\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E43\u0E14 (\u0E40\u0E0A\u0E47\u0E04\u0E01\u0E31\u0E1A\u0E04\u0E23\u0E39) \u00B7 \u0E19\u0E31\u0E01\u0E01\u0E35\u0E2C\u0E32\u0E17\u0E35\u0E48\u0E16\u0E39\u0E01\u0E04\u0E31\u0E14\u0E2D\u0E2D\u0E01\u0E08\u0E30\u0E01\u0E25\u0E31\u0E1A\u0E21\u0E32\u0E2D\u0E22\u0E39\u0E48\u0E01\u0E25\u0E38\u0E48\u0E21\u0E19\u0E35\u0E49 \u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E40\u0E27\u0E25\u0E32\u0E40\u0E14\u0E34\u0E21\u0E22\u0E31\u0E07\u0E23\u0E27\u0E21\u0E43\u0E19\u0E2A\u0E23\u0E38\u0E1B" }),
+            React.createElement("div", { style: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 } },
+                React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48:"),
+                React.createElement("input", { type: "date", value: date, onChange: (e) => setDate(e.target.value), style: { padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14 } }),
+                isToday ? React.createElement("span", { style: { fontSize: 12, color: C.muted } },
+                    "\u0E40\u0E02\u0E49\u0E32 ",
+                    win.inStart,
+                    "-",
+                    win.inEnd,
+                    " \u00B7 \u0E2D\u0E2D\u0E01 ",
+                    win.outStart,
+                    "-",
+                    win.outEnd) : React.createElement("span", { style: { fontSize: 12, color: "#b3762f", fontWeight: 700 } }, "\u0E22\u0E49\u0E2D\u0E19\u0E2B\u0E25\u0E31\u0E07 (\u0E40\u0E0A\u0E47\u0E04\u0E44\u0E14\u0E49\u0E40\u0E2A\u0E21\u0E2D)")),
+            role !== "teacher" && React.createElement("div", { style: { background: "#fff6e9", color: "#b3762f", borderRadius: 10, padding: "8px 12px", fontSize: 12.5, fontWeight: 700, marginBottom: 10 } }, "\u0E40\u0E21\u0E19\u0E39\u0E19\u0E35\u0E49\u0E2A\u0E33\u0E2B\u0E23\u0E31\u0E1A\u0E04\u0E23\u0E39\u0E40\u0E0A\u0E47\u0E04\u0E43\u0E2B\u0E49\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E48\u0E27\u0E19\u0E23\u0E48\u0E27\u0E21"),
+            React.createElement(Card, { style: { padding: 14 } },
+                React.createElement("div", { style: { fontWeight: 800, color: C.ink, marginBottom: 8 } },
+                    "\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E48\u0E27\u0E19\u0E23\u0E48\u0E27\u0E21 (",
+                    nonPart.length,
+                    " \u0E04\u0E19)"),
+                nonPart.length === 0 ? React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E21\u0E35 \u2014 \u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E17\u0E38\u0E01\u0E04\u0E19\u0E2A\u0E21\u0E31\u0E04\u0E23/\u0E21\u0E35\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E41\u0E25\u0E49\u0E27" }) : (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5 } }, nonPart.map((s) => {
+                    const r = rec("_none", s.id);
+                    return (React.createElement("div", { key: s.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", background: "#f7f9ff", borderRadius: 8 } },
+                        React.createElement("div", { style: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                            s.first,
+                            " ",
+                            s.last,
+                            " ",
+                            React.createElement("span", { style: { fontSize: 11, color: C.muted } },
+                                "(",
+                                s.grade,
+                                "/",
+                                s.room,
+                                ")")),
+                        React.createElement("button", { onClick: () => setMark("_none", s.id, "in"), style: { border: `1px solid ${r.in ? "#2f9e6b" : C.line}`, background: r.in ? "#e8f8ef" : C.surface, color: r.in ? "#1e7a4d" : C.muted, borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" } }, r.in ? "เข้า " + r.in : "เข้า"),
+                        React.createElement("button", { onClick: () => setMark("_none", s.id, "out"), style: { border: `1px solid ${r.out ? "#c99a2e" : C.line}`, background: r.out ? "#fff6e9" : C.surface, color: r.out ? "#b3762f" : C.muted, borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" } }, r.out ? "ออก " + r.out : "ออก")));
+                }))))));
+    }
+    if (sub === "sum")
+        return React.createElement(AttendSummary, { db: db, myComps: myComps, ui: ui });
+    return (React.createElement("div", null,
+        React.createElement(PageHead, { title: "\u23F1 \u0E25\u0E07\u0E40\u0E27\u0E25\u0E32\u0E0B\u0E49\u0E2D\u0E21 \u2014 \u0E27\u0E31\u0E19\u0E08\u0E23\u0E34\u0E07", sub: "\u0E40\u0E0A\u0E47\u0E04\u0E40\u0E02\u0E49\u0E32/\u0E2D\u0E2D\u0E01 \u0E41\u0E22\u0E01\u0E15\u0E32\u0E21\u0E01\u0E35\u0E2C\u0E32/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \u00B7 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E27\u0E31\u0E19\u0E04\u0E23\u0E31\u0E49\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27\u0E43\u0E0A\u0E49\u0E44\u0E14\u0E49\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23" }),
+        React.createElement("div", { style: { display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", marginBottom: 12 } },
+            React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48:"),
+            React.createElement("input", { type: "date", value: date, onChange: (e) => setDate(e.target.value), style: { padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14 } }),
+            isToday && React.createElement("span", { style: { fontSize: 12, color: C.muted } },
+                "\u0E40\u0E02\u0E49\u0E32 ",
+                win.inStart,
+                "-",
+                win.inEnd,
+                " \u00B7 \u0E2D\u0E2D\u0E01 ",
+                win.outStart,
+                "-",
+                win.outEnd),
+            !isToday && React.createElement("span", { style: { fontSize: 12, color: "#b3762f", fontWeight: 700 } }, "\u0E14\u0E39/\u0E41\u0E01\u0E49\u0E22\u0E49\u0E2D\u0E19\u0E2B\u0E25\u0E31\u0E07 (\u0E19\u0E2D\u0E01\u0E0A\u0E48\u0E27\u0E07\u0E01\u0E47\u0E40\u0E0A\u0E47\u0E04\u0E44\u0E14\u0E49)")),
+        isToday && (React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" } },
+            React.createElement("span", { style: { fontSize: 12.5, fontWeight: 700, color: inOpen ? "#1e7a4d" : "#c0392b" } },
+                "\u0E40\u0E0A\u0E47\u0E04\u0E40\u0E02\u0E49\u0E32: ",
+                inOpen ? "เปิด ✅" : "ปิด (นอกช่วง)"),
+            React.createElement("span", { style: { fontSize: 12.5, fontWeight: 700, color: outOpen ? "#1e7a4d" : "#c0392b" } },
+                "\u0E40\u0E0A\u0E47\u0E04\u0E2D\u0E2D\u0E01: ",
+                outOpen ? "เปิด ✅" : "ปิด (นอกช่วง)"))),
+        myComps.length === 0 ? React.createElement(Empty, { text: "\u0E04\u0E38\u0E13\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E14\u0E39\u0E41\u0E25\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E43\u0E14" }) : myComps.map((c) => {
+            const parts = (c.participants || []).filter((x) => x.sel === "main" || x.sel === "reserve");
+            const students = parts.map((x) => db.students.find((s) => String(s.id) === String(x.sid))).filter(Boolean).sort((a, b) => (a.grade + a.room + a.first).localeCompare(b.grade + b.room + b.first, "th"));
+            return (React.createElement(Card, { key: c.id, style: { padding: 14, marginBottom: 14 } },
+                React.createElement("div", { style: { fontWeight: 800, color: C.ink, marginBottom: 2 } },
+                    c.kind === "กิจกรรม" ? "🎯" : "🏅",
+                    " ",
+                    c.name,
+                    " ",
+                    React.createElement("span", { style: { fontSize: 11, color: C.muted, fontWeight: 400 } },
+                        "(",
+                        students.length,
+                        " \u0E04\u0E19)")),
+                students.length === 0 ? React.createElement("div", { style: { fontSize: 12.5, color: C.muted, padding: "6px 0" } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E39\u0E49\u0E40\u0E02\u0E49\u0E32\u0E23\u0E48\u0E27\u0E21") : (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5, marginTop: 8 } }, students.map((s) => {
+                    const r = rec(c.id, s.id);
+                    return (React.createElement("div", { key: s.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", background: "#f7f9ff", borderRadius: 8 } },
+                        React.createElement("div", { style: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                            s.first,
+                            " ",
+                            s.last,
+                            " ",
+                            React.createElement("span", { style: { fontSize: 11, color: C.muted } },
+                                "(",
+                                s.grade,
+                                "/",
+                                s.room,
+                                ")")),
+                        React.createElement("button", { onClick: () => setMark(c.id, s.id, "in"), style: { border: `1px solid ${r.in ? "#2f9e6b" : C.line}`, background: r.in ? "#e8f8ef" : C.surface, color: r.in ? "#1e7a4d" : C.muted, borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" } }, r.in ? "เข้า " + r.in : "เข้า"),
+                        React.createElement("button", { onClick: () => setMark(c.id, s.id, "out"), style: { border: `1px solid ${r.out ? "#c99a2e" : C.line}`, background: r.out ? "#fff6e9" : C.surface, color: r.out ? "#b3762f" : C.muted, borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" } }, r.out ? "ออก " + r.out : "ออก")));
+                })))));
+        })));
+}
 function CommitteeApp({ role, db, setDb, onExit, meId }) {
     const [view, setView] = useState(() => {
         const hasPending = (db.orgRequests || []).some((r) => {
@@ -5426,6 +5656,7 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
         { key: "items", label: "รายการแข่งขัน", icon: "🏆" },
         { key: "results", label: "ส่งผล", icon: "🏅" },
         { key: "register", label: "สมัคร", icon: "✍️" },
+        { key: "attend", label: "ลงเวลา", icon: "⏱", defaultKey: "attend:day", children: [{ key: "attend:day", label: "ลงเวลาซ้อม-วันจริง" }, { key: "attend:none", label: "บุคคลไม่มีส่วนร่วม" }, { key: "attend:sum", label: "สรุปเวลารวม" }] },
         { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" },
     ];
     return (React.createElement(Shell, { role: role, nav: nav, view: view, setView: setView, onExit: onExit, ui: ui },
@@ -5435,6 +5666,7 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
         String(view).startsWith("org") && React.createElement(OrgViewManager, { db: db, setDb: setDb, ui: ui, committee: { role, meId }, orgComp: view === "org:all" ? "" : String(view).replace("org:", "") }),
         view === "select" && React.createElement(MyDutyScreen, { role: role, meId: meId, db: db, setDb: setDb, ui: ui }),
         view === "results" && React.createElement(ResultsManager, { db: db, setDb: setDb, ui: ui, scopeCompIds: myCompIds, autoOpen: jumpComp, onAutoOpened: () => setJumpComp(null) }),
+        String(view).startsWith("attend") && React.createElement(TimeAttendance, { db: db, setDb: setDb, ui: ui, meId: meId, role: role, myComps: myComps, sub: String(view).split(":")[1] || "day" }),
         view === "finance" && (() => { const meP = (role === "teacher" ? db.teachers : db.students).find((x) => String(x.id) === String(meId)); return React.createElement(FinanceManager, { db: db, setDb: setDb, ui: ui, viewer: { role, id: meId, name: meP ? fullName(meP) : "" } }); })(),
         view === "schedule" && React.createElement(CommitteeSchedule, { myCompIds: myCompIds, db: db, setDb: setDb, ui: ui, me: role === "studentcom" ? db.students.find((s) => s.id === meId) : null }),
         view === "items" && React.createElement(CompDisplayTabs, { db: db, ui: ui }),
@@ -6751,6 +6983,7 @@ function mergeDb(loaded) {
         financeNotis: (loaded && loaded.financeNotis) || [],
         loans: (loaded && loaded.loans) || [],
         receiptSeq: (loaded && loaded.receiptSeq) || 0,
+        attendance: (loaded && loaded.attendance) || {},
         incomeCols: (loaded && loaded.incomeCols) || 5,
         archived: (loaded && loaded.archived) || [],
         trash: (loaded && loaded.trash) || [],
