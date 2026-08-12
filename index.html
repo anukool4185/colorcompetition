@@ -1119,10 +1119,10 @@ function LoanManager({ db, setDb, ui, viewer }) {
                 "\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 (\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23)",
                 chosen ? ` · เลือก: ${fullName(chosen)}` : ""),
             React.createElement("input", { value: q, onChange: (e) => setQ(e.target.value), placeholder: "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E0A\u0E37\u0E48\u0E2D\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19...", style: { ...selCss, marginBottom: 6 } }),
-            React.createElement("div", { style: { maxHeight: 160, overflowY: "auto", border: `1px solid ${C.line}`, borderRadius: 10, marginBottom: 10 } },
+            q.trim() && React.createElement("div", { style: { maxHeight: 160, overflowY: "auto", border: `1px solid ${C.line}`, borderRadius: 10, marginBottom: 10 } },
                 filtered.slice(0, 60).map((s) => {
                     const on = String(s.id) === String(studentId);
-                    return (React.createElement("div", { key: s.id, onClick: () => { setStudentId(s.id); setSelComps([]); }, style: { padding: "8px 12px", cursor: "pointer", background: on ? C.soft : "transparent", borderBottom: `1px solid ${C.line}`, fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? C.primaryDark : C.ink } },
+                    return (React.createElement("div", { key: s.id, onClick: () => { setStudentId(s.id); setSelComps([]); setQ(""); }, style: { padding: "8px 12px", cursor: "pointer", background: on ? C.soft : "transparent", borderBottom: `1px solid ${C.line}`, fontSize: 13.5, fontWeight: on ? 700 : 500, color: on ? C.primaryDark : C.ink } },
                         on ? "✓ " : "",
                         fullName(s),
                         s.grade ? ` (${s.grade}${s.room ? "/" + s.room : ""})` : ""));
