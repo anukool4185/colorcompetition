@@ -3635,6 +3635,7 @@ function OrgViewManager({ db, setDb, ui, editable, committee, orgComp }) {
     const [confirmIn, setConfirmIn] = useState(null);
     const [horiz, setHoriz] = useState(false);
     const [spacing, setSpacing] = useState("normal");
+    const [compactView, setCompactView] = useState(true);
     const [fitMode, setFitMode] = useState("contain");
     const which = view === "teacher" ? "orgTeacher" : "orgStudent";
     const pool = view === "teacher" ? db.teachers : db.students;
@@ -3777,18 +3778,20 @@ function OrgViewManager({ db, setDb, ui, editable, committee, orgComp }) {
                     compObj.name,
                     "\" \u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34"))),
             React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 6, flexWrap: "wrap", alignItems: "center" } },
-                React.createElement(Btn, { small: true, variant: horiz ? "soft" : "ghost", onClick: () => setHoriz((h) => !h) }, horiz ? "↕ แนวตั้ง" : "↔ แนวนอน"),
-                React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E23\u0E30\u0E22\u0E30\u0E2B\u0E48\u0E32\u0E07:"),
-                React.createElement(Select, { value: spacing, onChange: setSpacing },
-                    React.createElement("option", { value: "tight" }, "\u0E41\u0E19\u0E48\u0E19"),
-                    React.createElement("option", { value: "normal" }, "\u0E1B\u0E01\u0E15\u0E34"),
-                    React.createElement("option", { value: "loose" }, "\u0E42\u0E1B\u0E23\u0E48\u0E07")),
-                React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E1E\u0E2D\u0E14\u0E35\u0E2B\u0E19\u0E49\u0E32:"),
-                React.createElement(Select, { value: fitMode, onChange: setFitMode },
-                    React.createElement("option", { value: "contain" }, "\u0E1E\u0E2D\u0E14\u0E35\u0E17\u0E31\u0E49\u0E07\u0E1C\u0E31\u0E07"),
-                    React.createElement("option", { value: "width" }, "\u0E40\u0E15\u0E47\u0E21\u0E04\u0E27\u0E32\u0E21\u0E01\u0E27\u0E49\u0E32\u0E07"),
-                    React.createElement("option", { value: "height" }, "\u0E40\u0E15\u0E47\u0E21\u0E04\u0E27\u0E32\u0E21\u0E2A\u0E39\u0E07"),
-                    React.createElement("option", { value: "fill" }, "\u0E22\u0E37\u0E14\u0E40\u0E15\u0E47\u0E21\u0E2B\u0E19\u0E49\u0E32"))),
+                React.createElement(Btn, { small: true, variant: compactView ? "soft" : "ghost", onClick: () => setCompactView((v) => !v) }, compactView ? "📇 การ์ด (ผังเต็ม)" : "📋 กระชับ (มือถือ)"),
+                !compactView && React.createElement(React.Fragment, null,
+                    React.createElement(Btn, { small: true, variant: horiz ? "soft" : "ghost", onClick: () => setHoriz((h) => !h) }, horiz ? "↕ แนวตั้ง" : "↔ แนวนอน"),
+                    React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E23\u0E30\u0E22\u0E30\u0E2B\u0E48\u0E32\u0E07:"),
+                    React.createElement(Select, { value: spacing, onChange: setSpacing },
+                        React.createElement("option", { value: "tight" }, "\u0E41\u0E19\u0E48\u0E19"),
+                        React.createElement("option", { value: "normal" }, "\u0E1B\u0E01\u0E15\u0E34"),
+                        React.createElement("option", { value: "loose" }, "\u0E42\u0E1B\u0E23\u0E48\u0E07")),
+                    React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E1E\u0E2D\u0E14\u0E35\u0E2B\u0E19\u0E49\u0E32:"),
+                    React.createElement(Select, { value: fitMode, onChange: setFitMode },
+                        React.createElement("option", { value: "contain" }, "\u0E1E\u0E2D\u0E14\u0E35\u0E17\u0E31\u0E49\u0E07\u0E1C\u0E31\u0E07"),
+                        React.createElement("option", { value: "width" }, "\u0E40\u0E15\u0E47\u0E21\u0E04\u0E27\u0E32\u0E21\u0E01\u0E27\u0E49\u0E32\u0E07"),
+                        React.createElement("option", { value: "height" }, "\u0E40\u0E15\u0E47\u0E21\u0E04\u0E27\u0E32\u0E21\u0E2A\u0E39\u0E07"),
+                        React.createElement("option", { value: "fill" }, "\u0E22\u0E37\u0E14\u0E40\u0E15\u0E47\u0E21\u0E2B\u0E19\u0E49\u0E32")))),
             React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" } },
                 React.createElement(Btn, { small: true, variant: "ghost", onClick: () => printImageFromEl("orgTreeArea", ui && ui.notify) }, "\u0E1B\u0E23\u0E34\u0E49\u0E19 (\u0E23\u0E39\u0E1B\u0E15\u0E48\u0E2D\u0E40\u0E19\u0E37\u0E48\u0E2D\u0E07)"),
                 React.createElement(Btn, { small: true, variant: "ghost", onClick: () => pdfFromEl("orgTreeArea", horiz ? "landscape" : "portrait", `ผัง${view === "teacher" ? "ครู" : "นักเรียน"}.pdf`, ui && ui.notify, fitMode) },
@@ -3806,7 +3809,7 @@ function OrgViewManager({ db, setDb, ui, editable, committee, orgComp }) {
                     React.createElement("div", { style: { display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 8 } },
                         React.createElement(Btn, { small: true, onClick: stAutoBuild }, "\uD83C\uDFD7 \u0E40\u0E15\u0E34\u0E21\u0E1C\u0E31\u0E07\u0E43\u0E2B\u0E49\u0E04\u0E23\u0E1A 6 \u0E25\u0E33\u0E14\u0E31\u0E1A"),
                         React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setStructForm({ parent: null }) }, "+ \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E40\u0E2D\u0E07"))),
-                React.createElement(OrgTree, { nodes: nodes, pool: pool, accent: view === "teacher" ? C.primary : C.gold, mode: treeMode, comps: db.competitions, horiz: horiz, spacing: spacing, meId: committee ? committee.meId : undefined, pendingIds: (db.orgRequests || []).filter((r) => r.side === which && r.status === "pending").map((r) => r.nodeId), onAssign: (node) => setAssign(node), onClearName: clearName, onSelfAssign: selfAssign, onAddChild: (node) => setStructForm({ parent: node.id }), onEditTitle: (node) => setStructForm({ node }), onDelete: (node) => setStructConfirm(node), onMove: (node) => setStructMove(node), onReorder: stReorder, onInsertParent: (node) => setStructForm({ insertAbove: node }) })))),
+                React.createElement(OrgTree, { nodes: nodes, pool: pool, accent: view === "teacher" ? C.primary : C.gold, mode: treeMode, comps: db.competitions, horiz: horiz, spacing: spacing, compact: compactView, meId: committee ? committee.meId : undefined, pendingIds: (db.orgRequests || []).filter((r) => r.side === which && r.status === "pending").map((r) => r.nodeId), onAssign: (node) => setAssign(node), onClearName: clearName, onSelfAssign: selfAssign, onAddChild: (node) => setStructForm({ parent: node.id }), onEditTitle: (node) => setStructForm({ node }), onDelete: (node) => setStructConfirm(node), onMove: (node) => setStructMove(node), onReorder: stReorder, onInsertParent: (node) => setStructForm({ insertAbove: node }) })))),
         structForm && React.createElement(NodeForm, { node: structForm.node, dutyList: db.dutyList || [], comps: db.competitions.filter((c) => (c.kind === "แข่งขัน" ? "comp" : "act") === effCat), hideComp: true, compName: compObj ? compObj.name : "", onClose: () => setStructForm(null), onSave: (v) => structForm.insertAbove ? stInsertParent(structForm.insertAbove, v) : (structForm.node ? stEdit(structForm.node.id, v) : stAdd(v, structForm.parent)) }),
         structConfirm && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E01\u0E32\u0E23\u0E25\u0E1A", message: `ลบตำแหน่ง "${structConfirm.title}" และตำแหน่งลูกทั้งหมด (ทั้งครูและนักเรียน)? เก็บในถังขยะ กู้คืนได้`, onConfirm: () => stDel(structConfirm), onClose: () => setStructConfirm(null) }),
         structMove && (() => {
@@ -3887,11 +3890,48 @@ function pruneOrg(nodes, removedSet) {
     const ids = new Set(kept.map((n) => n.id));
     return kept.map((n) => (n.parent && !ids.has(n.parent)) ? { ...n, parent: null } : n);
 }
-function OrgTree({ nodes, pool, accent, mode, comps, onAddChild, onEditTitle, onDelete, onAssign, onClearName, onSelfAssign, meId, pendingIds, horiz, spacing, onMove, onReorder, onInsertParent }) {
+function OrgTree({ nodes, pool, accent, mode, comps, onAddChild, onEditTitle, onDelete, onAssign, onClearName, onSelfAssign, meId, pendingIds, horiz, spacing, onMove, onReorder, onInsertParent, compact }) {
     const ids = new Set(nodes.map((n) => n.id));
     const roots = nodes.filter((n) => !n.parent || !ids.has(n.parent)).slice().sort((a, b) => ((a.rank || 99) - (b.rank || 99)));
     const mini = (bg, col, brd) => ({ border: `1px solid ${brd || bg}`, background: bg, color: col, borderRadius: 14, padding: "3px 9px", fontSize: 11, fontWeight: 700, cursor: "pointer" });
     const structure = mode === "structure", names = mode === "names", self = mode === "selfsignup";
+    if (!nodes.length)
+        return React.createElement(Empty, { text: structure ? "ยังไม่มีตำแหน่ง กด + เพิ่มหัวหน้าสูงสุด" : "ยังไม่มีผัง (สร้างโครงที่เมนู กำหนดหน้าที่)" });
+    // ===== มุมมองกระชับ: แถวเรียงตามลำดับ (เหมาะมือถือ) =====
+    if (compact) {
+        const flat = [];
+        const walk = (node, depth) => { flat.push({ node, depth }); nodes.filter((n) => n.parent === node.id).slice().sort((a, b) => ((a.rank || 99) - (b.rank || 99))).forEach((k) => walk(k, depth + 1)); };
+        roots.forEach((r) => walk(r, 0));
+        return (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, flat.map(({ node, depth }, idx) => {
+            const p = pool.find((x) => String(x.id) === String(node.personId));
+            const clickable = names || (self && !p);
+            const isMe = p && meId && String(p.id) === String(meId);
+            const rk = node.rank || (idx + 1);
+            const cc = node.compId && comps ? comps.find((x) => String(x.id) === String(node.compId)) : null;
+            return (React.createElement("div", { key: node.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", marginLeft: Math.min(depth, 5) * 14, background: isMe ? "#f0faf4" : C.surface, border: `1px solid ${isMe ? "#2f9e6b" : C.line}`, borderLeft: `4px solid ${accent}`, borderRadius: 10 } },
+                React.createElement("span", { style: { flexShrink: 0, width: 22, height: 22, borderRadius: "50%", background: accent, color: "#fff", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center" } }, rk),
+                React.createElement("div", { onClick: names ? () => onAssign(node) : (self && !p ? () => onSelfAssign(node) : undefined), style: { display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0, cursor: clickable ? "pointer" : "default" } },
+                    React.createElement(Avatar, { person: p || { first: "", last: "" }, size: 30 }),
+                    React.createElement("div", { style: { minWidth: 0 } },
+                        React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: p ? C.ink : C.muted, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p ? `${p.first} ${p.last}` : (names ? "＋ เพิ่มชื่อ" : (self ? "＋ ลงชื่อฉัน" : "(ว่าง)"))),
+                        React.createElement("div", { style: { fontSize: 11, color: accent, fontWeight: 600 } },
+                            node.title,
+                            node.linked ? " 🔗" : "",
+                            cc ? React.createElement("span", { style: { color: C.muted, fontWeight: 400 } },
+                                " \u00B7 ",
+                                cc.name) : null))),
+                structure && React.createElement("div", { style: { display: "flex", gap: 3, flexShrink: 0 } },
+                    React.createElement("button", { onClick: () => onAddChild(node), style: mini(C.soft, C.primaryDark), title: "\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E25\u0E39\u0E01\u0E19\u0E49\u0E2D\u0E07" }, "\uFF0B"),
+                    React.createElement("button", { onClick: () => onEditTitle(node), style: mini(C.surface, C.muted, C.line), title: "\u0E41\u0E01\u0E49\u0E44\u0E02" }, "\u270E"),
+                    onReorder && React.createElement("button", { onClick: () => onReorder(node, -1), style: mini(C.surface, C.muted, C.line), title: "\u0E02\u0E36\u0E49\u0E19" }, "\u2191"),
+                    onReorder && React.createElement("button", { onClick: () => onReorder(node, 1), style: mini(C.surface, C.muted, C.line), title: "\u0E25\u0E07" }, "\u2193"),
+                    React.createElement("button", { onClick: () => onDelete(node), style: mini("#fbeeee", "#c0392b", "#eccdcd"), title: "\u0E25\u0E1A" }, "\u2715")),
+                names && p && React.createElement("div", { style: { display: "flex", gap: 3, flexShrink: 0 } },
+                    React.createElement("button", { onClick: (e) => { e.stopPropagation(); onAssign(node); }, style: mini(C.soft, C.primaryDark) }, "\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19"),
+                    React.createElement("button", { onClick: (e) => { e.stopPropagation(); onClearName(node); }, style: mini("#fbeeee", "#c0392b", "#eccdcd") }, "\u2715")),
+                self && isMe && React.createElement("div", { style: { flexShrink: 0 } }, (pendingIds || []).includes(node.id) ? React.createElement("span", { style: { fontSize: 10, color: "#c99a2e", fontWeight: 700 } }, "\u0E23\u0E2D\u0E16\u0E2D\u0E19\u2026") : React.createElement("button", { onClick: (e) => { e.stopPropagation(); onSelfAssign(node, true); }, style: mini("#fbeeee", "#c0392b", "#eccdcd") }, "\u0E16\u0E2D\u0E19"))));
+        })));
+    }
     const renderLi = (node) => {
         const p = pool.find((x) => String(x.id) === String(node.personId));
         const kids = nodes.filter((n) => n.parent === node.id).slice().sort((a, b) => ((a.rank || 99) - (b.rank || 99)));
@@ -3926,7 +3966,7 @@ function OrgTree({ nodes, pool, accent, mode, comps, onAddChild, onEditTitle, on
             kids.length > 0 && React.createElement("ul", null, kids.map(renderLi))));
     };
     if (!nodes.length)
-        return React.createElement(Empty, { text: structure ? "ยังไม่มีตำแหน่ง กด + เพิ่มหัวหน้าสูงสุด" : "ยังไม่มีผัง (สร้างโครงที่เมนู กำหนดหน้าที่)" });
+        return null;
     return React.createElement("div", { className: "orgtree" + (horiz ? " horiz" : "") + (spacing === "tight" ? " sp-tight" : spacing === "loose" ? " sp-loose" : ""), style: { ["--tl"]: C.line } },
         React.createElement("ul", null, roots.map(renderLi)));
 }
@@ -6795,9 +6835,11 @@ function App() {
     modeRef.current = mode;
     const sheetQS = () => modeRef.current === "sport" ? "?sheet=sport" : "";
     const [landingSport, setLandingSport] = useState(null);
+    const landingPreloadedRef = useRef(false);
     useEffect(() => {
-        if (screen !== "landing" || !API_URL)
+        if (screen !== "landing" || !API_URL || landingPreloadedRef.current)
             return;
+        landingPreloadedRef.current = true;
         let alive = true;
         fetch(API_URL + "?sheet=sport").then((r) => r.text()).then((t) => { if (!alive)
             return; try {
@@ -7057,7 +7099,7 @@ function App() {
                     setLastSaved(Date.now());
                 }
             }).catch(() => { });
-        }, 8000);
+        }, 20000);
         return () => clearInterval(iv);
     }, []);
     // ธีมสีแบบตายตัว — วิชาการ = ชมพู · กีฬา = น้ำเงิน · ไม่มีสลับสีตามผู้ใช้/บ้าน · ก่อนล็อกอินใช้ชมพูกลาง
