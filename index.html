@@ -4901,6 +4901,8 @@ function gradeSummary2(grades) {
     return "เฉพาะระดับ (" + sel.join(",") + ")"; // เลือกบางส่วน/คละ
 }
 function sportItemName(c) {
+    if (c.nameManual != null && c.nameManual !== "")
+        return c.nameManual;
     let s = c.name || "";
     const gs = genderSummary(c.genders);
     if (gs)
@@ -4961,7 +4963,9 @@ function SportItemsTable({ db, setDb, ui, kind = "แข่งขัน", sportT
                         React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 8px" } }, GR.map((g) => React.createElement("label", { key: g, style: { display: "flex", alignItems: "center", gap: 4, cursor: "pointer" } },
                             React.createElement("input", { type: "checkbox", checked: (c.grades || []).includes(g), onChange: () => toggleGrade(c, g), style: cb() }),
                             g)))),
-                    React.createElement("td", { style: { ...td, fontWeight: 700, color: C.primaryDark, whiteSpace: "nowrap", textAlign: "center" } }, gradeSummary2(c.grades)),
+                    React.createElement("td", { style: { ...td, whiteSpace: "nowrap", textAlign: "center" } },
+                        React.createElement("input", { value: c.summaryManual != null ? c.summaryManual : gradeSummary2(c.grades), onChange: (e) => upd(c.id, { summaryManual: e.target.value }), style: { width: 90, padding: "4px 6px", borderRadius: 6, border: `1px solid ${c.summaryManual != null ? C.gold : C.line}`, fontSize: 12, textAlign: "center", fontWeight: 700, color: C.primaryDark } }),
+                        c.summaryManual != null && React.createElement("button", { onClick: () => upd(c.id, { summaryManual: null }), title: "\u0E01\u0E25\u0E31\u0E1A\u0E40\u0E1B\u0E47\u0E19\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34", style: { border: "none", background: "none", color: C.muted, cursor: "pointer", fontSize: 10 } }, "\u21BA \u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34")),
                     React.createElement("td", { style: td },
                         React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
                             React.createElement("label", { style: { fontSize: 11, color: C.muted } },
@@ -4970,7 +4974,9 @@ function SportItemsTable({ db, setDb, ui, kind = "แข่งขัน", sportT
                             React.createElement("label", { style: { fontSize: 11, color: C.muted } },
                                 "\u0E2A\u0E33\u0E23\u0E2D\u0E07",
                                 React.createElement("input", { type: "number", value: c.reserveCount || 0, onChange: (e) => upd(c.id, { reserveCount: Number(e.target.value) || 0 }), style: { width: 56, padding: "4px 6px", borderRadius: 6, border: `1px solid ${C.line}`, fontSize: 12.5, marginLeft: 4 } })))),
-                    React.createElement("td", { style: { ...td, fontWeight: 700, color: C.ink, minWidth: 130 } }, sportItemName(c)),
+                    React.createElement("td", { style: { ...td, minWidth: 150 } },
+                        React.createElement("input", { value: c.nameManual != null ? c.nameManual : sportItemName(c), onChange: (e) => upd(c.id, { nameManual: e.target.value }), style: { width: "100%", minWidth: 140, padding: "5px 7px", borderRadius: 6, border: `1px solid ${c.nameManual != null ? C.gold : C.line}`, fontSize: 12.5, fontWeight: 700, color: C.ink } }),
+                        c.nameManual != null && React.createElement("button", { onClick: () => upd(c.id, { nameManual: null }), title: "\u0E01\u0E25\u0E31\u0E1A\u0E40\u0E1B\u0E47\u0E19\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34", style: { border: "none", background: "none", color: C.muted, cursor: "pointer", fontSize: 10 } }, "\u21BA \u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34")),
                     React.createElement("td", { style: td },
                         React.createElement("button", { onClick: () => del(c.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715")))))))))));
 }
@@ -5596,14 +5602,11 @@ function OrgSetup({ db, setDb, ui }) {
     const [tab, setTab] = useState("duty");
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\u2699\uFE0F \u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E1C\u0E31\u0E07 (\u0E23\u0E30\u0E1A\u0E1A\u0E43\u0E2B\u0E21\u0E48)", sub: "\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E1E\u0E37\u0E49\u0E19\u0E10\u0E32\u0E19\u0E01\u0E48\u0E2D\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1C\u0E31\u0E07 \u2014 \u0E1D\u0E48\u0E32\u0E22 \u00B7 \u0E0A\u0E19\u0E34\u0E14\u0E01\u0E35\u0E2C\u0E32 \u00B7 \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \u00B7 \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48+\u0E40\u0E25\u0E02 \u00B7 \u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A" }),
-        React.createElement(Tabs, { tabs: [{ key: "duty", label: "หน้าที่ + เลข" }, { key: "sport", label: "ชนิดกีฬา" }, { key: "track", label: "ชนิดกรีฑา" }, { key: "act", label: "กิจกรรม" }, { key: "sportitems", label: "➕ รายการกีฬา" }, { key: "trackitems", label: "➕ รายการกรีฑา" }, { key: "actitems", label: "➕ รายการกิจกรรม" }, { key: "dept", label: "ฝ่าย" }, { key: "template", label: "แม่แบบผังรายฝ่าย" }], active: tab, onChange: setTab }),
+        React.createElement(Tabs, { tabs: [{ key: "duty", label: "หน้าที่ + เลข" }, { key: "sportitems", label: "➕ รายการกีฬา" }, { key: "trackitems", label: "➕ รายการกรีฑา" }, { key: "actitems", label: "➕ รายการกิจกรรม" }, { key: "dept", label: "ฝ่าย" }, { key: "template", label: "แม่แบบผังรายฝ่าย" }], active: tab, onChange: setTab }),
         tab === "duty" && React.createElement(DutyDefManager, { db: db, setDb: setDb, ui: ui }),
         tab === "sportitems" && React.createElement(SportItemsTable, { db: db, setDb: setDb, ui: ui, kind: "\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19", sportType: "\u0E01\u0E35\u0E2C\u0E32" }),
         tab === "trackitems" && React.createElement(SportItemsTable, { db: db, setDb: setDb, ui: ui, kind: "\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19", sportType: "\u0E01\u0E23\u0E35\u0E11\u0E32" }),
         tab === "actitems" && React.createElement(SportItemsTable, { db: db, setDb: setDb, ui: ui, kind: "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21", sportType: "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }),
-        tab === "sport" && React.createElement(SimpleListManager, { db: db, setDb: setDb, ui: ui, field: "sportTypes", title: "\u0E0A\u0E19\u0E34\u0E14\u0E01\u0E35\u0E2C\u0E32", hint: "\u0E0A\u0E19\u0E34\u0E14\u0E01\u0E35\u0E2C\u0E32\u0E17\u0E35\u0E48\u0E43\u0E0A\u0E49\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E15\u0E2D\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07 (\u0E40\u0E0A\u0E48\u0E19 \u0E1F\u0E38\u0E15\u0E1A\u0E2D\u0E25 \u0E27\u0E2D\u0E25\u0E40\u0E25\u0E22\u0E4C\u0E1A\u0E2D\u0E25)", placeholder: "\u0E0A\u0E37\u0E48\u0E2D\u0E0A\u0E19\u0E34\u0E14\u0E01\u0E35\u0E2C\u0E32" }),
-        tab === "track" && React.createElement(SimpleListManager, { db: db, setDb: setDb, ui: ui, field: "trackTypes", title: "\u0E0A\u0E19\u0E34\u0E14\u0E01\u0E23\u0E35\u0E11\u0E32", hint: "\u0E0A\u0E19\u0E34\u0E14\u0E01\u0E23\u0E35\u0E11\u0E32\u0E17\u0E35\u0E48\u0E43\u0E0A\u0E49\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E15\u0E2D\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07 (\u0E40\u0E0A\u0E48\u0E19 \u0E27\u0E34\u0E48\u0E07 100 \u0E40\u0E21\u0E15\u0E23 \u0E01\u0E23\u0E30\u0E42\u0E14\u0E14\u0E44\u0E01\u0E25 \u0E17\u0E38\u0E48\u0E21\u0E19\u0E49\u0E33\u0E2B\u0E19\u0E31\u0E01)", placeholder: "\u0E0A\u0E37\u0E48\u0E2D\u0E0A\u0E19\u0E34\u0E14\u0E01\u0E23\u0E35\u0E11\u0E32" }),
-        tab === "act" && React.createElement(SimpleListManager, { db: db, setDb: setDb, ui: ui, field: "activities", title: "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21", hint: "\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E35\u0E48\u0E43\u0E0A\u0E49\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E15\u0E2D\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 (\u0E40\u0E0A\u0E48\u0E19 \u0E40\u0E15\u0E49\u0E19 \u0E23\u0E49\u0E2D\u0E07\u0E40\u0E1E\u0E25\u0E07)", placeholder: "\u0E0A\u0E37\u0E48\u0E2D\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }),
         tab === "dept" && React.createElement(DepartmentManager, { db: db, setDb: setDb, ui: ui }),
         tab === "template" && React.createElement(DeptTemplateManager, { db: db, setDb: setDb, ui: ui })));
 }
