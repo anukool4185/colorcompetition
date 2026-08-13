@@ -1821,10 +1821,10 @@ function AdminApp({ db, setDb, onExit }) {
         { key: "noti", label: adminPending ? `แจ้งเตือน (${adminPending})` : "แจ้งเตือน", icon: "🔔" },
         { key: "people", label: "บุคลากร", icon: "👥" },
         { key: "duties", label: "หน้าที่ กิจกรรมแข่งขัน", icon: "🧩" },
-        { key: "org", label: "ผังองค์กร", icon: "🗂", defaultKey: orgDefault, children: orgChildren },
         { key: "comp", label: "การแข่งขัน", icon: "🏆" },
         { key: "results", label: "จัดการผลการแข่งขัน", icon: "🏅" },
         { key: "orgsetup", label: "ตั้งค่าผัง (ใหม่)", icon: "⚙️" },
+        { key: "org2", label: "ผังองค์กร", icon: "🌳" },
         { key: "attend", label: "ลงเวลา", icon: "⏱", defaultKey: "attend:day", children: [{ key: "attend:day", label: "ลงเวลาซ้อม-วันจริง" }, { key: "attend:none", label: "บุคคลไม่มีส่วนร่วม" }, { key: "attend:sum", label: "สรุปเวลารวม" }] },
         { key: "promote", label: "เลื่อนชั้น", icon: "⬆" },
         { key: "trash", label: "ถังขยะ", icon: "🗑" },
@@ -1836,8 +1836,11 @@ function AdminApp({ db, setDb, onExit }) {
         view === "noti" && React.createElement(NotificationCenter, { db: db, setDb: setDb, ui: ui, admin: true, onGoResults: (id) => { setJumpComp(id); setView("results"); } }),
         view === "people" && React.createElement(PeopleManager, { db: db, setDb: setDb, ui: ui }),
         view === "duties" && React.createElement(DutyManager, { db: db, setDb: setDb, ui: ui }),
-        String(view).startsWith("org") && React.createElement(OrgViewManager, { db: db, setDb: setDb, ui: ui, editable: true, orgComp: view === "org:all" ? "" : String(view).replace("org:", "") }),
+        String(view).startsWith("org:") && React.createElement(OrgViewManager, { db: db, setDb: setDb, ui: ui, editable: true, orgComp: view === "org:all" ? "" : String(view).replace("org:", "") }),
         view === "orgsetup" && React.createElement(OrgSetup, { db: db, setDb: setDb, ui: ui }),
+        view === "org2" && React.createElement("div", null,
+            React.createElement(PageHead, { title: "\uD83C\uDF33 \u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23 (\u0E23\u0E30\u0E1A\u0E1A\u0E43\u0E2B\u0E21\u0E48)", sub: "\u0E1C\u0E31\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27 \u0E04\u0E23\u0E39+\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E27\u0E21 \u00B7 \u0E2A\u0E23\u0E49\u0E32\u0E07\u0E08\u0E32\u0E01\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A\u0E23\u0E32\u0E22\u0E1D\u0E48\u0E32\u0E22" }),
+            React.createElement(Org2Manager, { db: db, setDb: setDb, ui: ui, viewer: { role: "admin", id: "admin" }, canEdit: true })),
         String(view).startsWith("attend") && React.createElement(TimeAttendance, { db: db, setDb: setDb, ui: ui, meId: "admin", role: "admin", myComps: db.competitions, sub: String(view).split(":")[1] || "day" }),
         view === "comp" && React.createElement(CompManager, { db: db, setDb: setDb, ui: ui }),
         view === "results" && React.createElement(ResultsManager, { db: db, setDb: setDb, ui: ui, autoOpen: jumpComp, onAutoOpened: () => setJumpComp(null) }),
@@ -3291,10 +3294,10 @@ function DepartmentManager({ db, setDb, ui }) {
         }))));
 }
 function DutyManager({ db, setDb, ui }) {
-    const [tab, setTab] = useState("dutylist");
+    const [tab, setTab] = useState("comp");
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48 \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19", sub: "\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48 (\u0E19\u0E33\u0E17\u0E32\u0E07\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E1C\u0E31\u0E07) \u2192 \u0E2A\u0E23\u0E49\u0E32\u0E07\u0E42\u0E04\u0E23\u0E07\u0E1C\u0E31\u0E07 \u2192 \u0E44\u0E1B\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E17\u0E35\u0E48\u0E40\u0E21\u0E19\u0E39 \u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23" }),
-        React.createElement(Tabs, { tabs: [{ key: "dutylist", label: "รายการหน้าที่" }, { key: "comp", label: "รายการแข่งขัน" }, { key: "act", label: "รายการกิจกรรม" }, { key: "structure", label: "ผังโครงสร้าง" }, { key: "dept", label: "จัดฝ่าย" }], active: tab, onChange: setTab }),
+        React.createElement(Tabs, { tabs: [{ key: "comp", label: "รายการแข่งขัน" }, { key: "act", label: "รายการกิจกรรม" }, { key: "dept", label: "จัดฝ่าย" }], active: tab, onChange: setTab }),
         tab === "dutylist" && React.createElement(DutyListManager, { db: db, setDb: setDb, ui: ui }),
         tab === "comp" && React.createElement(CompTable, { kind: "\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19", db: db, setDb: setDb, ui: ui }),
         tab === "act" && React.createElement(CompTable, { kind: "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21", db: db, setDb: setDb, ui: ui }),
@@ -5233,6 +5236,144 @@ function AttendWindowSettings({ db, setDb, ui }) {
                 " \u0E16\u0E36\u0E07\u0E08\u0E30\u0E40\u0E02\u0E35\u0E22\u0E19 \u2014 \u0E01\u0E31\u0E19\u0E40\u0E02\u0E35\u0E22\u0E19\u0E17\u0E31\u0E1A\u0E0A\u0E35\u0E17\u0E2D\u0E37\u0E48\u0E19\u0E42\u0E14\u0E22\u0E44\u0E21\u0E48\u0E15\u0E31\u0E49\u0E07\u0E43\u0E08"),
             React.createElement(Btn, { small: true, variant: "ghost", onClick: exportToTimeSheet, disabled: exporting }, exporting ? "กำลังส่งออก..." : "📤 ส่งออกไปชีท time_sport"))));
 }
+function buildOrg2(db) {
+    const existing = db.org2 || [];
+    const byKey = {};
+    existing.forEach((n) => { byKey[n.compId + "|" + n.deptId + "|" + n.dutyId] = n; });
+    const duties = db.duties || [];
+    const out = [];
+    (db.competitions || []).forEach((c) => {
+        (db.departments || []).forEach((d) => {
+            if (!(d.comps || []).map(String).includes(String(c.id)))
+                return;
+            const tpl = (db.deptTemplates || {})[d.id] || [];
+            tpl.forEach((r) => {
+                const duty = duties.find((x) => x.id === r.dutyId);
+                if (!duty)
+                    return;
+                const key = c.id + "|" + d.id + "|" + r.dutyId;
+                const ex = byKey[key];
+                out.push({ id: ex ? ex.id : "o2" + Math.random().toString(36).slice(2, 9), compId: c.id, deptId: d.id, dutyId: r.dutyId, num: duty.num, personId: ex ? ex.personId : (r.personId || ""), side: ex ? ex.side : (r.side || "") });
+            });
+        });
+    });
+    return out;
+}
+function Org2Manager({ db, setDb, ui, viewer, canEdit = true, selfSignup = false, meSide }) {
+    const comps = db.competitions || [];
+    const [pickComp, setPickComp] = useState("");
+    const [confirmGen, setConfirmGen] = useState(false);
+    const meId = viewer && viewer.id;
+    const selfPick = (nodeId) => { setDb((p) => ({ ...p, org2: (p.org2 || []).map((n) => n.id === nodeId ? { ...n, personId: meId, side: meSide } : n) })); setTimeout(() => window.__forceSave && window.__forceSave(), 300); ui.notify("ลงชื่อในตำแหน่งแล้ว"); };
+    const selfDrop = (nodeId) => { setDb((p) => ({ ...p, org2: (p.org2 || []).map((n) => n.id === nodeId ? { ...n, personId: "", side: "" } : n) })); setTimeout(() => window.__forceSave && window.__forceSave(), 300); ui.notify("ถอนชื่อแล้ว"); };
+    const duties = db.duties || [];
+    const deptName = (id) => { const d = (db.departments || []).find((x) => x.id === id); return d ? d.name : "(ฝ่ายถูกลบ)"; };
+    const dutyName2 = (id) => { const x = duties.find((d) => d.id === id); return x ? x.name : "(หน้าที่ถูกลบ)"; };
+    const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 400);
+    const generate = () => { setDb((p) => ({ ...p, org2: buildOrg2(p) })); save(); setConfirmGen(false); ui.notify("สร้าง/อัปเดตผังจากแม่แบบแล้ว (เก็บคนที่ลงชื่อไว้เดิม)"); };
+    const setPerson = (nodeId, personId, side) => { setDb((p) => ({ ...p, org2: (p.org2 || []).map((n) => n.id === nodeId ? { ...n, personId, side } : n) })); save(); };
+    const nodes = (db.org2 || []).filter((n) => !pickComp || String(n.compId) === String(pickComp));
+    // จัดกลุ่มตาม comp → dept → เรียง num
+    const byComp = {};
+    nodes.forEach((n) => { (byComp[n.compId] = byComp[n.compId] || {}); (byComp[n.compId][n.deptId] = byComp[n.compId][n.deptId] || []).push(n); });
+    const compName2 = (id) => { const c = comps.find((x) => String(x.id) === String(id)); return c ? compFullName(c) : id; };
+    return (React.createElement("div", null,
+        React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
+            canEdit && React.createElement(Btn, { small: true, onClick: () => setConfirmGen(true) }, "\uD83C\uDFD7 \u0E2A\u0E23\u0E49\u0E32\u0E07/\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E1C\u0E31\u0E07\u0E08\u0E32\u0E01\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A"),
+            React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u0E14\u0E39\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23:"),
+            React.createElement("select", { value: pickComp, onChange: (e) => setPickComp(e.target.value), style: { padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14 } },
+                React.createElement("option", { value: "" }, "\u2014 \u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2014"),
+                comps.map((c) => React.createElement("option", { key: c.id, value: c.id }, compFullName(c))))),
+        (db.org2 || []).length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E31\u0E07 \u2014 \u0E15\u0E31\u0E49\u0E07\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A\u0E23\u0E32\u0E22\u0E1D\u0E48\u0E32\u0E22\u0E41\u0E25\u0E49\u0E27\u0E01\u0E14 '\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1C\u0E31\u0E07\u0E08\u0E32\u0E01\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A'" }),
+        Object.keys(byComp).map((compId) => (React.createElement(Card, { key: compId, style: { padding: 14, marginBottom: 12 } },
+            React.createElement("div", { style: { fontWeight: 800, color: C.ink, marginBottom: 8 } },
+                "\uD83C\uDFC6 ",
+                compName2(compId)),
+            Object.keys(byComp[compId]).map((deptId) => (React.createElement("div", { key: deptId, style: { marginBottom: 10 } },
+                React.createElement("div", { style: { fontSize: 12.5, fontWeight: 700, color: C.primaryDark, marginBottom: 4 } },
+                    "\uD83C\uDFE2 ",
+                    deptName(deptId)),
+                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5 } }, byComp[compId][deptId].slice().sort((a, b) => (a.num || 99) - (b.num || 99)).map((n) => (React.createElement("div", { key: n.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", background: "#f7f9ff", borderRadius: 8, flexWrap: "wrap" } },
+                    React.createElement("span", { style: { width: 24, height: 24, borderRadius: "50%", background: C.soft, color: C.primaryDark, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 11 } }, n.num),
+                    React.createElement("span", { style: { fontWeight: 600, color: C.ink, minWidth: 90, fontSize: 13 } }, dutyName2(n.dutyId)),
+                    React.createElement("span", { style: { flex: 1 } }, canEdit ? React.createElement(PersonPicker, { db: db, value: n.personId, side: n.side, onPick: (id, side) => setPerson(n.id, id, side), onClear: () => setPerson(n.id, "", "") }) : (selfSignup ? (!n.personId ? React.createElement("button", { onClick: () => selfPick(n.id), style: { border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "3px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" } }, "\uFF0B \u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E09\u0E31\u0E19")
+                        : (String(n.personId) === String(meId) ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 6 } },
+                            React.createElement(PersonName, { db: db, personId: n.personId, side: n.side }),
+                            React.createElement("button", { onClick: () => selfDrop(n.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 700, fontSize: 12 } }, "\u0E16\u0E2D\u0E19")) : React.createElement(PersonName, { db: db, personId: n.personId, side: n.side }))) : React.createElement(PersonName, { db: db, personId: n.personId, side: n.side }))))))))))))),
+        confirmGen && React.createElement(ConfirmModal, { title: "\u0E2A\u0E23\u0E49\u0E32\u0E07/\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E1C\u0E31\u0E07\u0E08\u0E32\u0E01\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A", message: "\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1C\u0E31\u0E07\u0E02\u0E2D\u0E07\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \u0E08\u0E32\u0E01\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A\u0E02\u0E2D\u0E07\u0E1D\u0E48\u0E32\u0E22\u0E17\u0E35\u0E48\u0E2A\u0E31\u0E07\u0E01\u0E31\u0E14 \u00B7 \u0E04\u0E19\u0E17\u0E35\u0E48\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E44\u0E27\u0E49\u0E41\u0E25\u0E49\u0E27\u0E08\u0E30\u0E16\u0E39\u0E01\u0E40\u0E01\u0E47\u0E1A\u0E44\u0E27\u0E49 \u00B7 \u0E17\u0E33\u0E15\u0E48\u0E2D\u0E44\u0E2B\u0E21?", confirmLabel: "\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E40\u0E25\u0E22", onConfirm: generate, onClose: () => setConfirmGen(false) })));
+}
+function PersonName({ db, personId, side }) {
+    if (!personId)
+        return React.createElement("span", { style: { fontSize: 12.5, color: C.muted } }, "\u2014 \u0E27\u0E48\u0E32\u0E07 \u2014");
+    const p = (side === "teacher" ? db.teachers : db.students).find((x) => String(x.id) === String(personId)) || [...(db.teachers || []), ...(db.students || [])].find((x) => String(x.id) === String(personId));
+    return React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: C.ink } }, p ? fullName(p) : "(ไม่พบชื่อ)");
+}
+function PersonPicker({ db, value, side, onPick, onClear }) {
+    const [q, setQ] = useState("");
+    const cur = value ? (side === "teacher" ? db.teachers : db.students).find((x) => String(x.id) === String(value)) : null;
+    const pool = q.trim() ? [...(db.teachers || []).map((t) => ({ ...t, _side: "teacher" })), ...(db.students || []).map((s) => ({ ...s, _side: "student" }))].filter((p) => (fullName(p) + " " + (p.id || "")).toLowerCase().includes(q.toLowerCase())).slice(0, 40) : [];
+    if (cur)
+        return React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
+            React.createElement("span", { style: { fontSize: 12, color: C.primaryDark, fontWeight: 700 } },
+                side === "teacher" ? "ครู" : "นร.",
+                " ",
+                fullName(cur)),
+            React.createElement("button", { onClick: onClear, style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800, fontSize: 12 } }, "\u2715"));
+    return (React.createElement("div", { style: { position: "relative", minWidth: 180 } },
+        React.createElement("input", { value: q, onChange: (e) => setQ(e.target.value), placeholder: "\u0E04\u0E49\u0E19\u0E2B\u0E32\u0E04\u0E19\u0E2B\u0E25\u0E31\u0E01 (\u0E40\u0E27\u0E49\u0E19\u0E27\u0E48\u0E32\u0E07\u0E44\u0E14\u0E49)", style: { width: "100%", padding: "5px 8px", borderRadius: 6, border: `1px solid ${C.line}`, fontSize: 12 } }),
+        q.trim() && React.createElement("div", { style: { position: "absolute", top: "100%", left: 0, right: 0, zIndex: 5, maxHeight: 160, overflowY: "auto", background: "#fff", border: `1px solid ${C.line}`, borderRadius: 8, marginTop: 2 } },
+            pool.length === 0 && React.createElement("div", { style: { padding: "6px 10px", fontSize: 12, color: C.muted } }, "\u0E44\u0E21\u0E48\u0E1E\u0E1A"),
+            pool.map((p) => React.createElement("div", { key: p._side + p.id, onClick: () => { onPick(p.id, p._side); setQ(""); }, style: { padding: "6px 10px", cursor: "pointer", fontSize: 12.5, borderBottom: `1px solid ${C.line}` } },
+                p._side === "teacher" ? "👩‍🏫" : "🧑‍🎓",
+                " ",
+                fullName(p),
+                p.grade ? ` (${p.grade}/${p.room})` : "")))));
+}
+function DeptTemplateManager({ db, setDb, ui }) {
+    const depts = db.departments || [];
+    const [deptId, setDeptId] = useState(depts[0] ? depts[0].id : "");
+    const duties = (db.duties || []).slice().sort((a, b) => (a.num || 99) - (b.num || 99));
+    const tpl = ((db.deptTemplates || {})[deptId] || []).slice().sort((a, b) => { const da = duties.find((x) => x.id === a.dutyId), db2 = duties.find((x) => x.id === b.dutyId); return ((da && da.num) || 99) - ((db2 && db2.num) || 99); });
+    const [addDuty, setAddDuty] = useState("");
+    const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 400);
+    const setTpl = (rows) => { setDb((p) => ({ ...p, deptTemplates: { ...(p.deptTemplates || {}), [deptId]: rows } })); save(); };
+    const addRow = () => { if (!addDuty) {
+        ui.notify("เลือกหน้าที่ก่อน");
+        return;
+    } if (tpl.some((r) => r.dutyId === addDuty)) {
+        ui.notify("มีหน้าที่นี้แล้ว");
+        return;
+    } setTpl([...tpl, { dutyId: addDuty, personId: "", side: "" }]); setAddDuty(""); };
+    const setMain = (dutyId, personId, side) => setTpl(tpl.map((r) => r.dutyId === dutyId ? { ...r, personId, side } : r));
+    const removeRow = (dutyId) => setTpl(tpl.filter((r) => r.dutyId !== dutyId));
+    const dutyOf = (id) => duties.find((x) => x.id === id) || { name: "(ลบแล้ว)", num: "?" };
+    if (depts.length === 0)
+        return React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1D\u0E48\u0E32\u0E22 \u2014 \u0E44\u0E1B\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E17\u0E35\u0E48\u0E41\u0E17\u0E47\u0E1A \u0E1D\u0E48\u0E32\u0E22 \u0E01\u0E48\u0E2D\u0E19" });
+    if (duties.length === 0)
+        return React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48 \u2014 \u0E44\u0E1B\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E17\u0E35\u0E48\u0E41\u0E17\u0E47\u0E1A \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48+\u0E40\u0E25\u0E02 \u0E01\u0E48\u0E2D\u0E19" });
+    return (React.createElement("div", { style: { maxWidth: 560 } },
+        React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 12 } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1D\u0E48\u0E32\u0E22 \u2192 \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E40\u0E02\u0E49\u0E32\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A (\u0E40\u0E23\u0E35\u0E22\u0E07\u0E15\u0E32\u0E21\u0E40\u0E25\u0E02) \u00B7 \u0E43\u0E2A\u0E48 \"\u0E04\u0E19\u0E2B\u0E25\u0E31\u0E01\" \u0E16\u0E49\u0E32\u0E2D\u0E22\u0E32\u0E01\u0E43\u0E2B\u0E49\u0E40\u0E2B\u0E21\u0E37\u0E2D\u0E19\u0E01\u0E31\u0E19\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19\u0E1D\u0E48\u0E32\u0E22\u0E19\u0E35\u0E49 (\u0E40\u0E27\u0E49\u0E19\u0E27\u0E48\u0E32\u0E07 = \u0E01\u0E23\u0E2D\u0E01\u0E15\u0E2D\u0E19\u0E2A\u0E21\u0E31\u0E04\u0E23)"),
+        React.createElement("select", { value: deptId, onChange: (e) => setDeptId(e.target.value), style: { width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14, marginBottom: 12 } }, depts.map((d) => React.createElement("option", { key: d.id, value: d.id }, d.name))),
+        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 } },
+            tpl.length === 0 && React.createElement(Empty, { text: "\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A\u0E1D\u0E48\u0E32\u0E22\u0E19\u0E35\u0E49\u0E22\u0E31\u0E07\u0E27\u0E48\u0E32\u0E07 \u2014 \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E14\u0E49\u0E32\u0E19\u0E25\u0E48\u0E32\u0E07" }),
+            tpl.map((r) => {
+                const d = dutyOf(r.dutyId);
+                return (React.createElement("div", { key: r.dutyId, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", background: C.surface, borderLeft: `3px solid ${C.primary}`, border: `1px solid ${C.line}`, borderRadius: 8, flexWrap: "wrap" } },
+                    React.createElement("span", { style: { width: 26, height: 26, borderRadius: "50%", background: C.soft, color: C.primaryDark, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12 } }, d.num),
+                    React.createElement("span", { style: { fontWeight: 600, color: C.ink, minWidth: 90 } }, d.name),
+                    React.createElement("span", { style: { flex: 1 } },
+                        React.createElement(PersonPicker, { db: db, value: r.personId, side: r.side, onPick: (id, side) => setMain(r.dutyId, id, side), onClear: () => setMain(r.dutyId, "", "") })),
+                    React.createElement("button", { onClick: () => removeRow(r.dutyId), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715")));
+            })),
+        React.createElement("div", { style: { display: "flex", gap: 8 } },
+            React.createElement("select", { value: addDuty, onChange: (e) => setAddDuty(e.target.value), style: { flex: 1, padding: "10px 12px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14 } },
+                React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E40\u0E1E\u0E34\u0E48\u0E21 \u2014"),
+                duties.filter((d) => !tpl.some((r) => r.dutyId === d.id)).map((d) => React.createElement("option", { key: d.id, value: d.id },
+                    d.num,
+                    ". ",
+                    d.name))),
+            React.createElement(Btn, { onClick: addRow }, "\uFF0B \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E40\u0E02\u0E49\u0E32\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A"))));
+}
 function SimpleListManager({ db, setDb, ui, field, title, hint, placeholder }) {
     const list = db[field] || [];
     const [name, setName] = useState("");
@@ -5301,7 +5442,7 @@ function OrgSetup({ db, setDb, ui }) {
         tab === "sport" && React.createElement(SimpleListManager, { db: db, setDb: setDb, ui: ui, field: "sportTypes", title: "\u0E0A\u0E19\u0E34\u0E14\u0E01\u0E35\u0E2C\u0E32", hint: "\u0E0A\u0E19\u0E34\u0E14\u0E01\u0E35\u0E2C\u0E32\u0E17\u0E35\u0E48\u0E43\u0E0A\u0E49\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E15\u0E2D\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07 (\u0E40\u0E0A\u0E48\u0E19 \u0E1F\u0E38\u0E15\u0E1A\u0E2D\u0E25 \u0E27\u0E2D\u0E25\u0E40\u0E25\u0E22\u0E4C\u0E1A\u0E2D\u0E25)", placeholder: "\u0E0A\u0E37\u0E48\u0E2D\u0E0A\u0E19\u0E34\u0E14\u0E01\u0E35\u0E2C\u0E32" }),
         tab === "act" && React.createElement(SimpleListManager, { db: db, setDb: setDb, ui: ui, field: "activities", title: "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21", hint: "\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E35\u0E48\u0E43\u0E0A\u0E49\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E15\u0E2D\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 (\u0E40\u0E0A\u0E48\u0E19 \u0E40\u0E15\u0E49\u0E19 \u0E23\u0E49\u0E2D\u0E07\u0E40\u0E1E\u0E25\u0E07)", placeholder: "\u0E0A\u0E37\u0E48\u0E2D\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }),
         tab === "dept" && React.createElement(DepartmentManager, { db: db, setDb: setDb, ui: ui }),
-        tab === "template" && React.createElement(Empty, { text: "\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A\u0E1C\u0E31\u0E07\u0E23\u0E32\u0E22\u0E1D\u0E48\u0E32\u0E22 \u2014 \u0E01\u0E33\u0E25\u0E31\u0E07\u0E17\u0E33\u0E43\u0E19\u0E02\u0E31\u0E49\u0E19\u0E16\u0E31\u0E14\u0E44\u0E1B" })));
+        tab === "template" && React.createElement(DeptTemplateManager, { db: db, setDb: setDb, ui: ui })));
 }
 function SettingsManager({ db, setDb, ui }) {
     const [tab, setTab] = useState("theme");
@@ -5857,12 +5998,12 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
         { key: "noti", label: pendingCount ? `แจ้งเตือน (${pendingCount})` : "แจ้งเตือน", icon: "🔔" },
         { key: "me", label: "ข้อมูลฉัน", icon: "🪪" },
         ...(role === "studentcom" ? [{ key: "students", label: "ข้อมูลนักเรียน", icon: "📋" }] : []),
-        { key: "org", label: "ผังองค์กร", icon: "🗂", defaultKey: orgDefault, children: orgChildren },
         { key: "select", label: "คัดเลือก", icon: "✅" },
         { key: "schedule", label: "ตารางแข่ง", icon: "📅" },
         { key: "items", label: "รายการแข่งขัน", icon: "🏆" },
         { key: "results", label: "ส่งผล", icon: "🏅" },
         { key: "register", label: "สมัคร", icon: "✍️" },
+        { key: "org2", label: "ผังองค์กร", icon: "🌳" },
         { key: "attend", label: "ลงเวลา", icon: "⏱", defaultKey: "attend:day", children: [{ key: "attend:day", label: "ลงเวลาซ้อม-วันจริง" }, { key: "attend:none", label: "บุคคลไม่มีส่วนร่วม" }, { key: "attend:sum", label: "สรุปเวลารวม" }] },
         { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" },
     ];
@@ -5873,6 +6014,9 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
         String(view).startsWith("org") && React.createElement(OrgViewManager, { db: db, setDb: setDb, ui: ui, committee: { role, meId }, orgComp: view === "org:all" ? "" : String(view).replace("org:", "") }),
         view === "select" && React.createElement(MyDutyScreen, { role: role, meId: meId, db: db, setDb: setDb, ui: ui }),
         view === "results" && React.createElement(ResultsManager, { db: db, setDb: setDb, ui: ui, scopeCompIds: myCompIds, autoOpen: jumpComp, onAutoOpened: () => setJumpComp(null) }),
+        view === "org2" && (() => { const meP = (role === "teacher" ? db.teachers : db.students).find((x) => String(x.id) === String(meId)); return React.createElement("div", null,
+            React.createElement(PageHead, { title: "\uD83C\uDF33 \u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23", sub: "\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E19\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E17\u0E35\u0E48\u0E27\u0E48\u0E32\u0E07 \u0E2B\u0E23\u0E37\u0E2D\u0E14\u0E39\u0E1C\u0E31\u0E07\u0E02\u0E2D\u0E07\u0E41\u0E15\u0E48\u0E25\u0E30\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23" }),
+            React.createElement(Org2Manager, { db: db, setDb: setDb, ui: ui, viewer: { role, id: meId, name: meP ? fullName(meP) : "" }, canEdit: false, selfSignup: true, meSide: role === "teacher" ? "teacher" : "student" })); })(),
         String(view).startsWith("attend") && React.createElement(TimeAttendance, { db: db, setDb: setDb, ui: ui, meId: meId, role: role, myComps: myComps, sub: String(view).split(":")[1] || "day" }),
         view === "finance" && (() => { const meP = (role === "teacher" ? db.teachers : db.students).find((x) => String(x.id) === String(meId)); return React.createElement(FinanceManager, { db: db, setDb: setDb, ui: ui, viewer: { role, id: meId, name: meP ? fullName(meP) : "" } }); })(),
         view === "schedule" && React.createElement(CommitteeSchedule, { myCompIds: myCompIds, db: db, setDb: setDb, ui: ui, me: role === "studentcom" ? db.students.find((s) => s.id === meId) : null }),
