@@ -4803,22 +4803,29 @@ function CompForm({ kind, comp, db, onClose, onSave }) {
     const pill = (val, cur, onClick, activeColor) => React.createElement("button", { onClick: onClick, style: { padding: "6px 16px", borderRadius: 16, border: `1px solid ${val === cur ? activeColor : C.line}`, background: val === cur ? C.soft : C.surface, color: val === cur ? C.primaryDark : C.ink, fontSize: 13, fontWeight: 700, cursor: "pointer" } }, val);
     return (React.createElement(Modal, { title: comp ? "แก้ไขรายการ" : `เพิ่มรายการ${kind}`, onClose: onClose },
         React.createElement(Field, { label: "\u0E0A\u0E37\u0E48\u0E2D\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", value: f.name, onChange: set("name") }),
+        (() => {
+            const src = kind === "กิจกรรม" ? (db.activities || []) : ((f.sportType === "กรีฑา") ? (db.trackTypes || []) : (db.sportTypes || []));
+            const label = kind === "กิจกรรม" ? "กิจกรรม" : (f.sportType === "กรีฑา" ? "ชนิดกรีฑา" : "ชนิดกีฬา");
+            if (!src.length)
+                return null;
+            return (React.createElement("div", { style: { marginBottom: 12 } },
+                React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } },
+                    "\u0E2B\u0E23\u0E37\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E08\u0E32\u0E01",
+                    label,
+                    "\u0E17\u0E35\u0E48\u0E15\u0E31\u0E49\u0E07\u0E44\u0E27\u0E49"),
+                React.createElement("select", { value: "", onChange: (e) => { if (e.target.value)
+                        set("name")(e.target.value); }, style: { width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14, background: "#fbfaff" } },
+                    React.createElement("option", { value: "" },
+                        "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01",
+                        label,
+                        " \u2014"),
+                    src.map((x) => React.createElement("option", { key: x.id, value: x.name }, x.name)))));
+        })(),
         isSport && (React.createElement("div", { style: { marginBottom: 12 } },
             React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17"),
             React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, ["กีฬา", "กรีฑา", "อื่นๆ"].map((t) => pill(t, f.sportType || "กีฬา", () => set("sportType")(t), C.primary))),
             React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E40\u0E1E\u0E28\u0E17\u0E35\u0E48\u0E23\u0E31\u0E1A\u0E2A\u0E21\u0E31\u0E04\u0E23"),
             React.createElement("div", { style: { display: "flex", gap: 8 } }, ["ชาย", "หญิง", "รวม"].map((g) => pill(g, f.gender || "รวม", () => set("gender")(g), C.primary))))),
-        React.createElement("div", { style: { marginBottom: 12 } },
-            React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E17\u0E35\u0E48\u0E40\u0E1B\u0E47\u0E19\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07 \"\u0E40\u0E09\u0E1E\u0E32\u0E30\" \u0E02\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49 (\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2B\u0E25\u0E32\u0E22\u0E44\u0E14\u0E49) \u2014 \u0E1C\u0E31\u0E07\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E04\u0E23\u0E1A 6 \u0E25\u0E33\u0E14\u0E31\u0E1A\u0E40\u0E2A\u0E21\u0E2D \u0E23\u0E30\u0E14\u0E31\u0E1A\u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E08\u0E30\u0E17\u0E33\u0E40\u0E04\u0E23\u0E37\u0E48\u0E2D\u0E07\u0E2B\u0E21\u0E32\u0E22\u0E27\u0E48\u0E32\u0E40\u0E0A\u0E37\u0E48\u0E2D\u0E21\u0E42\u0E22\u0E07\u0E01\u0E31\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49 (\u0E40\u0E0A\u0E48\u0E19 \u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32/\u0E1C\u0E39\u0E49\u0E14\u0E39\u0E41\u0E25/\u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22)"),
-            React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } }, DUTY_RANKS.map((r, i) => {
-                const n = i + 1;
-                const on = (f.orgLevels || []).includes(n);
-                return (React.createElement("button", { key: n, onClick: () => toggleLvl(n), style: { padding: "6px 12px", borderRadius: 16, border: `1px solid ${on ? C.primary : C.line}`, background: on ? C.primary : C.surface, color: on ? "#fff" : C.ink, fontSize: 12.5, fontWeight: 700, cursor: "pointer" } },
-                    on ? "✓ " : "",
-                    n,
-                    ". ",
-                    r));
-            }))),
         React.createElement("div", { className: "md:grid md:grid-cols-2 md:gap-x-3" },
             React.createElement(Field, { label: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07 (0 = \u0E44\u0E21\u0E48\u0E08\u0E33\u0E01\u0E31\u0E14)", value: String(f.mainCount), onChange: (v) => set("mainCount")(Number(v) || 0) }),
             React.createElement(Field, { label: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E15\u0E31\u0E27\u0E2A\u0E33\u0E23\u0E2D\u0E07 (0 = \u0E44\u0E21\u0E48\u0E08\u0E33\u0E01\u0E31\u0E14)", value: String(f.reserveCount), onChange: (v) => set("reserveCount")(Number(v) || 0) }),
@@ -5263,9 +5270,15 @@ function Org2Manager({ db, setDb, ui, viewer, canEdit = true, selfSignup = false
     const comps = db.competitions || [];
     const [pickComp, setPickComp] = useState("");
     const [confirmGen, setConfirmGen] = useState(false);
+    const [chartView, setChartView] = useState(false);
     const meId = viewer && viewer.id;
     const selfPick = (nodeId) => { setDb((p) => ({ ...p, org2: (p.org2 || []).map((n) => n.id === nodeId ? { ...n, personId: meId, side: meSide } : n) })); setTimeout(() => window.__forceSave && window.__forceSave(), 300); ui.notify("ลงชื่อในตำแหน่งแล้ว"); };
     const selfDrop = (nodeId) => { setDb((p) => ({ ...p, org2: (p.org2 || []).map((n) => n.id === nodeId ? { ...n, personId: "", side: "" } : n) })); setTimeout(() => window.__forceSave && window.__forceSave(), 300); ui.notify("ถอนชื่อแล้ว"); };
+    const reqSwap = (n) => { const note = window.prompt("เหตุผลขอเปลี่ยนตัวตำแหน่งนี้ (จะส่งให้แอดมินอนุมัติ)"); if (note === null)
+        return; setDb((p) => ({ ...p, org2Requests: [...(p.org2Requests || []), { id: "r2" + Date.now(), nodeId: n.id, compId: n.compId, deptId: n.deptId, dutyId: n.dutyId, byId: meId, byName: (viewer && viewer.name) || "", note: note || "", at: Date.now(), status: "pending" }] })); setTimeout(() => window.__forceSave && window.__forceSave(), 300); ui.notify("ส่งคำขอเปลี่ยนตัวแล้ว รอแอดมินอนุมัติ"); };
+    const approveReq = (r) => { setDb((p) => ({ ...p, org2: (p.org2 || []).map((n) => n.id === r.nodeId ? { ...n, personId: "", side: "" } : n), org2Requests: (p.org2Requests || []).map((x) => x.id === r.id ? { ...x, status: "approved" } : x) })); setTimeout(() => window.__forceSave && window.__forceSave(), 300); ui.notify("อนุมัติแล้ว — ตำแหน่งว่างให้ลงชื่อใหม่ได้"); };
+    const rejectReq = (r) => { setDb((p) => ({ ...p, org2Requests: (p.org2Requests || []).map((x) => x.id === r.id ? { ...x, status: "rejected" } : x) })); setTimeout(() => window.__forceSave && window.__forceSave(), 300); ui.notify("ปฏิเสธคำขอแล้ว"); };
+    const pendingReqs = (db.org2Requests || []).filter((r) => r.status === "pending");
     const duties = db.duties || [];
     const deptName = (id) => { const d = (db.departments || []).find((x) => x.id === id); return d ? d.name : "(ฝ่ายถูกลบ)"; };
     const dutyName2 = (id) => { const x = duties.find((d) => d.id === id); return x ? x.name : "(หน้าที่ถูกลบ)"; };
@@ -5277,29 +5290,79 @@ function Org2Manager({ db, setDb, ui, viewer, canEdit = true, selfSignup = false
     const byComp = {};
     nodes.forEach((n) => { (byComp[n.compId] = byComp[n.compId] || {}); (byComp[n.compId][n.deptId] = byComp[n.compId][n.deptId] || []).push(n); });
     const compName2 = (id) => { const c = comps.find((x) => String(x.id) === String(id)); return c ? compFullName(c) : id; };
+    const exportExcel = () => { try {
+        const aoa = [["รายการ", "ฝ่าย", "เลข", "หน้าที่", "ชื่อ-สกุล", "ประเภท"]];
+        nodes.slice().sort((a, b) => String(a.compId).localeCompare(String(b.compId)) || (a.num || 99) - (b.num || 99)).forEach((n) => { const per = n.personId ? ([...(db.teachers || []), ...(db.students || [])].find((x) => String(x.id) === String(n.personId))) : null; aoa.push([compName2(n.compId), deptName(n.deptId), n.num, dutyName2(n.dutyId), per ? fullName(per) : "", n.side === "teacher" ? "ครู" : (n.side === "student" ? "นักเรียน" : "")]); });
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), "ผังองค์กร");
+        XLSX.writeFile(wb, "ผังองค์กร.xlsx");
+    }
+    catch (e) {
+        ui.notify("ดาวน์โหลด Excel ไม่สำเร็จ");
+    } };
     return (React.createElement("div", null,
         React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
             canEdit && React.createElement(Btn, { small: true, onClick: () => setConfirmGen(true) }, "\uD83C\uDFD7 \u0E2A\u0E23\u0E49\u0E32\u0E07/\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E1C\u0E31\u0E07\u0E08\u0E32\u0E01\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A"),
             React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u0E14\u0E39\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23:"),
             React.createElement("select", { value: pickComp, onChange: (e) => setPickComp(e.target.value), style: { padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14 } },
                 React.createElement("option", { value: "" }, "\u2014 \u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2014"),
-                comps.map((c) => React.createElement("option", { key: c.id, value: c.id }, compFullName(c))))),
-        (db.org2 || []).length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E31\u0E07 \u2014 \u0E15\u0E31\u0E49\u0E07\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A\u0E23\u0E32\u0E22\u0E1D\u0E48\u0E32\u0E22\u0E41\u0E25\u0E49\u0E27\u0E01\u0E14 '\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1C\u0E31\u0E07\u0E08\u0E32\u0E01\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A'" }),
-        Object.keys(byComp).map((compId) => (React.createElement(Card, { key: compId, style: { padding: 14, marginBottom: 12 } },
-            React.createElement("div", { style: { fontWeight: 800, color: C.ink, marginBottom: 8 } },
-                "\uD83C\uDFC6 ",
-                compName2(compId)),
-            Object.keys(byComp[compId]).map((deptId) => (React.createElement("div", { key: deptId, style: { marginBottom: 10 } },
-                React.createElement("div", { style: { fontSize: 12.5, fontWeight: 700, color: C.primaryDark, marginBottom: 4 } },
-                    "\uD83C\uDFE2 ",
-                    deptName(deptId)),
-                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5 } }, byComp[compId][deptId].slice().sort((a, b) => (a.num || 99) - (b.num || 99)).map((n) => (React.createElement("div", { key: n.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", background: "#f7f9ff", borderRadius: 8, flexWrap: "wrap" } },
-                    React.createElement("span", { style: { width: 24, height: 24, borderRadius: "50%", background: C.soft, color: C.primaryDark, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 11 } }, n.num),
-                    React.createElement("span", { style: { fontWeight: 600, color: C.ink, minWidth: 90, fontSize: 13 } }, dutyName2(n.dutyId)),
-                    React.createElement("span", { style: { flex: 1 } }, canEdit ? React.createElement(PersonPicker, { db: db, value: n.personId, side: n.side, onPick: (id, side) => setPerson(n.id, id, side), onClear: () => setPerson(n.id, "", "") }) : (selfSignup ? (!n.personId ? React.createElement("button", { onClick: () => selfPick(n.id), style: { border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "3px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" } }, "\uFF0B \u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E09\u0E31\u0E19")
+                comps.map((c) => React.createElement("option", { key: c.id, value: c.id }, compFullName(c)))),
+            (db.org2 || []).length > 0 && React.createElement(React.Fragment, null,
+                React.createElement("span", { style: { flex: 1 } }),
+                React.createElement(Btn, { small: true, variant: chartView ? "soft" : "ghost", onClick: () => setChartView((v) => !v) }, chartView ? "📋 รายการ" : "📊 แผนภูมิ"),
+                React.createElement(Btn, { small: true, variant: "ghost", onClick: exportExcel }, "\u2B07 Excel"),
+                React.createElement(Btn, { small: true, variant: "ghost", onClick: () => pdfFromEl("org2Area", "portrait", "ผังองค์กร.pdf", ui.notify) }, "\u2B07 PDF"))),
+        React.createElement("div", { id: "org2Area" },
+            canEdit && pendingReqs.length > 0 && React.createElement(Card, { style: { padding: 14, marginBottom: 12, background: "#fff6e9", border: `1px solid ${C.gold}` } },
+                React.createElement("div", { style: { fontWeight: 800, color: "#b3762f", marginBottom: 8 } },
+                    "\u23F3 \u0E04\u0E33\u0E02\u0E2D\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E15\u0E31\u0E27 (",
+                    pendingReqs.length,
+                    ")"),
+                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, pendingReqs.map((r) => {
+                    const per = (db.org2 || []).find((n) => n.id === r.nodeId);
+                    const who = per && per.personId ? [...(db.teachers || []), ...(db.students || [])].find((x) => String(x.id) === String(per.personId)) : null;
+                    return (React.createElement("div", { key: r.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: "#fff", borderRadius: 8, flexWrap: "wrap" } },
+                        React.createElement("div", { style: { flex: 1, minWidth: 0, fontSize: 12.5 } },
+                            React.createElement("b", null, compName2(r.compId)),
+                            " \u00B7 ",
+                            dutyName2(r.dutyId),
+                            " ",
+                            who ? `(${fullName(who)})` : "",
+                            React.createElement("div", { style: { color: C.muted } },
+                                "\u0E42\u0E14\u0E22 ",
+                                r.byName,
+                                r.note ? " · " + r.note : "")),
+                        React.createElement(Btn, { small: true, onClick: () => approveReq(r) }, "\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34 (\u0E17\u0E33\u0E43\u0E2B\u0E49\u0E27\u0E48\u0E32\u0E07)"),
+                        React.createElement(Btn, { small: true, variant: "ghost", onClick: () => rejectReq(r) }, "\u0E1B\u0E0F\u0E34\u0E40\u0E2A\u0E18")));
+                }))),
+            (db.org2 || []).length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E31\u0E07 \u2014 \u0E15\u0E31\u0E49\u0E07\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A\u0E23\u0E32\u0E22\u0E1D\u0E48\u0E32\u0E22\u0E41\u0E25\u0E49\u0E27\u0E01\u0E14 '\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1C\u0E31\u0E07\u0E08\u0E32\u0E01\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A'" }),
+            Object.keys(byComp).map((compId) => (React.createElement(Card, { key: compId, style: { padding: 14, marginBottom: 12 } },
+                React.createElement("div", { style: { fontWeight: 800, color: C.ink, marginBottom: 8 } },
+                    "\uD83C\uDFC6 ",
+                    compName2(compId)),
+                Object.keys(byComp[compId]).map((deptId) => {
+                    const list = byComp[compId][deptId].slice().sort((a, b) => (a.num || 99) - (b.num || 99));
+                    const personCell = (n) => canEdit ? React.createElement(PersonPicker, { db: db, value: n.personId, side: n.side, onPick: (id, side) => setPerson(n.id, id, side), onClear: () => setPerson(n.id, "", "") }) : (selfSignup ? (!n.personId ? React.createElement("button", { onClick: () => selfPick(n.id), style: { border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "3px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" } }, "\uFF0B \u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E09\u0E31\u0E19")
                         : (String(n.personId) === String(meId) ? React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 6 } },
                             React.createElement(PersonName, { db: db, personId: n.personId, side: n.side }),
-                            React.createElement("button", { onClick: () => selfDrop(n.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 700, fontSize: 12 } }, "\u0E16\u0E2D\u0E19")) : React.createElement(PersonName, { db: db, personId: n.personId, side: n.side }))) : React.createElement(PersonName, { db: db, personId: n.personId, side: n.side }))))))))))))),
+                            React.createElement("button", { onClick: () => selfDrop(n.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 700, fontSize: 12 } }, "\u0E16\u0E2D\u0E19")) : React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 6 } },
+                            React.createElement(PersonName, { db: db, personId: n.personId, side: n.side }),
+                            (db.org2Requests || []).some((r) => r.nodeId === n.id && r.status === "pending") ? React.createElement("span", { style: { fontSize: 11, color: "#c99a2e", fontWeight: 700 } }, "\u23F3 \u0E02\u0E2D\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u2026") : React.createElement("button", { onClick: () => reqSwap(n), style: { border: `1px solid ${C.line}`, background: C.surface, color: C.muted, borderRadius: 8, padding: "2px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" } }, "\u0E02\u0E2D\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19")))) : React.createElement(PersonName, { db: db, personId: n.personId, side: n.side }));
+                    return (React.createElement("div", { key: deptId, style: { marginBottom: 10 } },
+                        React.createElement("div", { style: { fontSize: 12.5, fontWeight: 700, color: C.primaryDark, marginBottom: 4 } },
+                            "\uD83C\uDFE2 ",
+                            deptName(deptId)),
+                        chartView ? (React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 0, padding: "4px 0" } }, list.map((n, idx) => (React.createElement("div", { key: n.id, style: { display: "flex", flexDirection: "column", alignItems: "center", width: "100%" } },
+                            idx > 0 && React.createElement("div", { style: { width: 2, height: 16, background: C.line } }),
+                            React.createElement("div", { style: { minWidth: 200, maxWidth: 320, width: "80%", border: `1px solid ${C.line}`, borderTop: `3px solid ${C.primary}`, borderRadius: 10, padding: "8px 12px", background: "#fff", textAlign: "center", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" } },
+                                React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 3 } },
+                                    React.createElement("span", { style: { width: 20, height: 20, borderRadius: "50%", background: C.soft, color: C.primaryDark, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 10 } }, n.num),
+                                    React.createElement("span", { style: { fontWeight: 700, color: C.ink, fontSize: 13 } }, dutyName2(n.dutyId))),
+                                React.createElement("div", null, personCell(n)))))))) : (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5 } }, list.map((n) => (React.createElement("div", { key: n.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", background: "#f7f9ff", borderRadius: 8, flexWrap: "wrap" } },
+                            React.createElement("span", { style: { width: 24, height: 24, borderRadius: "50%", background: C.soft, color: C.primaryDark, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 11 } }, n.num),
+                            React.createElement("span", { style: { fontWeight: 600, color: C.ink, minWidth: 90, fontSize: 13 } }, dutyName2(n.dutyId)),
+                            React.createElement("span", { style: { flex: 1 } }, personCell(n)))))))));
+                }))))),
         confirmGen && React.createElement(ConfirmModal, { title: "\u0E2A\u0E23\u0E49\u0E32\u0E07/\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E1C\u0E31\u0E07\u0E08\u0E32\u0E01\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A", message: "\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1C\u0E31\u0E07\u0E02\u0E2D\u0E07\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \u0E08\u0E32\u0E01\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A\u0E02\u0E2D\u0E07\u0E1D\u0E48\u0E32\u0E22\u0E17\u0E35\u0E48\u0E2A\u0E31\u0E07\u0E01\u0E31\u0E14 \u00B7 \u0E04\u0E19\u0E17\u0E35\u0E48\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E44\u0E27\u0E49\u0E41\u0E25\u0E49\u0E27\u0E08\u0E30\u0E16\u0E39\u0E01\u0E40\u0E01\u0E47\u0E1A\u0E44\u0E27\u0E49 \u00B7 \u0E17\u0E33\u0E15\u0E48\u0E2D\u0E44\u0E2B\u0E21?", confirmLabel: "\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E40\u0E25\u0E22", onConfirm: generate, onClose: () => setConfirmGen(false) })));
 }
 function PersonName({ db, personId, side }) {
@@ -5437,9 +5500,10 @@ function OrgSetup({ db, setDb, ui }) {
     const [tab, setTab] = useState("duty");
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\u2699\uFE0F \u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E1C\u0E31\u0E07 (\u0E23\u0E30\u0E1A\u0E1A\u0E43\u0E2B\u0E21\u0E48)", sub: "\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E1E\u0E37\u0E49\u0E19\u0E10\u0E32\u0E19\u0E01\u0E48\u0E2D\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1C\u0E31\u0E07 \u2014 \u0E1D\u0E48\u0E32\u0E22 \u00B7 \u0E0A\u0E19\u0E34\u0E14\u0E01\u0E35\u0E2C\u0E32 \u00B7 \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \u00B7 \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48+\u0E40\u0E25\u0E02 \u00B7 \u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A" }),
-        React.createElement(Tabs, { tabs: [{ key: "duty", label: "หน้าที่ + เลข" }, { key: "sport", label: "ชนิดกีฬา" }, { key: "act", label: "กิจกรรม" }, { key: "dept", label: "ฝ่าย" }, { key: "template", label: "แม่แบบผังรายฝ่าย" }], active: tab, onChange: setTab }),
+        React.createElement(Tabs, { tabs: [{ key: "duty", label: "หน้าที่ + เลข" }, { key: "sport", label: "ชนิดกีฬา" }, { key: "track", label: "ชนิดกรีฑา" }, { key: "act", label: "กิจกรรม" }, { key: "dept", label: "ฝ่าย" }, { key: "template", label: "แม่แบบผังรายฝ่าย" }], active: tab, onChange: setTab }),
         tab === "duty" && React.createElement(DutyDefManager, { db: db, setDb: setDb, ui: ui }),
         tab === "sport" && React.createElement(SimpleListManager, { db: db, setDb: setDb, ui: ui, field: "sportTypes", title: "\u0E0A\u0E19\u0E34\u0E14\u0E01\u0E35\u0E2C\u0E32", hint: "\u0E0A\u0E19\u0E34\u0E14\u0E01\u0E35\u0E2C\u0E32\u0E17\u0E35\u0E48\u0E43\u0E0A\u0E49\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E15\u0E2D\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07 (\u0E40\u0E0A\u0E48\u0E19 \u0E1F\u0E38\u0E15\u0E1A\u0E2D\u0E25 \u0E27\u0E2D\u0E25\u0E40\u0E25\u0E22\u0E4C\u0E1A\u0E2D\u0E25)", placeholder: "\u0E0A\u0E37\u0E48\u0E2D\u0E0A\u0E19\u0E34\u0E14\u0E01\u0E35\u0E2C\u0E32" }),
+        tab === "track" && React.createElement(SimpleListManager, { db: db, setDb: setDb, ui: ui, field: "trackTypes", title: "\u0E0A\u0E19\u0E34\u0E14\u0E01\u0E23\u0E35\u0E11\u0E32", hint: "\u0E0A\u0E19\u0E34\u0E14\u0E01\u0E23\u0E35\u0E11\u0E32\u0E17\u0E35\u0E48\u0E43\u0E0A\u0E49\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E15\u0E2D\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07 (\u0E40\u0E0A\u0E48\u0E19 \u0E27\u0E34\u0E48\u0E07 100 \u0E40\u0E21\u0E15\u0E23 \u0E01\u0E23\u0E30\u0E42\u0E14\u0E14\u0E44\u0E01\u0E25 \u0E17\u0E38\u0E48\u0E21\u0E19\u0E49\u0E33\u0E2B\u0E19\u0E31\u0E01)", placeholder: "\u0E0A\u0E37\u0E48\u0E2D\u0E0A\u0E19\u0E34\u0E14\u0E01\u0E23\u0E35\u0E11\u0E32" }),
         tab === "act" && React.createElement(SimpleListManager, { db: db, setDb: setDb, ui: ui, field: "activities", title: "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21", hint: "\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E35\u0E48\u0E43\u0E0A\u0E49\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E15\u0E2D\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 (\u0E40\u0E0A\u0E48\u0E19 \u0E40\u0E15\u0E49\u0E19 \u0E23\u0E49\u0E2D\u0E07\u0E40\u0E1E\u0E25\u0E07)", placeholder: "\u0E0A\u0E37\u0E48\u0E2D\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }),
         tab === "dept" && React.createElement(DepartmentManager, { db: db, setDb: setDb, ui: ui }),
         tab === "template" && React.createElement(DeptTemplateManager, { db: db, setDb: setDb, ui: ui })));
@@ -7328,9 +7392,11 @@ function mergeDb(loaded) {
         dutyList: (loaded && loaded.dutyList) || [],
         duties: (loaded && loaded.duties) || [],
         sportTypes: (loaded && loaded.sportTypes) || [],
+        trackTypes: (loaded && loaded.trackTypes) || [],
         activities: (loaded && loaded.activities) || [],
         deptTemplates: (loaded && loaded.deptTemplates) || {},
         org2: (loaded && loaded.org2) || [],
+        org2Requests: (loaded && loaded.org2Requests) || [],
         orgRequests: (loaded && loaded.orgRequests) || [],
         training: (loaded && loaded.training) || [],
         finance: (loaded && loaded.finance) || [],
