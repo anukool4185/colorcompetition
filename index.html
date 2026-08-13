@@ -4804,8 +4804,8 @@ function CompForm({ kind, comp, db, onClose, onSave }) {
     return (React.createElement(Modal, { title: comp ? "แก้ไขรายการ" : `เพิ่มรายการ${kind}`, onClose: onClose },
         React.createElement(Field, { label: "\u0E0A\u0E37\u0E48\u0E2D\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", value: f.name, onChange: set("name") }),
         (() => {
-            const src = kind === "กิจกรรม" ? (db.activities || []) : ((f.sportType === "กรีฑา") ? (db.trackTypes || []) : (db.sportTypes || []));
-            const label = kind === "กิจกรรม" ? "กิจกรรม" : (f.sportType === "กรีฑา" ? "ชนิดกรีฑา" : "ชนิดกีฬา");
+            const src = kind === "กิจกรรม" ? (db.activities || []) : [...(db.sportTypes || []), ...(db.trackTypes || [])];
+            const label = kind === "กิจกรรม" ? "กิจกรรม" : "ชนิดกีฬา/กรีฑา";
             if (!src.length)
                 return null;
             return (React.createElement("div", { style: { marginBottom: 12 } },
@@ -4822,15 +4822,11 @@ function CompForm({ kind, comp, db, onClose, onSave }) {
                     src.map((x) => React.createElement("option", { key: x.id, value: x.name }, x.name)))));
         })(),
         isSport && (React.createElement("div", { style: { marginBottom: 12 } },
-            React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17"),
-            React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, ["กีฬา", "กรีฑา", "อื่นๆ"].map((t) => pill(t, f.sportType || "กีฬา", () => set("sportType")(t), C.primary))),
             React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E40\u0E1E\u0E28\u0E17\u0E35\u0E48\u0E23\u0E31\u0E1A\u0E2A\u0E21\u0E31\u0E04\u0E23"),
             React.createElement("div", { style: { display: "flex", gap: 8 } }, ["ชาย", "หญิง", "รวม"].map((g) => pill(g, f.gender || "รวม", () => set("gender")(g), C.primary))))),
         React.createElement("div", { className: "md:grid md:grid-cols-2 md:gap-x-3" },
             React.createElement(Field, { label: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07 (0 = \u0E44\u0E21\u0E48\u0E08\u0E33\u0E01\u0E31\u0E14)", value: String(f.mainCount), onChange: (v) => set("mainCount")(Number(v) || 0) }),
-            React.createElement(Field, { label: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E15\u0E31\u0E27\u0E2A\u0E33\u0E23\u0E2D\u0E07 (0 = \u0E44\u0E21\u0E48\u0E08\u0E33\u0E01\u0E31\u0E14)", value: String(f.reserveCount), onChange: (v) => set("reserveCount")(Number(v) || 0) }),
-            React.createElement(Field, { label: "\u0E23\u0E31\u0E1A\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E15\u0E31\u0E49\u0E07\u0E41\u0E15\u0E48", value: f.regStart, onChange: set("regStart"), type: "date" }),
-            React.createElement(Field, { label: "\u0E16\u0E36\u0E07\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48", value: f.regEnd, onChange: set("regEnd"), type: "date" })),
+            React.createElement(Field, { label: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E15\u0E31\u0E27\u0E2A\u0E33\u0E23\u0E2D\u0E07 (0 = \u0E44\u0E21\u0E48\u0E08\u0E33\u0E01\u0E31\u0E14)", value: String(f.reserveCount), onChange: (v) => set("reserveCount")(Number(v) || 0) })),
         React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 6 } }, "\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E0A\u0E31\u0E49\u0E19\u0E17\u0E35\u0E48\u0E25\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49\u0E44\u0E14\u0E49 (\u0E44\u0E21\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01 = \u0E17\u0E38\u0E01\u0E0A\u0E31\u0E49\u0E19)"),
         React.createElement("div", { style: { display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 } }, GRADE_ORDER.map((g) => {
             const on = gsel.includes(g);
