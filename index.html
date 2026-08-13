@@ -4914,8 +4914,8 @@ function SportItemsTable({ db, setDb, ui, kind = "แข่งขัน", sportT
     const [bulk, setBulk] = useState("");
     const items = (db.competitions || []).filter((c) => c.kind === kind && (c.sportType || "กีฬา") === sportType);
     const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 400);
-    const addBulk = () => { const names = bulk.split(/[,\s]+/).map((x) => x.trim()).filter(Boolean); if (!names.length) {
-        ui.notify("พิมพ์ชื่อ" + sportType + "ก่อน (เว้นวรรคหรือ , แยกหลายอัน)");
+    const addBulk = () => { const names = bulk.split(",").map((x) => x.trim()).filter(Boolean); if (!names.length) {
+        ui.notify("พิมพ์ชื่อ" + sportType + "ก่อน (คั่นด้วย , แยกหลายอัน)");
         return;
     } setDb((p) => ({ ...p, competitions: [...(p.competitions || []), ...names.map((nm, i) => ({ id: "c" + Date.now() + i, kind, sportType, name: nm, genders: ["ชาย"], grades: ["ม.1"], mainCount: 0, reserveCount: 0, regStart: "", regEnd: "", participants: [], orgLevels: [] }))] })); setBulk(""); save(); };
     const upd = (id, patch) => { setDb((p) => ({ ...p, competitions: (p.competitions || []).map((c) => c.id === id ? { ...c, ...patch } : c) })); save(); };
@@ -4930,9 +4930,9 @@ function SportItemsTable({ db, setDb, ui, kind = "แข่งขัน", sportT
         React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: C.ink, marginBottom: 4 } },
             "\u0E0A\u0E37\u0E48\u0E2D",
             sportType,
-            " (\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E2B\u0E25\u0E32\u0E22\u0E2D\u0E31\u0E19\u0E44\u0E14\u0E49 \u0E40\u0E27\u0E49\u0E19\u0E27\u0E23\u0E23\u0E04\u0E2B\u0E23\u0E37\u0E2D , \u0E41\u0E22\u0E01)"),
+            " (\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E2B\u0E25\u0E32\u0E22\u0E2D\u0E31\u0E19\u0E44\u0E14\u0E49 \u0E04\u0E31\u0E48\u0E19\u0E14\u0E49\u0E27\u0E22\u0E04\u0E2D\u0E21\u0E21\u0E32 , )"),
         React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 16 } },
-            React.createElement("textarea", { value: bulk, onChange: (e) => setBulk(e.target.value), placeholder: "พิมพ์ชื่อ" + sportType + " (เว้นวรรคหรือ , แยกหลายอัน)", rows: 2, style: { flex: 1, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, resize: "vertical", fontFamily: "inherit" } }),
+            React.createElement("textarea", { value: bulk, onChange: (e) => setBulk(e.target.value), placeholder: "พิมพ์ชื่อ" + sportType + " คั่นด้วย ,  เช่น  วิ่ง 100 เมตร, วิ่ง 200 เมตร", rows: 2, style: { flex: 1, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, resize: "vertical", fontFamily: "inherit" } }),
             React.createElement(Btn, { onClick: addBulk }, "\uFF0B \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23")),
         React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 8 } },
             "\u0E15\u0E32\u0E23\u0E32\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23",
