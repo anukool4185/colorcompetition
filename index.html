@@ -3284,7 +3284,7 @@ function DepartmentManager({ db, setDb, ui }) {
                     return (React.createElement("label", { key: c.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", border: `1px solid ${on ? C.primary : C.line}`, borderRadius: 8, background: on ? C.soft : C.surface, cursor: "pointer" } },
                         React.createElement("input", { type: "checkbox", checked: on, onChange: () => toggleComp(d.id, c.id), style: { width: 17, height: 17 } }),
                         React.createElement("span", { style: { fontSize: 13, color: C.ink } },
-                            c.name,
+                            sportItemName(c),
                             " ",
                             React.createElement("span", { style: { fontSize: 11, color: C.muted } },
                                 "(",
