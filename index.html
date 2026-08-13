@@ -4874,6 +4874,106 @@ function eligibleForStudent(c, s) {
         return false;
     return true;
 }
+function genderSummary(genders) {
+    const g = genders || [];
+    const hasM = g.includes("ชาย"), hasF = g.includes("หญิง");
+    if (hasM && hasF)
+        return "รวมชาย-หญิง";
+    if (hasM)
+        return "ชาย";
+    if (hasF)
+        return "หญิง";
+    return "";
+}
+function gradeSummary2(grades) {
+    if (!grades || !grades.length)
+        return "ทุกชั้น";
+    const lower = ["ม.1", "ม.2", "ม.3"], upper = ["ม.4", "ม.5", "ม.6"];
+    const all = [...lower, ...upper];
+    const sel = grades.filter((x) => all.includes(x));
+    const hasAllLower = lower.every((x) => sel.includes(x)), hasAllUpper = upper.every((x) => sel.includes(x));
+    if (hasAllLower && hasAllUpper)
+        return "รวมระดับ"; // ม.1-ม.6 เลือกครบ
+    if (hasAllLower && !sel.some((x) => upper.includes(x)))
+        return "ม.ต้น"; // ม.1-3 ครบ ไม่มีปลาย
+    if (hasAllUpper && !sel.some((x) => lower.includes(x)))
+        return "ม.ปลาย"; // ม.4-6 ครบ ไม่มีต้น
+    return "เฉพาะระดับ (" + sel.join(",") + ")"; // เลือกบางส่วน/คละ
+}
+function sportItemName(c) {
+    let s = c.name || "";
+    const gs = genderSummary(c.genders);
+    if (gs)
+        s += " " + gs;
+    s += " " + gradeSummary2(c.grades);
+    return s.trim();
+}
+function SportItemsTable({ db, setDb, ui, kind = "แข่งขัน", sportType = "กีฬา" }) {
+    const [bulk, setBulk] = useState("");
+    const items = (db.competitions || []).filter((c) => c.kind === kind && (c.sportType || "กีฬา") === sportType);
+    const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 400);
+    const addBulk = () => { const names = bulk.split(/[,\s]+/).map((x) => x.trim()).filter(Boolean); if (!names.length) {
+        ui.notify("พิมพ์ชื่อ" + sportType + "ก่อน (เว้นวรรคหรือ , แยกหลายอัน)");
+        return;
+    } setDb((p) => ({ ...p, competitions: [...(p.competitions || []), ...names.map((nm, i) => ({ id: "c" + Date.now() + i, kind, sportType, name: nm, genders: ["ชาย"], grades: ["ม.1"], mainCount: 0, reserveCount: 0, regStart: "", regEnd: "", participants: [], orgLevels: [] }))] })); setBulk(""); save(); };
+    const upd = (id, patch) => { setDb((p) => ({ ...p, competitions: (p.competitions || []).map((c) => c.id === id ? { ...c, ...patch } : c) })); save(); };
+    const toggleGrade = (c, g) => { const cur = c.grades || []; upd(c.id, { grades: cur.includes(g) ? cur.filter((x) => x !== g) : [...cur, g] }); };
+    const toggleGender = (c, g) => { const cur = c.genders || []; upd(c.id, { genders: cur.includes(g) ? cur.filter((x) => x !== g) : [...cur, g] }); };
+    const del = (id) => { setDb((p) => ({ ...p, competitions: (p.competitions || []).filter((c) => c.id !== id) })); save(); };
+    const GR = ["ม.1", "ม.2", "ม.3", "ม.4", "ม.5", "ม.6"];
+    const cb = () => ({ width: 16, height: 16, accentColor: C.primary, cursor: "pointer" });
+    const th = { padding: "8px 6px", fontSize: 12.5, fontWeight: 700, color: C.primaryDark, textAlign: "center", borderBottom: `2px solid ${C.line}`, background: C.soft, whiteSpace: "nowrap" };
+    const td = { padding: "8px 6px", fontSize: 12.5, color: C.ink, borderBottom: `1px solid ${C.line}`, verticalAlign: "top" };
+    return (React.createElement("div", null,
+        React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: C.ink, marginBottom: 4 } },
+            "\u0E0A\u0E37\u0E48\u0E2D",
+            sportType,
+            " (\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E2B\u0E25\u0E32\u0E22\u0E2D\u0E31\u0E19\u0E44\u0E14\u0E49 \u0E40\u0E27\u0E49\u0E19\u0E27\u0E23\u0E23\u0E04\u0E2B\u0E23\u0E37\u0E2D , \u0E41\u0E22\u0E01)"),
+        React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 16 } },
+            React.createElement("textarea", { value: bulk, onChange: (e) => setBulk(e.target.value), placeholder: "พิมพ์ชื่อ" + sportType + " (เว้นวรรคหรือ , แยกหลายอัน)", rows: 2, style: { flex: 1, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, resize: "vertical", fontFamily: "inherit" } }),
+            React.createElement(Btn, { onClick: addBulk }, "\uFF0B \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23")),
+        React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 8 } },
+            "\u0E15\u0E32\u0E23\u0E32\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23",
+            sportType,
+            " (\u0E41\u0E01\u0E49\u0E44\u0E02\u0E43\u0E19\u0E0A\u0E48\u0E2D\u0E07\u0E44\u0E14\u0E49\u0E15\u0E25\u0E2D\u0E14) \u00B7 \u0E21.1-\u0E21.3 = \u0E21.\u0E15\u0E49\u0E19 \u00B7 \u0E21.4-\u0E21.6 = \u0E21.\u0E1B\u0E25\u0E32\u0E22 \u00B7 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E04\u0E23\u0E1A = \u0E23\u0E27\u0E21\u0E23\u0E30\u0E14\u0E31\u0E1A"),
+        items.length === 0 ? React.createElement(Empty, { text: "ยังไม่มีรายการ" + sportType + " — เพิ่มด้านบน" }) : (React.createElement("div", { style: { overflowX: "auto" } },
+            React.createElement("table", { style: { borderCollapse: "collapse", width: "100%", minWidth: 780 } },
+                React.createElement("thead", null,
+                    React.createElement("tr", null,
+                        React.createElement("th", { style: th },
+                            "\u0E0A\u0E37\u0E48\u0E2D",
+                            sportType),
+                        React.createElement("th", { style: th }, "\u0E40\u0E1E\u0E28"),
+                        React.createElement("th", { style: th }, "\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E0A\u0E31\u0E49\u0E19"),
+                        React.createElement("th", { style: th }, "\u0E2A\u0E23\u0E38\u0E1B"),
+                        React.createElement("th", { style: th }, "\u0E08\u0E33\u0E19\u0E27\u0E19"),
+                        React.createElement("th", { style: th }, "\u0E0A\u0E37\u0E48\u0E2D\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"),
+                        React.createElement("th", { style: th }))),
+                React.createElement("tbody", null, items.map((c) => (React.createElement("tr", { key: c.id },
+                    React.createElement("td", { style: td },
+                        React.createElement("input", { value: c.name, onChange: (e) => upd(c.id, { name: e.target.value }), style: { width: 90, padding: "5px 7px", borderRadius: 6, border: `1px solid ${C.line}`, fontSize: 12.5 } })),
+                    React.createElement("td", { style: td },
+                        ["ชาย", "หญิง"].map((g) => React.createElement("label", { key: g, style: { display: "flex", alignItems: "center", gap: 5, marginBottom: 3, cursor: "pointer", whiteSpace: "nowrap" } },
+                            React.createElement("input", { type: "checkbox", checked: (c.genders || []).includes(g), onChange: () => toggleGender(c, g), style: cb() }),
+                            g)),
+                        React.createElement("div", { style: { fontSize: 11, color: C.primaryDark, fontWeight: 700, marginTop: 2 } }, genderSummary(c.genders) || "—")),
+                    React.createElement("td", { style: td },
+                        React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "2px 8px" } }, GR.map((g) => React.createElement("label", { key: g, style: { display: "flex", alignItems: "center", gap: 4, cursor: "pointer" } },
+                            React.createElement("input", { type: "checkbox", checked: (c.grades || []).includes(g), onChange: () => toggleGrade(c, g), style: cb() }),
+                            g)))),
+                    React.createElement("td", { style: { ...td, fontWeight: 700, color: C.primaryDark, whiteSpace: "nowrap", textAlign: "center" } }, gradeSummary2(c.grades)),
+                    React.createElement("td", { style: td },
+                        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } },
+                            React.createElement("label", { style: { fontSize: 11, color: C.muted } },
+                                "\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07",
+                                React.createElement("input", { type: "number", value: c.mainCount || 0, onChange: (e) => upd(c.id, { mainCount: Number(e.target.value) || 0 }), style: { width: 56, padding: "4px 6px", borderRadius: 6, border: `1px solid ${C.line}`, fontSize: 12.5, marginLeft: 4 } })),
+                            React.createElement("label", { style: { fontSize: 11, color: C.muted } },
+                                "\u0E2A\u0E33\u0E23\u0E2D\u0E07",
+                                React.createElement("input", { type: "number", value: c.reserveCount || 0, onChange: (e) => upd(c.id, { reserveCount: Number(e.target.value) || 0 }), style: { width: 56, padding: "4px 6px", borderRadius: 6, border: `1px solid ${C.line}`, fontSize: 12.5, marginLeft: 4 } })))),
+                    React.createElement("td", { style: { ...td, fontWeight: 700, color: C.ink, minWidth: 130 } }, sportItemName(c)),
+                    React.createElement("td", { style: td },
+                        React.createElement("button", { onClick: () => del(c.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715")))))))))));
+}
 function gradesLabel(c) {
     if (!c.grades || c.grades.length === 0)
         return "ทุกชั้น";
@@ -5496,8 +5596,11 @@ function OrgSetup({ db, setDb, ui }) {
     const [tab, setTab] = useState("duty");
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\u2699\uFE0F \u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E1C\u0E31\u0E07 (\u0E23\u0E30\u0E1A\u0E1A\u0E43\u0E2B\u0E21\u0E48)", sub: "\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E1E\u0E37\u0E49\u0E19\u0E10\u0E32\u0E19\u0E01\u0E48\u0E2D\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1C\u0E31\u0E07 \u2014 \u0E1D\u0E48\u0E32\u0E22 \u00B7 \u0E0A\u0E19\u0E34\u0E14\u0E01\u0E35\u0E2C\u0E32 \u00B7 \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \u00B7 \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48+\u0E40\u0E25\u0E02 \u00B7 \u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A" }),
-        React.createElement(Tabs, { tabs: [{ key: "duty", label: "หน้าที่ + เลข" }, { key: "sport", label: "ชนิดกีฬา" }, { key: "track", label: "ชนิดกรีฑา" }, { key: "act", label: "กิจกรรม" }, { key: "dept", label: "ฝ่าย" }, { key: "template", label: "แม่แบบผังรายฝ่าย" }], active: tab, onChange: setTab }),
+        React.createElement(Tabs, { tabs: [{ key: "duty", label: "หน้าที่ + เลข" }, { key: "sport", label: "ชนิดกีฬา" }, { key: "track", label: "ชนิดกรีฑา" }, { key: "act", label: "กิจกรรม" }, { key: "sportitems", label: "➕ รายการกีฬา" }, { key: "trackitems", label: "➕ รายการกรีฑา" }, { key: "actitems", label: "➕ รายการกิจกรรม" }, { key: "dept", label: "ฝ่าย" }, { key: "template", label: "แม่แบบผังรายฝ่าย" }], active: tab, onChange: setTab }),
         tab === "duty" && React.createElement(DutyDefManager, { db: db, setDb: setDb, ui: ui }),
+        tab === "sportitems" && React.createElement(SportItemsTable, { db: db, setDb: setDb, ui: ui, kind: "\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19", sportType: "\u0E01\u0E35\u0E2C\u0E32" }),
+        tab === "trackitems" && React.createElement(SportItemsTable, { db: db, setDb: setDb, ui: ui, kind: "\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19", sportType: "\u0E01\u0E23\u0E35\u0E11\u0E32" }),
+        tab === "actitems" && React.createElement(SportItemsTable, { db: db, setDb: setDb, ui: ui, kind: "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21", sportType: "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }),
         tab === "sport" && React.createElement(SimpleListManager, { db: db, setDb: setDb, ui: ui, field: "sportTypes", title: "\u0E0A\u0E19\u0E34\u0E14\u0E01\u0E35\u0E2C\u0E32", hint: "\u0E0A\u0E19\u0E34\u0E14\u0E01\u0E35\u0E2C\u0E32\u0E17\u0E35\u0E48\u0E43\u0E0A\u0E49\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E15\u0E2D\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07 (\u0E40\u0E0A\u0E48\u0E19 \u0E1F\u0E38\u0E15\u0E1A\u0E2D\u0E25 \u0E27\u0E2D\u0E25\u0E40\u0E25\u0E22\u0E4C\u0E1A\u0E2D\u0E25)", placeholder: "\u0E0A\u0E37\u0E48\u0E2D\u0E0A\u0E19\u0E34\u0E14\u0E01\u0E35\u0E2C\u0E32" }),
         tab === "track" && React.createElement(SimpleListManager, { db: db, setDb: setDb, ui: ui, field: "trackTypes", title: "\u0E0A\u0E19\u0E34\u0E14\u0E01\u0E23\u0E35\u0E11\u0E32", hint: "\u0E0A\u0E19\u0E34\u0E14\u0E01\u0E23\u0E35\u0E11\u0E32\u0E17\u0E35\u0E48\u0E43\u0E0A\u0E49\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E15\u0E2D\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07 (\u0E40\u0E0A\u0E48\u0E19 \u0E27\u0E34\u0E48\u0E07 100 \u0E40\u0E21\u0E15\u0E23 \u0E01\u0E23\u0E30\u0E42\u0E14\u0E14\u0E44\u0E01\u0E25 \u0E17\u0E38\u0E48\u0E21\u0E19\u0E49\u0E33\u0E2B\u0E19\u0E31\u0E01)", placeholder: "\u0E0A\u0E37\u0E48\u0E2D\u0E0A\u0E19\u0E34\u0E14\u0E01\u0E23\u0E35\u0E11\u0E32" }),
         tab === "act" && React.createElement(SimpleListManager, { db: db, setDb: setDb, ui: ui, field: "activities", title: "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21", hint: "\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E35\u0E48\u0E43\u0E0A\u0E49\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E15\u0E2D\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 (\u0E40\u0E0A\u0E48\u0E19 \u0E40\u0E15\u0E49\u0E19 \u0E23\u0E49\u0E2D\u0E07\u0E40\u0E1E\u0E25\u0E07)", placeholder: "\u0E0A\u0E37\u0E48\u0E2D\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }),
