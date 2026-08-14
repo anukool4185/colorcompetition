@@ -1813,18 +1813,17 @@ function AdminApp({ db, setDb, onExit }) {
     const [view, setView] = useState("home");
     const [jumpComp, setJumpComp] = useState(null);
     const ui = useUI();
-    const adminPending = (db.orgRequests || []).filter((r) => r.status === "pending").length;
+    const adminPending = (db.orgRequests || []).filter((r) => r.status === "pending").length + (db.org2Requests || []).filter((r) => r.status === "pending").length;
     const orgDefault = db.competitions[0] ? "org:" + db.competitions[0].id : "org:all";
     const orgChildren = [{ header: true, label: "รายการแข่งขัน" }, ...db.competitions.filter((c) => c.kind === "แข่งขัน").map((c) => ({ key: "org:" + c.id, label: c.name })), { header: true, label: "รายการกิจกรรม" }, ...db.competitions.filter((c) => c.kind === "กิจกรรม").map((c) => ({ key: "org:" + c.id, label: c.name }))];
     const nav = [
         { key: "home", label: "ภาพรวม", icon: "▦" },
         { key: "noti", label: adminPending ? `แจ้งเตือน (${adminPending})` : "แจ้งเตือน", icon: "🔔" },
         { key: "people", label: "บุคลากร", icon: "👥" },
-        { key: "duties", label: "หน้าที่ กิจกรรมแข่งขัน", icon: "🧩" },
+        { key: "orgsetup", label: "ตั้งค่าผัง", icon: "⚙️" },
+        { key: "org2", label: "ผังองค์กร", icon: "🌳" },
         { key: "comp", label: "การแข่งขัน", icon: "🏆" },
         { key: "results", label: "จัดการผลการแข่งขัน", icon: "🏅" },
-        { key: "orgsetup", label: "ตั้งค่าผัง (ใหม่)", icon: "⚙️" },
-        { key: "org2", label: "ผังองค์กร", icon: "🌳" },
         { key: "attend", label: "ลงเวลา", icon: "⏱", defaultKey: "attend:day", children: [{ key: "attend:day", label: "ลงเวลาซ้อม-วันจริง" }, { key: "attend:none", label: "บุคคลไม่มีส่วนร่วม" }, { key: "attend:sum", label: "สรุปเวลารวม" }] },
         { key: "promote", label: "เลื่อนชั้น", icon: "⬆" },
         { key: "trash", label: "ถังขยะ", icon: "🗑" },
@@ -5505,6 +5504,11 @@ function PersonPicker({ db, value, side, onPick, onClear, only }) {
                 fullName(p),
                 p.grade ? ` (${p.grade}/${p.room})` : "")))));
 }
+const PAIR_COLORS = ["#2f6bd4", "#1e9e6b", "#a05ad4", "#d4802f", "#c0398b", "#3aa0a0", "#c0392b", "#6b8e00", "#8a6d3b", "#5a5ad4"];
+function pairKeyOf(comps, all) { if (all)
+    return "ALL"; const a = (comps || []).map(String).slice().sort(); return a.length ? a.join(",") : ""; }
+function pairColorFor(key, keyList) { if (!key)
+    return null; const idx = keyList.indexOf(key); return idx < 0 ? null : PAIR_COLORS[idx % PAIR_COLORS.length]; }
 function tplPeople(r) {
     if (r.people)
         return r.people;
@@ -5550,6 +5554,9 @@ function DeptTemplateManager({ db, setDb, ui }) {
     const chip = (checked, onChange, label, color) => React.createElement("label", { style: { display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, color: checked ? color : C.muted, cursor: "pointer", whiteSpace: "nowrap" } },
         React.createElement("input", { type: "checkbox", checked: !!checked, onChange: onChange, style: { width: 13, height: 13, accentColor: color } }),
         label);
+    const allPairKeys = [];
+    tpl.forEach((rr) => tplPeople(rr).forEach((pp) => { const k = pairKeyOf(pp.comps, pp.all); if (k && !allPairKeys.includes(k))
+        allPairKeys.push(k); }));
     return (React.createElement("div", { style: { maxWidth: 820 } },
         React.createElement("select", { value: deptId, onChange: (e) => setDeptId(e.target.value), style: { width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14, marginBottom: 12, fontWeight: 700 } }, depts.map((d) => React.createElement("option", { key: d.id, value: d.id }, d.name))),
         React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: C.ink, marginBottom: 6 } },
@@ -5578,22 +5585,26 @@ function DeptTemplateManager({ db, setDb, ui }) {
                         React.createElement("button", { onClick: () => addPerson(r.dutyId, "student"), style: { border: `1px solid #d98aa5`, background: "#fff7f9", color: "#b3527a", borderRadius: 8, padding: "3px 8px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" } }, "\uFF0B \u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19"),
                         React.createElement("button", { onClick: () => removeRow(r.dutyId), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715")),
                     ppl.length === 0 && React.createElement("div", { style: { fontSize: 12, color: C.muted, padding: "4px 2px" } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E19 \u2014 \u0E01\u0E14 \uFF0B \u0E04\u0E23\u0E39 \u0E2B\u0E23\u0E37\u0E2D \uFF0B \u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19"),
-                    React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, ppl.map((pp) => (React.createElement("div", { key: pp.pid, style: { background: pp.side === "teacher" ? "#f7f9ff" : "#fff7f9", borderRadius: 8, padding: "8px 10px" } },
-                        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
-                            React.createElement("span", { style: { fontSize: 11.5, fontWeight: 700, color: C.muted } }, pp.side === "teacher" ? "👩‍🏫 ครู" : "🧑‍🎓 นักเรียน"),
-                            React.createElement(PersonPicker, { db: db, value: pp.personId, only: pp.side, onPick: (id) => patchPerson(r.dutyId, pp.pid, { personId: id }), onClear: () => patchPerson(r.dutyId, pp.pid, { personId: "" }) }),
-                            chip(pp.all, () => patchPerson(r.dutyId, pp.pid, { all: !pp.all }), "ใช้ทุกรายการในฝ่าย", "#2f9e6b"),
-                            chip(pp.money, () => patchPerson(r.dutyId, pp.pid, { money: !pp.money }), "ผู้ถือเงิน", C.primary),
-                            React.createElement("button", { onClick: () => removePerson(r.dutyId, pp.pid), style: { marginLeft: "auto", border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800, fontSize: 12 } }, "\u0E25\u0E1A")),
-                        !pp.all && selCompObjs.length > 0 && (React.createElement("div", { style: { marginTop: 6 } },
-                            React.createElement("span", { style: { fontSize: 11, color: "#c0392b", fontWeight: 700 } }, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E14\u0E39\u0E41\u0E25:"),
-                            React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "3px 12px", marginTop: 3 } }, selCompObjs.map((c) => {
-                                const on = (pp.comps || []).map(String).includes(String(c.id));
-                                return (React.createElement("label", { key: c.id, style: { display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 11.5 } },
-                                    React.createElement("input", { type: "checkbox", checked: on, onChange: () => togglePersonComp(r.dutyId, pp.pid, c.id), style: { width: 13, height: 13, accentColor: C.primary } }),
-                                    sportItemName(c)));
-                            })))),
-                        pp.all && React.createElement("div", { style: { fontSize: 10.5, color: "#1e7a4d", marginTop: 4 } }, "\u2713 \u0E43\u0E0A\u0E49\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19\u0E1D\u0E48\u0E32\u0E22 (\u0E44\u0E21\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)")))))));
+                    React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, ppl.map((pp) => {
+                        const pc = pairColorFor(pairKeyOf(pp.comps, pp.all), allPairKeys);
+                        return (React.createElement("div", { key: pp.pid, style: { background: pp.side === "teacher" ? "#f7f9ff" : "#fff7f9", borderRadius: 8, padding: "8px 10px", borderLeft: pc ? `4px solid ${pc}` : "4px solid transparent" } },
+                            React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+                                pc && React.createElement("span", { title: "\u0E17\u0E35\u0E21\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19 (\u0E14\u0E39\u0E41\u0E25\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E0A\u0E38\u0E14\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19)", style: { width: 10, height: 10, borderRadius: "50%", background: pc, flexShrink: 0 } }),
+                                React.createElement("span", { style: { fontSize: 11.5, fontWeight: 700, color: pc || C.muted } }, pp.side === "teacher" ? "👩‍🏫 ครู" : "🧑‍🎓 นักเรียน"),
+                                React.createElement(PersonPicker, { db: db, value: pp.personId, only: pp.side, onPick: (id) => patchPerson(r.dutyId, pp.pid, { personId: id }), onClear: () => patchPerson(r.dutyId, pp.pid, { personId: "" }) }),
+                                chip(pp.all, () => patchPerson(r.dutyId, pp.pid, { all: !pp.all }), "ใช้ทุกรายการในฝ่าย", "#2f9e6b"),
+                                chip(pp.money, () => patchPerson(r.dutyId, pp.pid, { money: !pp.money }), "ผู้ถือเงิน", C.primary),
+                                React.createElement("button", { onClick: () => removePerson(r.dutyId, pp.pid), style: { marginLeft: "auto", border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800, fontSize: 12 } }, "\u0E25\u0E1A")),
+                            !pp.all && selCompObjs.length > 0 && (React.createElement("div", { style: { marginTop: 6 } },
+                                React.createElement("span", { style: { fontSize: 11, color: pc || "#c0392b", fontWeight: 700 } }, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E14\u0E39\u0E41\u0E25:"),
+                                React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "3px 12px", marginTop: 3 } }, selCompObjs.map((c) => {
+                                    const on = (pp.comps || []).map(String).includes(String(c.id));
+                                    return (React.createElement("label", { key: c.id, style: { display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 11.5 } },
+                                        React.createElement("input", { type: "checkbox", checked: on, onChange: () => togglePersonComp(r.dutyId, pp.pid, c.id), style: { width: 13, height: 13, accentColor: C.primary } }),
+                                        sportItemName(c)));
+                                })))),
+                            pp.all && React.createElement("div", { style: { fontSize: 10.5, color: pc || "#1e7a4d", marginTop: 4 } }, "\u2713 \u0E43\u0E0A\u0E49\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19\u0E1D\u0E48\u0E32\u0E22 (\u0E17\u0E35\u0E21\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19\u0E17\u0E31\u0E49\u0E07\u0E1D\u0E48\u0E32\u0E22)")));
+                    }))));
             })),
         React.createElement("div", { style: { display: "flex", gap: 8 } },
             React.createElement("select", { value: addDuty, onChange: (e) => setAddDuty(e.target.value), style: { flex: 1, padding: "10px 12px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14 } },
@@ -6216,11 +6227,16 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
         return canApp || (isRep && r.replacementStatus !== "declined") || isReq; return false; }).length;
     const which = role === "teacher" ? "orgTeacher" : "orgStudent";
     const myComps = useMemo(() => {
+        // ระบบใหม่: รายการที่ฉันดูแล = รายการที่มีชื่อฉันอยู่ในผังใหม่ (org2)
+        const myCompIdSet = new Set((db.org2 || []).filter((n) => String(n.personId) === String(meId)).map((n) => String(n.compId)));
+        if (myCompIdSet.size > 0)
+            return db.competitions.filter((c) => myCompIdSet.has(String(c.id)));
+        // สำรอง (ยังไม่มีผังใหม่): ใช้ผังเก่า
         const sideNodes = db[which] || [];
         const myNodeIds = sideNodes.filter((n) => String(n.personId) === String(meId)).map((n) => n.id);
         const managesComp = (c) => sideNodes.filter((n) => String(n.compId) === String(c.id)).some((n) => orgPathIds(sideNodes, n.id).some((id) => myNodeIds.includes(id)));
         return db.competitions.filter(managesComp);
-    }, [db.competitions, db[which], meId, which]);
+    }, [db.competitions, db.org2, db[which], meId, which]);
     const myNodeIds = (db[which] || []).filter((n) => String(n.personId) === String(meId)).map((n) => n.id);
     const myCompIds = myComps.map((c) => c.id);
     const orgDefault = myComps[0] ? "org:" + myComps[0].id : "org:all";
