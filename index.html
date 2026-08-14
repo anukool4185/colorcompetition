@@ -930,7 +930,7 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc, canEntry = true }) {
     const [subTime, setSubTime] = useState(nowTime());
     const [subNote, setSubNote] = useState("");
     const [editSubId, setEditSubId] = useState(null);
-    const isMoneyHolder = String(viewer.role) === "admin" || [...(db.orgTeacher || []), ...(db.orgStudent || [])].some((n) => String(n.personId) === String(viewer.id) && /ถือเงิน|เก็บเงิน|รักษาเงิน|เหรัญญิก|เหรัญ/.test(n.title || ""));
+    const isMoneyHolder = String(viewer.role) === "admin" || (db.org2 || []).some((n) => String(n.personId) === String(viewer.id) && n.money);
     const submits = (inc["_submits"] || []).filter((x) => x.room === room).sort((a, b) => (a.date + "").localeCompare(b.date + ""));
     const submitSum = submits.reduce((s, x) => s + (Number(x.amount) || 0), 0);
     const addSubmit = () => { const amt = Number(String(subAmt).replace(/[^0-9.]/g, "")); if (!amt) {
@@ -949,16 +949,16 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc, canEntry = true }) {
             return true;
         if (!(acc && acc.full))
             return false; // ต้องเป็นฝ่ายการเงินเท่านั้น
-        const myNodes = [...(db.orgTeacher || []), ...(db.orgStudent || [])].filter((n) => String(n.personId) === String(viewer.id));
+        const myNodes = (db.org2 || []).filter((n) => String(n.personId) === String(viewer.id));
         if (!myNodes.length)
             return false;
-        const ranks = myNodes.map((n) => n.rank || (DUTY_RANKS.indexOf(n.title) + 1) || 0).filter((r) => r > 0);
+        const ranks = myNodes.map((n) => n.num || 0).filter((r) => r > 0);
         if (!ranks.length)
             return true;
         return ranks.some((r) => r <= 5);
     })();
     const myRankNum = (() => { if (String(viewer.role) === "admin")
-        return 0; const myNodes = [...(db.orgTeacher || []), ...(db.orgStudent || [])].filter((n) => String(n.personId) === String(viewer.id)); const ranks = myNodes.map((n) => n.rank || (DUTY_RANKS.indexOf(n.title) + 1) || 0).filter((r) => r > 0); return ranks.length ? Math.min(...ranks) : 6; })();
+        return 0; const myNodes = (db.org2 || []).filter((n) => String(n.personId) === String(viewer.id)); const ranks = myNodes.map((n) => n.num || 0).filter((r) => r > 0); return ranks.length ? Math.min(...ranks) : 6; })();
     const saveAll = () => ui.run("บันทึกแล้ว", () => { dirtyRef.current = false; save(); });
     return (React.createElement("div", null,
         React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 10 } },
@@ -1069,14 +1069,14 @@ function LoanManager({ db, setDb, ui, viewer }) {
     const [note, setNote] = useState("");
     const [photo, setPhoto] = useState("");
     const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 500);
-    const commIds = new Set((db.orgStudent || []).map((n) => String(n.personId)).filter(Boolean));
+    const commIds = new Set((db.org2 || []).filter((n) => n.side === "student").map((n) => String(n.personId)).filter(Boolean));
     let commStudents = (db.students || []).filter((s) => commIds.has(String(s.id)) || s.committee);
     if (!commStudents.length)
         commStudents = db.students || [];
     const filtered = commStudents.filter((s) => (fullName(s) + " " + (s.id || "")).toLowerCase().includes(q.toLowerCase()));
     const chosen = commStudents.find((s) => String(s.id) === String(studentId));
     const myComps = (() => { if (!studentId)
-        return []; const ids = new Set([...(db.orgTeacher || []), ...(db.orgStudent || [])].filter((n) => String(n.personId) === String(studentId) && n.compId).map((n) => String(n.compId))); return (db.competitions || []).filter((c) => ids.has(String(c.id))); })();
+        return []; const ids = new Set((db.org2 || []).filter((n) => String(n.personId) === String(studentId) && n.compId).map((n) => String(n.compId))); return (db.competitions || []).filter((c) => ids.has(String(c.id))); })();
     const toggleComp = (id) => setSelComps((cur) => cur.map(String).includes(String(id)) ? cur.filter((x) => String(x) !== String(id)) : [...cur, id]);
     const selDepts = (db.departments || []).filter((d) => (d.comps || []).some((cid) => selComps.map(String).includes(String(cid))));
     const loans = (db.loans || []).slice().sort((a, b) => (b.date + b.time + b.at).localeCompare(a.date + a.time + a.at));
@@ -1420,21 +1420,23 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     const compIsFinance = (compId) => { if (!compId)
         return false; const c = db.competitions.find((x) => String(x.id) === String(compId)); if (c && finRe.test(c.name || ""))
         return true; return (db.departments || []).some((d) => finRe.test(d.name || "") && (d.comps || []).map(String).includes(String(compId))); };
-    const finNodes = [...(db.orgTeacher || []), ...(db.orgStudent || [])].filter((n) => String(n.personId) === String(viewer.id) && (finRe.test(n.title || "") || compIsFinance(n.compId)));
-    const finRank = String(viewer.role) === "admin" ? 0 : (finNodes.length ? Math.min(...finNodes.map((n) => n.rank || (DUTY_RANKS.indexOf(n.title) + 1) || 6)) : (acc.full ? 5 : 99));
+    const duty2Name = (dutyId) => { const d = (db.duties || []).find((x) => String(x.id) === String(dutyId)); return d ? d.name : ""; };
+    const my2 = (db.org2 || []).filter((n) => String(n.personId) === String(viewer.id));
+    const finNodes = my2.filter((n) => finRe.test(duty2Name(n.dutyId)) || compIsFinance(n.compId) || (db.departments || []).some((d) => String(d.id) === String(n.deptId) && finRe.test(d.name || "")));
+    const finRank = String(viewer.role) === "admin" ? 0 : (finNodes.length ? Math.min(...finNodes.map((n) => n.num || 6)) : (acc.full ? 5 : 99));
     const isFinance = acc.full || finNodes.length > 0; // เป็นฝ่ายการเงิน/บัญชี (รวมผู้ช่วย) หรือแอดมิน
-    const financeMoneyHolder = String(viewer.role) === "admin" || [...(db.orgTeacher || []), ...(db.orgStudent || [])].some((n) => String(n.personId) === String(viewer.id) && /ถือเงิน|เก็บเงิน|รักษาเงิน|เหรัญญิก|เหรัญ/.test(n.title || ""));
+    const financeMoneyHolder = String(viewer.role) === "admin" || my2.some((n) => n.money); // ผู้ถือเงิน = ติ๊กในผังใหม่
     const finFull = String(viewer.role) === "admin" || financeMoneyHolder || (isFinance && finRank <= 5); // ผู้ถือเงิน/แอดมิน/ผู้ดูแลขึ้นไป = ใช้ได้ทุกแท็บ
     const allowedComps = db.competitions.filter((c) => acc.full || acc.depts.has(String(c.id)));
     const compName = (id) => { if (String(id) === "FUND")
         return "🏦 กองทุนสำรอง"; if (String(id).startsWith("D:")) {
         const d = (db.departments || []).find((x) => "D:" + x.id === String(id));
         return d ? "🏢 " + d.name : "🏢 ฝ่าย (ถูกลบ)";
-    } const c = db.competitions.find((x) => String(x.id) === String(id)); return c ? c.name : "ทั่วไป/ไม่ระบุฝ่าย"; };
+    } const c = db.competitions.find((x) => String(x.id) === String(id)); return c ? sportItemName(c) : "ทั่วไป/ไม่ระบุฝ่าย"; };
     const deptComps = (id) => { if (!String(id).startsWith("D:"))
         return null; const d = (db.departments || []).find((x) => "D:" + x.id === String(id)); return d ? (d.comps || []).map(String) : []; };
-    // แก้ไขรายการการเงินได้เฉพาะ "ผู้มีหน้าที่ถือเงิน" (ตรวจจากตำแหน่งในผัง) หรือแอดมิน
-    const isMoneyHolder = String(viewer.role) === "admin" || [...(db.orgTeacher || []), ...(db.orgStudent || [])].some((n) => String(n.personId) === String(viewer.id) && /ถือเงิน|เก็บเงิน|รักษาเงิน|เหรัญญิก|เหรัญ/.test(n.title || ""));
+    // แก้ไขรายการการเงินได้เฉพาะ "ผู้มีหน้าที่ถือเงิน" (ติ๊กผู้ถือเงินในผังใหม่) หรือแอดมิน
+    const isMoneyHolder = financeMoneyHolder;
     const canEditRow = (f) => isMoneyHolder;
     const [form, setForm] = useState({ dept: "", type: "in", title: "", amount: "", date: todayStr(), time: nowTime(), note: "", billDataUrl: "", billUrl: "", billId: "" });
     const [editId, setEditId] = useState(null);
@@ -1592,7 +1594,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\uD83D\uDCB0 \u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19-\u0E1E\u0E31\u0E2A\u0E14\u0E38", sub: acc.full ? "บันทึก/ดูได้ทุกฝ่าย + ภาพรวมทั้งกิจกรรม" : canRecordAny ? "บันทึก/ดูฝ่ายที่คุณดูแล · ฝ่ายอื่นดูได้" : "ดูรายการรับ-จ่ายทุกฝ่าย (อ่านอย่างเดียว)" }),
         (() => {
-            const myRankNum = String(viewer.role) === "admin" ? 0 : (() => { const my = [...(db.orgTeacher || []), ...(db.orgStudent || [])].filter((n) => String(n.personId) === String(viewer.id)); const rs = my.map((n) => n.rank || 0).filter((r) => r > 0); return rs.length ? Math.min(...rs) : 6; })();
+            const myRankNum = String(viewer.role) === "admin" ? 0 : (() => { const my = (db.org2 || []).filter((n) => String(n.personId) === String(viewer.id)); const rs = my.map((n) => n.num || 0).filter((r) => r > 0); return rs.length ? Math.min(...rs) : 6; })();
             const myNotis = (db.financeNotis || []).filter((n) => (String(viewer.role) === "admin" || myRankNum < (n.acceptorRank || 6)) && !((n.readBy) || []).includes(viewer.id));
             if (!myNotis.length)
                 return null;
@@ -1900,6 +1902,7 @@ function AdminHome({ db, setDb, ui }) {
 function DataSizeCard({ db, setDb, ui }) {
     const [report, setReport] = useState(null);
     const [confirmClean, setConfirmClean] = useState(null);
+    const [confirmDelOld, setConfirmDelOld] = useState(false);
     const kb = (obj) => { try {
         return Math.round(JSON.stringify(obj || {}).length / 1024);
     }
@@ -1937,7 +1940,8 @@ function DataSizeCard({ db, setDb, ui }) {
         React.createElement("p", { style: { fontSize: 12.5, color: C.muted, marginTop: 0, marginBottom: 12 } }, "\u0E15\u0E23\u0E27\u0E08\u0E27\u0E48\u0E32\u0E2A\u0E48\u0E27\u0E19\u0E44\u0E2B\u0E19\u0E01\u0E34\u0E19\u0E1E\u0E37\u0E49\u0E19\u0E17\u0E35\u0E48\u0E21\u0E32\u0E01\u0E2A\u0E38\u0E14 \u00B7 \u0E25\u0E49\u0E32\u0E07 node \u0E1C\u0E31\u0E07\u0E0B\u0E49\u0E33 / \u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19\u0E40\u0E01\u0E48\u0E32 / \u0E16\u0E31\u0E07\u0E02\u0E22\u0E30 \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E43\u0E2B\u0E49\u0E42\u0E2B\u0E25\u0E14\u0E40\u0E23\u0E47\u0E27\u0E02\u0E36\u0E49\u0E19"),
         React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 } },
             React.createElement(Btn, { small: true, onClick: analyze }, "\u0E15\u0E23\u0E27\u0E08\u0E02\u0E19\u0E32\u0E14\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25"),
-            React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setConfirmClean(true) }, "\uD83E\uDDF9 \u0E25\u0E49\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E0B\u0E49\u0E33/\u0E44\u0E21\u0E48\u0E43\u0E0A\u0E49")),
+            React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setConfirmClean(true) }, "\uD83E\uDDF9 \u0E25\u0E49\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E0B\u0E49\u0E33/\u0E44\u0E21\u0E48\u0E43\u0E0A\u0E49"),
+            React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setConfirmDelOld(true) }, "\uD83D\uDDD1 \u0E25\u0E1A\u0E1C\u0E31\u0E07\u0E40\u0E01\u0E48\u0E32 (orgTeacher/orgStudent/dutyList)")),
         report && (React.createElement("div", null,
             React.createElement("div", { style: { fontWeight: 800, color: C.primaryDark, marginBottom: 6 } },
                 "\u0E23\u0E27\u0E21\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 \u2248 ",
@@ -1951,7 +1955,8 @@ function DataSizeCard({ db, setDb, ui }) {
                     x.size,
                     " KB \u00B7 ",
                     x.n))))))),
-        confirmClean && React.createElement(ConfirmModal, { title: "\u0E25\u0E49\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E0B\u0E49\u0E33/\u0E44\u0E21\u0E48\u0E43\u0E0A\u0E49", message: "\u0E08\u0E30\u0E25\u0E1A: node \u0E1C\u0E31\u0E07\u0E17\u0E35\u0E48\u0E0B\u0E49\u0E33\u0E01\u0E31\u0E19\u0E40\u0E1B\u0E4A\u0E30, \u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19\u0E17\u0E35\u0E48\u0E2D\u0E48\u0E32\u0E19\u0E04\u0E23\u0E1A\u0E41\u0E25\u0E49\u0E27, \u0E16\u0E31\u0E07\u0E02\u0E22\u0E30/\u0E17\u0E35\u0E48\u0E40\u0E01\u0E47\u0E1A\u0E16\u0E32\u0E27\u0E23 \u2014 \u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2B\u0E25\u0E31\u0E01 (\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19/\u0E1C\u0E25/\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19) \u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E41\u0E15\u0E30 \u00B7 \u0E41\u0E19\u0E30\u0E19\u0E33\u0E2A\u0E33\u0E23\u0E2D\u0E07\u0E44\u0E1F\u0E25\u0E4C\u0E01\u0E48\u0E2D\u0E19 \u0E17\u0E33\u0E15\u0E48\u0E2D\u0E44\u0E2B\u0E21?", confirmLabel: "\u0E25\u0E49\u0E32\u0E07\u0E40\u0E25\u0E22", variant: "danger", onConfirm: cleanup, onClose: () => setConfirmClean(null) })));
+        confirmClean && React.createElement(ConfirmModal, { title: "\u0E25\u0E49\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E0B\u0E49\u0E33/\u0E44\u0E21\u0E48\u0E43\u0E0A\u0E49", message: "\u0E08\u0E30\u0E25\u0E1A: node \u0E1C\u0E31\u0E07\u0E17\u0E35\u0E48\u0E0B\u0E49\u0E33\u0E01\u0E31\u0E19\u0E40\u0E1B\u0E4A\u0E30, \u0E41\u0E08\u0E49\u0E07\u0E40\u0E15\u0E37\u0E2D\u0E19\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19\u0E17\u0E35\u0E48\u0E2D\u0E48\u0E32\u0E19\u0E04\u0E23\u0E1A\u0E41\u0E25\u0E49\u0E27, \u0E16\u0E31\u0E07\u0E02\u0E22\u0E30/\u0E17\u0E35\u0E48\u0E40\u0E01\u0E47\u0E1A\u0E16\u0E32\u0E27\u0E23 \u2014 \u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2B\u0E25\u0E31\u0E01 (\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19/\u0E1C\u0E25/\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19) \u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E41\u0E15\u0E30 \u00B7 \u0E41\u0E19\u0E30\u0E19\u0E33\u0E2A\u0E33\u0E23\u0E2D\u0E07\u0E44\u0E1F\u0E25\u0E4C\u0E01\u0E48\u0E2D\u0E19 \u0E17\u0E33\u0E15\u0E48\u0E2D\u0E44\u0E2B\u0E21?", confirmLabel: "\u0E25\u0E49\u0E32\u0E07\u0E40\u0E25\u0E22", variant: "danger", onConfirm: cleanup, onClose: () => setConfirmClean(null) }),
+        confirmDelOld && React.createElement(ConfirmModal, { title: "\u0E25\u0E1A\u0E1C\u0E31\u0E07\u0E40\u0E01\u0E48\u0E32", message: "\u0E08\u0E30\u0E25\u0E1A\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1C\u0E31\u0E07\u0E40\u0E01\u0E48\u0E32 (orgTeacher / orgStudent / dutyList) \u0E17\u0E35\u0E48\u0E40\u0E25\u0E34\u0E01\u0E43\u0E0A\u0E49\u0E41\u0E25\u0E49\u0E27 \u2014 \u0E23\u0E30\u0E1A\u0E1A\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 (\u0E2A\u0E21\u0E31\u0E04\u0E23/\u0E25\u0E07\u0E40\u0E27\u0E25\u0E32/\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19/\u0E1C\u0E25) \u0E43\u0E0A\u0E49\u0E1C\u0E31\u0E07\u0E43\u0E2B\u0E21\u0E48 (org2) \u0E41\u0E25\u0E49\u0E27 \u00B7 \u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2D\u0E37\u0E48\u0E19 (\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19/\u0E04\u0E23\u0E39/\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19/\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23/\u0E1C\u0E31\u0E07\u0E43\u0E2B\u0E21\u0E48) \u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E41\u0E15\u0E30 \u00B7 \u0E41\u0E19\u0E30\u0E19\u0E33\u0E2A\u0E33\u0E23\u0E2D\u0E07\u0E44\u0E1F\u0E25\u0E4C\u0E01\u0E48\u0E2D\u0E19 \u00B7 \u0E17\u0E33\u0E15\u0E48\u0E2D\u0E44\u0E2B\u0E21?", confirmLabel: "\u0E25\u0E1A\u0E1C\u0E31\u0E07\u0E40\u0E01\u0E48\u0E32", variant: "danger", onConfirm: () => { setDb((p) => ({ ...p, orgTeacher: [], orgStudent: [], dutyList: [] })); setConfirmDelOld(false); ui.notify("ลบผังเก่าแล้ว — ระบบใช้ผังใหม่ทั้งหมด"); setTimeout(() => window.__forceSave && window.__forceSave(), 400); }, onClose: () => setConfirmDelOld(false) })));
 }
 function BackupCard({ db, setDb, ui }) {
     const fileRef = useRef();
@@ -2418,7 +2423,7 @@ function PersonList({ kind, db, setDb, ui }) {
         }
         if (com || duty) {
             const d = dutyOf(db, kind, s.id);
-            const inOrg = (db[kind === "teacher" ? "orgTeacher" : "orgStudent"] || []).some((n) => n.personId === s.id);
+            const inOrg = (db.org2 || []).some((n) => String(n.personId) === String(s.id));
             if (com === "yes" && !d.isCom)
                 return false;
             if (com === "no" && d.isCom)
@@ -4903,7 +4908,9 @@ function sportItemName(c) {
     if (c.nameManual != null && c.nameManual !== "")
         return c.nameManual;
     let s = c.name || "";
-    const gs = genderSummary(c.genders);
+    let gs = genderSummary(c.genders);
+    if (!gs && c.gender && c.gender !== "รวม")
+        gs = c.gender; // รองรับรายการเก่า (gender เดี่ยว)
     if (gs)
         s += " " + gs;
     s += " " + gradeSummary2(c.grades);
@@ -4988,12 +4995,7 @@ function gradesLabel(c) {
 function compFullName(c) {
     if (!c)
         return "";
-    let s = c.name || "";
-    if (c.gender && c.gender !== "รวม")
-        s += " " + c.gender;
-    if (c.grades && c.grades.length)
-        s += " " + c.grades.join(",");
-    return s.trim();
+    return sportItemName(c);
 }
 function SelectionScreen({ db, setDb, ui }) {
     const [kind, setKind] = useState("แข่งขัน");
@@ -5461,20 +5463,44 @@ function Org2Manager({ db, setDb, ui, viewer, canEdit = true, selfSignup = false
                             React.createElement("button", { onClick: () => selfDrop(n.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 700, fontSize: 12 } }, "\u0E16\u0E2D\u0E19")) : React.createElement("span", { style: { display: "inline-flex", alignItems: "center", gap: 6 } },
                             React.createElement(PersonName, { db: db, personId: n.personId, side: n.side }),
                             (db.org2Requests || []).some((r) => r.nodeId === n.id && r.status === "pending") ? React.createElement("span", { style: { fontSize: 11, color: "#c99a2e", fontWeight: 700 } }, "\u23F3 \u0E02\u0E2D\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u2026") : React.createElement("button", { onClick: () => reqSwap(n), style: { border: `1px solid ${C.line}`, background: C.surface, color: C.muted, borderRadius: 8, padding: "2px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" } }, "\u0E02\u0E2D\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19")))) : React.createElement(PersonName, { db: db, personId: n.personId, side: n.side }));
-                    return (React.createElement("div", { key: deptId, style: { marginBottom: 10 } },
-                        React.createElement("div", { style: { fontSize: 12.5, fontWeight: 700, color: C.primaryDark, marginBottom: 4 } },
+                    return (React.createElement("div", { key: deptId, style: { marginBottom: 12 } },
+                        React.createElement("div", { style: { fontSize: 12.5, fontWeight: 700, color: C.primaryDark, marginBottom: 6 } },
                             "\uD83C\uDFE2 ",
                             deptName(deptId)),
-                        chartView ? (React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 0, padding: "4px 0" } }, list.map((n, idx) => (React.createElement("div", { key: n.id, style: { display: "flex", flexDirection: "column", alignItems: "center", width: "100%" } },
-                            idx > 0 && React.createElement("div", { style: { width: 2, height: 16, background: C.line } }),
-                            React.createElement("div", { style: { minWidth: 200, maxWidth: 320, width: "80%", border: `1px solid ${C.line}`, borderTop: `3px solid ${C.primary}`, borderRadius: 10, padding: "8px 12px", background: "#fff", textAlign: "center", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" } },
-                                React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 3 } },
-                                    React.createElement("span", { style: { width: 20, height: 20, borderRadius: "50%", background: C.soft, color: C.primaryDark, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 10 } }, n.num),
-                                    React.createElement("span", { style: { fontWeight: 700, color: C.ink, fontSize: 13 } }, dutyName2(n.dutyId))),
-                                React.createElement("div", null, personCell(n)))))))) : (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5 } }, list.map((n) => (React.createElement("div", { key: n.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", background: "#f7f9ff", borderRadius: 8, flexWrap: "wrap" } },
-                            React.createElement("span", { style: { width: 24, height: 24, borderRadius: "50%", background: C.soft, color: C.primaryDark, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 11 } }, n.num),
-                            React.createElement("span", { style: { fontWeight: 600, color: C.ink, minWidth: 90, fontSize: 13 } }, dutyName2(n.dutyId)),
-                            React.createElement("span", { style: { flex: 1 } }, personCell(n)))))))));
+                        (() => {
+                            const TEACH = { key: "teacher", label: "👩‍🏫 ครู", color: "#2f6bd4", bg: "#eef4ff", soft: "#dbe8ff" };
+                            const STUD = { key: "student", label: "🧑‍🎓 นักเรียน", color: "#c0398b", bg: "#fdeef6", soft: "#f8d9e9" };
+                            const renderBlock = (blk) => {
+                                const bnodes = list.filter((n) => n.side === blk.key);
+                                if (bnodes.length === 0)
+                                    return null;
+                                return (React.createElement("div", { style: { flex: 1, minWidth: 240, border: `1.5px solid ${blk.color}`, borderRadius: 12, overflow: "hidden", background: "#fff" } },
+                                    React.createElement("div", { style: { background: blk.color, color: "#fff", fontWeight: 800, fontSize: 13, padding: "6px 12px", textAlign: "center" } },
+                                        blk.label,
+                                        " ",
+                                        React.createElement("span", { style: { fontWeight: 400, fontSize: 11 } },
+                                            "(",
+                                            bnodes.length,
+                                            ")")),
+                                    React.createElement("div", { style: { padding: 10, display: "flex", flexDirection: "column", alignItems: chartView ? "center" : "stretch", gap: chartView ? 0 : 5 } }, bnodes.map((n, idx) => chartView ? (React.createElement("div", { key: n.id, style: { display: "flex", flexDirection: "column", alignItems: "center", width: "100%" } },
+                                        idx > 0 && React.createElement("div", { style: { width: 2, height: 14, background: blk.soft } }),
+                                        React.createElement("div", { style: { minWidth: 180, maxWidth: 300, width: "92%", border: `1px solid ${blk.soft}`, borderTop: `3px solid ${blk.color}`, borderRadius: 10, padding: "7px 10px", background: blk.bg, textAlign: "center" } },
+                                            React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 3 } },
+                                                React.createElement("span", { style: { width: 20, height: 20, borderRadius: "50%", background: blk.soft, color: blk.color, display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 10 } }, n.num),
+                                                React.createElement("span", { style: { fontWeight: 700, color: C.ink, fontSize: 12.5 } },
+                                                    dutyName2(n.dutyId),
+                                                    n.money ? " 💰" : "")),
+                                            React.createElement("div", null, personCell(n))))) : (React.createElement("div", { key: n.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", background: blk.bg, borderRadius: 8, flexWrap: "wrap" } },
+                                        React.createElement("span", { style: { width: 22, height: 22, borderRadius: "50%", background: blk.soft, color: blk.color, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 11 } }, n.num),
+                                        React.createElement("span", { style: { fontWeight: 600, color: C.ink, minWidth: 84, fontSize: 12.5 } },
+                                            dutyName2(n.dutyId),
+                                            n.money ? " 💰" : ""),
+                                        React.createElement("span", { style: { flex: 1 } }, personCell(n))))))));
+                            };
+                            return React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" } },
+                                renderBlock(TEACH),
+                                renderBlock(STUD));
+                        })()));
                 }))))),
         confirmGen && React.createElement(ConfirmModal, { title: "\u0E2A\u0E23\u0E49\u0E32\u0E07/\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E1C\u0E31\u0E07\u0E08\u0E32\u0E01\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A", message: "\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1C\u0E31\u0E07\u0E02\u0E2D\u0E07\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \u0E08\u0E32\u0E01\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A\u0E02\u0E2D\u0E07\u0E1D\u0E48\u0E32\u0E22\u0E17\u0E35\u0E48\u0E2A\u0E31\u0E07\u0E01\u0E31\u0E14 \u00B7 \u0E04\u0E19\u0E17\u0E35\u0E48\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E44\u0E27\u0E49\u0E41\u0E25\u0E49\u0E27\u0E08\u0E30\u0E16\u0E39\u0E01\u0E40\u0E01\u0E47\u0E1A\u0E44\u0E27\u0E49 \u00B7 \u0E17\u0E33\u0E15\u0E48\u0E2D\u0E44\u0E2B\u0E21?", confirmLabel: "\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E40\u0E25\u0E22", onConfirm: generate, onClose: () => setConfirmGen(false) })));
 }
@@ -6002,7 +6028,7 @@ function AttendSummary({ db, myComps, ui }) {
     display.sort((a, b) => b.present - a.present || b.mins - a.mins);
     const fmtMin = (m) => m >= 60 ? `${Math.floor(m / 60)} ชม. ${m % 60} น.` : `${m} น.`;
     const cName = (id) => { if (id === "_none")
-        return "บุคคลไม่มีส่วนร่วม"; const c = comps.find((x) => String(x.id) === String(id)); return c ? c.name : id; };
+        return "บุคคลไม่มีส่วนร่วม"; const c = comps.find((x) => String(x.id) === String(id)); return c ? sportItemName(c) : id; };
     const scopeLabel = () => scope === "comp" ? (pick ? cName(pick) : "ทุกรายการ") : scope === "grade" ? (pick ? "ชั้น " + pick : "ทุกชั้น") : scope === "room" ? (pick ? "ห้อง " + pick : "ทุกห้อง") : "ทั้งหมด";
     const exportExcel = () => { try {
         const aoa = [["ชื่อ-สกุล", "มา (ครั้ง)", "เวลารวม (นาที)", "เวลารวม"]];
@@ -6025,7 +6051,7 @@ function AttendSummary({ db, myComps, ui }) {
                 React.createElement("option", { value: "all" }, "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 (\u0E23\u0E32\u0E22\u0E04\u0E19)")),
             scope === "comp" && React.createElement(Select, { value: pick, onChange: setPick },
                 React.createElement("option", { value: "" }, "\u2014 \u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2014"),
-                comps.map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name)),
+                comps.map((c) => React.createElement("option", { key: c.id, value: c.id }, sportItemName(c))),
                 React.createElement("option", { value: "_none" }, "\u0E1A\u0E38\u0E04\u0E04\u0E25\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E48\u0E27\u0E19\u0E23\u0E48\u0E27\u0E21")),
             scope === "grade" && React.createElement(Select, { value: pick, onChange: setPick },
                 React.createElement("option", { value: "" }, "\u2014 \u0E17\u0E38\u0E01\u0E0A\u0E31\u0E49\u0E19 \u2014"),
@@ -6066,7 +6092,8 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps, sub }) {
     const inOpen = !isToday || (nowHM() >= win.inStart && nowHM() <= win.inEnd);
     const outOpen = !isToday || (nowHM() >= win.outStart && nowHM() <= win.outEnd);
     const save = () => setTimeout(() => window.__saveSoon ? window.__saveSoon() : (window.__forceSave && window.__forceSave()), 100);
-    const rec = (compId, sid) => (((db.attendance || {})[date] || {})[compId] || {})[sid] || {};
+    // อ่านเวลา: ใช้เวลา "รายวันต่อคน" (_day) เป็นหลัก — เช็คที่ผังไหนก็ได้เวลาเดียวกันทุกผัง
+    const rec = (compId, sid) => (((db.attendance || {})[date] || {})["_day"] || {})[sid] || (((db.attendance || {})[date] || {})[compId] || {})[sid] || {};
     const setMark = (compId, sid, kind) => {
         if (kind === "in" && !inOpen) {
             ui.notify(`ยังไม่ถึงช่วงเช็คเข้า (${win.inStart}-${win.inEnd})`);
@@ -6079,16 +6106,21 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps, sub }) {
         const t = nowHM();
         const att = { ...(db.attendance || {}) };
         const d = { ...(att[date] || {}) };
+        const day = { ...(d["_day"] || {}) }; // เวลารายวันต่อคน (ใช้ร่วมทุกผัง)
         const cm = { ...(d[compId] || {}) };
-        const cur = { ...(cm[sid] || {}) };
+        // อัปเดตเวลาของนักเรียนแบบรายวัน (เช็คที่ไหนก็ได้เวลานี้ทุกผัง)
+        const cur = { ...(day[sid] || {}) };
         cur[kind] = cur[kind] ? undefined : t; // กดซ้ำ = ยกเลิก
-        cm[sid] = cur;
-        const meCur = { ...(cm[meId] || {}) };
+        day[sid] = cur;
+        cm[sid] = { ...(cm[sid] || {}), [kind]: cur[kind] }; // มาร์คว่าคนนี้อยู่ในรายการนี้ด้วย (สำหรับสรุปรายรายการ)
+        // เวลาของกรรมการเอง (คนเช็ค) แบบรายวันเช่นกัน
+        const meCur = { ...(day[meId] || {}) };
         if (kind === "in" && !meCur.in)
             meCur.in = t;
         if (kind === "out" && !meCur.out)
             meCur.out = t;
-        cm[meId] = meCur;
+        day[meId] = meCur;
+        d["_day"] = day;
         d[compId] = cm;
         att[date] = d;
         setDb((p) => ({ ...p, attendance: att }));
@@ -6098,7 +6130,7 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps, sub }) {
         const registered = new Set();
         (db.competitions || []).forEach((c) => (c.participants || []).forEach((x) => { if (x.sel === "main" || x.sel === "reserve")
             registered.add(String(x.sid)); }));
-        const hasDuty = new Set([...(db.orgStudent || []), ...(db.orgTeacher || [])].map((n) => String(n.personId)).filter(Boolean));
+        const hasDuty = new Set([...(db.orgStudent || []), ...(db.orgTeacher || []), ...(db.org2 || [])].map((n) => String(n.personId)).filter(Boolean));
         const nonPart = (db.students || []).filter((s) => !registered.has(String(s.id)) && !hasDuty.has(String(s.id))).sort((a, b) => (a.grade + a.room + a.first).localeCompare(b.grade + b.room + b.first, "th"));
         return (React.createElement("div", null,
             React.createElement(PageHead, { title: "\u23F1 \u0E25\u0E07\u0E40\u0E27\u0E25\u0E32 \u2014 \u0E1A\u0E38\u0E04\u0E04\u0E25\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E48\u0E27\u0E19\u0E23\u0E48\u0E27\u0E21", sub: "\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2A\u0E21\u0E31\u0E04\u0E23 + \u0E44\u0E21\u0E48\u0E21\u0E35\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E43\u0E14 (\u0E40\u0E0A\u0E47\u0E04\u0E01\u0E31\u0E1A\u0E04\u0E23\u0E39) \u00B7 \u0E19\u0E31\u0E01\u0E01\u0E35\u0E2C\u0E32\u0E17\u0E35\u0E48\u0E16\u0E39\u0E01\u0E04\u0E31\u0E14\u0E2D\u0E2D\u0E01\u0E08\u0E30\u0E01\u0E25\u0E31\u0E1A\u0E21\u0E32\u0E2D\u0E22\u0E39\u0E48\u0E01\u0E25\u0E38\u0E48\u0E21\u0E19\u0E35\u0E49 \u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E40\u0E27\u0E25\u0E32\u0E40\u0E14\u0E34\u0E21\u0E22\u0E31\u0E07\u0E23\u0E27\u0E21\u0E43\u0E19\u0E2A\u0E23\u0E38\u0E1B" }),
@@ -6164,12 +6196,16 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps, sub }) {
                 outOpen ? "เปิด ✅" : "ปิด (นอกช่วง)"))),
         myComps.length === 0 ? React.createElement(Empty, { text: "\u0E04\u0E38\u0E13\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E14\u0E39\u0E41\u0E25\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E43\u0E14" }) : myComps.map((c) => {
             const parts = (c.participants || []).filter((x) => x.sel === "main" || x.sel === "reserve");
-            const students = parts.map((x) => db.students.find((s) => String(s.id) === String(x.sid))).filter(Boolean).sort((a, b) => (a.grade + a.room + a.first).localeCompare(b.grade + b.room + b.first, "th"));
+            const ids = new Set(parts.map((x) => String(x.sid)));
+            // เพิ่มนักเรียนที่มีชื่อในผังใหม่ (org2) ของรายการนี้ = ผู้มีส่วนร่วม แม้ไม่ได้สมัครแข่ง
+            (db.org2 || []).forEach((n) => { if (String(n.compId) === String(c.id) && n.side === "student" && n.personId)
+                ids.add(String(n.personId)); });
+            const students = [...ids].map((id) => db.students.find((s) => String(s.id) === String(id))).filter(Boolean).sort((a, b) => (a.grade + a.room + a.first).localeCompare(b.grade + b.room + b.first, "th"));
             return (React.createElement(Card, { key: c.id, style: { padding: 14, marginBottom: 14 } },
                 React.createElement("div", { style: { fontWeight: 800, color: C.ink, marginBottom: 2 } },
                     c.kind === "กิจกรรม" ? "🎯" : "🏅",
                     " ",
-                    c.name,
+                    sportItemName(c),
                     " ",
                     React.createElement("span", { style: { fontSize: 11, color: C.muted, fontWeight: 400 } },
                         "(",
@@ -6377,7 +6413,7 @@ function CommitteeSchedule({ myCompIds, db, setDb, ui, me }) {
             mine.map((c) => (React.createElement(Card, { key: c.id, style: { padding: 14 } },
                 React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 6 } },
                     React.createElement("div", { style: { fontWeight: 700, color: C.ink } },
-                        c.name,
+                        sportItemName(c),
                         " ",
                         React.createElement("span", { style: { fontSize: 11, color: C.muted, fontWeight: 500 } },
                             "(",
@@ -6710,7 +6746,7 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid, autoO
     if (scopeSid)
         list = list.filter((c) => c.participants.some((x) => x.sid === scopeSid));
     if (q.trim())
-        list = list.filter((c) => c.name.toLowerCase().includes(q.trim().toLowerCase()));
+        list = list.filter((c) => (sportItemName(c) + " " + c.name).toLowerCase().includes(q.trim().toLowerCase()));
     const comp = list.find((c) => c.id === pick);
     const rawSets = comp ? (comp.resultSets && comp.resultSets.length ? comp.resultSets : (compResultRows(comp).length ? [{ id: "legacy", date: comp.resultDate || "", time: "", mode: compResultRows(comp)[0].mode, results: comp.results || {}, _legacy: true }] : [])) : [];
     const sets = rawSets.slice().sort((a, b) => ((a.date || "") + (a.time || "")).localeCompare((b.date || "") + (b.time || "")));
@@ -6854,7 +6890,7 @@ function ResultsManager({ db, setDb, ui, scopeCompIds, readOnly, scopeSid, autoO
                     } }, onFocus: () => setOpen(true), onBlur: () => setTimeout(() => setOpen(false), 180), placeholder: "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E04\u0E49\u0E19\u0E2B\u0E32 \u0E2B\u0E23\u0E37\u0E2D \u0E41\u0E15\u0E30\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", style: { width: "100%", padding: "10px 34px 10px 12px", borderRadius: 10, border: "1px solid " + C.line, fontSize: 14, color: C.ink, background: "#fbfcfb" } }),
                 (q || pick) && React.createElement("button", { onMouseDown: (e) => { e.preventDefault(); setQ(""); setPick(""); setDraft(null); setOpen(true); }, style: { position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", border: "none", background: "none", cursor: "pointer", fontSize: 16, color: C.muted } }, "\u2715"),
                 open && (React.createElement("div", { style: { position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 30, background: "#fff", border: "1px solid " + C.line, borderRadius: 10, boxShadow: "0 6px 20px rgba(0,0,0,.12)", maxHeight: 280, overflowY: "auto" } }, list.length ? list.map((c) => (React.createElement("div", { key: c.id, onMouseDown: (e) => { e.preventDefault(); setPick(c.id); setQ(c.name); setOpen(false); setDraft(null); }, style: { padding: "9px 12px", fontSize: 13.5, color: C.ink, cursor: "pointer", borderBottom: "1px solid " + C.line, background: pick === c.id ? C.soft : "transparent" } },
-                    c.name,
+                    sportItemName(c),
                     " ",
                     React.createElement("span", { style: { fontSize: 11, color: C.muted } },
                         "(",
