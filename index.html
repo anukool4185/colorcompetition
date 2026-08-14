@@ -89,6 +89,7 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
+const APP_VERSION = "v126";
 /* ============================================================
    ระบบจัดการแข่งขันวิชาการสี — Prototype (Phase 1, ครบทุกหน้า)
    ข้อมูลทั้งหมดเป็น mock ในหน่วยความจำ · ยังไม่เชื่อม Google Sheet/Drive
@@ -1830,7 +1831,7 @@ function AdminApp({ db, setDb, onExit }) {
         { key: "promote", label: "เลื่อนชั้น", icon: "⬆" },
         { key: "trash", label: "ถังขยะ", icon: "🗑" },
         { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" },
-        { key: "promo", label: "ตั้งค่า", icon: "⚙️" },
+        { key: "promo", label: "ตั้งค่า " + APP_VERSION, icon: "⚙️" },
     ];
     return (React.createElement(Shell, { role: "admin", nav: nav, view: view, setView: setView, onExit: onExit, ui: ui },
         view === "home" && React.createElement(AdminHome, { db: db, setDb: setDb, ui: ui }),
@@ -2327,7 +2328,7 @@ function RestoreDialog({ ids, archived, onClose, onConfirm }) {
 function PeopleManager({ db, setDb, ui }) {
     const [tab, setTab] = useState("students");
     return (React.createElement("div", null,
-        React.createElement(PageHead, { title: "\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E1A\u0E38\u0E04\u0E25\u0E32\u0E01\u0E23", sub: "\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 \u00B7 \u0E04\u0E23\u0E39 \u00B7 \u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49 \u00B7 \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E2D\u0E48\u0E32\u0E19\u0E08\u0E32\u0E01\u0E1C\u0E31\u0E07\u0E43\u0E2B\u0E21\u0E48 (org2) \u00B7 v124" }),
+        React.createElement(PageHead, { title: "\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E1A\u0E38\u0E04\u0E25\u0E32\u0E01\u0E23", sub: "นักเรียน · ครู · บัญชีผู้ใช้ · หน้าที่อ่านจากผังใหม่ (org2) · " + APP_VERSION }),
         React.createElement(Tabs, { tabs: [{ key: "students", label: "นักเรียน" }, { key: "teachers", label: "ครู" }, { key: "accounts", label: "บัญชีผู้ใช้ / รหัสผ่าน" }], active: tab, onChange: setTab }),
         tab === "students" && React.createElement(PersonList, { kind: "student", db: db, setDb: setDb, ui: ui }),
         tab === "teachers" && React.createElement(PersonList, { kind: "teacher", db: db, setDb: setDb, ui: ui }),
@@ -3266,7 +3267,8 @@ function DepartmentManager({ db, setDb, ui }) {
     const remove = (id) => ui.run("กำลังลบฝ่าย...", () => { setDb((p) => ({ ...p, departments: (p.departments || []).filter((d) => d.id !== id) })); save(); });
     const toggleComp = (deptId, compId) => ui.run("กำลังบันทึก...", () => { setDb((p) => ({ ...p, departments: (p.departments || []).map((d) => { if (d.id !== deptId)
             return d; const has = (d.comps || []).map(String).includes(String(compId)); return { ...d, comps: has ? d.comps.filter((c) => String(c) !== String(compId)) : [...(d.comps || []), compId] }; }) })); save(); });
-    const comps = db.competitions || [];
+    const _typeRank = (c) => c.kind === "กิจกรรม" ? 2 : ((c.sportType || "กีฬา") === "กรีฑา" ? 1 : 0); // กีฬา→กรีฑา→กิจกรรม
+    const comps = (db.competitions || []).map((c, i) => ({ c, i })).sort((a, b) => (_typeRank(a.c) - _typeRank(b.c)) || (a.i - b.i)).map((o) => o.c);
     return (React.createElement("div", null,
         React.createElement("p", { style: { fontSize: 12.5, color: C.muted, marginTop: 0 } },
             "\u0E2A\u0E23\u0E49\u0E32\u0E07 \"\u0E1D\u0E48\u0E32\u0E22\" \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E08\u0E31\u0E14\u0E01\u0E25\u0E38\u0E48\u0E21\u0E2B\u0E25\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E44\u0E27\u0E49\u0E14\u0E49\u0E27\u0E22\u0E01\u0E31\u0E19 \u2192 \u0E43\u0E0A\u0E49\u0E17\u0E33 ",
@@ -5724,7 +5726,7 @@ function DutyDefManager({ db, setDb, ui }) {
 function OrgSetup({ db, setDb, ui }) {
     const [tab, setTab] = useState("duty");
     return (React.createElement("div", null,
-        React.createElement(PageHead, { title: "\u2699\uFE0F \u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E1C\u0E31\u0E07 (\u0E23\u0E30\u0E1A\u0E1A\u0E43\u0E2B\u0E21\u0E48)", sub: "\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E1E\u0E37\u0E49\u0E19\u0E10\u0E32\u0E19\u0E01\u0E48\u0E2D\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1C\u0E31\u0E07 \u2014 \u0E1D\u0E48\u0E32\u0E22 \u00B7 \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48+\u0E40\u0E25\u0E02 \u00B7 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u00B7 \u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A \u00B7 \u0E40\u0E27\u0E2D\u0E23\u0E4C\u0E0A\u0E31\u0E19 v120" }),
+        React.createElement(PageHead, { title: "\u2699\uFE0F \u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E1C\u0E31\u0E07 (\u0E23\u0E30\u0E1A\u0E1A\u0E43\u0E2B\u0E21\u0E48)", sub: "ตั้งค่าพื้นฐานก่อนสร้างผัง — ฝ่าย · หน้าที่+เลข · รายการ · แม่แบบ · เวอร์ชัน " + APP_VERSION }),
         React.createElement(Tabs, { tabs: [{ key: "duty", label: "หน้าที่ + เลข" }, { key: "sportitems", label: "➕ รายการกีฬา" }, { key: "trackitems", label: "➕ รายการกรีฑา" }, { key: "actitems", label: "➕ รายการกิจกรรม" }, { key: "dept", label: "ฝ่าย" }, { key: "template", label: "แม่แบบผังรายฝ่าย" }], active: tab, onChange: setTab }),
         tab === "duty" && React.createElement(DutyDefManager, { db: db, setDb: setDb, ui: ui }),
         tab === "sportitems" && React.createElement(SportItemsTable, { db: db, setDb: setDb, ui: ui, kind: "\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19", sportType: "\u0E01\u0E35\u0E2C\u0E32" }),
