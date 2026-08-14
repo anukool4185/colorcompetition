@@ -5348,26 +5348,26 @@ function AttendWindowSettings({ db, setDb, ui }) {
 function buildOrg2(db) {
     const existing = db.org2 || [];
     const byKey = {};
-    existing.forEach((n) => { byKey[n.compId + "|" + n.deptId + "|" + n.dutyId + "|" + n.side] = n; });
+    existing.forEach((n) => { byKey[n.compId + "|" + n.deptId + "|" + n.dutyId + "|" + n.pid] = n; });
     const duties = db.duties || [];
     const out = [];
-    (db.competitions || []).forEach((c) => {
-        (db.departments || []).forEach((d) => {
-            if (!(d.comps || []).map(String).includes(String(c.id)))
+    (db.departments || []).forEach((d) => {
+        const sel = ((db.deptTemplateComps || {})[d.id] || []).map(String);
+        const deptCompIds = (d.comps || []).map(String);
+        const allowIds = sel.length ? sel.filter((x) => deptCompIds.includes(x)) : deptCompIds;
+        const tpl = (db.deptTemplates || {})[d.id] || [];
+        tpl.forEach((r) => {
+            const duty = duties.find((x) => x.id === r.dutyId);
+            if (!duty)
                 return;
-            // ถ้าฝ่ายนี้เลือกรายการไว้ ให้สร้างเฉพาะที่เลือก · ถ้าไม่เลือกเลย = ทุกรายการในฝ่าย
-            const sel = (db.deptTemplateComps || {})[d.id];
-            if (sel && sel.length && !sel.map(String).includes(String(c.id)))
-                return;
-            const tpl = (db.deptTemplates || {})[d.id] || [];
-            tpl.forEach((r) => {
-                const duty = duties.find((x) => x.id === r.dutyId);
-                if (!duty)
-                    return;
-                [["teacher", r.teacherId, r.teacherMoney], ["student", r.studentId, r.studentMoney]].forEach(([sd, pid, money]) => {
-                    const key = c.id + "|" + d.id + "|" + r.dutyId + "|" + sd;
+            const people = r.people || [];
+            people.forEach((pp) => {
+                // รายการที่คนนี้ดูแล: ถ้า all = ทุกรายการที่อนุญาต, ไม่งั้น = ที่ติ๊ก (กรองในขอบเขต)
+                const comps = pp.all ? allowIds : (pp.comps || []).map(String).filter((x) => allowIds.includes(x));
+                comps.forEach((cid) => {
+                    const key = cid + "|" + d.id + "|" + r.dutyId + "|" + pp.pid;
                     const ex = byKey[key];
-                    out.push({ id: ex ? ex.id : "o2" + Math.random().toString(36).slice(2, 9), compId: c.id, deptId: d.id, dutyId: r.dutyId, num: duty.num, side: sd, personId: ex ? ex.personId : (pid || ""), money: ex ? ex.money : !!money });
+                    out.push({ id: ex ? ex.id : "o2" + Math.random().toString(36).slice(2, 9), pid: pp.pid, compId: cid, deptId: d.id, dutyId: r.dutyId, num: duty.num, side: pp.side, personId: ex ? ex.personId : (pp.personId || ""), money: !!pp.money });
                 });
             });
         });
@@ -5377,6 +5377,7 @@ function buildOrg2(db) {
 function Org2Manager({ db, setDb, ui, viewer, canEdit = true, selfSignup = false, meSide }) {
     const comps = db.competitions || [];
     const [pickComp, setPickComp] = useState("");
+    const [pickDept, setPickDept] = useState("");
     const [confirmGen, setConfirmGen] = useState(false);
     const [chartView, setChartView] = useState(false);
     const meId = viewer && viewer.id;
@@ -5393,7 +5394,7 @@ function Org2Manager({ db, setDb, ui, viewer, canEdit = true, selfSignup = false
     const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 400);
     const generate = () => { setDb((p) => ({ ...p, org2: buildOrg2(p) })); save(); setConfirmGen(false); ui.notify("สร้าง/อัปเดตผังจากแม่แบบแล้ว (เก็บคนที่ลงชื่อไว้เดิม)"); };
     const setPerson = (nodeId, personId, side) => { setDb((p) => ({ ...p, org2: (p.org2 || []).map((n) => n.id === nodeId ? { ...n, personId, side } : n) })); save(); };
-    const nodes = (db.org2 || []).filter((n) => !pickComp || String(n.compId) === String(pickComp));
+    const nodes = (db.org2 || []).filter((n) => (!pickComp || String(n.compId) === String(pickComp)) && (!pickDept || String(n.deptId) === String(pickDept)));
     // จัดกลุ่มตาม comp → dept → เรียง num
     const byComp = {};
     nodes.forEach((n) => { (byComp[n.compId] = byComp[n.compId] || {}); (byComp[n.compId][n.deptId] = byComp[n.compId][n.deptId] || []).push(n); });
@@ -5411,10 +5412,15 @@ function Org2Manager({ db, setDb, ui, viewer, canEdit = true, selfSignup = false
     return (React.createElement("div", null,
         React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
             canEdit && React.createElement(Btn, { small: true, onClick: () => setConfirmGen(true) }, "\uD83C\uDFD7 \u0E2A\u0E23\u0E49\u0E32\u0E07/\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E1C\u0E31\u0E07\u0E08\u0E32\u0E01\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A"),
-            React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u0E14\u0E39\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23:"),
+            React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u0E1D\u0E48\u0E32\u0E22:"),
+            React.createElement("select", { value: pickDept, onChange: (e) => { setPickDept(e.target.value); setPickComp(""); }, style: { padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14, fontWeight: 700 } },
+                React.createElement("option", { value: "" }, "\u2014 \u0E17\u0E38\u0E01\u0E1D\u0E48\u0E32\u0E22 \u2014"),
+                (db.departments || []).map((d) => React.createElement("option", { key: d.id, value: d.id }, d.name))),
+            React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23:"),
             React.createElement("select", { value: pickComp, onChange: (e) => setPickComp(e.target.value), style: { padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14 } },
                 React.createElement("option", { value: "" }, "\u2014 \u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2014"),
-                comps.map((c) => React.createElement("option", { key: c.id, value: c.id }, compFullName(c)))),
+                comps.filter((c) => { if (!pickDept)
+                    return true; const d = (db.departments || []).find((x) => x.id === pickDept); return d && (d.comps || []).map(String).includes(String(c.id)); }).map((c) => React.createElement("option", { key: c.id, value: c.id }, compFullName(c)))),
             (db.org2 || []).length > 0 && React.createElement(React.Fragment, null,
                 React.createElement("span", { style: { flex: 1 } }),
                 React.createElement(Btn, { small: true, variant: chartView ? "soft" : "ghost", onClick: () => setChartView((v) => !v) }, chartView ? "📋 รายการ" : "📊 แผนภูมิ"),
@@ -5499,6 +5505,17 @@ function PersonPicker({ db, value, side, onPick, onClear, only }) {
                 fullName(p),
                 p.grade ? ` (${p.grade}/${p.room})` : "")))));
 }
+function tplPeople(r) {
+    if (r.people)
+        return r.people;
+    // แปลงจากรูปแบบเก่า (teacherId/studentId) เป็น people[]
+    const arr = [];
+    if (r.teacherId || r.teacherAll || r.teacherMoney)
+        arr.push({ pid: "pT", side: "teacher", personId: r.teacherId || "", all: !!r.teacherAll, money: !!r.teacherMoney, comps: [] });
+    if (r.studentId || r.studentAll || r.studentMoney)
+        arr.push({ pid: "pS", side: "student", personId: r.studentId || "", all: !!r.studentAll, money: !!r.studentMoney, comps: [] });
+    return arr;
+}
 function DeptTemplateManager({ db, setDb, ui }) {
     const depts = db.departments || [];
     const [deptId, setDeptId] = useState(depts[0] ? depts[0].id : "");
@@ -5513,27 +5530,31 @@ function DeptTemplateManager({ db, setDb, ui }) {
     } if (tpl.some((r) => r.dutyId === addDuty)) {
         ui.notify("มีหน้าที่นี้แล้ว");
         return;
-    } setTpl([...tpl, { dutyId: addDuty, teacherId: "", teacherMoney: false, studentId: "", studentMoney: false }]); setAddDuty(""); };
-    const patchRow = (dutyId, patch) => setTpl(tpl.map((r) => r.dutyId === dutyId ? { ...r, ...patch } : r));
+    } setTpl([...tpl, { dutyId: addDuty, people: [] }]); setAddDuty(""); };
     const removeRow = (dutyId) => setTpl(tpl.filter((r) => r.dutyId !== dutyId));
+    const setPeople = (dutyId, people) => setTpl(tpl.map((r) => r.dutyId === dutyId ? { dutyId, people } : r));
+    const addPerson = (dutyId, side) => { const r = tpl.find((x) => x.dutyId === dutyId); const ppl = tplPeople(r || {}); setPeople(dutyId, [...ppl, { pid: "p" + Date.now() + Math.random().toString(36).slice(2, 5), side, personId: "", all: false, money: false, comps: [] }]); };
+    const patchPerson = (dutyId, pid, patch) => { const r = tpl.find((x) => x.dutyId === dutyId); const ppl = tplPeople(r || {}).map((pp) => pp.pid === pid ? { ...pp, ...patch } : pp); setPeople(dutyId, ppl); };
+    const removePerson = (dutyId, pid) => { const r = tpl.find((x) => x.dutyId === dutyId); setPeople(dutyId, tplPeople(r || {}).filter((pp) => pp.pid !== pid)); };
+    const togglePersonComp = (dutyId, pid, cid) => { const r = tpl.find((x) => x.dutyId === dutyId); const pp = tplPeople(r || {}).find((x) => x.pid === pid); const cur = (pp.comps || []).map(String); const next = cur.includes(String(cid)) ? cur.filter((x) => x !== String(cid)) : [...cur, String(cid)]; patchPerson(dutyId, pid, { comps: next }); };
     const dutyOf = (id) => duties.find((x) => x.id === id) || { name: "(ลบแล้ว)", num: "?" };
-    // รายการในฝ่ายนี้ (ให้ติ๊กว่าจะสร้างผังให้รายการไหน)
     const dept = depts.find((d) => d.id === deptId);
     const deptComps = (db.competitions || []).filter((c) => dept && (dept.comps || []).map(String).includes(String(c.id)));
     const selComps = (db.deptTemplateComps || {})[deptId] || [];
+    const selCompObjs = deptComps.filter((c) => selComps.map(String).includes(String(c.id)));
     const toggleComp = (cid) => { const cur = selComps.map(String); const next = cur.includes(String(cid)) ? cur.filter((x) => x !== String(cid)) : [...cur, String(cid)]; setDb((p) => ({ ...p, deptTemplateComps: { ...(p.deptTemplateComps || {}), [deptId]: next } })); save(); };
     if (depts.length === 0)
         return React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1D\u0E48\u0E32\u0E22 \u2014 \u0E44\u0E1B\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E17\u0E35\u0E48\u0E41\u0E17\u0E47\u0E1A \u0E1D\u0E48\u0E32\u0E22 \u0E01\u0E48\u0E2D\u0E19" });
     if (duties.length === 0)
         return React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48 \u2014 \u0E44\u0E1B\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E17\u0E35\u0E48\u0E41\u0E17\u0E47\u0E1A \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48+\u0E40\u0E25\u0E02 \u0E01\u0E48\u0E2D\u0E19" });
-    const moneyCb = (checked, onChange) => React.createElement("label", { style: { display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, color: checked ? C.primaryDark : C.muted, cursor: "pointer", whiteSpace: "nowrap" } },
-        React.createElement("input", { type: "checkbox", checked: !!checked, onChange: onChange, style: { width: 13, height: 13, accentColor: C.primary } }),
-        "\u0E1C\u0E39\u0E49\u0E16\u0E37\u0E2D\u0E40\u0E07\u0E34\u0E19");
-    return (React.createElement("div", { style: { maxWidth: 760 } },
+    const chip = (checked, onChange, label, color) => React.createElement("label", { style: { display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, color: checked ? color : C.muted, cursor: "pointer", whiteSpace: "nowrap" } },
+        React.createElement("input", { type: "checkbox", checked: !!checked, onChange: onChange, style: { width: 13, height: 13, accentColor: color } }),
+        label);
+    return (React.createElement("div", { style: { maxWidth: 820 } },
         React.createElement("select", { value: deptId, onChange: (e) => setDeptId(e.target.value), style: { width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14, marginBottom: 12, fontWeight: 700 } }, depts.map((d) => React.createElement("option", { key: d.id, value: d.id }, d.name))),
         React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: C.ink, marginBottom: 6 } },
-            "\u0E1C\u0E31\u0E07\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A ",
-            React.createElement("span", { style: { fontSize: 11.5, color: "#c0392b", fontWeight: 400 } }, "(\u0E15\u0E34\u0E4A\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19\u0E1D\u0E48\u0E32\u0E22\u0E17\u0E35\u0E48\u0E08\u0E30\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1C\u0E31\u0E07\u0E43\u0E2B\u0E49)")),
+            "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19\u0E1D\u0E48\u0E32\u0E22 ",
+            React.createElement("span", { style: { fontSize: 11.5, color: "#c0392b", fontWeight: 400 } }, "(\u0E15\u0E34\u0E4A\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E08\u0E30\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1C\u0E31\u0E07\u0E43\u0E2B\u0E49 \u00B7 \u0E0A\u0E37\u0E48\u0E2D\u0E40\u0E2B\u0E25\u0E48\u0E32\u0E19\u0E35\u0E49\u0E08\u0E30\u0E44\u0E1B\u0E40\u0E1B\u0E47\u0E19 \"\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E14\u0E39\u0E41\u0E25\" \u0E43\u0E2B\u0E49\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E43\u0E19\u0E41\u0E15\u0E48\u0E25\u0E30\u0E04\u0E19)")),
         deptComps.length === 0 ? React.createElement("div", { style: { fontSize: 12, color: C.muted, marginBottom: 12 } }, "\u0E1D\u0E48\u0E32\u0E22\u0E19\u0E35\u0E49\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2014 \u0E44\u0E1B\u0E15\u0E34\u0E4A\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E2B\u0E49\u0E1D\u0E48\u0E32\u0E22\u0E17\u0E35\u0E48\u0E41\u0E17\u0E47\u0E1A \"\u0E1D\u0E48\u0E32\u0E22\" \u0E01\u0E48\u0E2D\u0E19") : (React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "6px 16px", marginBottom: 14, padding: "10px 12px", background: C.soft, borderRadius: 10 } }, deptComps.map((c) => {
             const on = selComps.map(String).includes(String(c.id));
             return (React.createElement("label", { key: c.id, style: { display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 12.5 } },
@@ -5541,29 +5562,38 @@ function DeptTemplateManager({ db, setDb, ui }) {
                 sportItemName(c)));
         }))),
         React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 10 } },
-            "\u0E41\u0E15\u0E48\u0E25\u0E30\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E43\u0E2A\u0E48\u0E44\u0E14\u0E49\u0E17\u0E31\u0E49\u0E07 ",
-            React.createElement("b", null, "\u0E04\u0E23\u0E39"),
-            " \u0E41\u0E25\u0E30 ",
-            React.createElement("b", null, "\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19"),
-            " \u00B7 \u0E15\u0E34\u0E4A\u0E01 \"\u0E1C\u0E39\u0E49\u0E16\u0E37\u0E2D\u0E40\u0E07\u0E34\u0E19\" \u0E16\u0E49\u0E32\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E19\u0E31\u0E49\u0E19\u0E16\u0E37\u0E2D\u0E40\u0E07\u0E34\u0E19 \u00B7 \u0E40\u0E27\u0E49\u0E19\u0E27\u0E48\u0E32\u0E07\u0E44\u0E14\u0E49 (\u0E43\u0E2B\u0E49\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E15\u0E2D\u0E19\u0E2A\u0E21\u0E31\u0E04\u0E23)"),
-        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8, marginBottom: 14 } },
+            "\u0E41\u0E15\u0E48\u0E25\u0E30\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E01\u0E14 ",
+            React.createElement("b", null, "\uFF0B \u0E04\u0E23\u0E39 / \uFF0B \u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19"),
+            " \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E44\u0E14\u0E49\u0E2B\u0E25\u0E32\u0E22\u0E04\u0E19 \u00B7 \u0E41\u0E15\u0E48\u0E25\u0E30\u0E04\u0E19\u0E15\u0E34\u0E4A\u0E01 \"\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E14\u0E39\u0E41\u0E25\" \u0E44\u0E14\u0E49\u0E2B\u0E25\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2192 \u0E04\u0E19\u0E19\u0E31\u0E49\u0E19\u0E08\u0E30\u0E44\u0E1B\u0E2D\u0E22\u0E39\u0E48\u0E43\u0E19\u0E1C\u0E31\u0E07\u0E02\u0E2D\u0E07\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E15\u0E34\u0E4A\u0E01 (\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27\u0E01\u0E31\u0E19)"),
+        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 } },
             tpl.length === 0 && React.createElement(Empty, { text: "\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A\u0E1D\u0E48\u0E32\u0E22\u0E19\u0E35\u0E49\u0E22\u0E31\u0E07\u0E27\u0E48\u0E32\u0E07 \u2014 \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E14\u0E49\u0E32\u0E19\u0E25\u0E48\u0E32\u0E07" }),
             tpl.map((r) => {
                 const d = dutyOf(r.dutyId);
+                const ppl = tplPeople(r);
                 return (React.createElement("div", { key: r.dutyId, style: { border: `1px solid ${C.line}`, borderLeft: `3px solid ${C.primary}`, borderRadius: 10, padding: "10px 12px", background: C.surface } },
                     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } },
                         React.createElement("span", { style: { width: 26, height: 26, borderRadius: "50%", background: C.soft, color: C.primaryDark, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12 } }, d.num),
                         React.createElement("span", { style: { fontWeight: 700, color: C.ink, flex: 1 } }, d.name),
+                        React.createElement("button", { onClick: () => addPerson(r.dutyId, "teacher"), style: { border: `1px solid ${C.primary}`, background: "#f7f9ff", color: C.primaryDark, borderRadius: 8, padding: "3px 8px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" } }, "\uFF0B \u0E04\u0E23\u0E39"),
+                        React.createElement("button", { onClick: () => addPerson(r.dutyId, "student"), style: { border: `1px solid #d98aa5`, background: "#fff7f9", color: "#b3527a", borderRadius: 8, padding: "3px 8px", fontSize: 11.5, fontWeight: 700, cursor: "pointer" } }, "\uFF0B \u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19"),
                         React.createElement("button", { onClick: () => removeRow(r.dutyId), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715")),
-                    React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
-                        React.createElement("div", { style: { background: "#f7f9ff", borderRadius: 8, padding: "8px 10px" } },
-                            React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700, color: C.muted, marginBottom: 4 } }, "\uD83D\uDC69\u200D\uD83C\uDFEB \u0E04\u0E23\u0E39"),
-                            React.createElement(PersonPicker, { db: db, value: r.teacherId, only: "teacher", onPick: (id) => patchRow(r.dutyId, { teacherId: id }), onClear: () => patchRow(r.dutyId, { teacherId: "" }) }),
-                            React.createElement("div", { style: { marginTop: 4 } }, moneyCb(r.teacherMoney, () => patchRow(r.dutyId, { teacherMoney: !r.teacherMoney })))),
-                        React.createElement("div", { style: { background: "#fff7f9", borderRadius: 8, padding: "8px 10px" } },
-                            React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700, color: C.muted, marginBottom: 4 } }, "\uD83E\uDDD1\u200D\uD83C\uDF93 \u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19"),
-                            React.createElement(PersonPicker, { db: db, value: r.studentId, only: "student", onPick: (id) => patchRow(r.dutyId, { studentId: id }), onClear: () => patchRow(r.dutyId, { studentId: "" }) }),
-                            React.createElement("div", { style: { marginTop: 4 } }, moneyCb(r.studentMoney, () => patchRow(r.dutyId, { studentMoney: !r.studentMoney })))))));
+                    ppl.length === 0 && React.createElement("div", { style: { fontSize: 12, color: C.muted, padding: "4px 2px" } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E19 \u2014 \u0E01\u0E14 \uFF0B \u0E04\u0E23\u0E39 \u0E2B\u0E23\u0E37\u0E2D \uFF0B \u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19"),
+                    React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, ppl.map((pp) => (React.createElement("div", { key: pp.pid, style: { background: pp.side === "teacher" ? "#f7f9ff" : "#fff7f9", borderRadius: 8, padding: "8px 10px" } },
+                        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+                            React.createElement("span", { style: { fontSize: 11.5, fontWeight: 700, color: C.muted } }, pp.side === "teacher" ? "👩‍🏫 ครู" : "🧑‍🎓 นักเรียน"),
+                            React.createElement(PersonPicker, { db: db, value: pp.personId, only: pp.side, onPick: (id) => patchPerson(r.dutyId, pp.pid, { personId: id }), onClear: () => patchPerson(r.dutyId, pp.pid, { personId: "" }) }),
+                            chip(pp.all, () => patchPerson(r.dutyId, pp.pid, { all: !pp.all }), "ใช้ทุกรายการในฝ่าย", "#2f9e6b"),
+                            chip(pp.money, () => patchPerson(r.dutyId, pp.pid, { money: !pp.money }), "ผู้ถือเงิน", C.primary),
+                            React.createElement("button", { onClick: () => removePerson(r.dutyId, pp.pid), style: { marginLeft: "auto", border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800, fontSize: 12 } }, "\u0E25\u0E1A")),
+                        !pp.all && selCompObjs.length > 0 && (React.createElement("div", { style: { marginTop: 6 } },
+                            React.createElement("span", { style: { fontSize: 11, color: "#c0392b", fontWeight: 700 } }, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E14\u0E39\u0E41\u0E25:"),
+                            React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: "3px 12px", marginTop: 3 } }, selCompObjs.map((c) => {
+                                const on = (pp.comps || []).map(String).includes(String(c.id));
+                                return (React.createElement("label", { key: c.id, style: { display: "flex", alignItems: "center", gap: 4, cursor: "pointer", fontSize: 11.5 } },
+                                    React.createElement("input", { type: "checkbox", checked: on, onChange: () => togglePersonComp(r.dutyId, pp.pid, c.id), style: { width: 13, height: 13, accentColor: C.primary } }),
+                                    sportItemName(c)));
+                            })))),
+                        pp.all && React.createElement("div", { style: { fontSize: 10.5, color: "#1e7a4d", marginTop: 4 } }, "\u2713 \u0E43\u0E0A\u0E49\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19\u0E1D\u0E48\u0E32\u0E22 (\u0E44\u0E21\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)")))))));
             })),
         React.createElement("div", { style: { display: "flex", gap: 8 } },
             React.createElement("select", { value: addDuty, onChange: (e) => setAddDuty(e.target.value), style: { flex: 1, padding: "10px 12px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14 } },
@@ -5572,7 +5602,7 @@ function DeptTemplateManager({ db, setDb, ui }) {
                     d.num,
                     ". ",
                     d.name))),
-            React.createElement(Btn, { onClick: addRow }, "\uFF0B \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E40\u0E02\u0E49\u0E32\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A"))));
+            React.createElement(Btn, { onClick: addRow }, "\uFF0B \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48"))));
 }
 function SimpleListManager({ db, setDb, ui, field, title, hint, placeholder }) {
     const list = db[field] || [];
