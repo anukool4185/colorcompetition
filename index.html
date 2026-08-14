@@ -1633,8 +1633,8 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             React.createElement("select", { value: form.dept, onChange: (e) => setForm((p) => ({ ...p, dept: e.target.value })), style: selCss },
                 React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01 \u2014"),
                 (db.departments || []).length > 0 && React.createElement("optgroup", { label: "\uD83C\uDFE2 \u0E1D\u0E48\u0E32\u0E22 (\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21 \u0E44\u0E21\u0E48\u0E41\u0E22\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)" }, (db.departments || []).map((d) => React.createElement("option", { key: d.id, value: "D:" + d.id }, d.name))),
-                React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19" }, allowedComps.filter((c) => c.kind === "แข่งขัน").map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name))),
-                React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }, allowedComps.filter((c) => c.kind === "กิจกรรม").map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name)))),
+                React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19" }, allowedComps.filter((c) => c.kind === "แข่งขัน").map((c) => React.createElement("option", { key: c.id, value: c.id }, sportItemName(c)))),
+                React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }, allowedComps.filter((c) => c.kind === "กิจกรรม").map((c) => React.createElement("option", { key: c.id, value: c.id }, sportItemName(c))))),
             React.createElement("div", { style: { display: "flex", gap: 8, margin: "8px 0" } },
                 React.createElement("button", { onClick: () => setForm((p) => ({ ...p, type: "in" })), style: { flex: 1, padding: "9px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13, background: form.type === "in" ? "#2f9e6b" : C.soft, color: form.type === "in" ? "#fff" : C.ink } }, "\uFF0B \u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A"),
                 React.createElement("button", { onClick: () => setForm((p) => ({ ...p, type: "out" })), style: { flex: 1, padding: "9px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13, background: form.type === "out" ? "#c0392b" : C.soft, color: form.type === "out" ? "#fff" : C.ink } }, "\uFF0D \u0E23\u0E32\u0E22\u0E08\u0E48\u0E32\u0E22")),
@@ -1658,7 +1658,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 React.createElement("select", { value: fDept, onChange: (e) => setFDept(e.target.value), style: selCss },
                     React.createElement("option", { value: "" }, "\u0E17\u0E38\u0E01\u0E1D\u0E48\u0E32\u0E22/\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"),
                     (db.departments || []).length > 0 && React.createElement("optgroup", { label: "\uD83C\uDFE2 \u0E15\u0E32\u0E21\u0E1D\u0E48\u0E32\u0E22 (\u0E23\u0E27\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19\u0E1D\u0E48\u0E32\u0E22)" }, (db.departments || []).map((d) => React.createElement("option", { key: d.id, value: "DALL:" + d.id }, d.name))),
-                    React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }, db.competitions.map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name)))),
+                    React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }, db.competitions.map((c) => React.createElement("option", { key: c.id, value: c.id }, sportItemName(c))))),
                 React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17:"),
                 React.createElement(Select, { value: fType, onChange: setFType },
                     React.createElement("option", { value: "" }, "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14"),
@@ -3812,8 +3812,8 @@ function OrgViewManager({ db, setDb, ui, editable, committee, orgComp }) {
             React.createElement("span", { style: { fontSize: 13, color: C.muted, fontWeight: 600 } }, "\u0E14\u0E39\u0E1C\u0E31\u0E07\u0E02\u0E2D\u0E07:"),
             React.createElement("select", { value: pickComp, onChange: (e) => setPickComp(e.target.value), style: selCss },
                 React.createElement("option", { value: "" }, "\u2014 \u0E1C\u0E31\u0E07\u0E23\u0E27\u0E21\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 \u2014"),
-                React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19" }, db.competitions.filter((c) => c.kind === "แข่งขัน").map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name))),
-                React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }, db.competitions.filter((c) => c.kind === "กิจกรรม").map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name)))),
+                React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19" }, db.competitions.filter((c) => c.kind === "แข่งขัน").map((c) => React.createElement("option", { key: c.id, value: c.id }, sportItemName(c)))),
+                React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }, db.competitions.filter((c) => c.kind === "กิจกรรม").map((c) => React.createElement("option", { key: c.id, value: c.id }, sportItemName(c))))),
             compObj && React.createElement("span", { style: { fontSize: 12.5, fontWeight: 700, color: effCat === "act" ? C.gold : C.primary } },
                 "\u25B8 ",
                 compObj.name)),
@@ -4041,7 +4041,7 @@ function NodeForm({ node, dutyList, comps, onClose, onSave, hideComp, compName }
             React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E19\u0E35\u0E49\u0E14\u0E39\u0E41\u0E25 (\u0E44\u0E21\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01 = \u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E1A\u0E23\u0E34\u0E2B\u0E32\u0E23/\u0E44\u0E21\u0E48\u0E1C\u0E39\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)"),
             React.createElement("select", { value: compId, onChange: (e) => setCompId(e.target.value), style: selCss },
                 React.createElement("option", { value: "" }, "\u2014 \u0E44\u0E21\u0E48\u0E1C\u0E39\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2014"),
-                (comps || []).map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name))),
+                (comps || []).map((c) => React.createElement("option", { key: c.id, value: c.id }, sportItemName(c)))),
             (comps || []).length === 0 && React.createElement("p", { style: { fontSize: 12, color: C.muted, marginTop: 0 } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19\u0E2B\u0E21\u0E27\u0E14\u0E19\u0E35\u0E49 \u2014 \u0E44\u0E1B\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E17\u0E35\u0E48\u0E41\u0E17\u0E47\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E01\u0E48\u0E2D\u0E19"))),
         React.createElement("p", { style: { fontSize: 12, color: C.muted, marginTop: 0 } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E2A\u0E48\u0E0A\u0E37\u0E48\u0E2D\u0E04\u0E19 \u2014 \u0E44\u0E1B\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E17\u0E35\u0E48\u0E42\u0E2B\u0E21\u0E14 \"\u270D\uFE0F \u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\""),
         React.createElement("div", { style: { display: "flex", gap: 8 } },
@@ -4606,7 +4606,7 @@ function CompDisplay({ kind, db, ui }) {
 function CompManager({ db, setDb, ui }) {
     const [tab, setTab] = useState("select");
     return (React.createElement("div", null,
-        React.createElement(PageHead, { title: "\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19 & \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21", sub: `คัดเลือกผู้เข้าแข่ง · จำกัดตัวจริงต่อคน: ${db.settings.maxMain} รายการ (เพิ่ม/แก้รายการที่เมนู กำหนดหน้าที่)` }),
+        React.createElement(PageHead, { title: "\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19 & \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21", sub: `คัดเลือกผู้เข้าแข่ง · จำกัดตัวจริงต่อคน: ${db.settings.maxMain} รายการ (เพิ่ม/แก้รายการที่เมนู ตั้งค่าผัง)` }),
         React.createElement(Tabs, { tabs: [{ key: "select", label: "คัดเลือกผู้เข้าแข่ง" }, { key: "stats", label: "สถิติคะแนน" }, { key: "comp", label: "รายการแข่งขัน" }, { key: "act", label: "รายการกิจกรรม" }, { key: "set", label: "ตั้งค่า" }], active: tab, onChange: setTab }),
         tab === "comp" && React.createElement(CompDisplay, { kind: "\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19", db: db, ui: ui }),
         tab === "act" && React.createElement(CompDisplay, { kind: "\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21", db: db, ui: ui }),
@@ -4928,6 +4928,9 @@ function SportItemsTable({ db, setDb, ui, kind = "แข่งขัน", sportT
     const toggleGrade = (c, g) => { const cur = c.grades || []; upd(c.id, { grades: cur.includes(g) ? cur.filter((x) => x !== g) : [...cur, g] }); };
     const toggleGender = (c, g) => { const cur = c.genders || []; upd(c.id, { genders: cur.includes(g) ? cur.filter((x) => x !== g) : [...cur, g] }); };
     const del = (id) => { setDb((p) => ({ ...p, competitions: (p.competitions || []).filter((c) => c.id !== id) })); save(); };
+    const move = (id, dir) => { setDb((p) => { const comps = [...(p.competitions || [])]; const idxs = comps.map((c, i) => ({ c, i })).filter((o) => o.c.kind === kind && (o.c.sportType || "กีฬา") === sportType).map((o) => o.i); const pos = idxs.findIndex((i) => comps[i].id === id); if (pos < 0)
+        return p; const swap = dir < 0 ? pos - 1 : pos + 1; if (swap < 0 || swap >= idxs.length)
+        return p; const a = idxs[pos], b = idxs[swap]; [comps[a], comps[b]] = [comps[b], comps[a]]; return { ...p, competitions: comps }; }); save(); };
     const GR = ["ม.1", "ม.2", "ม.3", "ม.4", "ม.5", "ม.6"];
     const cb = () => ({ width: 16, height: 16, accentColor: C.primary, cursor: "pointer" });
     const th = { padding: "8px 6px", fontSize: 12.5, fontWeight: 700, color: C.primaryDark, textAlign: "center", borderBottom: `2px solid ${C.line}`, background: C.soft, whiteSpace: "nowrap" };
@@ -4984,7 +4987,10 @@ function SportItemsTable({ db, setDb, ui, kind = "แข่งขัน", sportT
                         React.createElement("input", { value: c.nameManual != null ? c.nameManual : sportItemName(c), onChange: (e) => upd(c.id, { nameManual: e.target.value }), style: { width: "100%", minWidth: 140, padding: "5px 7px", borderRadius: 6, border: `1px solid ${c.nameManual != null ? C.gold : C.line}`, fontSize: 12.5, fontWeight: 700, color: C.ink } }),
                         c.nameManual != null && React.createElement("button", { onClick: () => upd(c.id, { nameManual: null }), title: "\u0E01\u0E25\u0E31\u0E1A\u0E40\u0E1B\u0E47\u0E19\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34", style: { border: "none", background: "none", color: C.muted, cursor: "pointer", fontSize: 10 } }, "\u21BA \u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34")),
                     React.createElement("td", { style: td },
-                        React.createElement("button", { onClick: () => del(c.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715")))))))))));
+                        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 2, alignItems: "center" } },
+                            React.createElement("button", { onClick: () => move(c.id, -1), title: "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E02\u0E36\u0E49\u0E19", style: { border: "none", background: "none", color: C.primary, cursor: "pointer", fontWeight: 800, fontSize: 13, lineHeight: 1 } }, "\u25B2"),
+                            React.createElement("button", { onClick: () => move(c.id, 1), title: "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E25\u0E07", style: { border: "none", background: "none", color: C.primary, cursor: "pointer", fontWeight: 800, fontSize: 13, lineHeight: 1 } }, "\u25BC"),
+                            React.createElement("button", { onClick: () => del(c.id), title: "\u0E25\u0E1A", style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715"))))))))))));
 }
 function gradesLabel(c) {
     if (!c.grades || c.grades.length === 0)
@@ -5007,7 +5013,7 @@ function SelectionScreen({ db, setDb, ui }) {
     return (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 12 } },
         React.createElement(Tabs, { tabs: [{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }], active: kind, onChange: (k) => { setKind(k); setPick(""); } }),
         React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" } },
-            React.createElement(Select, { value: (comp === null || comp === void 0 ? void 0 : comp.id) || "", onChange: setPick }, list.map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name))),
+            React.createElement(Select, { value: (comp === null || comp === void 0 ? void 0 : comp.id) || "", onChange: setPick }, list.map((c) => React.createElement("option", { key: c.id, value: c.id }, sportItemName(c)))),
             comp && React.createElement(ItemStatusBadge, { c: comp }),
             comp && React.createElement(Btn, { small: true, onClick: () => setAddOpen(true) }, "+ \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E1C\u0E39\u0E49\u0E2A\u0E21\u0E31\u0E04\u0E23 (\u0E41\u0E17\u0E19\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19)"),
             comp && React.createElement(Btn, { small: true, variant: "ghost", onClick: () => { try {
@@ -5233,8 +5239,8 @@ function TrainingManager({ db, setDb, ui }) {
                 React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E1C\u0E39\u0E01\u0E01\u0E31\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 (\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \u0E2B\u0E23\u0E37\u0E2D \"\u0E17\u0E31\u0E48\u0E27\u0E44\u0E1B\")"),
                 React.createElement("select", { value: f.compId, onChange: (e) => set("compId")(e.target.value), style: selCss, disabled: !!edit },
                     React.createElement("option", { value: "" }, "\u2014 \u0E17\u0E31\u0E48\u0E27\u0E44\u0E1B (\u0E23\u0E32\u0E22\u0E2A\u0E35) \u2014"),
-                    React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19" }, (db.competitions || []).filter((c) => c.kind === "แข่งขัน").map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name))),
-                    React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }, (db.competitions || []).filter((c) => c.kind === "กิจกรรม").map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name)))),
+                    React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19" }, (db.competitions || []).filter((c) => c.kind === "แข่งขัน").map((c) => React.createElement("option", { key: c.id, value: c.id }, sportItemName(c)))),
+                    React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }, (db.competitions || []).filter((c) => c.kind === "กิจกรรม").map((c) => React.createElement("option", { key: c.id, value: c.id }, sportItemName(c))))),
                 React.createElement(Field, { label: f.compId ? "รายละเอียด/หมายเหตุ (พิมพ์ได้)" : "หัวข้อ/รายการฝึกซ้อม", value: f.title, onChange: set("title"), placeholder: f.compId ? "เช่น ซ้อมรอบแรก, เตรียมอุปกรณ์" : "เช่น ซ้อมเชียร์รวมสี, ซ้อมกีฬาสี" }),
                 !f.compId && React.createElement(React.Fragment, null,
                     React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E2A\u0E31\u0E07\u0E01\u0E31\u0E14\u0E2A\u0E35"),
@@ -5703,7 +5709,7 @@ function DutyDefManager({ db, setDb, ui }) {
 function OrgSetup({ db, setDb, ui }) {
     const [tab, setTab] = useState("duty");
     return (React.createElement("div", null,
-        React.createElement(PageHead, { title: "\u2699\uFE0F \u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E1C\u0E31\u0E07 (\u0E23\u0E30\u0E1A\u0E1A\u0E43\u0E2B\u0E21\u0E48)", sub: "\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E1E\u0E37\u0E49\u0E19\u0E10\u0E32\u0E19\u0E01\u0E48\u0E2D\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1C\u0E31\u0E07 \u2014 \u0E1D\u0E48\u0E32\u0E22 \u00B7 \u0E0A\u0E19\u0E34\u0E14\u0E01\u0E35\u0E2C\u0E32 \u00B7 \u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21 \u00B7 \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48+\u0E40\u0E25\u0E02 \u00B7 \u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A" }),
+        React.createElement(PageHead, { title: "\u2699\uFE0F \u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E1C\u0E31\u0E07 (\u0E23\u0E30\u0E1A\u0E1A\u0E43\u0E2B\u0E21\u0E48)", sub: "\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E1E\u0E37\u0E49\u0E19\u0E10\u0E32\u0E19\u0E01\u0E48\u0E2D\u0E19\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1C\u0E31\u0E07 \u2014 \u0E1D\u0E48\u0E32\u0E22 \u00B7 \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48+\u0E40\u0E25\u0E02 \u00B7 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u00B7 \u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A \u00B7 \u0E40\u0E27\u0E2D\u0E23\u0E4C\u0E0A\u0E31\u0E19 v120" }),
         React.createElement(Tabs, { tabs: [{ key: "duty", label: "หน้าที่ + เลข" }, { key: "sportitems", label: "➕ รายการกีฬา" }, { key: "trackitems", label: "➕ รายการกรีฑา" }, { key: "actitems", label: "➕ รายการกิจกรรม" }, { key: "dept", label: "ฝ่าย" }, { key: "template", label: "แม่แบบผังรายฝ่าย" }], active: tab, onChange: setTab }),
         tab === "duty" && React.createElement(DutyDefManager, { db: db, setDb: setDb, ui: ui }),
         tab === "sportitems" && React.createElement(SportItemsTable, { db: db, setDb: setDb, ui: ui, kind: "\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19", sportType: "\u0E01\u0E35\u0E2C\u0E32" }),
@@ -6406,7 +6412,7 @@ function CommitteeSchedule({ myCompIds, db, setDb, ui, me }) {
             React.createElement(Select, { value: "", onChange: (v) => { const c = db.competitions.find((x) => x.id === v); if (c)
                     setPopup(c); } },
                 React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2014"),
-                db.competitions.map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name))),
+                db.competitions.map((c) => React.createElement("option", { key: c.id, value: c.id }, sportItemName(c)))),
             React.createElement(Btn, { small: true, variant: "ghost", onClick: () => printImageFromEl("commSchedArea", ui && ui.notify) }, "\u0E1B\u0E23\u0E34\u0E49\u0E19"),
             React.createElement(Btn, { small: true, variant: "ghost", onClick: () => pdfFromEl("commSchedArea", "portrait", "ตารางที่ฉันดูแล.pdf", ui && ui.notify) }, "PDF")),
         React.createElement("div", { id: "commSchedArea", style: { display: "flex", flexDirection: "column", gap: 10 } },
@@ -6613,7 +6619,7 @@ function MyDutyScreen({ role, meId, db, setDb, ui }) {
         React.createElement(Tabs, { tabs: [{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }], active: kind, onChange: (k) => { setKind(k); setPick(""); } }),
         myComps.length === 0 ? React.createElement(Empty, { text: `ยังไม่ได้รับมอบหมายรายการ${kind} (ผู้ที่ลงชื่อในผังหมวด${kind}จะดูแลรายการหมวดนี้)` }) : (React.createElement(React.Fragment, null,
             React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12 } },
-                React.createElement(Select, { value: (comp === null || comp === void 0 ? void 0 : comp.id) || "", onChange: setPick }, myComps.map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name))),
+                React.createElement(Select, { value: (comp === null || comp === void 0 ? void 0 : comp.id) || "", onChange: setPick }, myComps.map((c) => React.createElement("option", { key: c.id, value: c.id }, sportItemName(c)))),
                 comp && React.createElement(ItemStatusBadge, { c: comp }),
                 comp && React.createElement(Btn, { small: true, onClick: () => setAddOpen(true) }, "+ \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E1C\u0E39\u0E49\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E41\u0E17\u0E19"),
                 comp && React.createElement(Btn, { small: true, variant: "ghost", onClick: () => printImageFromEl("myDutyArea", ui && ui.notify) }, "\u0E1B\u0E23\u0E34\u0E49\u0E19"),
@@ -7205,7 +7211,7 @@ function ScheduleScreen({ db, setDb, ui, editable }) {
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\u0E15\u0E32\u0E23\u0E32\u0E07\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19", sub: editable ? "เพิ่มวัน/เวลา/รอบการแข่งขัน" : "ดูอย่างเดียว", right: comp && React.createElement(ExportBar, { run: ui.run }) }),
         React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" } },
-            React.createElement(Select, { value: pick, onChange: setPick }, db.competitions.map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name))),
+            React.createElement(Select, { value: pick, onChange: setPick }, db.competitions.map((c) => React.createElement("option", { key: c.id, value: c.id }, sportItemName(c)))),
             editable && React.createElement(Btn, { small: true, onClick: () => setAdd(true) }, "+ \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22")),
         React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, comp === null || comp === void 0 ? void 0 :
             comp.schedule.map((s, i) => (React.createElement(Card, { key: i, style: { padding: 12, display: "flex", justifyContent: "space-between", alignItems: "center" } },
@@ -7499,7 +7505,7 @@ function StudentResults({ me, db, ui }) {
             React.createElement(Select, { value: "", onChange: (v) => { const c = db.competitions.find((x) => x.id === v); if (c)
                     setPopup(c); } },
                 React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2014"),
-                db.competitions.map((c) => React.createElement("option", { key: c.id, value: c.id }, c.name)))),
+                db.competitions.map((c) => React.createElement("option", { key: c.id, value: c.id }, sportItemName(c))))),
         React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
             mine.map((c) => (React.createElement(Card, { key: c.id, style: { padding: 14 } },
                 React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" } },
