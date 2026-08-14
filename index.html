@@ -2327,7 +2327,7 @@ function RestoreDialog({ ids, archived, onClose, onConfirm }) {
 function PeopleManager({ db, setDb, ui }) {
     const [tab, setTab] = useState("students");
     return (React.createElement("div", null,
-        React.createElement(PageHead, { title: "\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E1A\u0E38\u0E04\u0E25\u0E32\u0E01\u0E23", sub: "\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 \u00B7 \u0E04\u0E23\u0E39 \u00B7 \u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49" }),
+        React.createElement(PageHead, { title: "\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E1A\u0E38\u0E04\u0E25\u0E32\u0E01\u0E23", sub: "\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 \u00B7 \u0E04\u0E23\u0E39 \u00B7 \u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49 \u00B7 \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E2D\u0E48\u0E32\u0E19\u0E08\u0E32\u0E01\u0E1C\u0E31\u0E07\u0E43\u0E2B\u0E21\u0E48 (org2) \u00B7 v124" }),
         React.createElement(Tabs, { tabs: [{ key: "students", label: "นักเรียน" }, { key: "teachers", label: "ครู" }, { key: "accounts", label: "บัญชีผู้ใช้ / รหัสผ่าน" }], active: tab, onChange: setTab }),
         tab === "students" && React.createElement(PersonList, { kind: "student", db: db, setDb: setDb, ui: ui }),
         tab === "teachers" && React.createElement(PersonList, { kind: "teacher", db: db, setDb: setDb, ui: ui }),
@@ -2368,11 +2368,21 @@ function StatusBadge({ label, value, emptyText, emptyRed }) {
         React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700, color: col, background: bg, borderRadius: 12, padding: "2px 8px", marginTop: 2 } }, value || emptyText)));
 }
 function dutyOf(db, kind, id) {
-    const which = kind === "teacher" ? "orgTeacher" : "orgStudent";
-    const nodes = (db[which] || []).filter((n) => n.personId === id);
-    const cats = new Set(nodes.map((n) => n.cat || "comp"));
-    const cred = kind === "teacher" ? !!(db.teachers.find((t) => t.id === id) || {}).user : !!(db.students.find((s) => s.id === id) || {}).committee;
-    return { isCom: nodes.length > 0 || cred, comp: cats.has("comp"), act: cats.has("act"), titles: nodes.map((n) => n.title) };
+    // อ่านหน้าที่จากผังองค์กรใหม่ (org2) ที่เดียว — ทุก node ของคนนี้ ทุกลำดับ
+    const sid = String(id);
+    const nodes = (db.org2 || []).filter((n) => String(n.personId) === sid);
+    const dutyName2 = (dutyId) => { const x = (db.duties || []).find((d) => String(d.id) === String(dutyId)); return x ? x.name : ""; };
+    const titleSet = new Set(), compSet = new Set(), kindSet = new Set();
+    let money = false;
+    nodes.forEach((n) => { const t = dutyName2(n.dutyId); if (t)
+        titleSet.add(t); const c = (db.competitions || []).find((x) => String(x.id) === String(n.compId)); if (c) {
+        compSet.add(sportItemName(c));
+        kindSet.add(c.kind);
+    } if (n.money)
+        money = true; });
+    const cred = kind === "teacher" ? !!(db.teachers.find((t) => String(t.id) === sid) || {}).user : !!(db.students.find((s) => String(s.id) === sid) || {}).committee;
+    const titles = [...titleSet], comps = [...compSet];
+    return { isCom: nodes.length > 0 || cred, comp: kindSet.has("แข่งขัน"), act: kindSet.has("กิจกรรม"), titles, comps, money, count: nodes.length };
 }
 function CommitteeBadge({ d }) {
     if (!d.isCom)
@@ -2380,10 +2390,13 @@ function CommitteeBadge({ d }) {
             React.createElement("div", { style: { fontSize: 9.5, color: C.muted } }, "\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23"),
             React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700, color: C.muted, background: C.soft, borderRadius: 12, padding: "2px 8px", marginTop: 2 } }, "\u0E44\u0E21\u0E48\u0E40\u0E1B\u0E47\u0E19")));
     const roles = [d.comp && "แข่งขัน", d.act && "กิจกรรม"].filter(Boolean).join("/") || "ยังไม่ลงผัง";
-    return (React.createElement("div", { style: { textAlign: "center", minWidth: 92 } },
-        React.createElement("div", { style: { fontSize: 9.5, color: C.muted } }, "\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23 \u00B7 \u0E14\u0E39\u0E41\u0E25"),
+    return (React.createElement("div", { style: { textAlign: "center", minWidth: 92, maxWidth: 200 } },
+        React.createElement("div", { style: { fontSize: 9.5, color: C.muted } },
+            "\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23 \u00B7 \u0E14\u0E39\u0E41\u0E25",
+            d.money ? " · 💰" : ""),
         React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700, color: "#2f9e6b", background: "#e6f4ec", borderRadius: 12, padding: "2px 8px", marginTop: 2 } }, roles),
-        d.titles.length > 0 && React.createElement("div", { style: { fontSize: 9.5, color: C.muted, marginTop: 1 } }, d.titles.join(", "))));
+        d.titles.length > 0 && React.createElement("div", { style: { fontSize: 10, color: C.ink, fontWeight: 600, marginTop: 2 } }, d.titles.join(", ")),
+        d.comps && d.comps.length > 0 && React.createElement("div", { style: { fontSize: 9.5, color: C.muted, marginTop: 1, lineHeight: 1.3 } }, d.comps.join(" · "))));
 }
 function OrgDot({ db, kind, id }) {
     const d = dutyOf(db, kind, id);
@@ -5457,7 +5470,7 @@ function Org2Manager({ db, setDb, ui, viewer, canEdit = true, selfSignup = false
                         React.createElement(Btn, { small: true, variant: "ghost", onClick: () => rejectReq(r) }, "\u0E1B\u0E0F\u0E34\u0E40\u0E2A\u0E18")));
                 }))),
             (db.org2 || []).length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E31\u0E07 \u2014 \u0E15\u0E31\u0E49\u0E07\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A\u0E23\u0E32\u0E22\u0E1D\u0E48\u0E32\u0E22\u0E41\u0E25\u0E49\u0E27\u0E01\u0E14 '\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1C\u0E31\u0E07\u0E08\u0E32\u0E01\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A'" }),
-            Object.keys(byComp).map((compId) => (React.createElement(Card, { key: compId, style: { padding: 14, marginBottom: 12 } },
+            (() => { const compOrder = (db.competitions || []).map((c) => String(c.id)); const orderedCompIds = Object.keys(byComp).sort((a, b) => { const ia = compOrder.indexOf(String(a)), ib = compOrder.indexOf(String(b)); return (ia < 0 ? 9999 : ia) - (ib < 0 ? 9999 : ib); }); return orderedCompIds; })().map((compId) => (React.createElement(Card, { key: compId, style: { padding: 14, marginBottom: 12 } },
                 React.createElement("div", { style: { fontWeight: 800, color: C.ink, marginBottom: 8 } },
                     "\uD83C\uDFC6 ",
                     compName2(compId)),
