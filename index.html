@@ -5381,8 +5381,8 @@ function buildOrg2(db) {
     });
     return out;
 }
-function Org2Manager({ db, setDb, ui, viewer, canEdit = true, selfSignup = false, meSide }) {
-    const comps = db.competitions || [];
+function Org2Manager({ db, setDb, ui, viewer, canEdit = true, selfSignup = false, meSide, visibleCompIds }) {
+    const comps = (db.competitions || []).filter((c) => !visibleCompIds || visibleCompIds.map(String).includes(String(c.id)));
     const [pickComp, setPickComp] = useState("");
     const [pickDept, setPickDept] = useState("");
     const [confirmGen, setConfirmGen] = useState(false);
@@ -5401,7 +5401,7 @@ function Org2Manager({ db, setDb, ui, viewer, canEdit = true, selfSignup = false
     const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 400);
     const generate = () => { setDb((p) => ({ ...p, org2: buildOrg2(p) })); save(); setConfirmGen(false); ui.notify("สร้าง/อัปเดตผังจากแม่แบบแล้ว (เก็บคนที่ลงชื่อไว้เดิม)"); };
     const setPerson = (nodeId, personId, side) => { setDb((p) => ({ ...p, org2: (p.org2 || []).map((n) => n.id === nodeId ? { ...n, personId, side } : n) })); save(); };
-    const nodes = (db.org2 || []).filter((n) => (!pickComp || String(n.compId) === String(pickComp)) && (!pickDept || String(n.deptId) === String(pickDept)));
+    const nodes = (db.org2 || []).filter((n) => (!pickComp || String(n.compId) === String(pickComp)) && (!pickDept || String(n.deptId) === String(pickDept)) && (!visibleCompIds || visibleCompIds.map(String).includes(String(n.compId))));
     // จัดกลุ่มตาม comp → dept → เรียง num
     const byComp = {};
     nodes.forEach((n) => { (byComp[n.compId] = byComp[n.compId] || {}); (byComp[n.compId][n.deptId] = byComp[n.compId][n.deptId] || []).push(n); });
@@ -6300,12 +6300,12 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
         view === "noti" && React.createElement(NotificationCenter, { db: db, setDb: setDb, ui: ui, admin: false, viewerId: meId, viewerRole: role, onGoResults: (id) => { setJumpComp(id); setView("results"); } }),
         view === "me" && React.createElement(CommitteeProfile, { role: role, meId: meId, db: db, setDb: setDb, ui: ui }),
         view === "students" && React.createElement(StudentInfoList, { db: db }),
-        String(view).startsWith("org") && React.createElement(OrgViewManager, { db: db, setDb: setDb, ui: ui, committee: { role, meId }, orgComp: view === "org:all" ? "" : String(view).replace("org:", "") }),
+        String(view).startsWith("org:") && React.createElement(OrgViewManager, { db: db, setDb: setDb, ui: ui, committee: { role, meId }, orgComp: view === "org:all" ? "" : String(view).replace("org:", "") }),
         view === "select" && React.createElement(MyDutyScreen, { role: role, meId: meId, db: db, setDb: setDb, ui: ui }),
         view === "results" && React.createElement(ResultsManager, { db: db, setDb: setDb, ui: ui, scopeCompIds: myCompIds, autoOpen: jumpComp, onAutoOpened: () => setJumpComp(null) }),
-        view === "org2" && (() => { const meP = (role === "teacher" ? db.teachers : db.students).find((x) => String(x.id) === String(meId)); return React.createElement("div", null,
-            React.createElement(PageHead, { title: "\uD83C\uDF33 \u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23", sub: "\u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E19\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E17\u0E35\u0E48\u0E27\u0E48\u0E32\u0E07 \u0E2B\u0E23\u0E37\u0E2D\u0E14\u0E39\u0E1C\u0E31\u0E07\u0E02\u0E2D\u0E07\u0E41\u0E15\u0E48\u0E25\u0E30\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23" }),
-            React.createElement(Org2Manager, { db: db, setDb: setDb, ui: ui, viewer: { role, id: meId, name: meP ? fullName(meP) : "" }, canEdit: false, selfSignup: true, meSide: role === "teacher" ? "teacher" : "student" })); })(),
+        view === "org2" && (() => { const meP = (role === "teacher" ? db.teachers : db.students).find((x) => String(x.id) === String(meId)); const mine = [...new Set((db.org2 || []).filter((n) => String(n.personId) === String(meId)).map((n) => String(n.compId)))]; return React.createElement("div", null,
+            React.createElement(PageHead, { title: "\uD83C\uDF33 \u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23", sub: "\u0E40\u0E2B\u0E47\u0E19\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1C\u0E31\u0E07\u0E17\u0E35\u0E48\u0E04\u0E38\u0E13\u0E21\u0E35\u0E0A\u0E37\u0E48\u0E2D\u0E2D\u0E22\u0E39\u0E48 \u00B7 \u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D/\u0E02\u0E2D\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E15\u0E31\u0E27\u0E44\u0E14\u0E49" }),
+            React.createElement(Org2Manager, { db: db, setDb: setDb, ui: ui, viewer: { role, id: meId, name: meP ? fullName(meP) : "" }, canEdit: false, selfSignup: true, meSide: role === "teacher" ? "teacher" : "student", visibleCompIds: mine })); })(),
         String(view).startsWith("attend") && React.createElement(TimeAttendance, { db: db, setDb: setDb, ui: ui, meId: meId, role: role, myComps: myComps, sub: String(view).split(":")[1] || "day" }),
         view === "finance" && (() => { const meP = (role === "teacher" ? db.teachers : db.students).find((x) => String(x.id) === String(meId)); return React.createElement(FinanceManager, { db: db, setDb: setDb, ui: ui, viewer: { role, id: meId, name: meP ? fullName(meP) : "" } }); })(),
         view === "schedule" && React.createElement(CommitteeSchedule, { myCompIds: myCompIds, db: db, setDb: setDb, ui: ui, me: role === "studentcom" ? db.students.find((s) => s.id === meId) : null }),
@@ -7303,14 +7303,19 @@ function StudentApp({ db, setDb, onExit, meId }) {
         { key: "me", label: "ข้อมูลฉัน", icon: "🪪" },
         { key: "register", label: "สมัครแข่ง", icon: "✍️" },
         { key: "results", label: "ผลแข่ง", icon: "🏅" },
+        { key: "org2", label: "ผังงาน", icon: "🌳" },
         { key: "schedule", label: "ตาราง", icon: "📅" },
         { key: "finance", label: "การเงิน", icon: "💰" },
     ];
+    const myPassedComps = [...new Set((db.competitions || []).filter((c) => (c.participants || []).some((x) => String(x.sid) === String(me.id) && (x.sel === "main" || x.sel === "reserve"))).map((c) => String(c.id)))];
     return (React.createElement(Shell, { role: "student", nav: nav, view: view, setView: setView, onExit: onExit, ui: ui },
         view === "home" && React.createElement(StudentSchedule, { me: me, db: db, ui: ui }),
         view === "me" && React.createElement(MyProfile, { me: me, db: db, setDb: setDb, ui: ui }),
         view === "register" && React.createElement(StudentRegister, { me: me, db: db, setDb: setDb, ui: ui }),
         view === "results" && React.createElement(ResultsManager, { db: db, ui: ui, readOnly: true, scopeSid: me.id }),
+        view === "org2" && React.createElement("div", null,
+            React.createElement(PageHead, { title: "\uD83C\uDF33 \u0E1C\u0E31\u0E07\u0E07\u0E32\u0E19", sub: "\u0E1C\u0E31\u0E07\u0E02\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E04\u0E38\u0E13\u0E1C\u0E48\u0E32\u0E19\u0E01\u0E32\u0E23\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E41\u0E25\u0E49\u0E27 (\u0E14\u0E39\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27)" }),
+            myPassedComps.length === 0 ? React.createElement(Empty, { text: "\u0E04\u0E38\u0E13\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E1C\u0E48\u0E32\u0E19\u0E01\u0E32\u0E23\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E43\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E14 \u2014 \u0E1C\u0E31\u0E07\u0E08\u0E30\u0E41\u0E2A\u0E14\u0E07\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E44\u0E14\u0E49\u0E40\u0E1B\u0E47\u0E19\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07/\u0E2A\u0E33\u0E23\u0E2D\u0E07" }) : React.createElement(Org2Manager, { db: db, setDb: setDb, ui: ui, viewer: { role: "student", id: me.id, name: fullName(me) }, canEdit: false, visibleCompIds: myPassedComps })),
         view === "finance" && React.createElement(FinanceManager, { db: db, setDb: setDb, ui: ui, viewer: { role: "student", id: me.id, name: fullName(me) } }),
         view === "schedule" && React.createElement(StudentAllSchedule, { db: db, ui: ui })));
 }
