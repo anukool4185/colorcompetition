@@ -1979,9 +1979,10 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                             "+",
                             money(stats.studentSum)),
                         React.createElement("div", { style: { fontSize: 10.5, color: C.muted } },
-                            stats.studentPending > 0 ? `รอยอมรับอีก ${money(stats.studentPending)}` : "ยอมรับครบแล้ว",
-                            " \u00B7 \u0E22\u0E2D\u0E14\u0E23\u0E32\u0E22\u0E04\u0E19 ",
-                            money(stats.studentPerHead))),
+                            "\u0E22\u0E2D\u0E14\u0E23\u0E32\u0E22\u0E04\u0E19\u0E17\u0E35\u0E48\u0E25\u0E07\u0E23\u0E30\u0E1A\u0E1A\u0E44\u0E27\u0E49 ",
+                            money(stats.studentPerHead),
+                            " \u00B7 \u0E23\u0E2D\u0E2A\u0E48\u0E07\u0E40\u0E07\u0E34\u0E19 ",
+                            money(stats.studentPending))),
                     React.createElement("div", { style: { padding: "10px 12px", border: `1px solid ${C.line}`, borderRadius: 10 } },
                         React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\uD83C\uDFE6 \u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19\u0E2A\u0E33\u0E23\u0E2D\u0E07 (\u0E04\u0E07\u0E40\u0E2B\u0E25\u0E37\u0E2D)"),
                         React.createElement("div", { style: { fontSize: 17, fontWeight: 800, color: stats.fundBal < 0 ? "#c0392b" : C.primaryDark } }, money(stats.fundBal)),
@@ -1991,7 +1992,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                             " \u00B7 -",
                             money(stats.fundOut))),
                     React.createElement("div", { style: { padding: "10px 12px", border: `1px solid ${C.line}`, borderRadius: 10 } },
-                        React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\uD83D\uDCCB \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A-\u0E08\u0E48\u0E32\u0E22 (\u0E23\u0E27\u0E21\u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19)"),
+                        React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\uD83D\uDCCB \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A-\u0E08\u0E48\u0E32\u0E22 (\u0E44\u0E21\u0E48\u0E23\u0E27\u0E21\u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19)"),
                         React.createElement("div", { style: { fontSize: 17, fontWeight: 800, color: "#2f9e6b" } },
                             "+",
                             money(stats.recordIn)),
@@ -2001,38 +2002,54 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             (db.departments || []).length > 0 && (React.createElement(Card, { style: { padding: 16 } },
                 React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 4 } }, "\uD83C\uDFE2 \u0E2A\u0E23\u0E38\u0E1B\u0E15\u0E32\u0E21\u0E1D\u0E48\u0E32\u0E22 (\u0E23\u0E27\u0E21\u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E02\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19\u0E1D\u0E48\u0E32\u0E22)"),
                 React.createElement("div", { style: { fontSize: 12, color: C.muted, marginBottom: 10 } }, "\u0E41\u0E15\u0E48\u0E25\u0E30\u0E1D\u0E48\u0E32\u0E22\u0E23\u0E27\u0E21\u0E22\u0E2D\u0E14\u0E02\u0E2D\u0E07\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E35\u0E48\u0E16\u0E39\u0E01\u0E15\u0E34\u0E4A\u0E01\u0E40\u0E02\u0E49\u0E32\u0E1D\u0E48\u0E32\u0E22 (\u0E08\u0E31\u0E14\u0E1D\u0E48\u0E32\u0E22\u0E17\u0E35\u0E48\u0E40\u0E21\u0E19\u0E39 \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E2F \u2192 \u0E08\u0E31\u0E14\u0E1D\u0E48\u0E32\u0E22)"),
-                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, (db.departments || []).map((d) => {
-                    let din = 0, dout = 0;
-                    const memIds = (d.comps || []).map(String);
-                    const selfKey = "D:" + d.id;
-                    (db.finance || []).forEach((f) => { if (memIds.includes(String(f.dept)) || String(f.dept) === selfKey) {
-                        if (f.type === "out")
-                            dout += Number(f.amount) || 0;
-                        else
-                            din += Number(f.amount) || 0;
-                    } });
-                    const bal = din - dout;
-                    return (React.createElement("div", { key: d.id, style: { padding: "10px 12px", border: `1px solid ${C.primary}`, borderRadius: 10, background: C.soft } },
-                        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" } },
-                            React.createElement("span", { style: { fontWeight: 800, color: C.primaryDark } },
-                                d.name,
-                                " ",
-                                React.createElement("span", { style: { fontSize: 11, color: C.muted, fontWeight: 500 } },
-                                    "(",
-                                    (d.comps || []).length,
-                                    " \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)")),
-                            React.createElement("span", { style: { fontSize: 13 } },
-                                React.createElement("span", { style: { color: "#2f9e6b", fontWeight: 700 } },
-                                    "+",
-                                    money(din)),
-                                " \u00B7 ",
-                                React.createElement("span", { style: { color: "#c0392b", fontWeight: 700 } },
-                                    "-",
-                                    money(dout)),
-                                " \u00B7 \u0E04\u0E07\u0E40\u0E2B\u0E25\u0E37\u0E2D ",
-                                React.createElement("b", { style: { color: bal < 0 ? "#c0392b" : C.primaryDark } }, money(bal)))),
-                        (d.comps || []).length > 0 && React.createElement("div", { style: { fontSize: 11.5, color: C.muted, marginTop: 4 } }, (d.comps || []).map((cid) => { const c = db.competitions.find((x) => String(x.id) === String(cid)); return c ? c.name : null; }).filter(Boolean).join(" · "))));
-                })))),
+                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, (() => {
+                    const finDept = (db.departments || []).find((d) => finRe.test(d.name || ""));
+                    return (db.departments || []).map((d) => {
+                        let din = 0, dout = 0;
+                        const memIds = (d.comps || []).map(String);
+                        const selfKey = "D:" + d.id;
+                        (db.finance || []).forEach((f) => { if (memIds.includes(String(f.dept)) || String(f.dept) === selfKey) {
+                            if (f.type === "out")
+                                dout += Number(f.amount) || 0;
+                            else
+                                din += Number(f.amount) || 0;
+                        } });
+                        const isFin = finDept && String(finDept.id) === String(d.id);
+                        if (isFin) {
+                            din += stats.studentSum + stats.fundIn;
+                            dout += stats.fundOut;
+                        } // เงินนักเรียน(รับจริง)+กองทุน เข้าฝ่ายการเงินโดยตรง
+                        const bal = din - dout;
+                        return (React.createElement("div", { key: d.id, style: { padding: "10px 12px", border: `1px solid ${C.primary}`, borderRadius: 10, background: C.soft } },
+                            React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" } },
+                                React.createElement("span", { style: { fontWeight: 800, color: C.primaryDark } },
+                                    d.name,
+                                    " ",
+                                    React.createElement("span", { style: { fontSize: 11, color: C.muted, fontWeight: 500 } },
+                                        "(",
+                                        (d.comps || []).length,
+                                        " \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)",
+                                        isFin ? " · รวมเงินนักเรียน+กองทุน" : "")),
+                                React.createElement("span", { style: { fontSize: 13 } },
+                                    React.createElement("span", { style: { color: "#2f9e6b", fontWeight: 700 } },
+                                        "+",
+                                        money(din)),
+                                    " \u00B7 ",
+                                    React.createElement("span", { style: { color: "#c0392b", fontWeight: 700 } },
+                                        "-",
+                                        money(dout)),
+                                    " \u00B7 \u0E04\u0E07\u0E40\u0E2B\u0E25\u0E37\u0E2D ",
+                                    React.createElement("b", { style: { color: bal < 0 ? "#c0392b" : C.primaryDark } }, money(bal)))),
+                            isFin && React.createElement("div", { style: { fontSize: 11, color: C.muted, marginTop: 3 } },
+                                "\uD83D\uDCB5 \u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 ",
+                                money(stats.studentSum),
+                                " \u00B7 \uD83C\uDFE6 \u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19 ",
+                                money(stats.fundBal),
+                                " \u00B7 \uD83D\uDCCB \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E1D\u0E48\u0E32\u0E22 ",
+                                money(din - stats.studentSum - stats.fundIn)),
+                            (d.comps || []).length > 0 && React.createElement("div", { style: { fontSize: 11.5, color: C.muted, marginTop: 4 } }, (d.comps || []).map((cid) => { const c = db.competitions.find((x) => String(x.id) === String(cid)); return c ? sportItemName(c) : null; }).filter(Boolean).join(" · "))));
+                    });
+                })()))),
             React.createElement(Card, { style: { padding: 16 } },
                 React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 10 } }, "\u0E2A\u0E23\u0E38\u0E1B\u0E23\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 (\u0E41\u0E15\u0E48\u0E25\u0E30\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21)"),
                 Object.keys(stats.byDept).length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25" }),
@@ -4563,7 +4580,10 @@ function financeStats(db) {
     // กองทุนสำรอง (บันทึกใน db.finance ด้วย dept=FUND — รวมอยู่แล้วใน inSum/outSum)
     const fundIn = (byDept["FUND"] || {}).in || 0, fundOut = (byDept["FUND"] || {}).out || 0;
     inSum += studentSum;
-    return { byDept, inSum, outSum, balance: inSum - outSum, studentSum, studentPending, studentPerHead, fundIn, fundOut, fundBal: fundIn - fundOut, recordIn: inSum - studentSum, recordOut: outSum };
+    // รายการรับ-จ่ายทั่วไป = ไม่รวมกองทุน (FUND) และไม่รวมเงินนักเรียน
+    const recordIn = inSum - studentSum - fundIn;
+    const recordOut = outSum - fundOut;
+    return { byDept, inSum, outSum, balance: inSum - outSum, studentSum, studentPending, studentPerHead, fundIn, fundOut, fundBal: fundIn - fundOut, recordIn, recordOut };
 }
 // สร้างรอบผลอัตโนมัติเมื่อเลยเวลาแข่ง + ลบรอบว่าง(อัตโนมัติ)ที่ตารางเปลี่ยน/เลื่อน — ไม่แตะรอบที่มีผลแล้ว
 function autoSyncRounds(db) {
