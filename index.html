@@ -203,7 +203,7 @@ const seed = {
     competitions: [],
     archived: [],
     trash: [],
-    settings: { maxMain: 3, themeColor: DEFAULT_HOUSES[0].color, houses: DEFAULT_HOUSES, ui: { zoomMobile: 100, zoomDesktop: 100, navIcon: 31, navLabel: 18, navBtn: 51, mBody: 100, mHead: 100, mBtn: 100, mCard: 100, mInput: 100, mTab: 100, mBadge: 100 }, navOrder: {}, scoreConfig: { scheme: "outcome", win: 3, draw: 1, lose: 0, gold: 10, silver: 8, bronze: 6 }, attendWin: { inStart: "15:00", inEnd: "16:30", outStart: "17:00", outEnd: "18:30" }, announce: { speed: 18, showLines: 3, lines: [
+    settings: { maxMain: 3, themeColor: DEFAULT_HOUSES[0].color, houses: DEFAULT_HOUSES, ui: { zoomMobile: 100, zoomDesktop: 100, navIcon: 31, navLabel: 18, navBtn: 51, mBody: 100, mHead: 100, mBtn: 100, mCard: 100, mInput: 100, mTab: 100, mBadge: 100 }, navOrder: {}, adminPhone: "", scoreConfig: { scheme: "outcome", win: 3, draw: 1, lose: 0, gold: 10, silver: 8, bronze: 6 }, attendWin: { inStart: "15:00", inEnd: "16:30", outStart: "17:00", outEnd: "18:30" }, announce: { speed: 18, showLines: 3, lines: [
                 "ยินดีต้อนรับสู่การแข่งขันวิชาการสี",
             ] } },
 };
@@ -1046,8 +1046,10 @@ function nextGrade(g) {
         return null; // ไม่รู้จัก หรือ ชั้นสูงสุด → จบออก
     return GRADE_ORDER[i + 1];
 }
-function StudentIncomeGrid({ db, setDb, ui, viewer, acc, canEntry = true, lockRoom = "" }) {
+function StudentIncomeGrid({ db, setDb, ui, viewer, acc, canEntry = true, lockRoom = "", canManageCols = true }) {
     const roEntry = !canEntry;
+    const adminPhone = (db.settings && db.settings.adminPhone) || "";
+    const [colWarn, setColWarn] = useState(null); // {action:"add"|"del", idx}
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff" };
     const dirtyRef = useRef(false);
     useEffect(() => () => { if (dirtyRef.current) {
@@ -1074,8 +1076,21 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc, canEntry = true, lockRo
     const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 500);
     const setAmt = (sid, i, val) => { const v = val.replace(/[^0-9.]/g, ""); dirtyRef.current = true; setDb((p) => { const si = { ...(p.studentIncome || {}) }; const rec = { ...(si[sid] || { amounts: [] }) }; const amts = [...(rec.amounts || [])]; while (amts.length < cols)
         amts.push(""); amts[i] = v; si[sid] = { ...rec, amounts: amts }; return { ...p, studentIncome: si }; }); };
-    const addCol = () => { ui.run("กำลังเพิ่มช่อง...", () => { setDb((p) => ({ ...p, incomeCols: (p.incomeCols || 5) + 1 })); save(); }); };
+    const doAddCol = () => { ui.run("กำลังเพิ่มช่อง...", () => { setDb((p) => ({ ...p, incomeCols: (p.incomeCols || 5) + 1 })); save(); }); };
+    const addCol = () => { if (!canManageCols) {
+        setColWarn({ action: "add", idx: cols });
+        return;
+    } doAddCol(); };
     const [delColIdx, setDelColIdx] = useState(null);
+    // ห้องที่มีเงินในช่อง idx (สำหรับแอดมินตรวจก่อนลบ)
+    const roomsWithMoneyInCol = (idx) => { const set = {}; (db.students || []).forEach((s) => { const rec = (db.studentIncome || {})[s.id]; if (rec && Array.isArray(rec.amounts) && Number(rec.amounts[idx]) > 0) {
+        const rm = `${s.grade}/${s.room}`;
+        set[rm] = (set[rm] || 0) + Number(rec.amounts[idx]);
+    } }); return set; };
+    const askDelCol = (idx) => { if (!canManageCols) {
+        setColWarn({ action: "del", idx });
+        return;
+    } setDelColIdx(idx); };
     const delCol = (idx) => { if ((db.incomeCols || 5) <= 1) {
         ui.notify("ต้องมีอย่างน้อย 1 ช่อง");
         setDelColIdx(null);
@@ -1086,6 +1101,8 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc, canEntry = true, lockRo
         a.splice(idx, 1);
         si[sid] = { ...rec, amounts: a };
     } }); return { ...p, studentIncome: si, incomeCols: Math.max(1, (p.incomeCols || 5) - 1) }; }); setDelColIdx(null); save(); }); };
+    const sendColRequest = () => { const a = colWarn; if (!a)
+        return; setDb((p) => ({ ...p, financeNotis: [...((p.financeNotis || [])), { id: "cr" + Date.now(), type: "colreq", room: lockRoom || room, action: a.action, colFrom: a.idx + 1, colTo: a.idx + 1, byId: viewer.id, byName: viewer.name || "", at: Date.now(), readBy: [] }] })); setTimeout(() => window.__forceSave && window.__forceSave(), 300); setColWarn(null); ui.notify("ส่งคำขอถึงแอดมินแล้ว"); };
     const rowTotal = (sid) => { const r = inc[sid]; if (!r || !r.amounts)
         return 0; return r.amounts.reduce((s, x) => s + (Number(x) || 0), 0); };
     const grand = roomStudents.reduce((s, st) => s + rowTotal(st.id), 0);
@@ -1477,7 +1494,7 @@ function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit }) {
                 React.createElement("button", { onClick: () => { setType(r.type); setTitle(r.title); setAmount(String(r.amount)); setDate(r.date); setFundTime(r.time || nowTime()); setNote(r.note || ""); setEditId(r.id); }, style: { border: "none", background: "none", color: C.primary, cursor: "pointer", fontWeight: 700, fontSize: 12 } }, "\u0E41\u0E01\u0E49\u0E44\u0E02"),
                 React.createElement("button", { onClick: () => del(r.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715"))))))));
 }
-function RefundManager({ db, ui, canEdit }) {
+function RefundManager({ db, ui, canEdit, lockRoom = "" }) {
     const ro = !canEdit;
     const selCss = { padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 13.5, background: "#fbfaff", color: C.ink };
     const fundBal = (db.finance || []).filter((f) => String(f.dept) === "FUND").reduce((s, f) => s + (f.type === "out" ? -(Number(f.amount) || 0) : (Number(f.amount) || 0)), 0);
@@ -1486,7 +1503,7 @@ function RefundManager({ db, ui, canEdit }) {
     const [useOther, setUseOther] = useState(true);
     const [other, setOther] = useState("");
     const [roundWhole, setRoundWhole] = useState(true);
-    const [scope, setScope] = useState("all");
+    const [scope, setScope] = useState(lockRoom ? "room" : "all");
     const paidOf = (sid) => { const r = (db.studentIncome || {})[sid]; if (!r || !r.amounts)
         return 0; return r.amounts.reduce((s, x) => s + (Number(x) || 0), 0); };
     const allStudents = (db.students || []).map((s) => ({ s, paid: paidOf(s.id) })).filter((x) => x.paid > 0);
@@ -1497,8 +1514,12 @@ function RefundManager({ db, ui, canEdit }) {
     const grades = Array.from(new Set(rows.map((r) => r.s.grade))).filter(Boolean).sort();
     const rooms = Array.from(new Set(rows.map((r) => `${r.s.grade}/${r.s.room}`))).filter((r) => r !== "/").sort();
     const [pickG, setPickG] = useState("");
-    const [pickR, setPickR] = useState("");
-    const shown = rows.filter((r) => scope === "all" ? true : scope === "grade" ? (r.s.grade === pickG) : (`${r.s.grade}/${r.s.room}` === pickR));
+    const [pickR, setPickR] = useState(lockRoom || "");
+    useEffect(() => { if (lockRoom) {
+        setScope("room");
+        setPickR(lockRoom);
+    } }, [lockRoom]); // ผู้ช่วยล็อกห้องตนเอง
+    const shown = rows.filter((r) => lockRoom ? (`${r.s.grade}/${r.s.room}` === lockRoom) : (scope === "all" ? true : scope === "grade" ? (r.s.grade === pickG) : (`${r.s.grade}/${r.s.room}` === pickR)));
     const refundSum = shown.reduce((s, r) => s + r.refund, 0);
     const exportExcel = () => { try {
         const aoa = [["ชื่อ-สกุล", "ชั้น", "ห้อง", "ยอดที่จ่าย", "เปอร์เซ็นต์ (%)", "เงินคืน"]];
@@ -1544,16 +1565,20 @@ function RefundManager({ db, ui, canEdit }) {
                         " \u0E3F")))),
         React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 10 } },
             React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u0E14\u0E39\u0E15\u0E32\u0E21:"),
-            React.createElement(Select, { value: scope, onChange: setScope },
-                React.createElement("option", { value: "all" }, "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 (\u0E23\u0E32\u0E22\u0E04\u0E19)"),
-                React.createElement("option", { value: "grade" }, "\u0E23\u0E32\u0E22\u0E0A\u0E31\u0E49\u0E19"),
-                React.createElement("option", { value: "room" }, "\u0E23\u0E32\u0E22\u0E2B\u0E49\u0E2D\u0E07")),
-            scope === "grade" && React.createElement(Select, { value: pickG, onChange: setPickG },
-                React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E0A\u0E31\u0E49\u0E19 \u2014"),
-                grades.map((g) => React.createElement("option", { key: g, value: g }, g))),
-            scope === "room" && React.createElement(Select, { value: pickR, onChange: setPickR },
-                React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2B\u0E49\u0E2D\u0E07 \u2014"),
-                rooms.map((r) => React.createElement("option", { key: r, value: r }, r))),
+            lockRoom ? React.createElement("span", { style: { fontWeight: 700, color: C.primaryDark, padding: "6px 10px", background: C.soft, borderRadius: 8 } },
+                "\u0E2B\u0E49\u0E2D\u0E07 ",
+                lockRoom,
+                " (\u0E2B\u0E49\u0E2D\u0E07\u0E02\u0E2D\u0E07\u0E04\u0E38\u0E13)") : React.createElement(React.Fragment, null,
+                React.createElement(Select, { value: scope, onChange: setScope },
+                    React.createElement("option", { value: "all" }, "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 (\u0E23\u0E32\u0E22\u0E04\u0E19)"),
+                    React.createElement("option", { value: "grade" }, "\u0E23\u0E32\u0E22\u0E0A\u0E31\u0E49\u0E19"),
+                    React.createElement("option", { value: "room" }, "\u0E23\u0E32\u0E22\u0E2B\u0E49\u0E2D\u0E07")),
+                scope === "grade" && React.createElement(Select, { value: pickG, onChange: setPickG },
+                    React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E0A\u0E31\u0E49\u0E19 \u2014"),
+                    grades.map((g) => React.createElement("option", { key: g, value: g }, g))),
+                scope === "room" && React.createElement(Select, { value: pickR, onChange: setPickR },
+                    React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2B\u0E49\u0E2D\u0E07 \u2014"),
+                    rooms.map((r) => React.createElement("option", { key: r, value: r }, r)))),
             React.createElement("span", { style: { flex: 1 } }),
             React.createElement(Btn, { small: true, onClick: exportExcel }, "\u2B07 Excel"),
             React.createElement(Btn, { small: true, variant: "ghost", onClick: () => pdfFromEl("refundArea", "portrait", "เฉลี่ยคืน.pdf", ui && ui.notify, "width") }, "\u2B07 PDF")),
@@ -1811,10 +1836,10 @@ function FinanceManager({ db, setDb, ui, viewer }) {
         })(),
         React.createElement(Tabs, { tabs: [...(isFinance ? [{ key: "income", label: "รายรับนักเรียน" }] : []), ...(finFull ? [{ key: "loan", label: "บันทึกยืมเงิน" }, { key: "fund", label: "🏦 กองทุนสำรอง" }, { key: "add", label: editId ? "แก้ไขรายการ" : "＋ บันทึกรายการ" }] : []), { key: "list", label: "แสดงรายการรับ-จ่าย" }, { key: "summary", label: "ภาพรวม/สรุป" }, ...(isFinance ? [{ key: "refund", label: "เฉลี่ยคืน" }] : [])], active: tab, onChange: (k) => { setTab(k); if (k !== "add")
                 reset(); } }),
-        tab === "refund" && isFinance && React.createElement(RefundManager, { db: db, ui: ui, canEdit: financeMoneyHolder }),
+        tab === "refund" && isFinance && React.createElement(RefundManager, { db: db, ui: ui, canEdit: financeMoneyHolder, lockRoom: finLockRoom }),
         tab === "loan" && finFull && React.createElement(LoanManager, { db: db, setDb: setDb, ui: ui, viewer: viewer }),
         tab === "fund" && finFull && React.createElement(FundManager, { db: db, setDb: setDb, ui: ui, viewer: viewer, editRec: fundEdit, onDoneEdit: () => setFundEdit(null) }),
-        tab === "income" && isFinance && React.createElement(StudentIncomeGrid, { db: db, setDb: setDb, ui: ui, viewer: viewer, acc: acc, canEntry: financeMoneyHolder || (isFinance && finRank >= 6), lockRoom: finLockRoom }),
+        tab === "income" && isFinance && React.createElement(StudentIncomeGrid, { db: db, setDb: setDb, ui: ui, viewer: viewer, acc: acc, canEntry: financeMoneyHolder || (isFinance && finRank >= 6), lockRoom: finLockRoom, canManageCols: finFull }),
         tab === "add" && finFull && (React.createElement(Card, { style: { padding: 16, marginBottom: 12 } },
             React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 10 } }, editId ? "แก้ไขรายการ" : "บันทึกรายรับ / รายจ่าย"),
             React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E02\u0E49\u0E32 \u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1D\u0E48\u0E32\u0E22 (\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21) \u0E2B\u0E23\u0E37\u0E2D \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21"),
@@ -6574,16 +6599,10 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
         return canApp || (isRep && r.replacementStatus !== "declined") || isReq; return false; }).length;
     const which = role === "teacher" ? "orgTeacher" : "orgStudent";
     const myComps = useMemo(() => {
-        // ระบบใหม่: รายการที่ฉันดูแล = รายการที่มีชื่อฉันอยู่ในผังใหม่ (org2)
+        // ระบบใหม่ (org2) เท่านั้น: รายการที่ฉันดูแล = รายการที่มีชื่อฉันอยู่ในผังใหม่
         const myCompIdSet = new Set((db.org2 || []).filter((n) => String(n.personId) === String(meId)).map((n) => String(n.compId)));
-        if (myCompIdSet.size > 0)
-            return db.competitions.filter((c) => myCompIdSet.has(String(c.id)));
-        // สำรอง (ยังไม่มีผังใหม่): ใช้ผังเก่า
-        const sideNodes = db[which] || [];
-        const myNodeIds = sideNodes.filter((n) => String(n.personId) === String(meId)).map((n) => n.id);
-        const managesComp = (c) => sideNodes.filter((n) => String(n.compId) === String(c.id)).some((n) => orgPathIds(sideNodes, n.id).some((id) => myNodeIds.includes(id)));
-        return db.competitions.filter(managesComp);
-    }, [db.competitions, db.org2, db[which], meId, which]);
+        return db.competitions.filter((c) => myCompIdSet.has(String(c.id)));
+    }, [db.competitions, db.org2, meId]);
     const myNodeIds = (db[which] || []).filter((n) => String(n.personId) === String(meId)).map((n) => n.id);
     const myCompIds = myComps.map((c) => c.id);
     const orgDefault = myComps[0] ? "org:" + myComps[0].id : "org:all";
@@ -6879,7 +6898,7 @@ function CommitteeRegister({ myCompIds, db, setDb, ui, role, meId }) {
                     return (React.createElement("div", { key: c.id, style: { border: `1px solid ${C.line}`, borderRadius: 10, padding: "8px 12px", background: C.surface } },
                         React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" } },
                             React.createElement("div", { style: { fontWeight: 600, color: C.ink, fontSize: 13 } },
-                                c.name,
+                                sportItemName(c),
                                 " ",
                                 React.createElement(ItemStatusBadge, { c: c })),
                             mine && React.createElement(Badge, { status: mine.sel || mine.status })),
@@ -6894,7 +6913,7 @@ function CommitteeRegister({ myCompIds, db, setDb, ui, role, meId }) {
         React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12 } },
             React.createElement(Select, { value: (comp === null || comp === void 0 ? void 0 : comp.id) || "", onChange: setPick }, list.map((c) => React.createElement("option", { key: c.id, value: c.id },
                 myCompIds.includes(c.id) ? "★ " : "",
-                c.name))),
+                sportItemName(c)))),
             comp && React.createElement(ItemStatusBadge, { c: comp }),
             comp && React.createElement(Btn, { small: true, onClick: () => setAddOpen(true) }, "+ \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E1C\u0E39\u0E49\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E41\u0E17\u0E19")),
         comp && (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
