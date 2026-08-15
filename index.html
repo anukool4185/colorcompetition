@@ -203,7 +203,7 @@ const seed = {
     competitions: [],
     archived: [],
     trash: [],
-    settings: { maxMain: 3, themeColor: DEFAULT_HOUSES[0].color, houses: DEFAULT_HOUSES, ui: { zoomMobile: 100, zoomDesktop: 100, navIcon: 31, navLabel: 18, navBtn: 51 }, navOrder: {}, scoreConfig: { scheme: "outcome", win: 3, draw: 1, lose: 0, gold: 10, silver: 8, bronze: 6 }, attendWin: { inStart: "15:00", inEnd: "16:30", outStart: "17:00", outEnd: "18:30" }, announce: { speed: 18, showLines: 3, lines: [
+    settings: { maxMain: 3, themeColor: DEFAULT_HOUSES[0].color, houses: DEFAULT_HOUSES, ui: { zoomMobile: 100, zoomDesktop: 100, navIcon: 31, navLabel: 18, navBtn: 51, mBody: 100, mHead: 100, mBtn: 100, mCard: 100, mInput: 100 }, navOrder: {}, scoreConfig: { scheme: "outcome", win: 3, draw: 1, lose: 0, gold: 10, silver: 8, bronze: 6 }, attendWin: { inStart: "15:00", inEnd: "16:30", outStart: "17:00", outEnd: "18:30" }, announce: { speed: 18, showLines: 3, lines: [
                 "ยินดีต้อนรับสู่การแข่งขันวิชาการสี",
             ] } },
 };
@@ -306,7 +306,7 @@ function Ribbon({ h = 4 }) {
     return React.createElement("div", { style: { display: "flex", height: h, width: "100%" } }, cols.map((c, i) => React.createElement("div", { key: i, style: { flex: 1, background: c } })));
 }
 function Card({ children, style }) {
-    return React.createElement("div", { style: { background: C.surface, borderRadius: 16, border: `1px solid ${C.line}`, ...style } }, children);
+    return React.createElement("div", { className: "mp-card", style: { background: C.surface, borderRadius: 16, border: `1px solid ${C.line}`, ...style } }, children);
 }
 function Btn({ children, onClick, variant = "primary", small, disabled }) {
     const v = {
@@ -316,19 +316,19 @@ function Btn({ children, onClick, variant = "primary", small, disabled }) {
         danger: { background: "#fdecec", color: "#c0392b", border: "1px solid #f3c9c9" },
         soft: { background: C.soft, color: C.primaryDark, border: "none" },
     }[variant];
-    return (React.createElement("button", { onClick: onClick, disabled: disabled, style: { ...v, opacity: disabled ? 0.5 : 1, padding: small ? "7px 12px" : "10px 16px", borderRadius: 11, fontWeight: 600, fontSize: small ? 13 : 14, cursor: disabled ? "not-allowed" : "pointer", whiteSpace: "nowrap" } }, children));
+    return (React.createElement("button", { onClick: onClick, disabled: disabled, className: "mp-btn", style: { ...v, opacity: disabled ? 0.5 : 1, padding: small ? "7px 12px" : "10px 16px", borderRadius: 11, fontWeight: 600, fontSize: small ? 13 : 14, cursor: disabled ? "not-allowed" : "pointer", whiteSpace: "nowrap" } }, children));
 }
 function Field({ label, value, onChange, placeholder, type }) {
     return (React.createElement("label", { style: { display: "block", marginBottom: 12 } },
         React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, label),
-        React.createElement("input", { value: value, onChange: (e) => onChange(e.target.value), placeholder: placeholder, type: type || "text", style: { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, fontWeight: 500, outline: "none", background: "#fbfcfb" } })));
+        React.createElement("input", { className: "mp-input", value: value, onChange: (e) => onChange(e.target.value), placeholder: placeholder, type: type || "text", style: { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, fontWeight: 500, outline: "none", background: "#fbfcfb" } })));
 }
 const selStyle = { padding: "9px 12px", borderRadius: 10, border: `1px solid ${C.line}`, background: C.surface, color: C.ink, fontSize: 14 };
 function Select({ value, onChange, children }) {
     return React.createElement("select", { value: value, onChange: (e) => onChange(e.target.value), style: selStyle }, children);
 }
 function PageHead({ title, sub, right }) {
-    return (React.createElement("div", { style: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 } },
+    return (React.createElement("div", { className: "mp-head", style: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 14 } },
         React.createElement("div", null,
             React.createElement("h1", { style: { fontSize: 20, fontWeight: 800, color: C.ink, margin: 0 } }, title),
             sub && React.createElement("p", { style: { color: C.muted, fontSize: 13, margin: "4px 0 0" } }, sub)),
@@ -867,6 +867,23 @@ function Shell({ role, nav, view, setView, onExit, children, ui, sz = {}, navOrd
         return () => { clearTimeout(t); window.removeEventListener("resize", measure); if (ro)
             ro.disconnect(); };
     }, [sz.navIcon, sz.navLabel, sz.navBtn]);
+    // สเกลย่อยเฉพาะมือถือ ผ่าน zoom ที่คลาส component (สเกลได้จริงทั้งกลุ่ม แม้มี inline style)
+    useEffect(() => {
+        const id = "mScaleStyle";
+        let el = document.getElementById(id);
+        if (!el) {
+            el = document.createElement("style");
+            el.id = id;
+            document.head.appendChild(el);
+        }
+        const head = (sz.mHead || 100) / 100, btn = (sz.mBtn || 100) / 100, card = (sz.mCard || 100) / 100, inp = (sz.mInput || 100) / 100;
+        el.textContent = `@media (max-width: 767px){
+      .mp-head{zoom:${head}}
+      .mp-btn{zoom:${btn}}
+      .mp-card{zoom:${card}}
+      .mp-input{zoom:${inp}}
+    }`;
+    }, [sz.mHead, sz.mBtn, sz.mCard, sz.mInput]);
     const scrollNav = (dir) => { const el = navScrollRef.current; if (el)
         el.scrollBy({ left: dir * 150, behavior: "smooth" }); };
     return (React.createElement("div", { style: { minHeight: "100vh", background: C.bg, display: "flex" } },
@@ -5276,17 +5293,24 @@ function ParticipantManager({ comp, db, setDb, ui }) {
     const appliedMain = P.filter((x) => !x.sel && x.status === "main");
     const appliedRes = P.filter((x) => !x.sel && x.status !== "main");
     const mainQ = Number(cur.mainCount) || 0, resQ = Number(cur.reserveCount) || 0;
+    const layout = ((db.settings && db.settings.layouts) || {}).selection || "auto";
+    const setLayout = (v) => { setDb((p) => ({ ...p, settings: { ...p.settings, layouts: { ...((p.settings && p.settings.layouts) || {}), selection: v } } })); setTimeout(() => window.__forceSave && window.__forceSave(), 300); };
+    const zoneRow = layout === "1col" ? { display: "flex", flexDirection: "column", gap: 12 } : { display: "flex", gap: 12, flexWrap: "wrap" };
+    const LAYOUTS = [{ k: "auto", label: "อัตโนมัติ (2 คอลัมน์)" }, { k: "1col", label: "1 คอลัมน์ (เรียงลง)" }];
     return (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 16 } },
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12.5, color: C.muted } },
+            React.createElement("span", null, "\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E01\u0E32\u0E23\u0E27\u0E32\u0E07:"),
+            LAYOUTS.map((l) => React.createElement("button", { key: l.k, onClick: () => setLayout(l.k), style: { padding: "5px 12px", borderRadius: 16, border: "none", cursor: "pointer", fontSize: 12, fontWeight: layout === l.k ? 700 : 500, background: layout === l.k ? C.primary : C.surface, color: layout === l.k ? "#fff" : C.ink, boxShadow: layout === l.k ? "none" : `inset 0 0 0 1px ${C.line}` } }, l.label))),
         React.createElement("div", null,
             React.createElement("div", { style: { fontWeight: 800, color: C.muted, marginBottom: 8 } }, "\u0E42\u0E0B\u0E19\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01 (\u0E1C\u0E39\u0E49\u0E2A\u0E21\u0E31\u0E04\u0E23)"),
-            React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap" } },
+            React.createElement("div", { style: zoneRow },
                 block("สมัครเป็นตัวจริง", appliedMain, (x) => [mini("#e6f4ec", "#2f9e6b", () => setSel(x.sid, "main"), "คัดตัวจริง"), mini(C.soft, C.primaryDark, () => setSel(x.sid, "reserve"), "คัดสำรอง"), mini("#fbeeee", "#c0392b", () => remove(x.sid), "ไม่ผ่าน")], null, mainQ),
                 block("สมัครเป็นตัวสำรอง", appliedRes, (x) => [mini("#e6f4ec", "#2f9e6b", () => setSel(x.sid, "main"), "คัดตัวจริง"), mini(C.soft, C.primaryDark, () => setSel(x.sid, "reserve"), "คัดสำรอง"), mini("#fbeeee", "#c0392b", () => remove(x.sid), "ไม่ผ่าน")], null, resQ))),
         React.createElement("div", null,
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } },
                 React.createElement("div", { style: { fontWeight: 800, color: "#2f9e6b" } }, "\u0E42\u0E0B\u0E19\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E41\u0E25\u0E49\u0E27"),
                 React.createElement(ItemStatusBadge, { c: cur })),
-            React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap" } },
+            React.createElement("div", { style: zoneRow },
                 block("คัดเลือกเป็นตัวจริง", selectedMain, (x) => [mini(C.soft, C.primaryDark, () => setSel(x.sid, "reserve"), "→ สำรอง"), mini("#eef0f2", C.muted, () => setSel(x.sid, undefined), "ยกเลิกคัด"), mini("#fbeeee", "#c0392b", () => remove(x.sid), "ลบออก")], "#2f9e6b", mainQ),
                 block("คัดเลือกเป็นตัวสำรอง", selectedRes, (x) => [mini(C.soft, C.primaryDark, () => setSel(x.sid, "main"), "→ ตัวจริง"), mini("#eef0f2", C.muted, () => setSel(x.sid, undefined), "ยกเลิกคัด"), mini("#fbeeee", "#c0392b", () => remove(x.sid), "ลบออก")], "#c99a2e", resQ))),
         P.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E39\u0E49\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E43\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49" }),
@@ -5974,10 +5998,10 @@ function MenuConfigCard({ db, setDb, ui }) {
 }
 function UISizeCard({ db, setDb, ui }) {
     const cur = (db.settings && db.settings.ui) || {};
-    const [f, setF] = useState({ zoomMobile: cur.zoomMobile || 100, zoomDesktop: cur.zoomDesktop || 100, navIcon: cur.navIcon || 31, navLabel: cur.navLabel || 18, navBtn: cur.navBtn || 51 });
+    const [f, setF] = useState({ zoomMobile: cur.zoomMobile || 100, zoomDesktop: cur.zoomDesktop || 100, navIcon: cur.navIcon || 31, navLabel: cur.navLabel || 18, navBtn: cur.navBtn || 51, mHead: cur.mHead || 100, mBtn: cur.mBtn || 100, mCard: cur.mCard || 100, mInput: cur.mInput || 100 });
     const set = (k, v) => { const nf = { ...f, [k]: v }; setF(nf); setDb((p) => ({ ...p, settings: { ...p.settings, ui: { ...(p.settings.ui || {}), [k]: v } } })); };
     const save = () => { setTimeout(() => window.__forceSave && window.__forceSave(), 300); ui.notify("บันทึกขนาดการแสดงผลแล้ว"); };
-    const reset = () => { const d = { zoomMobile: 100, zoomDesktop: 100, navIcon: 31, navLabel: 18, navBtn: 51 }; setF(d); setDb((p) => ({ ...p, settings: { ...p.settings, ui: d } })); setTimeout(() => window.__forceSave && window.__forceSave(), 300); ui.notify("รีเซ็ตเป็นค่าเริ่มต้น"); };
+    const reset = () => { const d = { zoomMobile: 100, zoomDesktop: 100, navIcon: 31, navLabel: 18, navBtn: 51, mHead: 100, mBtn: 100, mCard: 100, mInput: 100 }; setF(d); setDb((p) => ({ ...p, settings: { ...p.settings, ui: d } })); setTimeout(() => window.__forceSave && window.__forceSave(), 300); ui.notify("รีเซ็ตเป็นค่าเริ่มต้น"); };
     const row = (label, k, min, max, step, unit) => (React.createElement("div", { style: { marginBottom: 16 } },
         React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 4 } },
             React.createElement("span", { style: { fontSize: 13.5, fontWeight: 600, color: C.ink } }, label),
@@ -5992,6 +6016,11 @@ function UISizeCard({ db, setDb, ui }) {
         row("ขนาดไอคอนเมนูล่าง", "navIcon", 18, 54, 1, "px"),
         row("ขนาดตัวหนังสือใต้ไอคอน", "navLabel", 10, 30, 1, "px"),
         row("ความกว้างปุ่มเลื่อน ‹ ›", "navBtn", 30, 80, 1, "px"),
+        React.createElement("div", { style: { fontWeight: 700, color: C.ink, margin: "10px 0 6px", fontSize: 13 } }, "\u0E1B\u0E23\u0E31\u0E1A\u0E41\u0E22\u0E01\u0E2A\u0E48\u0E27\u0E19 (\u0E21\u0E37\u0E2D\u0E16\u0E37\u0E2D)"),
+        row("หัวข้อหน้า (ชื่อเมนู+คำอธิบาย)", "mHead", 70, 150, 5, "%"),
+        row("ปุ่มทั้งหมด", "mBtn", 70, 150, 5, "%"),
+        row("การ์ด/กล่องเนื้อหา", "mCard", 70, 150, 5, "%"),
+        row("ช่องกรอกข้อมูล", "mInput", 70, 150, 5, "%"),
         React.createElement("div", { style: { fontWeight: 800, color: C.primaryDark, margin: "14px 0 8px" } }, "\uD83D\uDCBB \u0E04\u0E2D\u0E21\u0E1E\u0E34\u0E27\u0E40\u0E15\u0E2D\u0E23\u0E4C"),
         row("ขนาดรวมทั้งหน้า (ซูม)", "zoomDesktop", 70, 150, 5, "%"),
         React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } },
