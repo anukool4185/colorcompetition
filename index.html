@@ -6641,13 +6641,12 @@ function CommitteeRegister({ myCompIds, db, setDb, ui, role, meId }) {
         addOpen && comp && React.createElement(AddApplicantModal, { comp: comp, db: db, onClose: () => setAddOpen(false), onAdd: (sid, status) => add(sid, status) })));
 }
 function MyDutyScreen({ role, meId, db, setDb, ui }) {
-    const which = role === "teacher" ? "orgTeacher" : "orgStudent";
-    const myNodeIds = db[which].filter((n) => String(n.personId) === String(meId)).map((n) => n.id);
     const [kind, setKind] = useState("แข่งขัน");
     const [pick, setPick] = useState("");
     const [addOpen, setAddOpen] = useState(false);
     const [commOpen, setCommOpen] = useState(false);
-    const myComps = db.competitions.filter((c) => c.kind === kind && db[which].filter((n) => String(n.compId) === String(c.id)).some((n) => orgPathIds(db[which], n.id).some((id) => myNodeIds.includes(id))));
+    const myOrgCompIds = new Set((db.org2 || []).filter((n) => String(n.personId) === String(meId)).map((n) => String(n.compId)));
+    const myComps = db.competitions.filter((c) => c.kind === kind && myOrgCompIds.has(String(c.id)));
     const comp = myComps.find((c) => c.id === pick) || myComps[0];
     const addStudent = (sid, status) => ui.run("กำลังเพิ่มผู้สมัคร...", () => setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, participants: [...c.participants, { sid, status, sel: undefined }] } : c) })));
     return (React.createElement("div", null,
