@@ -91,6 +91,15 @@
 const { useState, useEffect, useRef, useMemo } = React;
 const APP_VERSION = "v127";
 const MENU_REGISTRY = {};
+const BASE_NAVS = {
+    student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
+    committee: [{ key: "noti", label: "แจ้งเตือน", icon: "🔔" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "students", label: "ข้อมูลนักเรียน", icon: "👥" }, { key: "select", label: "หน้าที่ของฉัน", icon: "✅" }, { key: "schedule", label: "ตารางแข่ง", icon: "📅" }, { key: "items", label: "รายการแข่งขัน", icon: "🏆" }, { key: "results", label: "ส่งผล", icon: "🏅" }, { key: "register", label: "สมัคร", icon: "✍️" }, { key: "org2", label: "ผังองค์กร", icon: "🌳" }, { key: "attend", label: "ลงเวลา", icon: "⏱" }, { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" }],
+    admin: [{ key: "home", label: "ภาพรวม", icon: "📊" }, { key: "people", label: "บุคลากร", icon: "👥" }, { key: "orgsetup", label: "ตั้งค่าผัง", icon: "⚙️" }, { key: "org2", label: "ผังองค์กร", icon: "🌳" }, { key: "comp", label: "การแข่งขัน", icon: "🏆" }, { key: "results", label: "จัดการผลการแข่งขัน", icon: "🏅" }, { key: "attend", label: "ลงเวลา", icon: "⏱" }, { key: "promote", label: "เลื่อนชั้น", icon: "⬆️" }, { key: "trash", label: "ถังขยะ", icon: "🗑" }, { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" }, { key: "promo", label: "ตั้งค่า", icon: "⚙️" }],
+};
+BASE_NAVS.studentSelected = BASE_NAVS.student;
+BASE_NAVS.studentCommittee = BASE_NAVS.committee;
+BASE_NAVS.teacherGeneral = BASE_NAVS.committee;
+BASE_NAVS.teacherCommittee = BASE_NAVS.committee;
 function applyMenuCfg(role, nav, allCfg) {
     MENU_REGISTRY[role] = nav.map((n) => ({ key: n.key, label: n.label, icon: n.icon }));
     const cfg = (allCfg || {})[role];
@@ -5861,12 +5870,11 @@ function ScheduleSettings({ db, setDb, ui }) {
         addTo && React.createElement(SchForm, { onClose: () => setAddTo(null), onSave: (s) => addSch(addTo, s) })));
 }
 function MenuConfigCard({ db, setDb, ui }) {
-    const roles = [{ k: "student", label: "นักเรียน" }, { k: "committee", label: "กรรมการ / ครู" }, { k: "admin", label: "แอดมิน" }];
-    const [role, setRole] = useState("committee");
-    const base = MENU_REGISTRY[role] || [];
+    const roles = [{ k: "student", label: "นักเรียนทั่วไป" }, { k: "studentSelected", label: "นักเรียนที่คัดเลือกแล้ว" }, { k: "studentCommittee", label: "นักเรียนกรรมการ" }, { k: "teacherGeneral", label: "ครูทั่วไป" }, { k: "teacherCommittee", label: "ครูกรรมการ" }, { k: "admin", label: "แอดมิน" }];
+    const [role, setRole] = useState("student");
+    const base = (MENU_REGISTRY[role] && MENU_REGISTRY[role].length ? MENU_REGISTRY[role] : (BASE_NAVS[role] || []));
     const cfgAll = (db.settings && db.settings.menus) || {};
     const saved = cfgAll[role];
-    // สร้างรายการปัจจุบัน: ตามลำดับที่บันทึก + เมนูใหม่ต่อท้าย
     const items = (() => {
         if (!saved || !saved.length)
             return base.map((b) => ({ ...b, hidden: false }));
@@ -5884,19 +5892,21 @@ function MenuConfigCard({ db, setDb, ui }) {
     const move = (i, dir) => { const j = i + dir; if (j < 0 || j >= items.length)
         return; const a = [...items]; [a[i], a[j]] = [a[j], a[i]]; write(a); };
     const patch = (i, k, v) => { const a = items.map((x, idx) => idx === i ? { ...x, [k]: v } : x); write(a); };
-    const reset = () => { setDb((p) => { const m = { ...((p.settings && p.settings.menus) || {}) }; delete m[role]; return { ...p, settings: { ...p.settings, menus: m } }; }); setTimeout(() => window.__forceSave && window.__forceSave(), 400); ui.notify("รีเซ็ตเมนู" + role + "แล้ว"); };
+    // รีเซ็ตเฉพาะ "ลำดับ + ไอคอน" — เก็บชื่อที่แก้ไว้
+    const reset = () => { const byLabel = {}; items.forEach((it) => { byLabel[it.key] = it.label; }); const arr = (BASE_NAVS[role] || []).map((b) => ({ key: b.key, label: byLabel[b.key] != null ? byLabel[b.key] : b.label, icon: b.icon, hidden: false })); write(arr); ui.notify("รีเซ็ตลำดับ+ไอคอนแล้ว (เก็บชื่อที่ตั้งไว้)"); };
     return (React.createElement(Card, { style: { padding: 18 } },
         React.createElement("div", { style: { fontSize: 13, color: C.muted, marginBottom: 12 } }, "\u0E08\u0E31\u0E14\u0E40\u0E21\u0E19\u0E39\u0E02\u0E2D\u0E07\u0E41\u0E15\u0E48\u0E25\u0E30\u0E1A\u0E17\u0E1A\u0E32\u0E17 \u2014 \u0E2A\u0E25\u0E31\u0E1A\u0E25\u0E33\u0E14\u0E31\u0E1A (\u25B2\u25BC) \u00B7 \u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E0A\u0E37\u0E48\u0E2D \u00B7 \u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E44\u0E2D\u0E04\u0E2D\u0E19 (\u0E2D\u0E35\u0E42\u0E21\u0E08\u0E34) \u00B7 \u0E0B\u0E48\u0E2D\u0E19 \u00B7 \u0E43\u0E0A\u0E49\u0E17\u0E31\u0E49\u0E07\u0E04\u0E2D\u0E21\u0E41\u0E25\u0E30\u0E21\u0E37\u0E2D\u0E16\u0E37\u0E2D"),
         React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" } }, roles.map((r) => React.createElement("button", { key: r.k, onClick: () => setRole(r.k), style: { padding: "7px 14px", borderRadius: 20, border: "none", cursor: "pointer", fontWeight: role === r.k ? 700 : 500, background: role === r.k ? C.primary : C.surface, color: role === r.k ? "#fff" : C.ink, boxShadow: role === r.k ? "none" : `inset 0 0 0 1px ${C.line}` } }, r.label))),
-        items.length === 0 ? React.createElement(Empty, { text: "ยังไม่มีข้อมูลเมนู" + role + " — เข้าใช้งานบทบาทนี้ 1 ครั้งก่อน แล้วกลับมาตั้งค่า" }) : (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, items.map((it, i) => (React.createElement("div", { key: it.key, style: { display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", border: `1px solid ${C.line}`, borderRadius: 10, background: it.hidden ? "#f6f6f6" : C.surface, opacity: it.hidden ? 0.6 : 1, flexWrap: "wrap" } },
+        items.length === 0 ? React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E40\u0E21\u0E19\u0E39\u0E02\u0E2D\u0E07\u0E1A\u0E17\u0E1A\u0E32\u0E17\u0E19\u0E35\u0E49" }) : (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, items.map((it, i) => (React.createElement("div", { key: it.key, style: { display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", border: `1px solid ${C.line}`, borderRadius: 10, background: it.hidden ? "#f6f6f6" : C.surface, opacity: it.hidden ? 0.6 : 1, flexWrap: "wrap" } },
             React.createElement("div", { style: { display: "flex", flexDirection: "column" } },
                 React.createElement("button", { onClick: () => move(i, -1), style: { border: "none", background: "none", color: C.primary, cursor: "pointer", fontWeight: 800, fontSize: 12, lineHeight: 1 } }, "\u25B2"),
                 React.createElement("button", { onClick: () => move(i, 1), style: { border: "none", background: "none", color: C.primary, cursor: "pointer", fontWeight: 800, fontSize: 12, lineHeight: 1 } }, "\u25BC")),
             React.createElement("input", { value: it.icon, onChange: (e) => patch(i, "icon", e.target.value), style: { width: 44, textAlign: "center", padding: "6px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 18 } }),
             React.createElement("input", { value: it.label, onChange: (e) => patch(i, "label", e.target.value), style: { flex: 1, minWidth: 120, padding: "7px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 13.5 } }),
             React.createElement("button", { onClick: () => patch(i, "hidden", !it.hidden), style: { border: `1px solid ${C.line}`, background: it.hidden ? "#fbeeee" : C.soft, color: it.hidden ? "#c0392b" : C.primaryDark, borderRadius: 8, padding: "5px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" } }, it.hidden ? "ซ่อนอยู่" : "แสดง")))))),
-        React.createElement("div", { style: { marginTop: 12 } },
-            React.createElement(Btn, { variant: "ghost", onClick: reset }, "\u0E23\u0E35\u0E40\u0E0B\u0E47\u0E15\u0E40\u0E21\u0E19\u0E39\u0E1A\u0E17\u0E1A\u0E32\u0E17\u0E19\u0E35\u0E49"))));
+        React.createElement("div", { style: { marginTop: 12, fontSize: 12, color: C.muted } }, "\uD83D\uDCA1 \u0E23\u0E35\u0E40\u0E0B\u0E47\u0E15 = \u0E04\u0E37\u0E19\u0E25\u0E33\u0E14\u0E31\u0E1A+\u0E44\u0E2D\u0E04\u0E2D\u0E19\u0E40\u0E14\u0E34\u0E21 \u0E41\u0E15\u0E48\u0E22\u0E31\u0E07\u0E40\u0E01\u0E47\u0E1A\u0E0A\u0E37\u0E48\u0E2D\u0E17\u0E35\u0E48\u0E04\u0E38\u0E13\u0E41\u0E01\u0E49\u0E44\u0E27\u0E49"),
+        React.createElement("div", { style: { marginTop: 6 } },
+            React.createElement(Btn, { variant: "ghost", onClick: reset }, "\u0E23\u0E35\u0E40\u0E0B\u0E47\u0E15\u0E25\u0E33\u0E14\u0E31\u0E1A+\u0E44\u0E2D\u0E04\u0E2D\u0E19"))));
 }
 function UISizeCard({ db, setDb, ui }) {
     const cur = (db.settings && db.settings.ui) || {};
@@ -6440,7 +6450,7 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
         { key: "attend", label: "ลงเวลา", icon: "⏱", defaultKey: "attend:day", children: [{ key: "attend:day", label: "ลงเวลาซ้อม-วันจริง" }, { key: "attend:none", label: "บุคคลไม่มีส่วนร่วม" }, { key: "attend:sum", label: "สรุปเวลารวม" }] },
         { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" },
     ];
-    return (React.createElement(Shell, { role: role, nav: applyMenuCfg("committee", nav, (db.settings && db.settings.menus) || {}), view: view, setView: setView, onExit: onExit, ui: ui, sz: (db.settings && db.settings.ui) || {}, navOrder: ((db.settings && db.settings.navOrder) || {})[role] },
+    return (React.createElement(Shell, { role: role, nav: applyMenuCfg(role === "studentcom" ? "studentCommittee" : ((db.org2 || []).some((n) => String(n.personId) === String(meId)) ? "teacherCommittee" : "teacherGeneral"), nav, (db.settings && db.settings.menus) || {}), view: view, setView: setView, onExit: onExit, ui: ui, sz: (db.settings && db.settings.ui) || {}, navOrder: ((db.settings && db.settings.navOrder) || {})[role] },
         view === "noti" && React.createElement(NotificationCenter, { db: db, setDb: setDb, ui: ui, admin: false, viewerId: meId, viewerRole: role, onGoResults: (id) => { setJumpComp(id); setView("results"); } }),
         view === "me" && React.createElement(CommitteeProfile, { role: role, meId: meId, db: db, setDb: setDb, ui: ui }),
         view === "students" && React.createElement(StudentInfoList, { db: db }),
@@ -7480,7 +7490,7 @@ function StudentApp({ db, setDb, onExit, meId }) {
         { key: "finance", label: "การเงิน", icon: "💰" },
     ];
     const myPassedComps = [...new Set((db.competitions || []).filter((c) => (c.participants || []).some((x) => String(x.sid) === String(me.id) && (x.sel === "main" || x.sel === "reserve"))).map((c) => String(c.id)))];
-    return (React.createElement(Shell, { role: "student", nav: applyMenuCfg("student", nav, (db.settings && db.settings.menus) || {}), view: view, setView: setView, onExit: onExit, ui: ui, sz: (db.settings && db.settings.ui) || {}, navOrder: ((db.settings && db.settings.navOrder) || {})["student"] },
+    return (React.createElement(Shell, { role: "student", nav: applyMenuCfg(myPassedComps.length > 0 ? "studentSelected" : "student", nav, (db.settings && db.settings.menus) || {}), view: view, setView: setView, onExit: onExit, ui: ui, sz: (db.settings && db.settings.ui) || {}, navOrder: ((db.settings && db.settings.navOrder) || {})["student"] },
         view === "home" && React.createElement(StudentSchedule, { me: me, db: db, ui: ui }),
         view === "me" && React.createElement(MyProfile, { me: me, db: db, setDb: setDb, ui: ui }),
         view === "register" && React.createElement(StudentRegister, { me: me, db: db, setDb: setDb, ui: ui }),
