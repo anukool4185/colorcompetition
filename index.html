@@ -1656,7 +1656,9 @@ function FinanceManager({ db, setDb, ui, viewer }) {
         if (s)
             return `${s.grade}/${s.room}`;
     } return ""; })();
-    const finLockRoom = (isFinance && !finFull && viewerRoom) ? viewerRoom : "";
+    // ผู้จัดการฝ่ายการเงิน (ตำแหน่งชื่อ "ผู้จัดการ" + อยู่ในฝ่าย/รายการการเงิน) → ลงเงิน/เฉลี่ยคืนได้เฉพาะห้องตนเอง
+    const isFinanceManager = finNodes.some((n) => /ผู้จัดการ/.test(duty2Name(n.dutyId)));
+    const finLockRoom = (isFinanceManager && String(viewer.role) !== "admin" && !financeMoneyHolder && viewerRoom) ? viewerRoom : "";
     const canEditRow = (f) => isMoneyHolder;
     const [form, setForm] = useState({ dept: "", type: "in", title: "", amount: "", date: todayStr(), time: nowTime(), note: "", billDataUrl: "", billUrl: "", billId: "" });
     const [editId, setEditId] = useState(null);
@@ -1846,7 +1848,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
         tab === "refund" && isFinance && React.createElement(RefundManager, { db: db, ui: ui, canEdit: financeMoneyHolder, lockRoom: finLockRoom }),
         tab === "loan" && finFull && React.createElement(LoanManager, { db: db, setDb: setDb, ui: ui, viewer: viewer }),
         tab === "fund" && finFull && React.createElement(FundManager, { db: db, setDb: setDb, ui: ui, viewer: viewer, editRec: fundEdit, onDoneEdit: () => setFundEdit(null) }),
-        tab === "income" && isFinance && React.createElement(StudentIncomeGrid, { db: db, setDb: setDb, ui: ui, viewer: viewer, acc: acc, canEntry: financeMoneyHolder || (isFinance && finRank >= 6), lockRoom: finLockRoom, canManageCols: finFull }),
+        tab === "income" && isFinance && React.createElement(StudentIncomeGrid, { db: db, setDb: setDb, ui: ui, viewer: viewer, acc: acc, canEntry: financeMoneyHolder || isFinanceManager || (isFinance && finRank >= 6), lockRoom: finLockRoom, canManageCols: finFull }),
         tab === "add" && finFull && (React.createElement(Card, { style: { padding: 16, marginBottom: 12 } },
             React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 10 } }, editId ? "แก้ไขรายการ" : "บันทึกรายรับ / รายจ่าย"),
             React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E02\u0E49\u0E32 \u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1D\u0E48\u0E32\u0E22 (\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21) \u0E2B\u0E23\u0E37\u0E2D \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21"),
@@ -1967,6 +1969,31 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 React.createElement(Card, { style: { padding: 14, borderTop: `4px solid ${C.primary}` } },
                     React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u0E04\u0E07\u0E40\u0E2B\u0E25\u0E37\u0E2D"),
                     React.createElement("div", { style: { fontSize: 22, fontWeight: 800, color: stats.balance < 0 ? "#c0392b" : C.primaryDark } }, money(stats.balance)))),
+            React.createElement(Card, { style: { padding: 16 } },
+                React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 4 } }, "\uD83D\uDCA7 \u0E41\u0E2B\u0E25\u0E48\u0E07\u0E17\u0E35\u0E48\u0E21\u0E32\u0E02\u0E2D\u0E07\u0E40\u0E07\u0E34\u0E19 (\u0E23\u0E27\u0E21\u0E43\u0E19\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21)"),
+                React.createElement("div", { style: { fontSize: 12, color: C.muted, marginBottom: 10 } }, "\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\u0E23\u0E27\u0E21 = \u0E40\u0E07\u0E34\u0E19\u0E08\u0E32\u0E01\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 + \u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19\u0E2A\u0E33\u0E23\u0E2D\u0E07 + \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A-\u0E08\u0E48\u0E32\u0E22"),
+                React.createElement("div", { style: { display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" } },
+                    React.createElement("div", { style: { padding: "10px 12px", border: `1px solid ${C.line}`, borderRadius: 10 } },
+                        React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\uD83D\uDCB5 \u0E40\u0E07\u0E34\u0E19\u0E08\u0E32\u0E01\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19"),
+                        React.createElement("div", { style: { fontSize: 17, fontWeight: 800, color: "#2f9e6b" } },
+                            "+",
+                            money(stats.studentSum))),
+                    React.createElement("div", { style: { padding: "10px 12px", border: `1px solid ${C.line}`, borderRadius: 10 } },
+                        React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\uD83C\uDFE6 \u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19\u0E2A\u0E33\u0E23\u0E2D\u0E07 (\u0E04\u0E07\u0E40\u0E2B\u0E25\u0E37\u0E2D)"),
+                        React.createElement("div", { style: { fontSize: 17, fontWeight: 800, color: stats.fundBal < 0 ? "#c0392b" : C.primaryDark } }, money(stats.fundBal)),
+                        React.createElement("div", { style: { fontSize: 10.5, color: C.muted } },
+                            "+",
+                            money(stats.fundIn),
+                            " \u00B7 -",
+                            money(stats.fundOut))),
+                    React.createElement("div", { style: { padding: "10px 12px", border: `1px solid ${C.line}`, borderRadius: 10 } },
+                        React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\uD83D\uDCCB \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A-\u0E08\u0E48\u0E32\u0E22 (\u0E23\u0E27\u0E21\u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19)"),
+                        React.createElement("div", { style: { fontSize: 17, fontWeight: 800, color: "#2f9e6b" } },
+                            "+",
+                            money(stats.recordIn)),
+                        React.createElement("div", { style: { fontSize: 10.5, color: C.muted } },
+                            "\u0E08\u0E48\u0E32\u0E22 -",
+                            money(stats.recordOut))))),
             (db.departments || []).length > 0 && (React.createElement(Card, { style: { padding: 16 } },
                 React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 4 } }, "\uD83C\uDFE2 \u0E2A\u0E23\u0E38\u0E1B\u0E15\u0E32\u0E21\u0E1D\u0E48\u0E32\u0E22 (\u0E23\u0E27\u0E21\u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E02\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19\u0E1D\u0E48\u0E32\u0E22)"),
                 React.createElement("div", { style: { fontSize: 12, color: C.muted, marginBottom: 10 } }, "\u0E41\u0E15\u0E48\u0E25\u0E30\u0E1D\u0E48\u0E32\u0E22\u0E23\u0E27\u0E21\u0E22\u0E2D\u0E14\u0E02\u0E2D\u0E07\u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E17\u0E35\u0E48\u0E16\u0E39\u0E01\u0E15\u0E34\u0E4A\u0E01\u0E40\u0E02\u0E49\u0E32\u0E1D\u0E48\u0E32\u0E22 (\u0E08\u0E31\u0E14\u0E1D\u0E48\u0E32\u0E22\u0E17\u0E35\u0E48\u0E40\u0E21\u0E19\u0E39 \u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E2F \u2192 \u0E08\u0E31\u0E14\u0E1D\u0E48\u0E32\u0E22)"),
@@ -4518,7 +4545,15 @@ function financeStats(db) {
         byDept[k].in += amt;
         inSum += amt;
     } });
-    return { byDept, inSum, outSum, balance: inSum - outSum };
+    // เงินที่เก็บจากนักเรียน (studentIncome) — นับเป็นรายรับด้วย
+    let studentSum = 0;
+    Object.keys(db.studentIncome || {}).forEach((sid) => { if (sid === "_bills" || sid === "_submits")
+        return; const r = (db.studentIncome || {})[sid]; if (r && Array.isArray(r.amounts))
+        studentSum += r.amounts.reduce((s, x) => s + (Number(x) || 0), 0); });
+    // กองทุนสำรอง (บันทึกใน db.finance ด้วย dept=FUND — รวมอยู่แล้วใน inSum/outSum)
+    const fundIn = (byDept["FUND"] || {}).in || 0, fundOut = (byDept["FUND"] || {}).out || 0;
+    inSum += studentSum;
+    return { byDept, inSum, outSum, balance: inSum - outSum, studentSum, fundIn, fundOut, fundBal: fundIn - fundOut, recordIn: inSum - studentSum, recordOut: outSum };
 }
 // สร้างรอบผลอัตโนมัติเมื่อเลยเวลาแข่ง + ลบรอบว่าง(อัตโนมัติ)ที่ตารางเปลี่ยน/เลื่อน — ไม่แตะรอบที่มีผลแล้ว
 function autoSyncRounds(db) {
