@@ -1046,7 +1046,7 @@ function nextGrade(g) {
         return null; // ไม่รู้จัก หรือ ชั้นสูงสุด → จบออก
     return GRADE_ORDER[i + 1];
 }
-function StudentIncomeGrid({ db, setDb, ui, viewer, acc, canEntry = true }) {
+function StudentIncomeGrid({ db, setDb, ui, viewer, acc, canEntry = true, lockRoom = "" }) {
     const roEntry = !canEntry;
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff" };
     const dirtyRef = useRef(false);
@@ -1062,7 +1062,9 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc, canEntry = true }) {
         if (s)
             return `${s.grade}/${s.room}`;
     } return ""; })();
-    const [room, setRoom] = useState((myRoom && rooms.includes(myRoom)) ? myRoom : (rooms[0] || ""));
+    const [room, setRoom] = useState(lockRoom || ((myRoom && rooms.includes(myRoom)) ? myRoom : (rooms[0] || "")));
+    useEffect(() => { if (lockRoom && room !== lockRoom)
+        setRoom(lockRoom); }, [lockRoom]); // ผู้ช่วยล็อกห้องตนเอง
     const cols = db.incomeCols || 5;
     const inc = db.studentIncome || {};
     const [billDate, setBillDate] = useState(todayStr());
@@ -1144,7 +1146,10 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc, canEntry = true }) {
         roEntry && React.createElement("div", { style: { background: "#fff6e9", color: "#b3762f", borderRadius: 10, padding: "8px 12px", fontSize: 12.5, fontWeight: 700, marginBottom: 10 } }, "\uD83D\uDC41 \u0E42\u0E2B\u0E21\u0E14\u0E14\u0E39\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27 \u2014 \u0E01\u0E23\u0E2D\u0E01/\u0E41\u0E01\u0E49\u0E22\u0E2D\u0E14\u0E44\u0E14\u0E49\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19\u0E41\u0E25\u0E30\u0E1C\u0E39\u0E49\u0E16\u0E37\u0E2D\u0E40\u0E07\u0E34\u0E19 (\u0E04\u0E38\u0E13\u0E14\u0E39\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E14\u0E49)"),
         React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" } },
             React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u0E2B\u0E49\u0E2D\u0E07:"),
-            React.createElement("select", { value: room, onChange: (e) => setRoom(e.target.value), style: { ...selCss, width: "auto", minWidth: 120 } }, rooms.map((r) => React.createElement("option", { key: r, value: r }, r))),
+            lockRoom ? React.createElement("span", { style: { fontWeight: 700, color: C.primaryDark, padding: "6px 10px", background: C.soft, borderRadius: 8 } },
+                "\u0E2B\u0E49\u0E2D\u0E07 ",
+                lockRoom,
+                " (\u0E2B\u0E49\u0E2D\u0E07\u0E02\u0E2D\u0E07\u0E04\u0E38\u0E13)") : React.createElement("select", { value: room, onChange: (e) => setRoom(e.target.value), style: { ...selCss, width: "auto", minWidth: 120 } }, rooms.map((r) => React.createElement("option", { key: r, value: r }, r))),
             React.createElement(Btn, { small: true, onClick: addCol }, "\uFF0B \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E0A\u0E48\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A"),
             React.createElement(Btn, { small: true, variant: "ghost", onClick: saveAll }, "\uD83D\uDCBE \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01")),
         roomStudents.length === 0 ? React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E43\u0E19\u0E2B\u0E49\u0E2D\u0E07\u0E19\u0E35\u0E49" }) : (React.createElement("div", { className: "incomeScroll", style: { overflow: "auto", maxHeight: "60vh", border: `1px solid ${C.line}`, borderRadius: 10 } },
@@ -1613,6 +1618,13 @@ function FinanceManager({ db, setDb, ui, viewer }) {
         return null; const d = (db.departments || []).find((x) => "D:" + x.id === String(id)); return d ? (d.comps || []).map(String) : []; };
     // แก้ไขรายการการเงินได้เฉพาะ "ผู้มีหน้าที่ถือเงิน" (ติ๊กผู้ถือเงินในผังใหม่) หรือแอดมิน
     const isMoneyHolder = financeMoneyHolder;
+    // ผู้ช่วยการเงิน (ไม่ใช่ผู้ถือเงิน/ผู้ดูแลขึ้นไป/แอดมิน) → ลงเงินได้เฉพาะห้องตนเอง
+    const viewerRoom = (() => { if (String(viewer.role).indexOf("student") === 0) {
+        const s = (db.students || []).find((x) => String(x.id) === String(viewer.id));
+        if (s)
+            return `${s.grade}/${s.room}`;
+    } return ""; })();
+    const finLockRoom = (isFinance && !finFull && viewerRoom) ? viewerRoom : "";
     const canEditRow = (f) => isMoneyHolder;
     const [form, setForm] = useState({ dept: "", type: "in", title: "", amount: "", date: todayStr(), time: nowTime(), note: "", billDataUrl: "", billUrl: "", billId: "" });
     const [editId, setEditId] = useState(null);
@@ -1802,7 +1814,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
         tab === "refund" && isFinance && React.createElement(RefundManager, { db: db, ui: ui, canEdit: financeMoneyHolder }),
         tab === "loan" && finFull && React.createElement(LoanManager, { db: db, setDb: setDb, ui: ui, viewer: viewer }),
         tab === "fund" && finFull && React.createElement(FundManager, { db: db, setDb: setDb, ui: ui, viewer: viewer, editRec: fundEdit, onDoneEdit: () => setFundEdit(null) }),
-        tab === "income" && isFinance && React.createElement(StudentIncomeGrid, { db: db, setDb: setDb, ui: ui, viewer: viewer, acc: acc, canEntry: financeMoneyHolder || (isFinance && finRank >= 6) }),
+        tab === "income" && isFinance && React.createElement(StudentIncomeGrid, { db: db, setDb: setDb, ui: ui, viewer: viewer, acc: acc, canEntry: financeMoneyHolder || (isFinance && finRank >= 6), lockRoom: finLockRoom }),
         tab === "add" && finFull && (React.createElement(Card, { style: { padding: 16, marginBottom: 12 } },
             React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 10 } }, editId ? "แก้ไขรายการ" : "บันทึกรายรับ / รายจ่าย"),
             React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E02\u0E49\u0E32 \u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1D\u0E48\u0E32\u0E22 (\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21) \u0E2B\u0E23\u0E37\u0E2D \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21"),
