@@ -268,6 +268,17 @@ async function makeReceiptPdf({ orgName, title, receiptNo, date, time, rows, not
     document.body.removeChild(holder);
 }
 function nowHM() { const d = new Date(); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; }
+// ข้อมูลผู้เกี่ยวข้องในใบเสร็จ: ชื่อ+ชั้น/ห้อง + ตำแหน่งจากผังใหม่ (org2)
+function receiptPersonInfo(db, pid) {
+    if (!pid)
+        return { name: "", pos: "" };
+    const s = (db.students || []).find((x) => String(x.id) === String(pid)) || (db.teachers || []).find((x) => String(x.id) === String(pid));
+    if (!s)
+        return { name: "", pos: "" };
+    const name = fullName(s) + (s.grade || s.room ? ` ${s.grade || ""}${s.room ? "/" + s.room : ""}` : "");
+    const duties = [...new Set((db.org2 || []).filter((n) => String(n.personId) === String(pid)).map((n) => { const dd = (db.duties || []).find((z) => String(z.id) === String(n.dutyId)); return dd ? dd.name : ""; }).filter(Boolean))];
+    return { name, pos: duties.join(", ") };
+}
 // รวมผลรายคนของรายการหนึ่ง (รองรับผลแบบรอบ resultSets และผลแบบเดิม c.results)
 // คืน [{ sid, outcome, medal, date, time, setId, mode }]
 function compResultRows(c) {
@@ -1141,9 +1152,7 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc, canEntry = true, lockRo
     const cancelEditSub = () => { setEditSubId(null); setSubAmt(""); setSubNote(""); };
     const removeSubmit = (id) => ui.run("ลบแล้ว", () => { setDb((p) => ({ ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: (((p.studentIncome || {})["_submits"]) || []).filter((x) => x.id !== id) } })); save(); });
     const acceptSubmit = (id) => ui.run("ยอมรับเงินแล้ว — ออกใบเสร็จ + แจ้งผู้ดูแล", () => { const sub = submits.find((x) => x.id === id); const amt = sub ? (Number(sub.amount) || 0) : 0; const dref = amt - grand; setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const receiptNo = seq + "/" + buddhistYear(); return { ...p, receiptSeq: seq, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: (((p.studentIncome || {})["_submits"]) || []).map((x) => x.id === id ? { ...x, status: "accepted", acceptedBy: viewer.name || "", acceptedById: viewer.id, acceptedAt: Date.now(), receiptNo } : x) }, financeNotis: [{ id: "fnoti" + Date.now(), room, amount: amt, tableTotal: grand, diff: dref, acceptedBy: viewer.name || "", acceptorRank: myRankNum, date: sub ? sub.date : todayStr(), at: Date.now(), readBy: [] }, ...((p.financeNotis) || [])] }; }); save(); });
-    const personInfo = (pid) => { if (!pid)
-        return { name: "", pos: "" }; const s = (db.students || []).find((x) => String(x.id) === String(pid)) || (db.teachers || []).find((x) => String(x.id) === String(pid)); const name = s ? fullName(s) + (s.grade || s.room ? ` ${s.grade || ""}${s.room ? "/" + s.room : ""}` : "") : ""; const duties = [...new Set((db.org2 || []).filter((n) => String(n.personId) === String(pid)).map((n) => { const dd = (db.duties || []).find((z) => String(z.id) === String(n.dutyId)); return dd ? dd.name : ""; }).filter(Boolean))]; return { name, pos: duties.join(", ") }; };
-    const receiptFor = (x) => { const sender = personInfo(x.byId); const acceptor = personInfo(x.acceptedById); makeReceiptPdf({ title: "ใบเสร็จรับเงิน (รายรับนักเรียน)", receiptNo: x.receiptNo, date: x.date, time: x.time, rows: [{ label: "รับเงินห้อง " + x.room + (x.note ? " · " + x.note : ""), amount: x.amount }], notify: ui.notify, payerName: sender.name || x.by || "", payerPosition: sender.pos, payeeName: acceptor.name || x.acceptedBy || "", payeePosition: acceptor.pos }); };
+    const receiptFor = (x) => { const sender = receiptPersonInfo(db, x.byId); const acceptor = receiptPersonInfo(db, x.acceptedById); makeReceiptPdf({ title: "ใบเสร็จรับเงิน (รายรับนักเรียน)", receiptNo: x.receiptNo, date: x.date, time: x.time, rows: [{ label: "รับเงินห้อง " + x.room + (x.note ? " · " + x.note : ""), amount: x.amount }], notify: ui.notify, payerName: sender.name || x.by || "", payerPosition: sender.pos, payeeName: acceptor.name || x.acceptedBy || "", payeePosition: acceptor.pos }); };
     const diff = submitSum - grand;
     // สิทธิ์กดยอมรับเงิน: แอดมิน หรือ ผู้ดูแล(ลำดับ5)ขึ้นไป · ผู้ช่วย(ลำดับ6)เท่านั้น = กดไม่ได้ (เป็นผู้รวบรวมเงิน)
     const canAcceptMoney = (() => {
@@ -1433,7 +1442,7 @@ function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit }) {
     const combineReceipt = () => { const picked = rows.filter((r) => selIds.includes(r.id) && r.type !== "out"); if (!picked.length) {
         ui.notify("ติ๊กเลือกรายการรับก่อน");
         return;
-    } setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const receiptNo = seq + "/" + buddhistYear(); const ids = new Set(picked.map((x) => x.id)); const fin = (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo } : f); return { ...p, receiptSeq: seq, finance: fin }; }); const seqPreview = (db.receiptSeq || 0) + 1; makeReceiptPdf({ title: "ใบเสร็จรับเงิน (กองทุนสำรอง)", receiptNo: seqPreview + "/" + buddhistYear(), date: picked[0].date, time: picked[0].time, rows: picked.map((r) => ({ label: r.title + (r.note ? " · " + r.note : ""), amount: r.amount })), notify: ui.notify }); setSelIds([]); save(); };
+    } setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const receiptNo = seq + "/" + buddhistYear(); const ids = new Set(picked.map((x) => x.id)); const fin = (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo } : f); return { ...p, receiptSeq: seq, finance: fin }; }); const seqPreview = (db.receiptSeq || 0) + 1; makeReceiptPdf({ title: "ใบเสร็จรับเงิน (กองทุนสำรอง)", receiptNo: seqPreview + "/" + buddhistYear(), date: picked[0].date, time: picked[0].time, rows: picked.map((r) => ({ label: r.title + (r.note ? " · " + r.note : ""), amount: r.amount })), notify: ui.notify, payerName: receiptPersonInfo(db, picked[0].byId).name, payerPosition: receiptPersonInfo(db, picked[0].byId).pos }); setSelIds([]); save(); };
     const issueFundExpenseNo = () => { const picked = rows.filter((r) => selIds.includes(r.id) && r.type === "out"); if (!picked.length) {
         ui.notify("ติ๊กเลือกรายการจ่ายก่อน");
         return;
@@ -1446,7 +1455,7 @@ function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit }) {
     const add = () => { const amt = Number(String(amount).replace(/[^0-9.]/g, "")); if (!title.trim() || !amt) {
         ui.notify("กรอกชื่อรายการ + จำนวนเงิน");
         return;
-    } ui.run(editId ? "บันทึกการแก้ไขแล้ว" : "บันทึกกองทุนสำรองแล้ว", () => { setDb((p) => editId ? ({ ...p, finance: (p.finance || []).map((f) => f.id === editId ? { ...f, type, title: title.trim(), amount: amt, date, time: fundTime || nowTime(), note } : f) }) : ({ ...p, finance: [...(p.finance || []), { id: "fn" + Date.now(), dept: "FUND", type, title: title.trim(), amount: amt, date, time: fundTime || nowTime(), note, by: viewer.name || "", at: Date.now() }] })); setTitle(""); setAmount(""); setNote(""); setEditId(null); if (onDoneEdit)
+    } ui.run(editId ? "บันทึกการแก้ไขแล้ว" : "บันทึกกองทุนสำรองแล้ว", () => { setDb((p) => editId ? ({ ...p, finance: (p.finance || []).map((f) => f.id === editId ? { ...f, type, title: title.trim(), amount: amt, date, time: fundTime || nowTime(), note } : f) }) : ({ ...p, finance: [...(p.finance || []), { id: "fn" + Date.now(), dept: "FUND", type, title: title.trim(), amount: amt, date, time: fundTime || nowTime(), note, by: viewer.name || "", byId: viewer.id, at: Date.now() }] })); setTitle(""); setAmount(""); setNote(""); setEditId(null); if (onDoneEdit)
         onDoneEdit(); save(); }); };
     const cancelEdit = () => { setEditId(null); setTitle(""); setAmount(""); setNote(""); if (onDoneEdit)
         onDoneEdit(); };
@@ -1502,7 +1511,7 @@ function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit }) {
                 React.createElement("span", { style: { fontWeight: 800, color: r.type === "out" ? "#c0392b" : "#2f9e6b" } },
                     r.type === "out" ? "-" : "+",
                     (Number(r.amount) || 0).toLocaleString("th-TH")),
-                r.type !== "out" && r.receiptNo && React.createElement("button", { onClick: () => makeReceiptPdf({ title: "ใบเสร็จรับเงิน (กองทุนสำรอง)", receiptNo: r.receiptNo, date: r.date, time: r.time, rows: [{ label: r.title + (r.note ? " · " + r.note : ""), amount: r.amount }], notify: ui.notify }), style: { border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "2px 7px", fontSize: 11, fontWeight: 700, cursor: "pointer" } }, "\u2B07"),
+                r.type !== "out" && r.receiptNo && React.createElement("button", { onClick: () => makeReceiptPdf({ title: "ใบเสร็จรับเงิน (กองทุนสำรอง)", receiptNo: r.receiptNo, date: r.date, time: r.time, rows: [{ label: r.title + (r.note ? " · " + r.note : ""), amount: r.amount }], notify: ui.notify, payerName: receiptPersonInfo(db, r.byId).name, payerPosition: receiptPersonInfo(db, r.byId).pos }), style: { border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "2px 7px", fontSize: 11, fontWeight: 700, cursor: "pointer" } }, "\u2B07"),
                 React.createElement("button", { onClick: () => { setType(r.type); setTitle(r.title); setAmount(String(r.amount)); setDate(r.date); setFundTime(r.time || nowTime()); setNote(r.note || ""); setEditId(r.id); }, style: { border: "none", background: "none", color: C.primary, cursor: "pointer", fontWeight: 700, fontSize: 12 } }, "\u0E41\u0E01\u0E49\u0E44\u0E02"),
                 React.createElement("button", { onClick: () => del(r.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715"))))))));
 }
@@ -6499,9 +6508,16 @@ function AttendSummary({ db, myComps, ui }) {
                         React.createElement("td", { style: { padding: "6px", textAlign: "right", color: "#1e7a4d", fontWeight: 700 } }, fmtMin(r.mins)))))))))));
 }
 function TimeAttendance({ db, setDb, ui, meId, role, myComps: myCompsRaw, sub }) {
-    // กันรายการซ้ำ (ชื่อ+ประเภท+เพศ+ระดับเหมือนกัน) ไม่ให้โผล่ซ้ำในเมนูลงเวลา
-    const myComps = (() => { const seen = {}; const out = []; (myCompsRaw || []).forEach((c) => { const sig = [c.kind, c.sportType || "กีฬา", (c.nameManual || c.name || "").trim(), (c.genders || []).slice().sort().join("+") || c.gender || "", (c.grades || []).slice().sort().join("+")].join("|"); if (seen[sig])
-        return; seen[sig] = 1; out.push(c); }); return out; })();
+    // กันรายการซ้ำ + เรียงเป็นกลุ่ม กีฬา→กรีฑา→กิจกรรม (ตามลำดับ +รายการ) ไม่ให้ปนกัน
+    const myComps = (() => {
+        const seen = {};
+        const dedup = [];
+        (myCompsRaw || []).forEach((c) => { const sig = [c.kind, c.sportType || "กีฬา", (c.nameManual || c.name || "").trim(), (c.genders || []).slice().sort().join("+") || c.gender || "", (c.grades || []).slice().sort().join("+")].join("|"); if (seen[sig])
+            return; seen[sig] = 1; dedup.push(c); });
+        const rank = (c) => c.kind === "กิจกรรม" ? 2 : ((c.sportType || "กีฬา") === "กรีฑา" ? 1 : 0);
+        const order = (db.competitions || []).map((x) => String(x.id));
+        return dedup.map((c, i) => ({ c, i })).sort((a, b) => (rank(a.c) - rank(b.c)) || ((order.indexOf(String(a.c.id)) < 0 ? 9999 : order.indexOf(String(a.c.id))) - (order.indexOf(String(b.c.id)) < 0 ? 9999 : order.indexOf(String(b.c.id)))) || (a.i - b.i)).map((o) => o.c);
+    })();
     const [date, setDate] = useState(todayStr());
     const isToday = date === todayStr();
     const win = (db.settings && db.settings.attendWin) || { inStart: "00:00", inEnd: "23:59", outStart: "00:00", outEnd: "23:59" };
