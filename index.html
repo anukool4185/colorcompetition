@@ -1974,10 +1974,14 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 React.createElement("div", { style: { fontSize: 12, color: C.muted, marginBottom: 10 } }, "\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\u0E23\u0E27\u0E21 = \u0E40\u0E07\u0E34\u0E19\u0E08\u0E32\u0E01\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 + \u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19\u0E2A\u0E33\u0E23\u0E2D\u0E07 + \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A-\u0E08\u0E48\u0E32\u0E22"),
                 React.createElement("div", { style: { display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" } },
                     React.createElement("div", { style: { padding: "10px 12px", border: `1px solid ${C.line}`, borderRadius: 10 } },
-                        React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\uD83D\uDCB5 \u0E40\u0E07\u0E34\u0E19\u0E08\u0E32\u0E01\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19"),
+                        React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\uD83D\uDCB5 \u0E40\u0E07\u0E34\u0E19\u0E08\u0E32\u0E01\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 (\u0E23\u0E31\u0E1A\u0E08\u0E23\u0E34\u0E07\u0E17\u0E38\u0E01\u0E2B\u0E49\u0E2D\u0E07)"),
                         React.createElement("div", { style: { fontSize: 17, fontWeight: 800, color: "#2f9e6b" } },
                             "+",
-                            money(stats.studentSum))),
+                            money(stats.studentSum)),
+                        React.createElement("div", { style: { fontSize: 10.5, color: C.muted } },
+                            stats.studentPending > 0 ? `รอยอมรับอีก ${money(stats.studentPending)}` : "ยอมรับครบแล้ว",
+                            " \u00B7 \u0E22\u0E2D\u0E14\u0E23\u0E32\u0E22\u0E04\u0E19 ",
+                            money(stats.studentPerHead))),
                     React.createElement("div", { style: { padding: "10px 12px", border: `1px solid ${C.line}`, borderRadius: 10 } },
                         React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\uD83C\uDFE6 \u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19\u0E2A\u0E33\u0E23\u0E2D\u0E07 (\u0E04\u0E07\u0E40\u0E2B\u0E25\u0E37\u0E2D)"),
                         React.createElement("div", { style: { fontSize: 17, fontWeight: 800, color: stats.fundBal < 0 ? "#c0392b" : C.primaryDark } }, money(stats.fundBal)),
@@ -4545,15 +4549,21 @@ function financeStats(db) {
         byDept[k].in += amt;
         inSum += amt;
     } });
-    // เงินที่เก็บจากนักเรียน (studentIncome) — นับเป็นรายรับด้วย
-    let studentSum = 0;
+    // เงินจากนักเรียน (ภาพรวม) = เงินที่บันทึกรับจริงของแต่ละห้อง (_submits ที่ยอมรับแล้ว) รวมทุกห้อง
+    // (ยอดรายคนใน amounts ใช้เทียบว่าตรงกับที่ส่งจริงไหมเท่านั้น ไม่นำมารวมในภาพรวม)
+    let studentSum = 0, studentPending = 0, studentPerHead = 0;
+    const _subs = ((db.studentIncome || {})["_submits"]) || [];
+    _subs.forEach((x) => { const amt = Number(x.amount) || 0; if (x.status === "accepted")
+        studentSum += amt;
+    else
+        studentPending += amt; });
     Object.keys(db.studentIncome || {}).forEach((sid) => { if (sid === "_bills" || sid === "_submits")
         return; const r = (db.studentIncome || {})[sid]; if (r && Array.isArray(r.amounts))
-        studentSum += r.amounts.reduce((s, x) => s + (Number(x) || 0), 0); });
+        studentPerHead += r.amounts.reduce((s, x) => s + (Number(x) || 0), 0); });
     // กองทุนสำรอง (บันทึกใน db.finance ด้วย dept=FUND — รวมอยู่แล้วใน inSum/outSum)
     const fundIn = (byDept["FUND"] || {}).in || 0, fundOut = (byDept["FUND"] || {}).out || 0;
     inSum += studentSum;
-    return { byDept, inSum, outSum, balance: inSum - outSum, studentSum, fundIn, fundOut, fundBal: fundIn - fundOut, recordIn: inSum - studentSum, recordOut: outSum };
+    return { byDept, inSum, outSum, balance: inSum - outSum, studentSum, studentPending, studentPerHead, fundIn, fundOut, fundBal: fundIn - fundOut, recordIn: inSum - studentSum, recordOut: outSum };
 }
 // สร้างรอบผลอัตโนมัติเมื่อเลยเวลาแข่ง + ลบรอบว่าง(อัตโนมัติ)ที่ตารางเปลี่ยน/เลื่อน — ไม่แตะรอบที่มีผลแล้ว
 function autoSyncRounds(db) {
