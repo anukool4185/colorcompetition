@@ -275,8 +275,8 @@ function Badge({ status }) {
     return React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: col, background: col + "18", padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap" } }, txt);
 }
 function Modal({ title, onClose, children, wide }) {
-    return (React.createElement("div", { onClick: onClose, style: { position: "fixed", inset: 0, zIndex: 50, background: "rgba(15,25,40,.45)", display: "flex", alignItems: "flex-end", justifyContent: "center" }, className: "md:items-center md:p-6" },
-        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { background: C.surface, width: "100%", maxWidth: wide ? 720 : 480, maxHeight: "90vh", overflow: "hidden", borderRadius: "18px 18px 0 0", display: "flex", flexDirection: "column" }, className: "md:rounded-2xl" },
+    return (React.createElement("div", { onClick: onClose, style: { position: "fixed", inset: 0, zIndex: 50, background: "rgba(15,25,40,.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 12 }, className: "md:items-center md:p-6" },
+        React.createElement("div", { onClick: (e) => e.stopPropagation(), style: { background: C.surface, width: "100%", maxWidth: wide ? 720 : 480, maxHeight: "90vh", overflow: "hidden", borderRadius: "18px", display: "flex", flexDirection: "column" }, className: "md:rounded-2xl" },
             React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 18px", borderBottom: `1px solid ${C.line}` } },
                 React.createElement("span", { style: { fontWeight: 700, color: C.ink, fontSize: 16 } }, title),
                 React.createElement("button", { onClick: onClose, "aria-label": "\u0E1B\u0E34\u0E14", style: { width: 34, height: 34, borderRadius: 10, border: `1px solid ${C.line}`, background: C.surface, color: C.muted, fontSize: 18, cursor: "pointer" } }, "\u00D7")),
@@ -648,8 +648,11 @@ function acceptedStudentPw(s) {
         arr.push(String(s.id)); // ชั่วคราว: ยังไม่มีเบอร์/ไม่ได้ตั้งรหัสเอง
     return arr;
 }
+function genderFromPre(pre) { if (/หญิง|นางสาว|นาง/.test(pre || ""))
+    return "หญิง"; if (/ชาย|นาย/.test(pre || ""))
+    return "ชาย"; return ""; }
 function studentProfileComplete(s) {
-    return !!(s.phone && s.password && s.guardian && s.guardianPhone && s.guardianRelation && s.gender);
+    return !!(s.phone && s.password && s.guardian && s.guardianPhone && s.guardianRelation);
 }
 function resolveLogin(db, uRaw, pRaw) {
     const u = (uRaw || "").trim();
@@ -2958,6 +2961,8 @@ function applyMapping(dataRows, mapping, kind, houses, fileHouse, colorSeen) {
         else {
             rec.house = fileHouse || 0; // ไม่มีคอลัมน์สี → ใช้สีที่ผู้ใช้เลือกให้ทั้งไฟล์
         }
+        if (!rec.gender)
+            rec.gender = genderFromPre(rec.pre); // เพศจากคำนำหน้าอัตโนมัติ
         return rec;
     }).filter((r) => r.id || r.first || r.last);
 }
@@ -4933,7 +4938,7 @@ function sportItemName(c) {
 }
 function SportItemsTable({ db, setDb, ui, kind = "แข่งขัน", sportType = "กีฬา" }) {
     const [bulk, setBulk] = useState("");
-    const items = (db.competitions || []).filter((c) => c.kind === kind && (c.sportType || "กีฬา") === sportType);
+    const items = (db.competitions || []).filter((c) => kind === "กิจกรรม" ? c.kind === "กิจกรรม" : (c.kind === kind && (c.sportType || "กีฬา") === sportType));
     const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 400);
     const addBulk = () => { const names = bulk.split(",").map((x) => x.trim()).filter(Boolean); if (!names.length) {
         ui.notify("พิมพ์ชื่อ" + sportType + "ก่อน (คั่นด้วย , แยกหลายอัน)");
@@ -4943,7 +4948,7 @@ function SportItemsTable({ db, setDb, ui, kind = "แข่งขัน", sportT
     const toggleGrade = (c, g) => { const cur = c.grades || []; upd(c.id, { grades: cur.includes(g) ? cur.filter((x) => x !== g) : [...cur, g] }); };
     const toggleGender = (c, g) => { const cur = c.genders || []; upd(c.id, { genders: cur.includes(g) ? cur.filter((x) => x !== g) : [...cur, g] }); };
     const del = (id) => { setDb((p) => ({ ...p, competitions: (p.competitions || []).filter((c) => c.id !== id) })); save(); };
-    const move = (id, dir) => { setDb((p) => { const comps = [...(p.competitions || [])]; const idxs = comps.map((c, i) => ({ c, i })).filter((o) => o.c.kind === kind && (o.c.sportType || "กีฬา") === sportType).map((o) => o.i); const pos = idxs.findIndex((i) => comps[i].id === id); if (pos < 0)
+    const move = (id, dir) => { setDb((p) => { const comps = [...(p.competitions || [])]; const match = (c) => kind === "กิจกรรม" ? c.kind === "กิจกรรม" : (c.kind === kind && (c.sportType || "กีฬา") === sportType); const idxs = comps.map((c, i) => ({ c, i })).filter((o) => match(o.c)).map((o) => o.i); const pos = idxs.findIndex((i) => comps[i].id === id); if (pos < 0)
         return p; const swap = dir < 0 ? pos - 1 : pos + 1; if (swap < 0 || swap >= idxs.length)
         return p; const a = idxs[pos], b = idxs[swap]; [comps[a], comps[b]] = [comps[b], comps[a]]; return { ...p, competitions: comps }; }); save(); };
     const GR = ["ม.1", "ม.2", "ม.3", "ม.4", "ม.5", "ม.6"];
@@ -5145,17 +5150,17 @@ function ParticipantManager({ comp, db, setDb, ui }) {
     const mainQ = Number(cur.mainCount) || 0, resQ = Number(cur.reserveCount) || 0;
     return (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 16 } },
         React.createElement("div", null,
+            React.createElement("div", { style: { fontWeight: 800, color: C.muted, marginBottom: 8 } }, "\u0E42\u0E0B\u0E19\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01 (\u0E1C\u0E39\u0E49\u0E2A\u0E21\u0E31\u0E04\u0E23)"),
+            React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap" } },
+                block("สมัครเป็นตัวจริง", appliedMain, (x) => [mini("#e6f4ec", "#2f9e6b", () => setSel(x.sid, "main"), "คัดตัวจริง"), mini(C.soft, C.primaryDark, () => setSel(x.sid, "reserve"), "คัดสำรอง"), mini("#fbeeee", "#c0392b", () => remove(x.sid), "ไม่ผ่าน")], null, mainQ),
+                block("สมัครเป็นตัวสำรอง", appliedRes, (x) => [mini("#e6f4ec", "#2f9e6b", () => setSel(x.sid, "main"), "คัดตัวจริง"), mini(C.soft, C.primaryDark, () => setSel(x.sid, "reserve"), "คัดสำรอง"), mini("#fbeeee", "#c0392b", () => remove(x.sid), "ไม่ผ่าน")], null, resQ))),
+        React.createElement("div", null,
             React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8 } },
                 React.createElement("div", { style: { fontWeight: 800, color: "#2f9e6b" } }, "\u0E42\u0E0B\u0E19\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E41\u0E25\u0E49\u0E27"),
                 React.createElement(ItemStatusBadge, { c: cur })),
             React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap" } },
                 block("คัดเลือกเป็นตัวจริง", selectedMain, (x) => [mini(C.soft, C.primaryDark, () => setSel(x.sid, "reserve"), "→ สำรอง"), mini("#eef0f2", C.muted, () => setSel(x.sid, undefined), "ยกเลิกคัด"), mini("#fbeeee", "#c0392b", () => remove(x.sid), "ลบออก")], "#2f9e6b", mainQ),
                 block("คัดเลือกเป็นตัวสำรอง", selectedRes, (x) => [mini(C.soft, C.primaryDark, () => setSel(x.sid, "main"), "→ ตัวจริง"), mini("#eef0f2", C.muted, () => setSel(x.sid, undefined), "ยกเลิกคัด"), mini("#fbeeee", "#c0392b", () => remove(x.sid), "ลบออก")], "#c99a2e", resQ))),
-        React.createElement("div", null,
-            React.createElement("div", { style: { fontWeight: 800, color: C.muted, marginBottom: 8 } }, "\u0E42\u0E0B\u0E19\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01 (\u0E1C\u0E39\u0E49\u0E2A\u0E21\u0E31\u0E04\u0E23)"),
-            React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap" } },
-                block("สมัครเป็นตัวจริง", appliedMain, (x) => [mini("#e6f4ec", "#2f9e6b", () => setSel(x.sid, "main"), "คัดตัวจริง"), mini(C.soft, C.primaryDark, () => setSel(x.sid, "reserve"), "คัดสำรอง"), mini("#fbeeee", "#c0392b", () => remove(x.sid), "ไม่ผ่าน")], null, mainQ),
-                block("สมัครเป็นตัวสำรอง", appliedRes, (x) => [mini("#e6f4ec", "#2f9e6b", () => setSel(x.sid, "main"), "คัดตัวจริง"), mini(C.soft, C.primaryDark, () => setSel(x.sid, "reserve"), "คัดสำรอง"), mini("#fbeeee", "#c0392b", () => remove(x.sid), "ไม่ผ่าน")], null, resQ))),
         P.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E39\u0E49\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E43\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49" }),
         React.createElement("p", { style: { fontSize: 11.5, color: C.muted, margin: 0 } }, "\"\u0E25\u0E1A\u0E2D\u0E2D\u0E01/\u0E44\u0E21\u0E48\u0E1C\u0E48\u0E32\u0E19\" = \u0E19\u0E33\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u0E01\u0E25\u0E31\u0E1A\u0E2A\u0E39\u0E48\u0E2A\u0E16\u0E32\u0E19\u0E30\u0E40\u0E23\u0E34\u0E48\u0E21\u0E15\u0E49\u0E19 \u0E23\u0E2D\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E43\u0E2B\u0E21\u0E48")));
 }
@@ -7277,9 +7282,9 @@ function RegisterForStudent({ db, setDb, ui }) {
    ============================================================ */
 function ProfileGate({ me, setDb, ui }) {
     const rels = ["บิดา", "มารดา", "ปู่", "ย่า", "ตา", "ยาย", "ลุง", "ป้า", "น้า", "อา", "พี่", "ผู้ปกครองอื่น ๆ"];
-    const [f, setF] = useState({ phone: me.phone || "", password: me.password || "", guardian: me.guardian || "", guardianPhone: me.guardianPhone || "", guardianRelation: me.guardianRelation || "", gender: me.gender || "" });
+    const [f, setF] = useState({ phone: me.phone || "", password: me.password || "", guardian: me.guardian || "", guardianPhone: me.guardianPhone || "", guardianRelation: me.guardianRelation || "" });
     const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
-    const ok = f.phone && f.password && f.guardian && f.guardianPhone && f.guardianRelation && f.gender;
+    const ok = f.phone && f.password && f.guardian && f.guardianPhone && f.guardianRelation;
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff", marginBottom: 12 };
     const save = () => { if (!phoneOk(f.phone) || !phoneOk(f.guardianPhone)) {
         ui.notify("เบอร์โทรไม่ถูกต้อง — ใส่ตัวเลขล้วน 9–10 หลัก (เช่น 0812345678) ไม่ต้องมีขีดหรือเว้นวรรค");
@@ -7293,11 +7298,6 @@ function ProfileGate({ me, setDb, ui }) {
             React.createElement("p", { style: { fontSize: 12.5, color: C.muted, marginTop: 0, lineHeight: 1.6 } }, "\u0E01\u0E23\u0E38\u0E13\u0E32\u0E01\u0E23\u0E2D\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E43\u0E2B\u0E49\u0E04\u0E23\u0E1A\u0E01\u0E48\u0E2D\u0E19\u0E40\u0E23\u0E34\u0E48\u0E21\u0E43\u0E0A\u0E49\u0E07\u0E32\u0E19 \u00B7 \u0E15\u0E49\u0E2D\u0E07\u0E01\u0E14 \"\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\" \u0E08\u0E36\u0E07\u0E08\u0E30\u0E40\u0E02\u0E49\u0E32\u0E23\u0E30\u0E1A\u0E1A\u0E44\u0E14\u0E49 (\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E15\u0E48\u0E32\u0E07\u0E40\u0E09\u0E22 \u0E46 \u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E08\u0E30\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01)"),
             React.createElement(Field, { label: "\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19 (\u0E43\u0E0A\u0E49\u0E40\u0E02\u0E49\u0E32\u0E23\u0E30\u0E1A\u0E1A)", value: f.phone, onChange: set("phone"), type: "tel" }),
             React.createElement(Field, { label: "\u0E15\u0E31\u0E49\u0E07\u0E23\u0E2B\u0E31\u0E2A\u0E1C\u0E48\u0E32\u0E19\u0E43\u0E2B\u0E21\u0E48", value: f.password, onChange: set("password") }),
-            React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E40\u0E1E\u0E28"),
-            React.createElement("select", { value: f.gender, onChange: (e) => set("gender")(e.target.value), style: selCss },
-                React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E40\u0E1E\u0E28 \u2014"),
-                React.createElement("option", { value: "\u0E0A\u0E32\u0E22" }, "\u0E0A\u0E32\u0E22"),
-                React.createElement("option", { value: "\u0E2B\u0E0D\u0E34\u0E07" }, "\u0E2B\u0E0D\u0E34\u0E07")),
             React.createElement("div", { style: { fontWeight: 700, color: C.ink, margin: "6px 0 8px" } }, "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E1C\u0E39\u0E49\u0E1B\u0E01\u0E04\u0E23\u0E2D\u0E07"),
             React.createElement(Field, { label: "\u0E0A\u0E37\u0E48\u0E2D\u0E1C\u0E39\u0E49\u0E1B\u0E01\u0E04\u0E23\u0E2D\u0E07", value: f.guardian, onChange: set("guardian") }),
             React.createElement(Field, { label: "\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23\u0E1C\u0E39\u0E49\u0E1B\u0E01\u0E04\u0E23\u0E2D\u0E07", value: f.guardianPhone, onChange: set("guardianPhone"), type: "tel" }),
@@ -7632,7 +7632,7 @@ function updateTeacherIfExists(odb, teacher) {
 function mergeDb(loaded) {
     const s = loaded && loaded.settings ? loaded.settings : {};
     return {
-        students: (loaded && loaded.students) || [],
+        students: ((loaded && loaded.students) || []).map((s) => s.gender ? s : { ...s, gender: genderFromPre(s.pre) }),
         teachers: (loaded && loaded.teachers) || [],
         assistants: (loaded && loaded.assistants) || [],
         competitions: (loaded && loaded.competitions) || [],
