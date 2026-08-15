@@ -809,6 +809,22 @@ function Shell({ role, nav, view, setView, onExit, children, ui, sz = {}, navOrd
         window.addEventListener("resize", apply);
         return () => window.removeEventListener("resize", apply);
     }, [sz.zoomMobile, sz.zoomDesktop]);
+    // วัดความสูงแถบเมนูจริง (ชื่อ 2 บรรทัดทำให้สูงขึ้น) → ดันเนื้อหาล่างให้พ้นแถบ
+    const [navH, setNavH] = useState(96);
+    useEffect(() => {
+        const measure = () => { if (mobileNavRef.current)
+            setNavH(mobileNavRef.current.offsetHeight || 0); };
+        measure();
+        const t = setTimeout(measure, 200);
+        window.addEventListener("resize", measure);
+        let ro = null;
+        if (window.ResizeObserver && mobileNavRef.current) {
+            ro = new ResizeObserver(measure);
+            ro.observe(mobileNavRef.current);
+        }
+        return () => { clearTimeout(t); window.removeEventListener("resize", measure); if (ro)
+            ro.disconnect(); };
+    }, [sz.navIcon, sz.navLabel, sz.navBtn]);
     const scrollNav = (dir) => { const el = navScrollRef.current; if (el)
         el.scrollBy({ left: dir * 150, behavior: "smooth" }); };
     return (React.createElement("div", { style: { minHeight: "100vh", background: C.bg, display: "flex" } },
@@ -826,7 +842,7 @@ function Shell({ role, nav, view, setView, onExit, children, ui, sz = {}, navOrd
                     React.createElement("span", { style: { fontSize: 16 } }, n.icon),
                     n.label))),
                 React.createElement("button", { onClick: () => setConfirmOut(true), style: { width: "100%", textAlign: "left", padding: "10px 12px", border: "none", background: "transparent", color: C.muted, cursor: "pointer", fontSize: 14, marginTop: 2 } }, "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A"))),
-        React.createElement("div", { id: "appScaleRoot", style: { flex: 1, minWidth: 0, paddingBottom: 96 }, className: "md:pb-0" },
+        React.createElement("div", { id: "appScaleRoot", style: { flex: 1, minWidth: 0, paddingBottom: navH + 16 }, className: "md:pb-0" },
             React.createElement("div", { className: "md:hidden", style: { background: C.surface, borderBottom: `1px solid ${C.line}`, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10 } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
                     React.createElement("div", { style: { width: 32, height: 32, borderRadius: 9, background: C.primary, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14 } }, "\u0E2A\u0E35"),
@@ -842,8 +858,8 @@ function Shell({ role, nav, view, setView, onExit, children, ui, sz = {}, navOrd
                 const key = n.children ? (n.defaultKey || "org:all") : n.key;
                 const active = n.children ? String(view).startsWith(n.key) : view === n.key;
                 return (React.createElement("button", { key: n.key, onClick: () => setView(key), style: { flex: "1 0 auto", minWidth: 62, padding: "11px 4px 9px", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, color: active ? C.primary : C.muted } },
-                    React.createElement("span", { style: { fontSize: sz.navIcon || 31 } }, n.icon),
-                    React.createElement("span", { style: { fontSize: sz.navLabel || 18, fontWeight: active ? 700 : 500, maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, n.label)));
+                    React.createElement("span", { style: { fontSize: sz.navIcon || 31, lineHeight: 1 } }, n.icon),
+                    React.createElement("span", { style: { fontSize: sz.navLabel || 18, fontWeight: active ? 700 : 500, maxWidth: 88, textAlign: "center", lineHeight: 1.15, whiteSpace: "normal", wordBreak: "break-word" } }, n.label)));
             })),
             React.createElement("button", { onClick: () => scrollNav(1), "aria-label": "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E02\u0E27\u0E32", style: { flex: "0 0 auto", width: sz.navBtn || 51, border: "none", borderLeft: `1px solid ${C.line}`, borderRadius: "0 8px 8px 0", background: C.soft, color: C.primary, fontSize: (sz.navBtn || 51) * 0.59, fontWeight: 800, cursor: "pointer", lineHeight: 1, padding: 0 } }, "\u203A")),
         React.createElement("button", { className: "hidden md:flex", onClick: () => setConfirmClose(true), title: "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", "aria-label": "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", style: { position: "fixed", top: 12, right: 14, zIndex: 40, width: 36, height: 36, borderRadius: 10, border: `1px solid ${C.line}`, background: C.surface, color: "#c0392b", fontSize: 18, fontWeight: 700, cursor: "pointer", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 6px rgba(0,0,0,.08)" } }, "\u2715"),
