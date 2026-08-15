@@ -93,7 +93,7 @@ const APP_VERSION = "v127";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
-    committee: [{ key: "noti", label: "แจ้งเตือน", icon: "🔔" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "students", label: "ข้อมูลนักเรียน", icon: "👥" }, { key: "select", label: "หน้าที่ของฉัน", icon: "✅" }, { key: "schedule", label: "ตารางแข่ง", icon: "📅" }, { key: "items", label: "รายการแข่งขัน", icon: "🏆" }, { key: "results", label: "ส่งผล", icon: "🏅" }, { key: "register", label: "สมัคร", icon: "✍️" }, { key: "org2", label: "ผังองค์กร", icon: "🌳" }, { key: "attend", label: "ลงเวลา", icon: "⏱" }, { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" }],
+    committee: [{ key: "noti", label: "แจ้งเตือน", icon: "🔔" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "students", label: "ข้อมูลนักเรียน", icon: "👥" }, { key: "select", label: "หน้าที่ของฉัน", icon: "✅" }, { key: "schedule", label: "ตารางแข่ง", icon: "📅" }, { key: "items", label: "รายการแข่งขัน", icon: "🏆" }, { key: "results", label: "ส่งผล", icon: "🏅" }, { key: "register", label: "สมัคร", icon: "✍️" }, { key: "org2", label: "ผังองค์กร", icon: "🌳" }, { key: "orgjoin", label: "ขอสมัครหน้าที่เพิ่ม", icon: "🌳" }, { key: "attend", label: "ลงเวลา", icon: "⏱" }, { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" }],
     admin: [{ key: "home", label: "ภาพรวม", icon: "📊" }, { key: "people", label: "บุคลากร", icon: "👥" }, { key: "orgsetup", label: "ตั้งค่าผัง", icon: "⚙️" }, { key: "org2", label: "ผังองค์กร", icon: "🌳" }, { key: "comp", label: "การแข่งขัน", icon: "🏆" }, { key: "results", label: "จัดการผลการแข่งขัน", icon: "🏅" }, { key: "attend", label: "ลงเวลา", icon: "⏱" }, { key: "promote", label: "เลื่อนชั้น", icon: "⬆️" }, { key: "trash", label: "ถังขยะ", icon: "🗑" }, { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" }, { key: "promo", label: "ตั้งค่า", icon: "⚙️" }],
 };
 BASE_NAVS.studentSelected = BASE_NAVS.student;
@@ -106,6 +106,7 @@ const MENU_DESC = {
     people: "บุคลากร — จัดการรายชื่อนักเรียน/ครู, บัญชีผู้ใช้-รหัสผ่าน, นำเข้ารายชื่อ, ดูหน้าที่ในผังของแต่ละคน",
     orgsetup: "ตั้งค่าผัง — กำหนดหน้าที่+เลขลำดับ, เพิ่มรายการกีฬา/กรีฑา/กิจกรรม (ตั้งเพศ/ระดับ), จัดฝ่าย, ทำแม่แบบผังรายฝ่าย",
     org2: "ผังองค์กร — สร้าง/ดูผังจากแม่แบบ แยกครู/นักเรียนคนละสี, ลงชื่อตำแหน่งว่าง, อนุมัติคำขอเปลี่ยนตัว, ดาวน์โหลด PDF/Excel",
+    orgjoin: "ขอสมัครหน้าที่เพิ่ม — แสดงผังที่ยังลงกรรมการไม่ครบ (ตำแหน่งฝั่งคุณที่ว่าง) ให้กด ＋ ลงชื่อฉัน รับหน้าที่เพิ่ม",
     comp: "การแข่งขัน — คัดเลือกผู้เข้าแข่ง (ตัวจริง/สำรอง), สถิติคะแนน, รายการแข่งขัน/กิจกรรม",
     results: "จัดการผลการแข่งขัน — ลงผลเป็นรอบ แพ้/ชนะ/เสมอ/เหรียญ คิดคะแนนอัตโนมัติ บันทึกวัน-เวลา",
     attend: "ลงเวลา — เช็คเวลาเข้า-ออกผู้เข้าแข่งที่ดูแล (เวลารายวันใช้ร่วมทุกผัง), บุคคลไม่มีส่วนร่วม, สรุปเวลารวม",
@@ -130,7 +131,8 @@ const MENU_DESC_ROLE = {
         home: "หน้าแรก — ตารางแข่งของคุณ ประกาศ และข้อมูลส่วนตัวโดยย่อ",
     },
     committee: {
-        org2: "ผังองค์กร — 2 ส่วน: ผังที่คุณรับผิดชอบ (ขอเปลี่ยนตัวเฉพาะของตนเอง) และตำแหน่งว่างฝั่งคุณให้ลงชื่อเพิ่ม",
+        org2: "ผังองค์กร — ดูผังที่คุณรับผิดชอบ · ขอเปลี่ยนตัวเฉพาะตำแหน่งของตนเอง",
+        orgjoin: "ขอสมัครหน้าที่เพิ่ม — ผังที่ยังลงกรรมการไม่ครบ (ตำแหน่งฝั่งคุณว่าง) กด ＋ ลงชื่อฉัน รับหน้าที่เพิ่ม",
         results: "ส่งผล — ลงผลการแข่งขันเฉพาะรายการที่คุณเป็นกรรมการ/ดูแล",
         register: "สมัคร — เพิ่ม/สมัครผู้เข้าแข่งแทนนักเรียน ในรายการที่คุณดูแล",
         attend: "ลงเวลา — เช็คเวลาเข้า-ออกผู้เข้าแข่งในรายการที่ดูแล; ตัวคุณ (กรรมการ) ได้เวลาอัตโนมัติเมื่อเช็คให้ลูกทีม",
@@ -6597,13 +6599,11 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
         return false; const a = reqApprovers(db, r); const canApp = role === "teacher" ? a.teacherIds.has(meId) : a.studentIds.has(meId); const isRep = String(r.replacementId || "") === String(meId); const isReq = String(r.personId) === String(meId); if (r.status === "rejected")
         return isReq; if (r.status === "pending")
         return canApp || (isRep && r.replacementStatus !== "declined") || isReq; return false; }).length;
-    const which = role === "teacher" ? "orgTeacher" : "orgStudent";
     const myComps = useMemo(() => {
         // ระบบใหม่ (org2) เท่านั้น: รายการที่ฉันดูแล = รายการที่มีชื่อฉันอยู่ในผังใหม่
         const myCompIdSet = new Set((db.org2 || []).filter((n) => String(n.personId) === String(meId)).map((n) => String(n.compId)));
         return db.competitions.filter((c) => myCompIdSet.has(String(c.id)));
     }, [db.competitions, db.org2, meId]);
-    const myNodeIds = (db[which] || []).filter((n) => String(n.personId) === String(meId)).map((n) => n.id);
     const myCompIds = myComps.map((c) => c.id);
     const orgDefault = myComps[0] ? "org:" + myComps[0].id : "org:all";
     const orgChildren = [{ header: true, label: "รายการแข่งขัน" }, ...myComps.filter((c) => c.kind === "แข่งขัน").map((c) => ({ key: "org:" + c.id, label: c.name })), { header: true, label: "รายการกิจกรรม" }, ...myComps.filter((c) => c.kind === "กิจกรรม").map((c) => ({ key: "org:" + c.id, label: c.name }))];
@@ -6617,6 +6617,7 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
         { key: "results", label: "ส่งผล", icon: "🏅" },
         { key: "register", label: "สมัคร", icon: "✍️" },
         { key: "org2", label: "ผังองค์กร", icon: "🌳" },
+        { key: "orgjoin", label: "ขอสมัครหน้าที่เพิ่ม", icon: "🌳" },
         { key: "attend", label: "ลงเวลา", icon: "⏱", defaultKey: "attend:day", children: [{ key: "attend:day", label: "ลงเวลาซ้อม-วันจริง" }, { key: "attend:none", label: "บุคคลไม่มีส่วนร่วม" }, { key: "attend:sum", label: "สรุปเวลารวม" }] },
         { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" },
     ];
@@ -6631,13 +6632,19 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
             const meP = (role === "teacher" ? db.teachers : db.students).find((x) => String(x.id) === String(meId));
             const meSide = role === "teacher" ? "teacher" : "student";
             const mine = [...new Set((db.org2 || []).filter((n) => String(n.personId) === String(meId)).map((n) => String(n.compId)))];
-            const openComps = [...new Set((db.org2 || []).filter((n) => n.side === meSide && !n.personId).map((n) => String(n.compId)))];
-            const vc = orgTab === "open" ? openComps : mine;
             return React.createElement("div", null,
-                React.createElement(PageHead, { title: "\uD83C\uDF33 \u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23", sub: orgTab === "open" ? "ตำแหน่งฝั่งคุณที่ยังว่าง — กด ＋ ลงชื่อฉัน เพื่อรับหน้าที่เพิ่ม" : "ผังของรายการที่คุณรับผิดชอบ · ขอเปลี่ยนตัวได้" }),
-                React.createElement(Tabs, { tabs: [{ key: "mine", label: "ผังของฉัน (" + mine.length + ")" }, { key: "open", label: "ลงกรรมการเพิ่ม (" + openComps.length + ")" }], active: orgTab, onChange: setOrgTab }),
-                vc.length === 0 ? React.createElement(Empty, { text: orgTab === "open" ? "ไม่มีตำแหน่งว่างฝั่งคุณให้ลงเพิ่ม" : "คุณยังไม่มีผังที่รับผิดชอบ — ไปที่แท็บ 'ลงกรรมการเพิ่ม' เพื่อรับหน้าที่" })
-                    : React.createElement(Org2Manager, { db: db, setDb: setDb, ui: ui, viewer: { role, id: meId, name: meP ? fullName(meP) : "" }, canEdit: false, selfSignup: true, meSide: meSide, visibleCompIds: vc }));
+                React.createElement(PageHead, { title: "\uD83C\uDF33 \u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23", sub: "\u0E1C\u0E31\u0E07\u0E02\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E04\u0E38\u0E13\u0E23\u0E31\u0E1A\u0E1C\u0E34\u0E14\u0E0A\u0E2D\u0E1A \u00B7 \u0E02\u0E2D\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E15\u0E31\u0E27\u0E44\u0E14\u0E49" }),
+                mine.length === 0 ? React.createElement(Empty, { text: "\u0E04\u0E38\u0E13\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E31\u0E07\u0E17\u0E35\u0E48\u0E23\u0E31\u0E1A\u0E1C\u0E34\u0E14\u0E0A\u0E2D\u0E1A \u2014 \u0E44\u0E1B\u0E17\u0E35\u0E48\u0E40\u0E21\u0E19\u0E39 '\u0E02\u0E2D\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E40\u0E1E\u0E34\u0E48\u0E21' \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E23\u0E31\u0E1A\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48" })
+                    : React.createElement(Org2Manager, { db: db, setDb: setDb, ui: ui, viewer: { role, id: meId, name: meP ? fullName(meP) : "" }, canEdit: false, selfSignup: true, meSide: meSide, visibleCompIds: mine }));
+        })(),
+        view === "orgjoin" && (() => {
+            const meP = (role === "teacher" ? db.teachers : db.students).find((x) => String(x.id) === String(meId));
+            const meSide = role === "teacher" ? "teacher" : "student";
+            const openComps = [...new Set((db.org2 || []).filter((n) => n.side === meSide && !n.personId).map((n) => String(n.compId)))];
+            return React.createElement("div", null,
+                React.createElement(PageHead, { title: "\uD83C\uDF33 \u0E02\u0E2D\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E40\u0E1E\u0E34\u0E48\u0E21", sub: "\u0E1C\u0E31\u0E07\u0E17\u0E35\u0E48\u0E22\u0E31\u0E07\u0E25\u0E07\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E44\u0E21\u0E48\u0E04\u0E23\u0E1A \u2014 \u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E1D\u0E31\u0E48\u0E07\u0E04\u0E38\u0E13\u0E17\u0E35\u0E48\u0E27\u0E48\u0E32\u0E07 \u0E01\u0E14 \uFF0B \u0E25\u0E07\u0E0A\u0E37\u0E48\u0E2D\u0E09\u0E31\u0E19 \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E23\u0E31\u0E1A\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E40\u0E1E\u0E34\u0E48\u0E21" }),
+                openComps.length === 0 ? React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E27\u0E48\u0E32\u0E07\u0E1D\u0E31\u0E48\u0E07\u0E04\u0E38\u0E13\u0E43\u0E2B\u0E49\u0E25\u0E07\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E41\u0E25\u0E49\u0E27" })
+                    : React.createElement(Org2Manager, { db: db, setDb: setDb, ui: ui, viewer: { role, id: meId, name: meP ? fullName(meP) : "" }, canEdit: false, selfSignup: true, meSide: meSide, visibleCompIds: openComps }));
         })(),
         String(view).startsWith("attend") && React.createElement(TimeAttendance, { db: db, setDb: setDb, ui: ui, meId: meId, role: role, myComps: myComps, sub: String(view).split(":")[1] || "day" }),
         view === "finance" && (() => { const meP = (role === "teacher" ? db.teachers : db.students).find((x) => String(x.id) === String(meId)); return React.createElement(FinanceManager, { db: db, setDb: setDb, ui: ui, viewer: { role, id: meId, name: meP ? fullName(meP) : "" } }); })(),
