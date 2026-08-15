@@ -1945,11 +1945,7 @@ function DataSizeCard({ db, setDb, ui }) {
         React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 } },
             React.createElement(Btn, { small: true, onClick: analyze }, "\u0E15\u0E23\u0E27\u0E08\u0E02\u0E19\u0E32\u0E14\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25"),
             React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setConfirmClean(true) }, "\uD83E\uDDF9 \u0E25\u0E49\u0E32\u0E07\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E0B\u0E49\u0E33/\u0E44\u0E21\u0E48\u0E43\u0E0A\u0E49"),
-            React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setConfirmDelOld(true) }, "\uD83D\uDDD1 \u0E25\u0E1A\u0E1C\u0E31\u0E07\u0E40\u0E01\u0E48\u0E32 (orgTeacher/orgStudent/dutyList)"),
-            React.createElement(Btn, { small: true, variant: "ghost", onClick: () => { let n = 0; setDb((p) => { const students = (p.students || []).map((s) => { const g = genderFromPre(s.pre); if (g && s.gender !== g) {
-                    n++;
-                    return { ...s, gender: g };
-                } return s; }); return { ...p, students }; }); setTimeout(() => window.__forceSave && window.__forceSave(), 400); ui.notify(n > 0 ? `เติม/แก้เพศจากคำนำหน้าให้ ${n} คนแล้ว` : "ทุกคนมีเพศตรงกับคำนำหน้าแล้ว"); } }, "\u26A7 \u0E40\u0E15\u0E34\u0E21\u0E40\u0E1E\u0E28\u0E08\u0E32\u0E01\u0E04\u0E33\u0E19\u0E33\u0E2B\u0E19\u0E49\u0E32 (\u0E17\u0E38\u0E01\u0E04\u0E19)")),
+            React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setConfirmDelOld(true) }, "\uD83D\uDDD1 \u0E25\u0E1A\u0E1C\u0E31\u0E07\u0E40\u0E01\u0E48\u0E32 (orgTeacher/orgStudent/dutyList)")),
         report && (React.createElement("div", null,
             React.createElement("div", { style: { fontWeight: 800, color: C.primaryDark, marginBottom: 6 } },
                 "\u0E23\u0E27\u0E21\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 \u2248 ",
@@ -2712,6 +2708,8 @@ function PersonForm({ kind, person, onClose, onSave, ui, houses }) {
         }
         ui.runAsync(newPhoto ? "กำลังอัปโหลดรูปและบันทึก..." : "กำลังบันทึก...", async () => {
             let data = { ...f };
+            if (kind === "student" && !data.gender)
+                data.gender = genderFromPre(data.pre); // เพศจากคำนำหน้าอัตโนมัติ (ครั้งเดียวตอนบันทึก)
             if (newPhoto) {
                 const up = await uploadImageRemote(newPhoto, data, kind, person && person.photoId);
                 if (up) {
@@ -7652,8 +7650,10 @@ function updateTeacherIfExists(odb, teacher) {
 }
 function mergeDb(loaded) {
     const s = loaded && loaded.settings ? loaded.settings : {};
+    const _rawStudents = (loaded && loaded.students) || [];
+    const _needGenderFill = !s.genderFilled;
     return {
-        students: ((loaded && loaded.students) || []).map((s) => s.gender ? s : { ...s, gender: genderFromPre(s.pre) }),
+        students: _needGenderFill ? _rawStudents.map((st) => st.gender ? st : { ...st, gender: genderFromPre(st.pre) }) : _rawStudents,
         teachers: (loaded && loaded.teachers) || [],
         assistants: (loaded && loaded.assistants) || [],
         competitions: (loaded && loaded.competitions) || [],
@@ -7681,7 +7681,7 @@ function mergeDb(loaded) {
         archived: (loaded && loaded.archived) || [],
         trash: (loaded && loaded.trash) || [],
         settings: {
-            ...seed.settings, ...s,
+            ...seed.settings, ...s, genderFilled: true,
             houses: (s.houses && s.houses.length) ? s.houses : seed.settings.houses,
             scoreConfig: { ...seed.settings.scoreConfig, ...(s.scoreConfig || {}) },
             announce: { ...seed.settings.announce, ...(s.announce || {}) },
@@ -7973,12 +7973,20 @@ function App() {
             let nd;
             if (j.data) {
                 try {
-                    nd = mergeDb(JSON.parse(j.data));
+                    const _parsed = JSON.parse(j.data);
+                    nd = mergeDb(_parsed);
                     lastRawRef.current = j.data;
                     try {
                         localStorage.setItem(cacheKey(), j.data);
                     }
                     catch (e) { }
+                    if (!(_parsed.settings && _parsed.settings.genderFilled)) {
+                        dirtyRef.current = true;
+                        setTimeout(() => { try {
+                            doSave();
+                        }
+                        catch (e) { } }, 800);
+                    }
                 }
                 catch (e) {
                     nd = mergeDb({});
