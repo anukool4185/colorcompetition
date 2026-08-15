@@ -134,7 +134,7 @@ const seed = {
     competitions: [],
     archived: [],
     trash: [],
-    settings: { maxMain: 3, themeColor: DEFAULT_HOUSES[0].color, houses: DEFAULT_HOUSES, scoreConfig: { scheme: "outcome", win: 3, draw: 1, lose: 0, gold: 10, silver: 8, bronze: 6 }, attendWin: { inStart: "15:00", inEnd: "16:30", outStart: "17:00", outEnd: "18:30" }, announce: { speed: 18, showLines: 3, lines: [
+    settings: { maxMain: 3, themeColor: DEFAULT_HOUSES[0].color, houses: DEFAULT_HOUSES, ui: { zoomMobile: 100, zoomDesktop: 100, navIcon: 31, navLabel: 18, navBtn: 51 }, scoreConfig: { scheme: "outcome", win: 3, draw: 1, lose: 0, gold: 10, silver: 8, bronze: 6 }, attendWin: { inStart: "15:00", inEnd: "16:30", outStart: "17:00", outEnd: "18:30" }, announce: { speed: 18, showLines: 3, lines: [
                 "ยินดีต้อนรับสู่การแข่งขันวิชาการสี",
             ] } },
 };
@@ -742,7 +742,7 @@ class ErrorBoundary extends React.Component {
         return this.props.children;
     }
 }
-function Shell({ role, nav, view, setView, onExit, children, ui }) {
+function Shell({ role, nav, view, setView, onExit, children, ui, sz = {} }) {
     const roleLabel = { admin: "แอดมิน", teacher: "กรรมการ (ครู)", studentcom: "กรรมการ (นักเรียน)", student: "นักเรียน" }[role];
     const cur = nav.find((n) => n.key === view) || nav.find((n) => n.children && n.children.some((c) => c.key === view)) || {};
     const [confirmOut, setConfirmOut] = useState(false);
@@ -765,6 +765,19 @@ function Shell({ role, nav, view, setView, onExit, children, ui }) {
         update();
         return () => { vv.removeEventListener("resize", update); vv.removeEventListener("scroll", update); };
     }, []);
+    // ปรับขนาดรวมทุกส่วน (zoom) แยกมือถือ/คอม ตามการตั้งค่า
+    useEffect(() => {
+        const apply = () => {
+            const isM = window.innerWidth < 768;
+            const z = (isM ? (sz.zoomMobile || 100) : (sz.zoomDesktop || 100)) / 100;
+            const el = document.getElementById("appScaleRoot");
+            if (el)
+                el.style.zoom = z;
+        };
+        apply();
+        window.addEventListener("resize", apply);
+        return () => window.removeEventListener("resize", apply);
+    }, [sz.zoomMobile, sz.zoomDesktop]);
     const scrollNav = (dir) => { const el = navScrollRef.current; if (el)
         el.scrollBy({ left: dir * 150, behavior: "smooth" }); };
     return (React.createElement("div", { style: { minHeight: "100vh", background: C.bg, display: "flex" } },
@@ -782,7 +795,7 @@ function Shell({ role, nav, view, setView, onExit, children, ui }) {
                     React.createElement("span", { style: { fontSize: 16 } }, n.icon),
                     n.label))),
                 React.createElement("button", { onClick: () => setConfirmOut(true), style: { width: "100%", textAlign: "left", padding: "10px 12px", border: "none", background: "transparent", color: C.muted, cursor: "pointer", fontSize: 14, marginTop: 2 } }, "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A"))),
-        React.createElement("div", { style: { flex: 1, minWidth: 0, paddingBottom: 96 }, className: "md:pb-0" },
+        React.createElement("div", { id: "appScaleRoot", style: { flex: 1, minWidth: 0, paddingBottom: 96 }, className: "md:pb-0" },
             React.createElement("div", { className: "md:hidden", style: { background: C.surface, borderBottom: `1px solid ${C.line}`, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10 } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
                     React.createElement("div", { style: { width: 32, height: 32, borderRadius: 9, background: C.primary, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14 } }, "\u0E2A\u0E35"),
@@ -793,15 +806,15 @@ function Shell({ role, nav, view, setView, onExit, children, ui }) {
             React.createElement("div", { style: { maxWidth: 960, margin: "0 auto", padding: 16 } },
                 React.createElement(ErrorBoundary, { key: view }, children))),
         React.createElement("nav", { ref: mobileNavRef, className: "md:hidden", style: { position: "fixed", bottom: 0, left: 0, right: 0, boxSizing: "border-box", maxWidth: "100%", overflow: "hidden", paddingLeft: "max(4px, env(safe-area-inset-left))", paddingRight: "max(4px, env(safe-area-inset-right))", paddingBottom: "env(safe-area-inset-bottom)", background: C.surface, borderTop: `1px solid ${C.line}`, display: "flex", alignItems: "stretch", zIndex: 20, boxShadow: "0 -2px 10px rgba(0,0,0,.06)" } },
-            React.createElement("button", { onClick: () => scrollNav(-1), "aria-label": "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E0B\u0E49\u0E32\u0E22", style: { flex: "0 0 auto", width: 51, border: "none", borderRight: `1px solid ${C.line}`, borderRadius: "8px 0 0 8px", background: C.soft, color: C.primary, fontSize: 30, fontWeight: 800, cursor: "pointer", lineHeight: 1, padding: 0 } }, "\u2039"),
+            React.createElement("button", { onClick: () => scrollNav(-1), "aria-label": "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E0B\u0E49\u0E32\u0E22", style: { flex: "0 0 auto", width: sz.navBtn || 51, border: "none", borderRight: `1px solid ${C.line}`, borderRadius: "8px 0 0 8px", background: C.soft, color: C.primary, fontSize: (sz.navBtn || 51) * 0.59, fontWeight: 800, cursor: "pointer", lineHeight: 1, padding: 0 } }, "\u2039"),
             React.createElement("div", { ref: navScrollRef, style: { flex: "1 1 auto", minWidth: 0, display: "flex", flexWrap: "nowrap", overflowX: "auto", WebkitOverflowScrolling: "touch", scrollPaddingLeft: 6, scrollPaddingRight: 6, paddingLeft: 4, paddingRight: 4 } }, nav.map((n) => {
                 const key = n.children ? (n.defaultKey || "org:all") : n.key;
                 const active = n.children ? String(view).startsWith(n.key) : view === n.key;
                 return (React.createElement("button", { key: n.key, onClick: () => setView(key), style: { flex: "1 0 auto", minWidth: 62, padding: "11px 4px 9px", background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, color: active ? C.primary : C.muted } },
-                    React.createElement("span", { style: { fontSize: 31 } }, n.icon),
-                    React.createElement("span", { style: { fontSize: 18, fontWeight: active ? 700 : 500, maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, n.label)));
+                    React.createElement("span", { style: { fontSize: sz.navIcon || 31 } }, n.icon),
+                    React.createElement("span", { style: { fontSize: sz.navLabel || 18, fontWeight: active ? 700 : 500, maxWidth: 100, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, n.label)));
             })),
-            React.createElement("button", { onClick: () => scrollNav(1), "aria-label": "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E02\u0E27\u0E32", style: { flex: "0 0 auto", width: 51, border: "none", borderLeft: `1px solid ${C.line}`, borderRadius: "0 8px 8px 0", background: C.soft, color: C.primary, fontSize: 30, fontWeight: 800, cursor: "pointer", lineHeight: 1, padding: 0 } }, "\u203A")),
+            React.createElement("button", { onClick: () => scrollNav(1), "aria-label": "\u0E40\u0E25\u0E37\u0E48\u0E2D\u0E19\u0E02\u0E27\u0E32", style: { flex: "0 0 auto", width: sz.navBtn || 51, border: "none", borderLeft: `1px solid ${C.line}`, borderRadius: "0 8px 8px 0", background: C.soft, color: C.primary, fontSize: (sz.navBtn || 51) * 0.59, fontWeight: 800, cursor: "pointer", lineHeight: 1, padding: 0 } }, "\u203A")),
         React.createElement("button", { className: "hidden md:flex", onClick: () => setConfirmClose(true), title: "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", "aria-label": "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", style: { position: "fixed", top: 12, right: 14, zIndex: 40, width: 36, height: 36, borderRadius: 10, border: `1px solid ${C.line}`, background: C.surface, color: "#c0392b", fontSize: 18, fontWeight: 700, cursor: "pointer", alignItems: "center", justifyContent: "center", boxShadow: "0 1px 6px rgba(0,0,0,.08)" } }, "\u2715"),
         confirmOut && React.createElement(ConfirmModal, { title: "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A", message: "\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A\u0E43\u0E0A\u0E48\u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E21\u0E48? \u0E04\u0E23\u0E31\u0E49\u0E07\u0E15\u0E48\u0E2D\u0E44\u0E1B\u0E15\u0E49\u0E2D\u0E07\u0E25\u0E47\u0E2D\u0E01\u0E2D\u0E34\u0E19\u0E43\u0E2B\u0E21\u0E48", confirmLabel: "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A", onConfirm: () => { setConfirmOut(false); onExit(); }, onClose: () => setConfirmOut(false) }),
         confirmClose && React.createElement(ConfirmModal, { title: "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", message: "\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A\u0E19\u0E35\u0E49\u0E43\u0E0A\u0E48\u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E21\u0E48? (\u0E23\u0E30\u0E1A\u0E1A\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E02\u0E36\u0E49\u0E19 Sheet \u0E41\u0E25\u0E49\u0E27)", confirmLabel: "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", variant: "danger", onConfirm: () => { setConfirmClose(false); closeWin(); }, onClose: () => setConfirmClose(false) }),
@@ -1852,7 +1865,7 @@ function AdminApp({ db, setDb, onExit }) {
         { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" },
         { key: "promo", label: "ตั้งค่า " + APP_VERSION, icon: "⚙️" },
     ];
-    return (React.createElement(Shell, { role: "admin", nav: nav, view: view, setView: setView, onExit: onExit, ui: ui },
+    return (React.createElement(Shell, { role: "admin", nav: nav, view: view, setView: setView, onExit: onExit, ui: ui, sz: (db.settings && db.settings.ui) || {} },
         view === "home" && React.createElement(AdminHome, { db: db, setDb: setDb, ui: ui }),
         view === "noti" && React.createElement(NotificationCenter, { db: db, setDb: setDb, ui: ui, admin: true, onGoResults: (id) => { setJumpComp(id); setView("results"); } }),
         view === "people" && React.createElement(PeopleManager, { db: db, setDb: setDb, ui: ui }),
@@ -5767,8 +5780,9 @@ function SettingsManager({ db, setDb, ui }) {
     const [tab, setTab] = useState("theme");
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32", sub: "\u0E18\u0E35\u0E21\u0E2A\u0E35 & \u0E2A\u0E35\u0E17\u0E35\u0E21 \u00B7 \u0E1B\u0E23\u0E30\u0E0A\u0E32\u0E2A\u0E31\u0E21\u0E1E\u0E31\u0E19\u0E18\u0E4C \u00B7 \u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19" }),
-        React.createElement(Tabs, { tabs: [{ key: "theme", label: "ธีม & สีทีม" }, { key: "promo", label: "ประชาสัมพันธ์" }, { key: "schedule", label: "กำหนดการแข่งขัน" }, { key: "training", label: "กำหนดการฝึกซ้อม" }, { key: "score", label: "คะแนน" }, { key: "attend", label: "ช่วงเวลาลงเวลา" }], active: tab, onChange: setTab }),
+        React.createElement(Tabs, { tabs: [{ key: "theme", label: "ธีม & สีทีม" }, { key: "promo", label: "ประชาสัมพันธ์" }, { key: "schedule", label: "กำหนดการแข่งขัน" }, { key: "training", label: "กำหนดการฝึกซ้อม" }, { key: "score", label: "คะแนน" }, { key: "attend", label: "ช่วงเวลาลงเวลา" }, { key: "size", label: "ขนาดการแสดงผล" }], active: tab, onChange: setTab }),
         tab === "theme" && React.createElement(ThemeCard, { db: db, setDb: setDb, ui: ui }),
+        tab === "size" && React.createElement(UISizeCard, { db: db, setDb: setDb, ui: ui }),
         tab === "promo" && React.createElement(PromoCard, { db: db, setDb: setDb, ui: ui }),
         tab === "schedule" && React.createElement(ScheduleSettings, { db: db, setDb: setDb, ui: ui }),
         tab === "training" && React.createElement(TrainingManager, { db: db, setDb: setDb, ui: ui }),
@@ -5822,6 +5836,32 @@ function ScheduleSettings({ db, setDb, ui }) {
                     c.schedule.length === 0 && React.createElement("span", { style: { fontSize: 12.5, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22"))))),
             list.length === 0 && React.createElement(Empty, { text: `ยังไม่มีรายการ${kind} (เพิ่มที่เมนู หน้าที่ กิจกรรมแข่งขัน)` })),
         addTo && React.createElement(SchForm, { onClose: () => setAddTo(null), onSave: (s) => addSch(addTo, s) })));
+}
+function UISizeCard({ db, setDb, ui }) {
+    const cur = (db.settings && db.settings.ui) || {};
+    const [f, setF] = useState({ zoomMobile: cur.zoomMobile || 100, zoomDesktop: cur.zoomDesktop || 100, navIcon: cur.navIcon || 31, navLabel: cur.navLabel || 18, navBtn: cur.navBtn || 51 });
+    const set = (k, v) => { const nf = { ...f, [k]: v }; setF(nf); setDb((p) => ({ ...p, settings: { ...p.settings, ui: { ...(p.settings.ui || {}), [k]: v } } })); };
+    const save = () => { setTimeout(() => window.__forceSave && window.__forceSave(), 300); ui.notify("บันทึกขนาดการแสดงผลแล้ว"); };
+    const reset = () => { const d = { zoomMobile: 100, zoomDesktop: 100, navIcon: 31, navLabel: 18, navBtn: 51 }; setF(d); setDb((p) => ({ ...p, settings: { ...p.settings, ui: d } })); setTimeout(() => window.__forceSave && window.__forceSave(), 300); ui.notify("รีเซ็ตเป็นค่าเริ่มต้น"); };
+    const row = (label, k, min, max, step, unit) => (React.createElement("div", { style: { marginBottom: 16 } },
+        React.createElement("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 4 } },
+            React.createElement("span", { style: { fontSize: 13.5, fontWeight: 600, color: C.ink } }, label),
+            React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: C.primaryDark } },
+                f[k],
+                unit)),
+        React.createElement("input", { type: "range", min: min, max: max, step: step, value: f[k], onChange: (e) => set(k, Number(e.target.value)), style: { width: "100%", accentColor: C.primary } })));
+    return (React.createElement(Card, { style: { padding: 18 } },
+        React.createElement("div", { style: { fontSize: 13, color: C.muted, marginBottom: 14 } }, "\u0E1B\u0E23\u0E31\u0E1A\u0E02\u0E19\u0E32\u0E14\u0E01\u0E32\u0E23\u0E41\u0E2A\u0E14\u0E07\u0E1C\u0E25\u0E44\u0E14\u0E49\u0E40\u0E2D\u0E07 \u0E40\u0E2B\u0E47\u0E19\u0E1C\u0E25\u0E17\u0E31\u0E19\u0E17\u0E35 (\u0E41\u0E22\u0E01\u0E21\u0E37\u0E2D\u0E16\u0E37\u0E2D/\u0E04\u0E2D\u0E21) \u2014 \u0E44\u0E21\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E41\u0E01\u0E49\u0E42\u0E04\u0E49\u0E14"),
+        React.createElement("div", { style: { fontWeight: 800, color: C.primaryDark, marginBottom: 8 } }, "\uD83D\uDCF1 \u0E21\u0E37\u0E2D\u0E16\u0E37\u0E2D"),
+        row("ขนาดรวมทั้งหน้า (ซูม)", "zoomMobile", 70, 150, 5, "%"),
+        row("ขนาดไอคอนเมนูล่าง", "navIcon", 18, 54, 1, "px"),
+        row("ขนาดตัวหนังสือใต้ไอคอน", "navLabel", 10, 30, 1, "px"),
+        row("ความกว้างปุ่มเลื่อน ‹ ›", "navBtn", 30, 80, 1, "px"),
+        React.createElement("div", { style: { fontWeight: 800, color: C.primaryDark, margin: "14px 0 8px" } }, "\uD83D\uDCBB \u0E04\u0E2D\u0E21\u0E1E\u0E34\u0E27\u0E40\u0E15\u0E2D\u0E23\u0E4C"),
+        row("ขนาดรวมทั้งหน้า (ซูม)", "zoomDesktop", 70, 150, 5, "%"),
+        React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 8 } },
+            React.createElement(Btn, { onClick: save }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01"),
+            React.createElement(Btn, { variant: "ghost", onClick: reset }, "\u0E23\u0E35\u0E40\u0E0B\u0E47\u0E15\u0E04\u0E48\u0E32\u0E40\u0E23\u0E34\u0E48\u0E21\u0E15\u0E49\u0E19"))));
 }
 function ThemeCard({ db, setDb, ui }) {
     const houses = db.settings.houses || [];
@@ -6339,7 +6379,7 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
         { key: "attend", label: "ลงเวลา", icon: "⏱", defaultKey: "attend:day", children: [{ key: "attend:day", label: "ลงเวลาซ้อม-วันจริง" }, { key: "attend:none", label: "บุคคลไม่มีส่วนร่วม" }, { key: "attend:sum", label: "สรุปเวลารวม" }] },
         { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" },
     ];
-    return (React.createElement(Shell, { role: role, nav: nav, view: view, setView: setView, onExit: onExit, ui: ui },
+    return (React.createElement(Shell, { role: role, nav: nav, view: view, setView: setView, onExit: onExit, ui: ui, sz: (db.settings && db.settings.ui) || {} },
         view === "noti" && React.createElement(NotificationCenter, { db: db, setDb: setDb, ui: ui, admin: false, viewerId: meId, viewerRole: role, onGoResults: (id) => { setJumpComp(id); setView("results"); } }),
         view === "me" && React.createElement(CommitteeProfile, { role: role, meId: meId, db: db, setDb: setDb, ui: ui }),
         view === "students" && React.createElement(StudentInfoList, { db: db }),
@@ -7379,7 +7419,7 @@ function StudentApp({ db, setDb, onExit, meId }) {
         { key: "finance", label: "การเงิน", icon: "💰" },
     ];
     const myPassedComps = [...new Set((db.competitions || []).filter((c) => (c.participants || []).some((x) => String(x.sid) === String(me.id) && (x.sel === "main" || x.sel === "reserve"))).map((c) => String(c.id)))];
-    return (React.createElement(Shell, { role: "student", nav: nav, view: view, setView: setView, onExit: onExit, ui: ui },
+    return (React.createElement(Shell, { role: "student", nav: nav, view: view, setView: setView, onExit: onExit, ui: ui, sz: (db.settings && db.settings.ui) || {} },
         view === "home" && React.createElement(StudentSchedule, { me: me, db: db, ui: ui }),
         view === "me" && React.createElement(MyProfile, { me: me, db: db, setDb: setDb, ui: ui }),
         view === "register" && React.createElement(StudentRegister, { me: me, db: db, setDb: setDb, ui: ui }),
@@ -7715,6 +7755,7 @@ function mergeDb(loaded) {
         trash: (loaded && loaded.trash) || [],
         settings: {
             ...seed.settings, ...s, genderFilled: true,
+            ui: { ...seed.settings.ui, ...(s.ui || {}) },
             houses: (s.houses && s.houses.length) ? s.houses : seed.settings.houses,
             scoreConfig: { ...seed.settings.scoreConfig, ...(s.scoreConfig || {}) },
             announce: { ...seed.settings.announce, ...(s.announce || {}) },
