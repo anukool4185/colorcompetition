@@ -7613,8 +7613,15 @@ function MyProfile({ me, db, setDb, ui }) {
     const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff", marginBottom: 12 };
     const total = scoreStats(db)[me.id] || 0;
+    const pLayout = ((db.settings && db.settings.layouts) || {}).studentProfile || "narrow";
+    const setPLayout = (v) => { setDb((p) => ({ ...p, settings: { ...p.settings, layouts: { ...((p.settings && p.settings.layouts) || {}), studentProfile: v } } })); setTimeout(() => window.__forceSave && window.__forceSave(), 300); };
+    const wide = pLayout === "wide";
+    const fieldWrap = wide ? { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "0 14px" } : {};
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E02\u0E2D\u0E07\u0E09\u0E31\u0E19", sub: `เข้าสู่ระบบด้วยรหัสนักเรียน ${me.id}` }),
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12.5, color: C.muted, marginBottom: 10 } },
+            React.createElement("span", null, "\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E01\u0E32\u0E23\u0E27\u0E32\u0E07:"),
+            [{ k: "narrow", label: "แคบ (1 คอลัมน์)" }, { k: "wide", label: "กว้าง (2 คอลัมน์)" }].map((l) => React.createElement("button", { key: l.k, onClick: () => setPLayout(l.k), style: { padding: "5px 12px", borderRadius: 16, border: "none", cursor: "pointer", fontSize: 12, fontWeight: pLayout === l.k ? 700 : 500, background: pLayout === l.k ? C.primary : C.surface, color: pLayout === l.k ? "#fff" : C.ink, boxShadow: pLayout === l.k ? "none" : `inset 0 0 0 1px ${C.line}` } }, l.label))),
         React.createElement(Card, { style: { padding: 16, marginBottom: 14, display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" } },
             React.createElement(Avatar, { person: me, size: 64 }),
             React.createElement("div", { style: { flex: 1, minWidth: 0 } },
@@ -7629,13 +7636,15 @@ function MyProfile({ me, db, setDb, ui }) {
             React.createElement("div", { style: { textAlign: "center" } },
                 React.createElement("div", { style: { fontSize: 24, fontWeight: 800, color: C.primary } }, total),
                 React.createElement("div", { style: { fontSize: 11, color: C.muted } }, "\u0E04\u0E30\u0E41\u0E19\u0E19\u0E2A\u0E30\u0E2A\u0E21"))),
-        React.createElement(Card, { style: { padding: 16, maxWidth: 460 } },
+        React.createElement(Card, { style: { padding: 16, maxWidth: wide ? 720 : 460 } },
             React.createElement("div", { style: { fontWeight: 700, color: C.ink, marginBottom: 10 } }, "\u0E41\u0E01\u0E49\u0E44\u0E02\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25"),
-            React.createElement(Field, { label: "\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19", value: f.phone, onChange: set("phone"), type: "tel" }),
-            React.createElement(Field, { label: "\u0E23\u0E2B\u0E31\u0E2A\u0E1C\u0E48\u0E32\u0E19", value: f.password, onChange: set("password") }),
+            React.createElement("div", { style: fieldWrap },
+                React.createElement(Field, { label: "\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19", value: f.phone, onChange: set("phone"), type: "tel" }),
+                React.createElement(Field, { label: "\u0E23\u0E2B\u0E31\u0E2A\u0E1C\u0E48\u0E32\u0E19", value: f.password, onChange: set("password") })),
             React.createElement("div", { style: { fontWeight: 700, color: C.ink, margin: "6px 0 8px" } }, "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E1C\u0E39\u0E49\u0E1B\u0E01\u0E04\u0E23\u0E2D\u0E07"),
-            React.createElement(Field, { label: "\u0E0A\u0E37\u0E48\u0E2D\u0E1C\u0E39\u0E49\u0E1B\u0E01\u0E04\u0E23\u0E2D\u0E07", value: f.guardian, onChange: set("guardian") }),
-            React.createElement(Field, { label: "\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23\u0E1C\u0E39\u0E49\u0E1B\u0E01\u0E04\u0E23\u0E2D\u0E07", value: f.guardianPhone, onChange: set("guardianPhone"), type: "tel" }),
+            React.createElement("div", { style: fieldWrap },
+                React.createElement(Field, { label: "\u0E0A\u0E37\u0E48\u0E2D\u0E1C\u0E39\u0E49\u0E1B\u0E01\u0E04\u0E23\u0E2D\u0E07", value: f.guardian, onChange: set("guardian") }),
+                React.createElement(Field, { label: "\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23\u0E1C\u0E39\u0E49\u0E1B\u0E01\u0E04\u0E23\u0E2D\u0E07", value: f.guardianPhone, onChange: set("guardianPhone"), type: "tel" })),
             React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E04\u0E27\u0E32\u0E21\u0E40\u0E01\u0E35\u0E48\u0E22\u0E27\u0E02\u0E49\u0E2D\u0E07\u0E01\u0E31\u0E1A\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19"),
             React.createElement("select", { value: f.guardianRelation, onChange: (e) => set("guardianRelation")(e.target.value), style: selCss },
                 React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01 \u2014"),
@@ -7707,9 +7716,16 @@ function StudentRegister({ me, db, setDb, ui }) {
 function StudentSchedule({ me, db, ui }) {
     const mine = db.competitions.filter((c) => c.participants.some((p) => p.sid === me.id));
     const statusText = (c) => { const p = c.participants.find((x) => x.sid === me.id); return p ? (p.sel === "main" ? "ตัวจริง (คัดแล้ว)" : p.sel === "reserve" ? "สำรอง (คัดแล้ว)" : p.status === "main" ? "สมัครตัวจริง" : "สมัครสำรอง") : ""; };
+    const homeLayout = ((db.settings && db.settings.layouts) || {}).studentHome || "1col";
+    const setHomeLayout = (v) => { if (window.__commitRemote)
+        window.__commitRemote((p) => ({ ...p, settings: { ...p.settings, layouts: { ...((p.settings && p.settings.layouts) || {}), studentHome: v } } })); };
+    const cardWrap = homeLayout === "2col" ? { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 10 } : { display: "flex", flexDirection: "column", gap: 10 };
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\u0E15\u0E32\u0E23\u0E32\u0E07\u0E41\u0E02\u0E48\u0E07\u0E02\u0E2D\u0E07\u0E09\u0E31\u0E19", sub: "\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E09\u0E31\u0E19\u0E2A\u0E21\u0E31\u0E04\u0E23/\u0E16\u0E39\u0E01\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01 \u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22" }),
-        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 10 } },
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12.5, color: C.muted, marginBottom: 10 } },
+            React.createElement("span", null, "\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E01\u0E32\u0E23\u0E27\u0E32\u0E07:"),
+            [{ k: "1col", label: "รายการเดี่ยว" }, { k: "2col", label: "2 คอลัมน์" }].map((l) => React.createElement("button", { key: l.k, onClick: () => setHomeLayout(l.k), style: { padding: "5px 12px", borderRadius: 16, border: "none", cursor: "pointer", fontSize: 12, fontWeight: homeLayout === l.k ? 700 : 500, background: homeLayout === l.k ? C.primary : C.surface, color: homeLayout === l.k ? "#fff" : C.ink, boxShadow: homeLayout === l.k ? "none" : `inset 0 0 0 1px ${C.line}` } }, l.label))),
+        React.createElement("div", { style: cardWrap },
             mine.map((c) => (React.createElement(Card, { key: c.id, style: { padding: 14 } },
                 React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" } },
                     React.createElement("div", { style: { fontWeight: 700, color: C.ink } },
