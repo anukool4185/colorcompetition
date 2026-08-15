@@ -5559,6 +5559,8 @@ function Org2Manager({ db, setDb, ui, viewer, canEdit = true, selfSignup = false
     const [pickDept, setPickDept] = useState("");
     const [confirmGen, setConfirmGen] = useState(false);
     const [chartView, setChartView] = useState(false);
+    const orgLayout = ((db.settings && db.settings.layouts) || {}).org2 || "row";
+    const setOrgLayout = (v) => { setDb((p) => ({ ...p, settings: { ...p.settings, layouts: { ...((p.settings && p.settings.layouts) || {}), org2: v } } })); setTimeout(() => window.__forceSave && window.__forceSave(), 300); };
     const meId = viewer && viewer.id;
     const selfPick = (nodeId) => { setDb((p) => ({ ...p, org2: (p.org2 || []).map((n) => n.id === nodeId ? { ...n, personId: meId, side: meSide } : n) })); setTimeout(() => window.__forceSave && window.__forceSave(), 300); ui.notify("ลงชื่อในตำแหน่งแล้ว"); };
     const reqSwap = (n) => { const note = window.prompt("เหตุผลขอเปลี่ยนตัวตำแหน่งนี้ (จะส่งให้แอดมินอนุมัติ)"); if (note === null)
@@ -5628,6 +5630,9 @@ function Org2Manager({ db, setDb, ui, viewer, canEdit = true, selfSignup = false
                         React.createElement(Btn, { small: true, variant: "ghost", onClick: () => rejectReq(r) }, "\u0E1B\u0E0F\u0E34\u0E40\u0E2A\u0E18")));
                 }))),
             (db.org2 || []).length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E31\u0E07 \u2014 \u0E15\u0E31\u0E49\u0E07\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A\u0E23\u0E32\u0E22\u0E1D\u0E48\u0E32\u0E22\u0E41\u0E25\u0E49\u0E27\u0E01\u0E14 '\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1C\u0E31\u0E07\u0E08\u0E32\u0E01\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A'" }),
+            (db.org2 || []).length > 0 && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12.5, color: C.muted, marginBottom: 10 } },
+                React.createElement("span", null, "\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E01\u0E32\u0E23\u0E27\u0E32\u0E07:"),
+                [{ k: "row", label: "ครู/นักเรียน ข้างกัน" }, { k: "col", label: "เรียงลง (1 คอลัมน์)" }].map((l) => React.createElement("button", { key: l.k, onClick: () => setOrgLayout(l.k), style: { padding: "5px 12px", borderRadius: 16, border: "none", cursor: "pointer", fontSize: 12, fontWeight: orgLayout === l.k ? 700 : 500, background: orgLayout === l.k ? C.primary : C.surface, color: orgLayout === l.k ? "#fff" : C.ink, boxShadow: orgLayout === l.k ? "none" : `inset 0 0 0 1px ${C.line}` } }, l.label))),
             (() => { const compOrder = (db.competitions || []).map((c) => String(c.id)); const orderedCompIds = Object.keys(byComp).sort((a, b) => { const ia = compOrder.indexOf(String(a)), ib = compOrder.indexOf(String(b)); return (ia < 0 ? 9999 : ia) - (ib < 0 ? 9999 : ib); }); return orderedCompIds; })().map((compId) => (React.createElement(Card, { key: compId, style: { padding: 14, marginBottom: 12 } },
                 React.createElement("div", { style: { fontWeight: 800, color: C.ink, marginBottom: 8 } },
                     "\uD83C\uDFC6 ",
@@ -5674,7 +5679,7 @@ function Org2Manager({ db, setDb, ui, viewer, canEdit = true, selfSignup = false
                                             n.money ? " 💰" : ""),
                                         React.createElement("span", { style: { flex: 1 } }, personCell(n))))))));
                             };
-                            return React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" } },
+                            return React.createElement("div", { style: { display: "flex", gap: 12, flexWrap: orgLayout === "col" ? "nowrap" : "wrap", flexDirection: orgLayout === "col" ? "column" : "row", alignItems: orgLayout === "col" ? "stretch" : "flex-start" } },
                                 renderBlock(TEACH),
                                 renderBlock(STUD));
                         })()));
@@ -6449,7 +6454,15 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps, sub }) {
             React.createElement("span", { style: { fontSize: 12.5, fontWeight: 700, color: outOpen ? "#1e7a4d" : "#c0392b" } },
                 "\u0E40\u0E0A\u0E47\u0E04\u0E2D\u0E2D\u0E01: ",
                 outOpen ? "เปิด ✅" : "ปิด (นอกช่วง)"))),
+        (() => {
+            const lay = ((db.settings && db.settings.layouts) || {}).attend || "list";
+            const setLay = (v) => { setDb((p) => ({ ...p, settings: { ...p.settings, layouts: { ...((p.settings && p.settings.layouts) || {}), attend: v } } })); setTimeout(() => window.__forceSave && window.__forceSave(), 300); };
+            return (React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: 12.5, color: C.muted, marginBottom: 10 } },
+                React.createElement("span", null, "\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E01\u0E32\u0E23\u0E27\u0E32\u0E07:"),
+                [{ k: "list", label: "รายการเดี่ยว" }, { k: "grid", label: "2 คอลัมน์" }].map((l) => React.createElement("button", { key: l.k, onClick: () => setLay(l.k), style: { padding: "5px 12px", borderRadius: 16, border: "none", cursor: "pointer", fontSize: 12, fontWeight: lay === l.k ? 700 : 500, background: lay === l.k ? C.primary : C.surface, color: lay === l.k ? "#fff" : C.ink, boxShadow: lay === l.k ? "none" : `inset 0 0 0 1px ${C.line}` } }, l.label))));
+        })(),
         myComps.length === 0 ? React.createElement(Empty, { text: "\u0E04\u0E38\u0E13\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E14\u0E39\u0E41\u0E25\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21\u0E43\u0E14" }) : myComps.map((c) => {
+            const attLay = ((db.settings && db.settings.layouts) || {}).attend || "list";
             const committeeIds = new Set((db.org2 || []).map((n) => String(n.personId)).filter(Boolean)); // กรรมการทุกคน (ได้เวลาอัตโนมัติ ไม่ต้องเช็ค)
             const parts = (c.participants || []).filter((x) => x.sel === "main" || x.sel === "reserve");
             const students = parts.map((x) => db.students.find((s) => String(s.id) === String(x.sid))).filter(Boolean).filter((s) => !committeeIds.has(String(s.id))).sort((a, b) => (a.grade + a.room + a.first).localeCompare(b.grade + b.room + b.first, "th"));
@@ -6463,7 +6476,7 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps, sub }) {
                         "(",
                         students.length,
                         " \u0E04\u0E19)")),
-                students.length === 0 ? React.createElement("div", { style: { fontSize: 12.5, color: C.muted, padding: "6px 0" } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E39\u0E49\u0E40\u0E02\u0E49\u0E32\u0E23\u0E48\u0E27\u0E21") : (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 5, marginTop: 8 } }, students.map((s) => {
+                students.length === 0 ? React.createElement("div", { style: { fontSize: 12.5, color: C.muted, padding: "6px 0" } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E39\u0E49\u0E40\u0E02\u0E49\u0E32\u0E23\u0E48\u0E27\u0E21") : (React.createElement("div", { style: attLay === "grid" ? { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 6, marginTop: 8 } : { display: "flex", flexDirection: "column", gap: 5, marginTop: 8 } }, students.map((s) => {
                     const r = rec(c.id, s.id);
                     return (React.createElement("div", { key: s.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", background: "#f7f9ff", borderRadius: 8 } },
                         React.createElement("div", { style: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
