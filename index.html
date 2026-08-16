@@ -2218,8 +2218,13 @@ function DataSizeCard({ db, setDb, ui }) {
             const notis = (p.financeNotis || []).filter((x) => (x.readBy || []).length < 3).slice(0, 100);
             // ลบรายการแข่ง/กิจกรรมซ้ำ (ชื่อ+ประเภท+เพศ+ระดับเหมือนกัน) — เก็บอันที่มีผู้สมัคร/ผู้เข้าร่วมมากสุด
             const sigOf = (c) => [c.kind, c.sportType || "กีฬา", (c.nameManual || c.name || "").trim(), (c.genders || []).slice().sort().join("+") || c.gender || "", (c.grades || []).slice().sort().join("+")].join("|");
+            const hasG = (c) => (c.genders && c.genders.length) || (c.gender && c.gender !== "รวม" && c.gender !== "");
+            const nameKey = (c) => [c.kind, c.sportType || "กีฬา", (c.nameManual || c.name || "").trim()].join("|");
+            const genderedNames = new Set((p.competitions || []).filter(hasG).map(nameKey));
+            // ตัดตัวที่ไม่ระบุเพศออก ถ้ามีตัวชื่อเดียวกันที่ระบุเพศแล้ว
+            const compsBase = (p.competitions || []).filter((c) => hasG(c) || !genderedNames.has(nameKey(c)));
             const bySig = {};
-            (p.competitions || []).forEach((c) => { const k = sigOf(c); (bySig[k] = bySig[k] || []).push(c); });
+            compsBase.forEach((c) => { const k = sigOf(c); (bySig[k] = bySig[k] || []).push(c); });
             const comps = Object.values(bySig).map((group) => group.length === 1 ? group[0] : group.slice().sort((a, b) => (b.participants || []).length - (a.participants || []).length)[0]);
             const removedComps = (p.competitions || []).length - comps.length;
             if (removedComps > 0)
@@ -6509,14 +6514,11 @@ function AttendSummary({ db, myComps, ui }) {
 }
 function TimeAttendance({ db, setDb, ui, meId, role, myComps: myCompsRaw, sub }) {
     // กันรายการซ้ำ + เรียงเป็นกลุ่ม กีฬา→กรีฑา→กิจกรรม (ตามลำดับ +รายการ) ไม่ให้ปนกัน
+    // ข้อมูลถูกล้างซ้ำที่ต้นทาง (mergeDb ครั้งเดียว) แล้ว — ที่นี่แค่เรียงกลุ่ม กีฬา→กรีฑา→กิจกรรม
     const myComps = (() => {
-        const seen = {};
-        const dedup = [];
-        (myCompsRaw || []).forEach((c) => { const sig = [c.kind, c.sportType || "กีฬา", (c.nameManual || c.name || "").trim(), (c.genders || []).slice().sort().join("+") || c.gender || "", (c.grades || []).slice().sort().join("+")].join("|"); if (seen[sig])
-            return; seen[sig] = 1; dedup.push(c); });
         const rank = (c) => c.kind === "กิจกรรม" ? 2 : ((c.sportType || "กีฬา") === "กรีฑา" ? 1 : 0);
         const order = (db.competitions || []).map((x) => String(x.id));
-        return dedup.map((c, i) => ({ c, i })).sort((a, b) => (rank(a.c) - rank(b.c)) || ((order.indexOf(String(a.c.id)) < 0 ? 9999 : order.indexOf(String(a.c.id))) - (order.indexOf(String(b.c.id)) < 0 ? 9999 : order.indexOf(String(b.c.id)))) || (a.i - b.i)).map((o) => o.c);
+        return (myCompsRaw || []).map((c, i) => ({ c, i })).sort((a, b) => (rank(a.c) - rank(b.c)) || ((order.indexOf(String(a.c.id)) < 0 ? 9999 : order.indexOf(String(a.c.id))) - (order.indexOf(String(b.c.id)) < 0 ? 9999 : order.indexOf(String(b.c.id)))) || (a.i - b.i)).map((o) => o.c);
     })();
     const [date, setDate] = useState(todayStr());
     const isToday = date === todayStr();
@@ -8087,7 +8089,16 @@ function mergeDb(loaded) {
     const _rawComps = (loaded && loaded.competitions) || [];
     // ล้างรายการซ้ำอัตโนมัติครั้งเดียว (ชื่อ+ประเภท+เพศ+ระดับเหมือนกัน เก็บอันที่มีผู้สมัครมากสุด)
     const _needDedup = !s.compsDeduped;
-    const _dedupComps = (() => { const sigOf = (c) => [c.kind, c.sportType || "กีฬา", (c.nameManual || c.name || "").trim(), (c.genders || []).slice().sort().join("+") || c.gender || "", (c.grades || []).slice().sort().join("+")].join("|"); const by = {}; _rawComps.forEach((c) => { (by[sigOf(c)] = by[sigOf(c)] || []).push(c); }); return Object.values(by).map((g) => g.length === 1 ? g[0] : g.slice().sort((a, b) => (b.participants || []).length - (a.participants || []).length)[0]); })();
+    const _dedupComps = (() => {
+        const hasG = (c) => (c.genders && c.genders.length) || (c.gender && c.gender !== "รวม" && c.gender !== "");
+        const nameKey = (c) => [c.kind, c.sportType || "กีฬา", (c.nameManual || c.name || "").trim()].join("|");
+        const genderedNames = new Set(_rawComps.filter(hasG).map(nameKey));
+        const base = _rawComps.filter((c) => hasG(c) || !genderedNames.has(nameKey(c))); // ตัดตัวไม่ระบุเพศเมื่อมีตัวระบุเพศชื่อเดียวกัน
+        const sigOf = (c) => [c.kind, c.sportType || "กีฬา", (c.nameManual || c.name || "").trim(), (c.genders || []).slice().sort().join("+") || c.gender || "", (c.grades || []).slice().sort().join("+")].join("|");
+        const by = {};
+        base.forEach((c) => { (by[sigOf(c)] = by[sigOf(c)] || []).push(c); });
+        return Object.values(by).map((g) => g.length === 1 ? g[0] : g.slice().sort((a, b) => (b.participants || []).length - (a.participants || []).length)[0]);
+    })();
     return {
         students: _needGenderFill ? _rawStudents.map((st) => st.gender ? st : { ...st, gender: genderFromPre(st.pre) }) : _rawStudents,
         teachers: (loaded && loaded.teachers) || [],
