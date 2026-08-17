@@ -3275,13 +3275,13 @@ function PersonList({ kind, db, setDb, ui }) {
                     React.createElement(Btn, { variant: "ghost", small: true, onClick: () => setEdit(s) }, "\u0E41\u0E01\u0E49\u0E44\u0E02"),
                     React.createElement(Btn, { variant: "danger", small: true, onClick: () => setConfirm({ ids: [s.id], msg: `ลบ ${fullName(s)} พร้อมตัดความเกี่ยวข้องและลบรูปใน Drive ?` }) }, "\u0E25\u0E1A"))))),
             filtered.length === 0 && React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D\u0E15\u0E32\u0E21\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02" })),
-        (add || edit) && React.createElement(PersonForm, { kind: kind, person: edit, ui: ui, houses: db.settings.houses, onClose: () => { setAdd(false); setEdit(null); }, onSave: save }),
+        (add || edit) && React.createElement(PersonForm, { kind: kind, person: edit, db: db, ui: ui, houses: db.settings.houses, onClose: () => { setAdd(false); setEdit(null); }, onSave: save }),
         rawRows && React.createElement(ImportPreview, { kind: kind, rawRows: rawRows, existing: list, houses: db.settings.houses, onClose: () => setRawRows(null), onConfirm: (rows) => ui.run("กำลังโอนเข้าระบบ...", () => { setDb((p) => { const next = { ...p, [key]: [...p[key], ...rows] }; if (window.__pushOther)
                 window.__pushOther((odb) => kind === "student" ? mirrorStudentsInto(odb, next.students) : mirrorTeachersInto(odb, next.teachers)); return next; }); setRawRows(null); ui.notify(`โอนเข้าระบบแล้ว ${rows.length} คน`); }) }),
         confirm && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E01\u0E32\u0E23\u0E25\u0E1A", message: confirm.msg, onConfirm: () => purge(confirm.ids), onClose: () => setConfirm(null) })));
 }
 function phoneOk(v) { v = String(v == null ? "" : v).trim(); return v === "" || /^[0-9]{9,10}$/.test(v); }
-function PersonForm({ kind, person, onClose, onSave, ui, houses }) {
+function PersonForm({ kind, person, db, onClose, onSave, ui, houses }) {
     var _a;
     const base = kind === "student"
         ? { id: "", pre: "เด็กชาย", first: "", last: "", grade: "", room: "", phone: "", house: 0, gender: "", guardian: "" }
@@ -3306,6 +3306,16 @@ function PersonForm({ kind, person, onClose, onSave, ui, houses }) {
     };
     const clearPhoto = () => { setPreview(""); setNewPhoto(""); setF((p) => ({ ...p, photoUrl: undefined, photoId: undefined })); };
     const submit = () => {
+        const idStr = String(f.id || "").trim();
+        if (!idStr) {
+            ui.notify("ต้องใส่รหัส" + (kind === "teacher" ? "ครู" : "นักเรียน") + "ก่อนบันทึก");
+            return;
+        }
+        const dup = (kind === "teacher" ? (db.teachers || []) : (db.students || [])).some((x) => String(x.id) === idStr && (!person || String(person.id) !== idStr));
+        if (dup) {
+            ui.notify("รหัสนี้มีอยู่แล้วในระบบ — ใช้รหัสอื่น");
+            return;
+        }
         if (!phoneOk(f.phone)) {
             ui.notify("เบอร์โทรไม่ถูกต้อง — ใส่ตัวเลขล้วน 9–10 หลัก (เช่น 0812345678) ไม่ต้องมีขีดหรือเว้นวรรค");
             return;
@@ -5946,7 +5956,10 @@ function AttendWindowSettings({ db, setDb, ui }) {
     const cur = (db.settings && db.settings.attendWin) || { inStart: "15:00", inEnd: "16:30", outStart: "17:00", outEnd: "18:30" };
     const [f, setF] = useState(cur);
     const set = (k) => (v) => setF((p) => ({ ...p, [k]: v }));
-    const save = () => ui.run("บันทึกช่วงเวลาแล้ว", () => { setDb((p) => ({ ...p, settings: { ...p.settings, attendWin: f } })); });
+    const save = () => ui.run("บันทึกช่วงเวลาแล้ว", () => { const apply = (base) => ({ ...base, settings: { ...base.settings, attendWin: f } }); setDb(apply); if (window.__commitRemote)
+        window.__commitRemote(apply);
+    else
+        setTimeout(() => window.__forceSave && window.__forceSave(), 200); });
     const [exporting, setExporting] = useState(false);
     const exportToTimeSheet = async () => {
         if (!API_URL) {
@@ -6900,6 +6913,85 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps: myCompsRaw, sub })
             save();
         }
     };
+    const [markMode, setMarkMode] = useState("in");
+    const [checked, setChecked] = useState({}); // key `${compId}:${sid}` → true
+    const [locking, setLocking] = useState(false);
+    const isAdmin = String(role) === "admin";
+    const clearMark = (compId, sid, which) => {
+        const apply = (base) => {
+            const att = { ...(base.attendance || {}) };
+            const d = { ...(att[date] || {}) };
+            const day = { ...(d["_day"] || {}) };
+            const cm = { ...(d[compId] || {}) };
+            const cur = { ...(day[sid] || {}) };
+            cur[which] = undefined;
+            day[sid] = cur;
+            if (cm[sid])
+                cm[sid] = { ...cm[sid], [which]: undefined };
+            d["_day"] = day;
+            d[compId] = cm;
+            att[date] = d;
+            return { ...base, attendance: att };
+        };
+        if (window.__commitRemote)
+            window.__commitRemote(apply);
+        else {
+            setDb(apply);
+            setTimeout(() => window.__forceSave && window.__forceSave(), 200);
+        }
+        ui.notify("ล้างเวลาแล้ว");
+    };
+    const ckey = (compId, sid) => compId + ":" + sid;
+    const toggleCheck = (compId, sid) => setChecked((p) => { const k = ckey(compId, sid); const n = { ...p }; if (n[k])
+        delete n[k];
+    else
+        n[k] = true; return n; });
+    const batchSave = (compId, sids) => {
+        if (markMode === "in" && !inOpen) {
+            ui.notify(`ยังไม่ถึงช่วงเช็คเข้า (${win.inStart}-${win.inEnd})`);
+            return;
+        }
+        if (markMode === "out" && !outOpen) {
+            ui.notify(`ยังไม่ถึงช่วงเช็คออก (${win.outStart}-${win.outEnd})`);
+            return;
+        }
+        const pick = sids.filter((sid) => checked[ckey(compId, sid)]);
+        if (!pick.length) {
+            ui.notify("ติ๊กเลือกนักเรียนก่อน");
+            return;
+        }
+        const t = nowHM();
+        const apply = (base) => {
+            const att = { ...(base.attendance || {}) };
+            const d = { ...(att[date] || {}) };
+            const day = { ...(d["_day"] || {}) };
+            const cm = { ...(d[compId] || {}) };
+            pick.forEach((sid) => { const cur = { ...(day[sid] || {}) }; if (!cur[markMode])
+                cur[markMode] = t; day[sid] = cur; cm[sid] = { ...(cm[sid] || {}), [markMode]: cur[markMode] }; });
+            const meCur = { ...(day[meId] || {}) };
+            if (!meCur[markMode])
+                meCur[markMode] = t;
+            day[meId] = meCur;
+            d["_day"] = day;
+            d[compId] = cm;
+            att[date] = d;
+            return { ...base, attendance: att };
+        };
+        setLocking(true);
+        // ล็อกหน้าจอกันกดที่อื่นระหว่างบันทึก + ดึงล่าสุดมารวมก่อนเขียน (กันชนกัน)
+        const done = () => { setChecked((p) => { const n = { ...p }; pick.forEach((sid) => delete n[ckey(compId, sid)]); return n; }); setLocking(false); ui.notify(`บันทึกเวลา${markMode === "in" ? "เข้า" : "ออก"} ${pick.length} คนแล้ว`); };
+        if (window.__commitRemote) {
+            try {
+                window.__commitRemote((latest) => apply(latest));
+            }
+            catch (e) { }
+            setTimeout(done, 900);
+        }
+        else {
+            setDb((p) => apply(p));
+            setTimeout(() => { window.__forceSave && window.__forceSave(); done(); }, 300);
+        }
+    };
     if (sub === "none") {
         const registered = new Set();
         (db.competitions || []).forEach((c) => (c.participants || []).forEach((x) => { if (x.sel === "main" || x.sel === "reserve")
@@ -6988,24 +7080,48 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps: myCompsRaw, sub })
                         "(",
                         students.length,
                         " \u0E04\u0E19)")),
-                students.length === 0 ? React.createElement("div", { style: { fontSize: 12.5, color: C.muted, padding: "6px 0" } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E39\u0E49\u0E40\u0E02\u0E49\u0E32\u0E23\u0E48\u0E27\u0E21") : (React.createElement("div", { style: attLay === "grid" ? { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 6, marginTop: 8 } : { display: "flex", flexDirection: "column", gap: 5, marginTop: 8 } }, students.map((s) => {
-                    const r = rec(c.id, s.id);
-                    return (React.createElement("div", { key: s.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", background: "#f7f9ff", borderRadius: 8 } },
-                        React.createElement("div", { style: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-                            s.first,
-                            " ",
-                            s.last,
-                            " ",
-                            React.createElement("span", { style: { fontSize: 11, color: C.muted } },
-                                "(",
-                                s.grade,
-                                "/",
-                                s.room,
-                                ")")),
-                        React.createElement("button", { onClick: () => setMark(c.id, s.id, "in"), style: { border: `1px solid ${r.in ? "#2f9e6b" : C.line}`, background: r.in ? "#e8f8ef" : C.surface, color: r.in ? "#1e7a4d" : C.muted, borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" } }, r.in ? "เข้า " + r.in : "เข้า"),
-                        React.createElement("button", { onClick: () => setMark(c.id, s.id, "out"), style: { border: `1px solid ${r.out ? "#c99a2e" : C.line}`, background: r.out ? "#fff6e9" : C.surface, color: r.out ? "#b3762f" : C.muted, borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" } }, r.out ? "ออก " + r.out : "ออก")));
-                })))));
-        })));
+                students.length === 0 ? React.createElement("div", { style: { fontSize: 12.5, color: C.muted, padding: "6px 0" } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E39\u0E49\u0E40\u0E02\u0E49\u0E32\u0E23\u0E48\u0E27\u0E21") : (React.createElement(React.Fragment, null,
+                    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, margin: "8px 0", flexWrap: "wrap" } },
+                        React.createElement("span", { style: { fontSize: 12.5, color: C.muted } }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01:"),
+                        [{ k: "in", l: "เข้า" }, { k: "out", l: "ออก" }].map((mo) => React.createElement("button", { key: mo.k, onClick: () => setMarkMode(mo.k), style: { border: `1px solid ${markMode === mo.k ? C.primary : C.line}`, background: markMode === mo.k ? C.primary : C.surface, color: markMode === mo.k ? "#fff" : C.ink, borderRadius: 14, padding: "5px 16px", fontWeight: 700, fontSize: 12.5, cursor: "pointer" } }, mo.l)),
+                        React.createElement("button", { onClick: () => setChecked((p) => { const n = { ...p }; const all = students.every((s) => n[ckey(c.id, s.id)]); students.forEach((s) => { if (all)
+                                delete n[ckey(c.id, s.id)];
+                            else
+                                n[ckey(c.id, s.id)] = true; }); return n; }), style: { border: `1px solid ${C.line}`, background: C.surface, color: C.primary, borderRadius: 14, padding: "5px 12px", fontWeight: 700, fontSize: 12, cursor: "pointer" } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14"),
+                        isAdmin && React.createElement("span", { style: { fontSize: 11, color: "#b3762f" } }, "\u00B7 \u0E41\u0E2D\u0E14\u0E21\u0E34\u0E19: \u0E01\u0E14\u0E17\u0E35\u0E48\u0E40\u0E27\u0E25\u0E32 (\u2715) \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E25\u0E49\u0E32\u0E07 (\u0E17\u0E14\u0E2A\u0E2D\u0E1A)")),
+                    React.createElement("div", { style: attLay === "grid" ? { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 6 } : { display: "flex", flexDirection: "column", gap: 5 } }, students.map((s) => {
+                        const r = rec(c.id, s.id);
+                        const isChk = !!checked[ckey(c.id, s.id)];
+                        const doneMark = markMode === "in" ? r.in : r.out;
+                        return (React.createElement("label", { key: s.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", background: isChk ? "#eaf1ff" : "#f7f9ff", borderRadius: 8, cursor: "pointer" } },
+                            React.createElement("input", { type: "checkbox", checked: isChk, onChange: () => toggleCheck(c.id, s.id), disabled: !!doneMark, style: { width: 17, height: 17 } }),
+                            React.createElement("div", { style: { flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, color: C.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                                s.first,
+                                " ",
+                                s.last,
+                                " ",
+                                React.createElement("span", { style: { fontSize: 11, color: C.muted } },
+                                    "(",
+                                    s.grade,
+                                    "/",
+                                    s.room,
+                                    ")")),
+                            React.createElement("span", { onClick: isAdmin && r.in ? (e) => { e.preventDefault(); clearMark(c.id, s.id, "in"); } : undefined, style: { fontSize: 11.5, fontWeight: 700, color: r.in ? "#1e7a4d" : C.muted, cursor: isAdmin && r.in ? "pointer" : "default", textDecoration: isAdmin && r.in ? "underline dotted" : "none" } }, r.in ? "เข้า " + r.in + (isAdmin ? " ✕" : "") : "—"),
+                            React.createElement("span", { onClick: isAdmin && r.out ? (e) => { e.preventDefault(); clearMark(c.id, s.id, "out"); } : undefined, style: { fontSize: 11.5, fontWeight: 700, color: r.out ? "#b3762f" : C.muted, cursor: isAdmin && r.out ? "pointer" : "default", textDecoration: isAdmin && r.out ? "underline dotted" : "none" } }, r.out ? "ออก " + r.out + (isAdmin ? " ✕" : "") : "—")));
+                    })),
+                    React.createElement("div", { style: { marginTop: 10 } },
+                        React.createElement(Btn, { onClick: () => batchSave(c.id, students.map((s) => s.id)) },
+                            "\uD83D\uDCBE \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E27\u0E25\u0E32",
+                            markMode === "in" ? "เข้า" : "ออก",
+                            " \u0E17\u0E35\u0E48\u0E40\u0E25\u0E37\u0E2D\u0E01"))))));
+        }),
+        locking && React.createElement("div", { style: { position: "fixed", inset: 0, background: "rgba(20,20,30,.55)", zIndex: 300, display: "flex", alignItems: "center", justifyContent: "center" } },
+            React.createElement("div", { style: { background: "#fff", borderRadius: 14, padding: "22px 28px", textAlign: "center", boxShadow: "0 10px 40px rgba(0,0,0,.3)" } },
+                React.createElement("div", { style: { fontSize: 15, fontWeight: 800, color: C.ink } }, "\u23F3 \u0E01\u0E33\u0E25\u0E31\u0E07\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E27\u0E25\u0E32..."),
+                React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginTop: 6 } },
+                    "\u0E2D\u0E22\u0E48\u0E32\u0E01\u0E14\u0E17\u0E35\u0E48\u0E2D\u0E37\u0E48\u0E19\u0E08\u0E19\u0E01\u0E27\u0E48\u0E32\u0E08\u0E30\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E40\u0E2A\u0E23\u0E47\u0E08",
+                    React.createElement("br", null),
+                    "(\u0E1B\u0E49\u0E2D\u0E07\u0E01\u0E31\u0E19\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E0A\u0E19\u0E01\u0E31\u0E19)")))));
 }
 function CommitteeApp({ role, db, setDb, onExit, meId }) {
     const [orgTab, setOrgTab] = useState("mine");
@@ -8064,9 +8180,11 @@ function ProfileGate({ me, setDb, ui, onExit }) {
     const save = () => { if (!phoneOk(f.phone) || !phoneOk(f.guardianPhone)) {
         ui.notify("เบอร์โทรไม่ถูกต้อง — ใส่ตัวเลขล้วน 9–10 หลัก (เช่น 0812345678) ไม่ต้องมีขีดหรือเว้นวรรค");
         return;
-    } ui.run("กำลังบันทึกข้อมูล...", () => { setDb((p) => { const students = p.students.map((s) => s.id === me.id ? { ...s, ...f, profileDone: true } : s); if (window.__pushOther)
-        window.__pushOther((odb) => mirrorStudentsInto(odb, students)); return { ...p, students }; }); ui.notify("บันทึกข้อมูลแล้ว ยินดีต้อนรับ"); setTimeout(() => { if (window.__forceSave)
-        window.__forceSave(); }, 500); }); };
+    } const apply = (base) => ({ ...base, students: (base.students || []).map((s) => s.id === me.id ? { ...s, ...f, profileDone: true } : s) }); setDb(apply); if (window.__pushOther)
+        window.__pushOther((odb) => mirrorStudentsInto(odb, apply(db).students)); if (window.__commitRemote)
+        window.__commitRemote(apply);
+    else
+        setTimeout(() => window.__forceSave && window.__forceSave(), 200); ui.notify("บันทึกข้อมูลแล้ว ยินดีต้อนรับ"); };
     return (React.createElement("div", { style: { position: "fixed", inset: 0, background: "rgba(20,20,30,.6)", zIndex: 200, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: 16, overflowY: "auto" } },
         React.createElement("div", { style: { background: C.surface, borderRadius: 18, padding: 22, maxWidth: 440, width: "100%", margin: "24px 0", boxShadow: "0 10px 40px rgba(0,0,0,.3)" } },
             React.createElement("div", { style: { fontWeight: 800, fontSize: 18, color: C.ink, marginBottom: 4 } }, "\u0E15\u0E31\u0E49\u0E07\u0E04\u0E48\u0E32\u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E04\u0E23\u0E31\u0E49\u0E07\u0E41\u0E23\u0E01"),
