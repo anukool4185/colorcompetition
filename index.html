@@ -1238,7 +1238,7 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc, canEntry = true, lockRo
             "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\u0E08\u0E32\u0E01\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E23\u0E32\u0E22\u0E04\u0E19 (\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1D\u0E48\u0E32\u0E22\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19/\u0E1A\u0E31\u0E0D\u0E0A\u0E35) \u00B7 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2B\u0E49\u0E2D\u0E07 \u2192 \u0E01\u0E23\u0E2D\u0E01\u0E40\u0E07\u0E34\u0E19\u0E41\u0E15\u0E48\u0E25\u0E30\u0E04\u0E23\u0E31\u0E49\u0E07 \u00B7 \u0E01\u0E14 \"\uFF0B \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E0A\u0E48\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\" \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E04\u0E23\u0E31\u0E49\u0E07\u0E17\u0E35\u0E48\u0E21\u0E32\u0E01\u0E01\u0E27\u0E48\u0E32 ",
             cols,
             " \u00B7 \u0E41\u0E19\u0E1A\u0E23\u0E39\u0E1B\u0E1A\u0E34\u0E25\u0E15\u0E32\u0E21\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48"),
-        roEntry && React.createElement("div", { style: { background: "#fff6e9", color: "#b3762f", borderRadius: 10, padding: "8px 12px", fontSize: 12.5, fontWeight: 700, marginBottom: 10 } }, "\uD83D\uDC41 \u0E42\u0E2B\u0E21\u0E14\u0E14\u0E39\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27 \u2014 \u0E01\u0E23\u0E2D\u0E01/\u0E41\u0E01\u0E49\u0E22\u0E2D\u0E14\u0E44\u0E14\u0E49\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1C\u0E39\u0E49\u0E0A\u0E48\u0E27\u0E22\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19\u0E41\u0E25\u0E30\u0E1C\u0E39\u0E49\u0E16\u0E37\u0E2D\u0E40\u0E07\u0E34\u0E19 (\u0E04\u0E38\u0E13\u0E14\u0E39\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E14\u0E49)"),
+        roEntry && React.createElement("div", { style: { background: "#fff6e9", color: "#b3762f", borderRadius: 10, padding: "8px 12px", fontSize: 12.5, fontWeight: 700, marginBottom: 10 } }, "\uD83D\uDC41 \u0E42\u0E2B\u0E21\u0E14\u0E14\u0E39\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E40\u0E14\u0E35\u0E22\u0E27 \u2014 \u0E01\u0E23\u0E2D\u0E01/\u0E41\u0E01\u0E49\u0E22\u0E2D\u0E14\u0E44\u0E14\u0E49\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E2B\u0E49\u0E2D\u0E07\u0E41\u0E25\u0E30\u0E1C\u0E39\u0E49\u0E16\u0E37\u0E2D\u0E40\u0E07\u0E34\u0E19 (\u0E04\u0E38\u0E13\u0E14\u0E39\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E14\u0E49)"),
         React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" } },
             React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u0E2B\u0E49\u0E2D\u0E07:"),
             lockRoom ? React.createElement("span", { style: { fontWeight: 700, color: C.primaryDark, padding: "6px 10px", background: C.soft, borderRadius: 8 } },
@@ -1790,7 +1790,7 @@ function RefundManager({ db, setDb, ui, canEdit, lockRoom = "", viewer }) {
                 const roomList = Object.values(byRoom).filter((x) => !lockRoom || x.room === lockRoom).sort((a, b) => a.room.localeCompare(b.room));
                 if (roomList.length === 0)
                     return null;
-                const roomManager = (rm) => { const st = (db.students || []).filter((s) => `${s.grade}/${s.room}` === rm); const mgrNode = (db.org2 || []).find((n) => /ผู้จัดการ/.test((((db.duties || []).find((z) => String(z.id) === String(n.dutyId)) || {}).name || "")) && st.some((s) => String(s.id) === String(n.personId))); if (!mgrNode)
+                const roomManager = (rm) => { const st = (db.students || []).filter((s) => `${s.grade}/${s.room}` === rm); const mgrNode = (db.org2 || []).find((n) => (n.manager || /ผู้จัดการ/.test((((db.duties || []).find((z) => String(z.id) === String(n.dutyId)) || {}).name || ""))) && st.some((s) => String(s.id) === String(n.personId))); if (!mgrNode)
                     return { name: "", pos: "นักเรียน · ผู้จัดการ" }; const info = receiptPersonInfo(db, mgrNode.personId); return info; };
                 const issueRoomReceipt = (rm, amount) => { const holder = receiptMoneyHolder(db); const mgr = roomManager(rm); const preview = (db.receiptSeq || 0) + 1; const receiptNo = preview + "/" + buddhistYear(); if (setDb) {
                     setDb((p) => ({ ...p, receiptSeq: (p.receiptSeq || 0) + 1 }));
@@ -1891,10 +1891,11 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             return `${s.grade}/${s.room}`;
     } return ""; })();
     // ผู้จัดการฝ่ายการเงิน (ตำแหน่งชื่อ "ผู้จัดการ" + อยู่ในฝ่าย/รายการการเงิน) → ลงเงิน/เฉลี่ยคืนได้เฉพาะห้องตนเอง
-    const isFinanceManager = finNodes.some((n) => /ผู้จัดการ/.test(duty2Name(n.dutyId)));
+    const dutyRoleOf = (dutyId) => { const d = (db.duties || []).find((z) => String(z.id) === String(dutyId)); return d ? (d.role || "") : ""; };
+    const isFinanceManager = finNodes.some((n) => { const role = dutyRoleOf(n.dutyId); return role === "manager" || (!role && /ผู้จัดการ/.test(duty2Name(n.dutyId))); });
     const finLockRoom = (isFinanceManager && String(viewer.role) !== "admin" && !financeMoneyHolder && viewerRoom) ? viewerRoom : "";
     // ผู้ซื้อ = มีตำแหน่งชื่อ "ผู้ซื้อ" ในฝ่าย/รายการการเงิน · สร้างรายการซื้อได้เมื่อแอดมิน/ผู้ถือเงินเปิดสวิตช์
-    const isBuyer = finNodes.some((n) => /ผู้ซื้อ/.test(duty2Name(n.dutyId)));
+    const isBuyer = finNodes.some((n) => { const role = dutyRoleOf(n.dutyId); return role === "buyer" || (!role && /ผู้ซื้อ/.test(duty2Name(n.dutyId))); });
     const fundBuyEnabled = !!(db.settings && db.settings.fundBuyEnabled);
     const canBuy = fundBuyEnabled && isBuyer && !finFull; // ผู้ซื้อ (เมื่อเปิดสิทธิ์) เห็นเฉพาะแท็บสร้างรายการซื้อ
     const canEditRow = (f) => isMoneyHolder;
@@ -6022,13 +6023,13 @@ function buildOrg2(db) {
                     // ไม่มีรายการแข่ง (เช่น ฝ่ายการเงิน) หรือยังไม่ติ๊ก → สร้างโหนดระดับฝ่าย ให้ชื่อโผล่ในผังเสมอ
                     const key = "|" + d.id + "|" + r.dutyId + "|" + pp.pid;
                     const ex = byKey[key];
-                    out.push({ id: ex ? ex.id : "o2" + Math.random().toString(36).slice(2, 9), pid: pp.pid, compId: "", deptId: d.id, dutyId: r.dutyId, num: duty.num, side: pp.side, personId: ex ? ex.personId : (pp.personId || ""), money: !!pp.money });
+                    out.push({ id: ex ? ex.id : "o2" + Math.random().toString(36).slice(2, 9), pid: pp.pid, compId: "", deptId: d.id, dutyId: r.dutyId, num: duty.num, side: pp.side, personId: (ex && ex.personId) ? ex.personId : (pp.personId || ""), money: !!pp.money, manager: !!pp.manager, buyer: !!pp.buyer });
                     return;
                 }
                 comps.forEach((cid) => {
                     const key = cid + "|" + d.id + "|" + r.dutyId + "|" + pp.pid;
                     const ex = byKey[key];
-                    out.push({ id: ex ? ex.id : "o2" + Math.random().toString(36).slice(2, 9), pid: pp.pid, compId: cid, deptId: d.id, dutyId: r.dutyId, num: duty.num, side: pp.side, personId: ex ? ex.personId : (pp.personId || ""), money: !!pp.money });
+                    out.push({ id: ex ? ex.id : "o2" + Math.random().toString(36).slice(2, 9), pid: pp.pid, compId: cid, deptId: d.id, dutyId: r.dutyId, num: duty.num, side: pp.side, personId: (ex && ex.personId) ? ex.personId : (pp.personId || ""), money: !!pp.money, manager: !!pp.manager, buyer: !!pp.buyer });
                 });
             });
         });
@@ -6060,7 +6061,8 @@ function Org2Manager({ db, setDb, ui, viewer, canEdit = true, selfSignup = false
     // จัดกลุ่มตาม comp → dept → เรียง num
     const byComp = {};
     nodes.forEach((n) => { (byComp[n.compId] = byComp[n.compId] || {}); (byComp[n.compId][n.deptId] = byComp[n.compId][n.deptId] || []).push(n); });
-    const compName2 = (id) => { const c = comps.find((x) => String(x.id) === String(id)); return c ? compFullName(c) : id; };
+    const compName2 = (id) => { if (!id)
+        return "ระดับฝ่าย (ไม่ผูกรายการแข่ง)"; const c = comps.find((x) => String(x.id) === String(id)); return c ? compFullName(c) : id; };
     const exportExcel = () => { try {
         const aoa = [["รายการ", "ฝ่าย", "เลข", "หน้าที่", "ชื่อ-สกุล", "ประเภท"]];
         nodes.slice().sort((a, b) => String(a.compId).localeCompare(String(b.compId)) || (a.num || 99) - (b.num || 99)).forEach((n) => { const per = n.personId ? ([...(db.teachers || []), ...(db.students || [])].find((x) => String(x.id) === String(n.personId))) : null; aoa.push([compName2(n.compId), deptName(n.deptId), n.num, dutyName2(n.dutyId), per ? fullName(per) : "", n.side === "teacher" ? "ครู" : (n.side === "student" ? "นักเรียน" : "")]); });
@@ -6282,6 +6284,8 @@ function DeptTemplateManager({ db, setDb, ui }) {
                                 React.createElement(PersonPicker, { db: db, value: pp.personId, only: pp.side, onPick: (id) => patchPerson(r.dutyId, pp.pid, { personId: id }), onClear: () => patchPerson(r.dutyId, pp.pid, { personId: "" }) }),
                                 chip(pp.all, () => patchPerson(r.dutyId, pp.pid, { all: !pp.all }), "ใช้ทุกรายการในฝ่าย", "#2f9e6b"),
                                 chip(pp.money, () => patchPerson(r.dutyId, pp.pid, { money: !pp.money }), "ผู้ถือเงิน", C.primary),
+                                chip(pp.manager, () => patchPerson(r.dutyId, pp.pid, { manager: !pp.manager }), "ผู้จัดการห้อง (การเงิน)", "#7c5cff"),
+                                chip(pp.buyer, () => patchPerson(r.dutyId, pp.pid, { buyer: !pp.buyer }), "ผู้ซื้อ (กองทุน)", "#c99a2e"),
                                 React.createElement("button", { onClick: () => removePerson(r.dutyId, pp.pid), style: { marginLeft: "auto", border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800, fontSize: 12 } }, "\u0E25\u0E1A")),
                             !pp.all && selCompObjs.length > 0 && (React.createElement("div", { style: { marginTop: 6 } },
                                 React.createElement("span", { style: { fontSize: 11, color: pc || "#c0392b", fontWeight: 700 } }, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E14\u0E39\u0E41\u0E25:"),
@@ -6343,18 +6347,24 @@ function DutyDefManager({ db, setDb, ui }) {
     } const n = parseInt(num) || ((db.duties || []).length + 1); setDb((p) => ({ ...p, duties: [...(p.duties || []), { id: "duty" + Date.now(), name: name.trim(), num: n }] })); setName(""); setNum(""); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
     const saveEdit = () => { setDb((p) => ({ ...p, duties: (p.duties || []).map((x) => x.id === editId ? { ...x, name: eName.trim(), num: parseInt(eNum) || x.num } : x) })); setEditId(null); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
     const del = (id) => setDb((p) => { setTimeout(() => window.__forceSave && window.__forceSave(), 400); return { ...p, duties: (p.duties || []).filter((x) => x.id !== id) }; });
+    const setRole = (id, role) => { setDb((p) => ({ ...p, duties: (p.duties || []).map((x) => x.id === id ? { ...x, role } : x) })); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
+    const roleOpts = [{ v: "", l: "— ไม่มีบทบาทพิเศษ —" }, { v: "manager", l: "ผู้จัดการ (เก็บ-ส่งเงินรายห้อง)" }, { v: "buyer", l: "ผู้ซื้อ (สร้างรายการซื้อ)" }];
     return (React.createElement("div", { style: { maxWidth: 520 } },
-        React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 12 } }, "\u0E40\u0E25\u0E02 = \u0E25\u0E33\u0E14\u0E31\u0E1A\u0E0A\u0E31\u0E49\u0E19\u0E43\u0E19\u0E1C\u0E31\u0E07 (\u0E40\u0E25\u0E02\u0E19\u0E49\u0E2D\u0E22 = \u0E2D\u0E22\u0E39\u0E48\u0E2A\u0E39\u0E07\u0E01\u0E27\u0E48\u0E32) \u00B7 \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E01\u0E35\u0E48\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E01\u0E47\u0E44\u0E14\u0E49 \u0E44\u0E21\u0E48\u0E08\u0E33\u0E01\u0E31\u0E14 6"),
+        React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 12 } },
+            "\u0E40\u0E25\u0E02 = \u0E25\u0E33\u0E14\u0E31\u0E1A\u0E0A\u0E31\u0E49\u0E19\u0E43\u0E19\u0E1C\u0E31\u0E07 (\u0E40\u0E25\u0E02\u0E19\u0E49\u0E2D\u0E22 = \u0E2D\u0E22\u0E39\u0E48\u0E2A\u0E39\u0E07\u0E01\u0E27\u0E48\u0E32) \u00B7 \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E01\u0E35\u0E48\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E01\u0E47\u0E44\u0E14\u0E49 \u0E44\u0E21\u0E48\u0E08\u0E33\u0E01\u0E31\u0E14 6 \u00B7 ",
+            React.createElement("b", null, "\u0E1A\u0E17\u0E1A\u0E32\u0E17\u0E23\u0E30\u0E1A\u0E1A"),
+            " = \u0E1C\u0E39\u0E01\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C\u0E14\u0E49\u0E27\u0E22\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E19\u0E35\u0E49 (\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E0A\u0E37\u0E48\u0E2D\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E41\u0E25\u0E49\u0E27\u0E2A\u0E34\u0E17\u0E18\u0E34\u0E4C\u0E22\u0E31\u0E07\u0E15\u0E32\u0E21\u0E16\u0E39\u0E01)"),
         React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 } },
             list.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48" }),
-            list.map((x) => (React.createElement("div", { key: x.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: C.surface, border: `1px solid ${C.line}`, borderRadius: 8 } }, editId === x.id ? React.createElement(React.Fragment, null,
+            list.map((x) => (React.createElement("div", { key: x.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: C.surface, border: `1px solid ${C.line}`, borderRadius: 8, flexWrap: "wrap" } }, editId === x.id ? React.createElement(React.Fragment, null,
                 React.createElement("input", { type: "number", value: eNum, onChange: (e) => setENum(e.target.value), style: { width: 60, padding: "6px 8px", borderRadius: 6, border: `1px solid ${C.line}` } }),
                 React.createElement("input", { value: eName, onChange: (e) => setEName(e.target.value), style: { flex: 1, padding: "6px 10px", borderRadius: 6, border: `1px solid ${C.line}` } }),
                 React.createElement(Btn, { small: true, onClick: saveEdit }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01"),
                 React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setEditId(null) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"))
                 : React.createElement(React.Fragment, null,
                     React.createElement("span", { style: { width: 28, height: 28, borderRadius: "50%", background: C.soft, color: C.primaryDark, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13 } }, x.num),
-                    React.createElement("span", { style: { flex: 1, fontWeight: 600, color: C.ink } }, x.name),
+                    React.createElement("span", { style: { flex: 1, fontWeight: 600, color: C.ink, minWidth: 100 } }, x.name),
+                    React.createElement("select", { value: x.role || "", onChange: (e) => setRole(x.id, e.target.value), style: { padding: "5px 8px", borderRadius: 6, border: `1px solid ${(x.role) ? C.primary : C.line}`, fontSize: 12, color: x.role ? C.primaryDark : C.muted, fontWeight: x.role ? 700 : 400 } }, roleOpts.map((o) => React.createElement("option", { key: o.v, value: o.v }, o.l))),
                     React.createElement("button", { onClick: () => { setEditId(x.id); setEName(x.name); setENum(String(x.num)); }, style: { border: "none", background: "none", color: C.primary, cursor: "pointer", fontWeight: 700, fontSize: 12 } }, "\u0E41\u0E01\u0E49\u0E44\u0E02"),
                     React.createElement("button", { onClick: () => del(x.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715")))))),
         React.createElement("div", { style: { display: "flex", gap: 8 } },
