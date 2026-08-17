@@ -6115,7 +6115,16 @@ function Org2Manager({ db, setDb, ui, viewer, canEdit = true, selfSignup = false
                 }))),
             (db.org2 || []).length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E31\u0E07 \u2014 \u0E15\u0E31\u0E49\u0E07\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A\u0E23\u0E32\u0E22\u0E1D\u0E48\u0E32\u0E22\u0E41\u0E25\u0E49\u0E27\u0E01\u0E14 '\u0E2A\u0E23\u0E49\u0E32\u0E07\u0E1C\u0E31\u0E07\u0E08\u0E32\u0E01\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A'" }),
             (db.org2 || []).length > 0 && React.createElement(LayoutPicker, { value: orgLayout, onChange: setOrgLayout, options: [{ k: "row", shape: "2col", label: "ครู/นักเรียน ข้างกัน" }, { k: "col", shape: "1col", label: "เรียงลง" }] }),
-            (() => { const compOrder = (db.competitions || []).map((c) => String(c.id)); const orderedCompIds = Object.keys(byComp).sort((a, b) => { const ia = compOrder.indexOf(String(a)), ib = compOrder.indexOf(String(b)); return (ia < 0 ? 9999 : ia) - (ib < 0 ? 9999 : ib); }); return orderedCompIds; })().map((compId) => (React.createElement(Card, { key: compId, style: { padding: 14, marginBottom: 12 } },
+            (() => {
+                const compOrder = (db.competitions || []).map((c) => String(c.id));
+                const compById = {};
+                (db.competitions || []).forEach((c) => { compById[String(c.id)] = c; });
+                const rank = (cid) => { if (!cid)
+                    return 3; const c = compById[String(cid)]; if (!c)
+                    return 3; return c.kind === "กิจกรรม" ? 2 : ((c.sportType || "กีฬา") === "กรีฑา" ? 1 : 0); }; // กีฬา→กรีฑา→กิจกรรม→(ระดับฝ่าย)
+                const orderedCompIds = Object.keys(byComp).sort((a, b) => (rank(a) - rank(b)) || ((compOrder.indexOf(String(a)) < 0 ? 9999 : compOrder.indexOf(String(a))) - (compOrder.indexOf(String(b)) < 0 ? 9999 : compOrder.indexOf(String(b)))));
+                return orderedCompIds;
+            })().map((compId) => (React.createElement(Card, { key: compId, style: { padding: 14, marginBottom: 12 } },
                 React.createElement("div", { style: { fontWeight: 800, color: C.ink, marginBottom: 8 } },
                     "\uD83C\uDFC6 ",
                     compName2(compId)),
@@ -8454,11 +8463,14 @@ function mergeDb(loaded) {
         base.forEach((c) => { (by[sigOf(c)] = by[sigOf(c)] || []).push(c); });
         return Object.values(by).map((g) => g.length === 1 ? g[0] : g.slice().sort((a, b) => (b.participants || []).length - (a.participants || []).length)[0]);
     })();
+    // เรียงรายการเป็นกลุ่ม กีฬา→กรีฑา→กิจกรรม (คงลำดับเดิมในแต่ละกลุ่ม) → ทุก dropdown/รายการรับลำดับนี้
+    const _sortComps = (arr) => { const rank = (c) => c.kind === "กิจกรรม" ? 2 : ((c.sportType || "กีฬา") === "กรีฑา" ? 1 : 0); return arr.map((c, i) => ({ c, i })).sort((a, b) => (rank(a.c) - rank(b.c)) || (a.i - b.i)).map((o) => o.c); };
+    const _outComps = _sortComps(_needDedup ? _dedupComps : _rawComps);
     return {
         students: _needGenderFill ? _rawStudents.map((st) => st.gender ? st : { ...st, gender: genderFromPre(st.pre) }) : _rawStudents,
         teachers: (loaded && loaded.teachers) || [],
         assistants: (loaded && loaded.assistants) || [],
-        competitions: _needDedup ? _dedupComps : _rawComps,
+        competitions: _outComps,
         orgTeacher: (loaded && loaded.orgTeacher) || [],
         orgStudent: (loaded && loaded.orgStudent) || [],
         dutyList: (loaded && loaded.dutyList) || [],
