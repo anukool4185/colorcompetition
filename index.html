@@ -89,7 +89,7 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v131";
+const APP_VERSION = "v132";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -3131,23 +3131,31 @@ function PersonList({ kind, db, setDb, ui }) {
     // ลบ พร้อมตัดความเกี่ยวข้องทั้งหมด (ผังองค์กร, ผู้เข้าแข่ง, ผลการแข่ง) และลบรูปใน Drive
     const purge = (ids) => {
         const idset = new Set(ids);
+        const idStrSet = new Set(ids.map(String));
         ui.run("กำลังลบข้อมูลและความเกี่ยวข้อง...", () => {
-            setDb((p) => {
-                const next = { ...p };
-                const removed = p[key].filter((x) => idset.has(x.id));
-                next[key] = p[key].filter((x) => !idset.has(x.id));
-                next.orgTeacher = kind === "teacher" ? pruneOrg(p.orgTeacher, idset) : p.orgTeacher;
-                next.orgStudent = kind === "student" ? pruneOrg(p.orgStudent, idset) : p.orgStudent;
+            const apply = (base) => {
+                const next = { ...base };
+                const removed = (base[key] || []).filter((x) => idset.has(x.id));
+                next[key] = (base[key] || []).filter((x) => !idset.has(x.id));
+                next.orgTeacher = kind === "teacher" ? pruneOrg(base.orgTeacher, idset) : base.orgTeacher;
+                next.orgStudent = kind === "student" ? pruneOrg(base.orgStudent, idset) : base.orgStudent;
+                next.org2 = (base.org2 || []).filter((n) => !idStrSet.has(String(n.personId))); // ตัดออกจากผังใหม่ด้วย
                 if (kind === "student") {
-                    next.competitions = p.competitions.map((c) => {
+                    next.competitions = base.competitions.map((c) => {
                         const results = { ...c.results };
                         ids.forEach((id) => { delete results[id]; });
                         return { ...c, participants: c.participants.filter((x) => !idset.has(x.sid)), results };
                     });
                 }
-                next.trash = [...removed.map((person) => makeTrash(kind === "student" ? "student" : "teacher", `${kind === "student" ? "นักเรียน" : "ครู"}: ${fullName(person)}`, person)), ...(p.trash || [])];
+                next.trash = [...removed.map((person) => makeTrash(kind === "student" ? "student" : "teacher", `${kind === "student" ? "นักเรียน" : "ครู"}: ${fullName(person)}`, person)), ...(base.trash || [])];
                 return next;
-            });
+            };
+            if (window.__commitRemote)
+                window.__commitRemote(apply);
+            else {
+                setDb(apply);
+                setTimeout(() => window.__forceSave && window.__forceSave(), 300);
+            }
             setSel((p) => p.filter((x) => !idset.has(x)));
             setConfirm(null);
             if (window.__pushOther) {
