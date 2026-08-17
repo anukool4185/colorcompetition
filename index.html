@@ -6863,27 +6863,33 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps: myCompsRaw, sub })
             return;
         }
         const t = nowHM();
-        const att = { ...(db.attendance || {}) };
-        const d = { ...(att[date] || {}) };
-        const day = { ...(d["_day"] || {}) }; // เวลารายวันต่อคน (ใช้ร่วมทุกผัง)
-        const cm = { ...(d[compId] || {}) };
-        // อัปเดตเวลาของนักเรียนแบบรายวัน (เช็คที่ไหนก็ได้เวลานี้ทุกผัง)
-        const cur = { ...(day[sid] || {}) };
-        cur[kind] = cur[kind] ? undefined : t; // กดซ้ำ = ยกเลิก
-        day[sid] = cur;
-        cm[sid] = { ...(cm[sid] || {}), [kind]: cur[kind] }; // มาร์คว่าคนนี้อยู่ในรายการนี้ด้วย (สำหรับสรุปรายรายการ)
-        // เวลาของกรรมการเอง (คนเช็ค) แบบรายวันเช่นกัน
-        const meCur = { ...(day[meId] || {}) };
-        if (kind === "in" && !meCur.in)
-            meCur.in = t;
-        if (kind === "out" && !meCur.out)
-            meCur.out = t;
-        day[meId] = meCur;
-        d["_day"] = day;
-        d[compId] = cm;
-        att[date] = d;
-        setDb((p) => ({ ...p, attendance: att }));
-        save();
+        // สร้างการแก้ไขจาก "ข้อมูลล่าสุด" เสมอ → รวมเฉพาะ key รายคน ไม่ทับของคนอื่นที่ส่งพร้อมกัน
+        const apply = (base) => {
+            const att = { ...(base.attendance || {}) };
+            const d = { ...(att[date] || {}) };
+            const day = { ...(d["_day"] || {}) };
+            const cur = { ...(day[sid] || {}) };
+            cur[kind] = cur[kind] ? undefined : t; // กดซ้ำ = ยกเลิก (อิงสถานะล่าสุด)
+            day[sid] = cur;
+            const cm = { ...(d[compId] || {}) };
+            cm[sid] = { ...(cm[sid] || {}), [kind]: cur[kind] };
+            const meCur = { ...(day[meId] || {}) };
+            if (kind === "in" && !meCur.in)
+                meCur.in = t;
+            if (kind === "out" && !meCur.out)
+                meCur.out = t;
+            day[meId] = meCur;
+            d["_day"] = day;
+            d[compId] = cm;
+            att[date] = d;
+            return { ...base, attendance: att };
+        };
+        if (window.__commitRemote)
+            window.__commitRemote((latest) => apply(latest));
+        else {
+            setDb((p) => apply(p));
+            save();
+        }
     };
     if (sub === "none") {
         const registered = new Set();
