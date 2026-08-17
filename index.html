@@ -89,7 +89,7 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v127";
+const APP_VERSION = "v128";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -3106,15 +3106,17 @@ function PersonList({ kind, db, setDb, ui }) {
     const toggle = (id) => setSel((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
     const toggleAll = () => setSel(allVisibleSelected ? [] : filtered.map((s) => s.id));
     const save = (data, isEdit) => {
-        setDb((p) => {
-            const arr = isEdit ? p[key].map((s) => (s.id === data.id ? data : s)) : [...p[key], data];
-            if (window.__pushOther)
-                window.__pushOther((odb) => kind === "student" ? mirrorStudentsInto(odb, arr) : mirrorTeachersInto(odb, arr));
-            return { ...p, [key]: arr };
-        });
+        const apply = (base) => { const arr = isEdit ? (base[key] || []).map((s) => (s.id === data.id ? data : s)) : [...(base[key] || []), data]; return { ...base, [key]: arr }; };
+        if (window.__commitRemote)
+            window.__commitRemote(apply);
+        else {
+            setDb(apply);
+            setTimeout(() => window.__forceSave && window.__forceSave(), 300);
+        }
+        if (window.__pushOther)
+            window.__pushOther((odb) => kind === "student" ? mirrorStudentsInto(odb, apply(db)[key]) : mirrorTeachersInto(odb, apply(db)[key]));
         setAdd(false);
         setEdit(null);
-        setTimeout(() => window.__forceSave && window.__forceSave(), 400);
     };
     // ลบ พร้อมตัดความเกี่ยวข้องทั้งหมด (ผังองค์กร, ผู้เข้าแข่ง, ผลการแข่ง) และลบรูปใน Drive
     const purge = (ids) => {
