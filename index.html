@@ -231,7 +231,7 @@ function todayStr() { const d = new Date(); return `${d.getFullYear()}-${String(
 function nowTime() { const d = new Date(); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; }
 function buddhistYear() { return new Date().getFullYear() + 543; }
 // สร้างใบเสร็จเป็น PDF (หัวใบเสร็จ / เลขที่ใบเสร็จ/ปีพ.ศ. / วันที่ เวลา / ตารางรายการ)
-async function makeReceiptPdf({ orgName, title, receiptNo, date, time, rows, notify, kind, payeeName, payeePosition, payerName, payerPosition, payerLabel, payeeLabel }) {
+async function makeReceiptPdf({ orgName, title, receiptNo, date, time, rows, notify, kind, payeeName, payeePosition, payerName, payerPosition, payerLabel, payeeLabel, bills }) {
     if (typeof html2canvas === "undefined" || !window.jspdf) {
         notify && notify("ต้องเปิดผ่านหน้าเว็บจริง (มีอินเทอร์เน็ต)");
         return;
@@ -249,6 +249,7 @@ async function makeReceiptPdf({ orgName, title, receiptNo, date, time, rows, not
             (rows || []).map((r, i) => `<tr><td style="border:1px solid #bbb;padding:7px;text-align:center;font-size:13px">${i + 1}</td><td style="border:1px solid #bbb;padding:7px;font-size:13px">${r.label || ""}</td><td style="border:1px solid #bbb;padding:7px;text-align:right;font-size:13px">${(Number(r.amount) || 0).toLocaleString("th-TH")}</td></tr>`).join("") +
             `<tr><td colspan="2" style="border:1px solid #bbb;padding:7px;text-align:right;font-weight:800;font-size:13px">รวมทั้งสิ้น</td><td style="border:1px solid #bbb;padding:7px;text-align:right;font-weight:800;font-size:13px">${total.toLocaleString("th-TH")}</td></tr>` +
             `</tbody></table>` +
+            ((bills && bills.length) ? `<div style="margin-top:16px"><div style="font-size:13px;font-weight:700;color:#555;margin-bottom:8px">📎 หลักฐาน/ใบเสร็จจากร้านค้า (${bills.length} รูป)</div><div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-start">${bills.map((b) => `<img src="${b}" style="max-width:330px;max-height:430px;border:1px solid #ccc;border-radius:6px;object-fit:contain" />`).join("")}</div></div>` : "") +
             (payerName || payerPosition ? `<div style="margin-top:44px;text-align:right;font-size:15px">${payerLabel || "ผู้ส่งเงิน"} ..................................................</div>` + (payerName ? `<div style="text-align:right;font-size:14px;margin-top:6px">( ${payerName} )</div>` : "") + (payerPosition ? `<div style="text-align:right;font-size:14px;margin-top:4px">ตำแหน่ง ${payerPosition}</div>` : "") : "") +
             `<div style="margin-top:${payerName || payerPosition ? 40 : 48}px;text-align:right;font-size:15px">${payeeLabel || ("ผู้" + (kind === "out" ? "จ่ายเงิน" : "รับเงิน"))} ..................................................</div>` +
             (payeeName ? `<div style="text-align:right;font-size:14px;margin-top:6px">( ${payeeName} )</div>` : "") +
@@ -269,6 +270,44 @@ async function makeReceiptPdf({ orgName, title, receiptNo, date, time, rows, not
 }
 function nowHM() { const d = new Date(); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; }
 // ข้อมูลผู้เกี่ยวข้องในใบเสร็จ: ชื่อ+ชั้น/ห้อง + ตำแหน่งจากผังใหม่ (org2)
+// ย่อรูปก่อนเก็บ (ลดขนาด db) — คืน dataURL JPEG กว้าง/สูงไม่เกิน max, คุณภาพ q
+function compressImage(file, max, q) {
+    max = max || 1280;
+    q = q || 0.72;
+    return new Promise((resolve) => {
+        const rd = new FileReader();
+        rd.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+                let w = img.naturalWidth, h = img.naturalHeight;
+                if (w > max || h > max) {
+                    if (w >= h) {
+                        h = Math.round(h * max / w);
+                        w = max;
+                    }
+                    else {
+                        w = Math.round(w * max / h);
+                        h = max;
+                    }
+                }
+                try {
+                    const cv = document.createElement("canvas");
+                    cv.width = w;
+                    cv.height = h;
+                    cv.getContext("2d").drawImage(img, 0, 0, w, h);
+                    resolve(cv.toDataURL("image/jpeg", q));
+                }
+                catch (e) {
+                    resolve(rd.result);
+                }
+            };
+            img.onerror = () => resolve(rd.result);
+            img.src = rd.result;
+        };
+        rd.onerror = () => resolve("");
+        rd.readAsDataURL(file);
+    });
+}
 function receiptPersonInfo(db, pid) {
     if (!pid)
         return { name: "", pos: "" };
@@ -1146,7 +1185,7 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc, canEntry = true, lockRo
         return 0; return r.amounts.reduce((s, x) => s + (Number(x) || 0), 0); };
     const grand = roomStudents.reduce((s, st) => s + rowTotal(st.id), 0);
     const pickBill = (file) => { if (!file)
-        return; const rd = new FileReader(); rd.onload = () => setBillData(rd.result); rd.readAsDataURL(file); };
+        return; compressImage(file, 1280, 0.72).then((d) => d && setBillData(d)); };
     const uploadBill = () => { if (!billData) {
         ui.notify("เลือกรูปก่อน");
         return;
@@ -1322,7 +1361,7 @@ function LoanManager({ db, setDb, ui, viewer }) {
     const selDepts = (db.departments || []).filter((d) => selDeptIds.map(String).includes(String(d.id)) || (d.comps || []).some((cid) => selComps.map(String).includes(String(cid))));
     const loans = (db.loans || []).slice().sort((a, b) => (b.date + b.time + b.at).localeCompare(a.date + a.time + a.at));
     const pickPhoto = (file) => { if (!file)
-        return; const rd = new FileReader(); rd.onload = () => setPhoto(rd.result); rd.readAsDataURL(file); };
+        return; compressImage(file, 1280, 0.72).then((d) => d && setPhoto(d)); };
     const add = () => {
         if (!studentId) {
             ui.notify("เลือกนักเรียนก่อน");
@@ -1435,7 +1474,7 @@ function LoanManager({ db, setDb, ui, viewer }) {
             React.createElement("span", { style: { fontWeight: 800, color: "#c0392b" } },
                 (Number(x.amount) || 0).toLocaleString("th-TH"),
                 " \u0E3F"),
-            x.receiptNo && React.createElement("button", { onClick: () => { const st = (db.students || []).find((s) => String(s.id) === String(x.studentId)); const payeeName = x.studentName + (st && (st.grade || st.room) ? ` ${st.grade || ""}${st.room ? "/" + st.room : ""}` : ""); const dutyNames = [...new Set((db.org2 || []).filter((n) => String(n.personId) === String(x.studentId) && (x.comps || []).map(String).includes(String(n.compId))).map((n) => { const dd = (db.duties || []).find((z) => String(z.id) === String(n.dutyId)); return dd ? dd.name : ""; }).filter(Boolean))]; const borrowerPos = ["นักเรียน", dutyNames.join(", "), (x.deptNames || []).join(", ")].filter(Boolean).join(" · "); const holder = receiptMoneyHolder(db); makeReceiptPdf({ title: "ใบเสร็จรับเงิน (ยืมเงิน)", receiptNo: x.receiptNo, date: x.date, time: x.time, rows: [{ label: "ยืมเงิน" + (x.note ? " · " + x.note : ""), amount: x.amount }], notify: ui.notify, payerName: payeeName, payerLabel: "ผู้รับเงิน (ผู้ยืม)", payerPosition: borrowerPos, payeeName: holder.name, payeeLabel: "ผู้จ่ายเงิน", payeePosition: holder.pos }); }, title: "ใบเสร็จเลขที่ " + x.receiptNo, style: { border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" } },
+            x.receiptNo && React.createElement("button", { onClick: () => { const st = (db.students || []).find((s) => String(s.id) === String(x.studentId)); const payeeName = x.studentName + (st && (st.grade || st.room) ? ` ${st.grade || ""}${st.room ? "/" + st.room : ""}` : ""); const dutyNames = [...new Set((db.org2 || []).filter((n) => String(n.personId) === String(x.studentId) && (x.comps || []).map(String).includes(String(n.compId))).map((n) => { const dd = (db.duties || []).find((z) => String(z.id) === String(n.dutyId)); return dd ? dd.name : ""; }).filter(Boolean))]; const borrowerPos = ["นักเรียน", dutyNames.join(", "), (x.deptNames || []).join(", ")].filter(Boolean).join(" · "); const holder = receiptMoneyHolder(db); makeReceiptPdf({ title: "ใบเสร็จรับเงิน (ยืมเงิน)", receiptNo: x.receiptNo, date: x.date, time: x.time, rows: [{ label: "ยืมเงิน" + (x.note ? " · " + x.note : ""), amount: x.amount }], notify: ui.notify, payerName: payeeName, payerLabel: "ผู้รับเงิน (ผู้ยืม)", payerPosition: borrowerPos, payeeName: holder.name, payeeLabel: "ผู้จ่ายเงิน", payeePosition: holder.pos, bills: (x.photoUrls && x.photoUrls.length ? x.photoUrls : (x.photoUrl ? [x.photoUrl] : [])) }); }, title: "ใบเสร็จเลขที่ " + x.receiptNo, style: { border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" } },
                 "\u2B07 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 ",
                 x.receiptNo),
             React.createElement("button", { onClick: () => del(x.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715"))))))));
@@ -1453,31 +1492,31 @@ function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit, buyerMode }) 
     const openExpModal = () => { const picked = rows.filter((r) => selIds.includes(r.id) && r.type === "out"); if (!picked.length) {
         ui.notify("ติ๊กเลือกรายการจ่ายก่อน");
         return;
-    } setExpModal({ ids: picked.map((r) => r.id), img: "", payeeName: "", payeePosition: "" }); };
-    const onExpImg = (e) => { const f = e.target.files && e.target.files[0]; if (!f)
-        return; const rd = new FileReader(); rd.onload = () => setExpModal((m) => ({ ...m, img: rd.result })); rd.readAsDataURL(f); };
-    const canApprove = String(viewer.role) === "admin" || (db.org2 || []).some((n) => n.money && String(n.personId) === String(viewer.id));
+    } setExpModal({ ids: picked.map((r) => r.id), imgs: [], payeeName: "", payeePosition: "" }); };
+    const onExpImg = (e) => { const files = Array.from(e.target.files || []); if (!files.length)
+        return; files.forEach((f) => compressImage(f, 1280, 0.72).then((d) => { if (d)
+        setExpModal((m) => m ? ({ ...m, imgs: [...(m.imgs || []), d] }) : m); })); e.target.value = ""; };
+    const delExpImg = (i) => setExpModal((m) => ({ ...m, imgs: (m.imgs || []).filter((_, idx) => idx !== i) }));
     const doIssueExpense = () => {
         const m = expModal;
-        if (!m || !m.img) {
-            ui.notify("ต้องแนบรูปใบเสร็จตัวจริงก่อน จึงสร้างได้");
+        if (!m || !(m.imgs || []).length) {
+            ui.notify("ต้องแนบรูปใบเสร็จตัวจริงอย่างน้อย 1 รูปก่อน");
             return;
         }
         const picked = rows.filter((r) => m.ids.includes(r.id));
-        if (!canApprove) { // ผู้ซื้อ → ส่งคำขอให้แอดมิน/ผู้ถือเงินตรวจ
-            setDb((p) => ({ ...p, fundReceiptReqs: [...((p.fundReceiptReqs || [])), { id: "fr" + Date.now(), ids: m.ids, img: m.img, payeeName: m.payeeName, payeePosition: m.payeePosition, byId: viewer.id, byName: viewer.name || "", at: Date.now(), status: "pending" }] }));
+        if (!canApprove) {
+            setDb((p) => ({ ...p, fundReceiptReqs: [...((p.fundReceiptReqs || [])), { id: "fr" + Date.now(), ids: m.ids, imgs: m.imgs, payeeName: m.payeeName, payeePosition: m.payeePosition, byId: viewer.id, byName: viewer.name || "", at: Date.now(), status: "pending" }] }));
             setExpModal(null);
             setSelIds([]);
             setTimeout(() => window.__forceSave && window.__forceSave(), 300);
             ui.notify("ส่งคำขอสร้างใบเสร็จแล้ว — รอแอดมิน/ผู้ถือเงินตรวจและยอมรับ");
             return;
         }
-        // แอดมิน/ผู้ถือเงิน → ออกใบเสร็จได้เลย
         const preview = (db.receiptSeq || 0) + 1;
         const receiptNo = preview + "/" + buddhistYear();
-        setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const ids = new Set(m.ids); return { ...p, receiptSeq: seq, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear(), billUrl: m.img, payeeReal: m.payeeName, payeePosReal: m.payeePosition } : f) }; });
+        setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const ids = new Set(m.ids); return { ...p, receiptSeq: seq, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear(), billUrl: (m.imgs || [])[0], billUrls: m.imgs, payeeReal: m.payeeName, payeePosReal: m.payeePosition } : f) }; });
         const recorder = receiptPersonInfo(db, picked[0].byId);
-        makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน (กองทุนสำรอง)", kind: "out", receiptNo, date: picked[0].date, time: picked[0].time, rows: picked.map((r) => ({ label: r.title + (r.note ? " · " + r.note : ""), amount: r.amount })), notify: ui.notify, payerName: recorder.name, payerLabel: "ผู้จ่ายเงิน", payerPosition: recorder.pos, payeeName: m.payeeName, payeePosition: m.payeePosition });
+        makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน (กองทุนสำรอง)", kind: "out", receiptNo, date: picked[0].date, time: picked[0].time, rows: picked.map((r) => ({ label: r.title + (r.note ? " · " + r.note : ""), amount: r.amount })), notify: ui.notify, payerName: recorder.name, payerLabel: "ผู้จ่ายเงิน", payerPosition: recorder.pos, payeeName: m.payeeName, payeePosition: m.payeePosition, bills: m.imgs });
         setExpModal(null);
         setSelIds([]);
         save();
@@ -1485,7 +1524,7 @@ function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit, buyerMode }) 
     const approveReq = (req) => { const picked = rows.filter((r) => req.ids.includes(r.id)); if (!picked.length) {
         ui.notify("ไม่พบรายการ (อาจถูกลบ)");
         return;
-    } const preview = (db.receiptSeq || 0) + 1; const receiptNo = preview + "/" + buddhistYear(); setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const ids = new Set(req.ids); return { ...p, receiptSeq: seq, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear(), billUrl: req.img, payeeReal: req.payeeName, payeePosReal: req.payeePosition } : f), fundReceiptReqs: (p.fundReceiptReqs || []).map((x) => x.id === req.id ? { ...x, status: "approved", receiptNo: seq + "/" + buddhistYear(), approvedBy: viewer.name } : x) }; }); const recorder = receiptPersonInfo(db, picked[0].byId); makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน (กองทุนสำรอง)", kind: "out", receiptNo, date: picked[0].date, time: picked[0].time, rows: picked.map((r) => ({ label: r.title + (r.note ? " · " + r.note : ""), amount: r.amount })), notify: ui.notify, payerName: recorder.name, payerLabel: "ผู้จ่ายเงิน", payerPosition: recorder.pos, payeeName: req.payeeName, payeePosition: req.payeePosition }); ui.notify("ยอมรับและออกใบเสร็จแล้ว"); save(); };
+    } const imgs = req.imgs || (req.img ? [req.img] : []); const preview = (db.receiptSeq || 0) + 1; const receiptNo = preview + "/" + buddhistYear(); setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const ids = new Set(req.ids); return { ...p, receiptSeq: seq, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear(), billUrl: imgs[0], billUrls: imgs, payeeReal: req.payeeName, payeePosReal: req.payeePosition } : f), fundReceiptReqs: (p.fundReceiptReqs || []).map((x) => x.id === req.id ? { ...x, status: "approved", receiptNo: seq + "/" + buddhistYear(), approvedBy: viewer.name } : x) }; }); const recorder = receiptPersonInfo(db, picked[0].byId); makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน (กองทุนสำรอง)", kind: "out", receiptNo, date: picked[0].date, time: picked[0].time, rows: picked.map((r) => ({ label: r.title + (r.note ? " · " + r.note : ""), amount: r.amount })), notify: ui.notify, payerName: recorder.name, payerLabel: "ผู้จ่ายเงิน", payerPosition: recorder.pos, payeeName: req.payeeName, payeePosition: req.payeePosition, bills: imgs }); ui.notify("ยอมรับและออกใบเสร็จแล้ว"); save(); };
     const rejectReq = (req) => { setDb((p) => ({ ...p, fundReceiptReqs: (p.fundReceiptReqs || []).map((x) => x.id === req.id ? { ...x, status: "rejected", rejectedBy: viewer.name } : x) })); setTimeout(() => window.__forceSave && window.__forceSave(), 300); ui.notify("ปฏิเสธคำขอแล้ว"); };
     const pendingReqs = (db.fundReceiptReqs || []).filter((x) => x.status === "pending");
     useEffect(() => { if (editRec) {
@@ -1556,8 +1595,8 @@ function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit, buyerMode }) 
                         "\u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19 (\u0E08\u0E32\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E23\u0E34\u0E07): ",
                         req.payeeName || "-",
                         req.payeePosition ? " · " + req.payeePosition : ""),
-                    req.img && React.createElement("a", { href: req.img, target: "_blank", rel: "noreferrer" },
-                        React.createElement("img", { src: req.img, alt: "\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E23\u0E34\u0E07", style: { maxHeight: 120, borderRadius: 8, marginTop: 6, border: `1px solid ${C.line}` } })),
+                    (req.imgs || (req.img ? [req.img] : [])).length > 0 && React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 } }, (req.imgs || (req.img ? [req.img] : [])).map((im, i) => React.createElement("a", { key: i, href: im, target: "_blank", rel: "noreferrer" },
+                        React.createElement("img", { src: im, alt: "ใบเสร็จ" + (i + 1), style: { maxHeight: 120, borderRadius: 8, border: `1px solid ${C.line}` } })))),
                     React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 10 } },
                         React.createElement(Btn, { small: true, onClick: () => approveReq(req) }, "\u2713 \u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A & \u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08"),
                         React.createElement(Btn, { small: true, variant: "ghost", onClick: () => rejectReq(req) }, "\u0E1B\u0E0F\u0E34\u0E40\u0E2A\u0E18"))));
@@ -1608,10 +1647,10 @@ function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit, buyerMode }) 
                     r.type === "out" ? "-" : "+",
                     (Number(r.amount) || 0).toLocaleString("th-TH")),
                 r.receiptNo && React.createElement("button", { onClick: () => { const holder = receiptMoneyHolder(db); if (r.type === "out") {
-                        makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน (กองทุนสำรอง)", kind: "out", receiptNo: r.receiptNo, date: r.date, time: r.time, rows: [{ label: r.title + (r.note ? " · " + r.note : ""), amount: r.amount }], notify: ui.notify, payerName: holder.name, payerLabel: "ผู้จ่ายเงิน", payerPosition: holder.pos, payeeLabel: "ผู้รับเงิน" });
+                        makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน (กองทุนสำรอง)", kind: "out", receiptNo: r.receiptNo, date: r.date, time: r.time, rows: [{ label: r.title + (r.note ? " · " + r.note : ""), amount: r.amount }], notify: ui.notify, payerName: receiptPersonInfo(db, r.byId).name, payerLabel: "ผู้จ่ายเงิน", payerPosition: receiptPersonInfo(db, r.byId).pos, payeeName: r.payeeReal || "", payeeLabel: "ผู้รับเงิน", payeePosition: r.payeePosReal || "", bills: (r.billUrls && r.billUrls.length ? r.billUrls : (r.billUrl ? [r.billUrl] : [])) });
                     }
                     else {
-                        makeReceiptPdf({ title: "ใบเสร็จรับเงิน (กองทุนสำรอง)", receiptNo: r.receiptNo, date: r.date, time: r.time, rows: [{ label: r.title + (r.note ? " · " + r.note : ""), amount: r.amount }], notify: ui.notify, payerName: receiptPersonInfo(db, r.byId).name, payerPosition: receiptPersonInfo(db, r.byId).pos, payeeName: holder.name, payeePosition: holder.pos });
+                        makeReceiptPdf({ title: "ใบเสร็จรับเงิน (กองทุนสำรอง)", receiptNo: r.receiptNo, date: r.date, time: r.time, rows: [{ label: r.title + (r.note ? " · " + r.note : ""), amount: r.amount }], notify: ui.notify, payerName: receiptPersonInfo(db, r.byId).name, payerPosition: receiptPersonInfo(db, r.byId).pos, payeeName: holder.name, payeePosition: holder.pos, bills: (r.billUrls && r.billUrls.length ? r.billUrls : (r.billUrl ? [r.billUrl] : [])) });
                     } }, style: { border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "2px 7px", fontSize: 11, fontWeight: 700, cursor: "pointer" } }, "\u2B07"),
                 React.createElement("button", { onClick: () => { setType(r.type); setTitle(r.title); setAmount(String(r.amount)); setDate(r.date); setFundTime(r.time || nowTime()); setNote(r.note || ""); setEditId(r.id); }, style: { border: "none", background: "none", color: C.primary, cursor: "pointer", fontWeight: 700, fontSize: 12 } }, "\u0E41\u0E01\u0E49\u0E44\u0E02"),
                 React.createElement("button", { onClick: () => del(r.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715")))))),
@@ -1621,18 +1660,23 @@ function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit, buyerMode }) 
                     "\u0E40\u0E25\u0E37\u0E2D\u0E01 ",
                     expModal.ids.length,
                     " \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u00B7 ",
-                    React.createElement("b", { style: { color: "#c0392b" } }, "\u0E15\u0E49\u0E2D\u0E07\u0E41\u0E19\u0E1A\u0E23\u0E39\u0E1B\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07\u0E01\u0E48\u0E2D\u0E19"),
-                    " \u0E08\u0E36\u0E07\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A\u0E44\u0E14\u0E49"),
-                React.createElement("label", { style: { fontSize: 13, fontWeight: 700, color: C.ink } }, "\u0E23\u0E39\u0E1B\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07 *"),
+                    React.createElement("b", { style: { color: "#c0392b" } }, "\u0E15\u0E49\u0E2D\u0E07\u0E41\u0E19\u0E1A\u0E23\u0E39\u0E1B\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E19\u0E49\u0E2D\u0E22 1 \u0E23\u0E39\u0E1B"),
+                    " \u00B7 \u0E41\u0E19\u0E1A\u0E2B\u0E25\u0E32\u0E22\u0E23\u0E39\u0E1B/\u0E2B\u0E25\u0E32\u0E22\u0E04\u0E23\u0E31\u0E49\u0E07\u0E44\u0E14\u0E49 \u0E25\u0E1A\u0E23\u0E39\u0E1B\u0E17\u0E35\u0E48\u0E1C\u0E34\u0E14\u0E01\u0E48\u0E2D\u0E19\u0E2D\u0E2D\u0E01\u0E44\u0E14\u0E49"),
+                React.createElement("label", { style: { fontSize: 13, fontWeight: 700, color: C.ink } },
+                    "\u0E23\u0E39\u0E1B\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07 * (",
+                    (expModal.imgs || []).length,
+                    " \u0E23\u0E39\u0E1B)"),
                 React.createElement("div", { style: { marginTop: 6, marginBottom: 12 } },
-                    React.createElement("input", { type: "file", accept: "image/*", onChange: onExpImg }),
-                    expModal.img && React.createElement("img", { src: expModal.img, alt: "\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08", style: { maxHeight: 140, borderRadius: 8, marginTop: 8, display: "block", border: `1px solid ${C.line}` } })),
+                    React.createElement("input", { type: "file", accept: "image/*", multiple: true, onChange: onExpImg }),
+                    (expModal.imgs || []).length > 0 && React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 } }, (expModal.imgs || []).map((im, i) => React.createElement("div", { key: i, style: { position: "relative" } },
+                        React.createElement("img", { src: im, alt: "บิล" + (i + 1), style: { height: 90, borderRadius: 8, border: `1px solid ${C.line}` } }),
+                        React.createElement("button", { onClick: () => delExpImg(i), style: { position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: "50%", border: "none", background: "#c0392b", color: "#fff", fontWeight: 800, cursor: "pointer", lineHeight: "20px" } }, "\u00D7"))))),
                 React.createElement(Field, { label: "\u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19 (\u0E08\u0E32\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E23\u0E34\u0E07)", value: expModal.payeeName, onChange: (v) => setExpModal((m) => ({ ...m, payeeName: v })), placeholder: "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E0A\u0E37\u0E48\u0E2D\u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19\u0E15\u0E32\u0E21\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E23\u0E34\u0E07" }),
                 React.createElement(Field, { label: "\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19", value: expModal.payeePosition, onChange: (v) => setExpModal((m) => ({ ...m, payeePosition: v })), placeholder: "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19" }),
                 React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 14 } },
-                    React.createElement(Btn, { onClick: doIssueExpense, disabled: !expModal.img }, canApprove ? "ออกใบเสร็จจ่าย" : "ขอสร้างใบเสร็จ (ส่งให้ตรวจ)"),
+                    React.createElement(Btn, { onClick: doIssueExpense, disabled: !(expModal.imgs || []).length }, canApprove ? "ออกใบเสร็จจ่าย" : "ขอสร้างใบเสร็จ (ส่งให้ตรวจ)"),
                     React.createElement(Btn, { variant: "ghost", onClick: () => setExpModal(null) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01")),
-                !expModal.img && React.createElement("div", { style: { fontSize: 11.5, color: "#b3762f", marginTop: 8 } }, "\u26A0 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E41\u0E19\u0E1A\u0E23\u0E39\u0E1B \u2014 \u0E1B\u0E38\u0E48\u0E21\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E30\u0E43\u0E0A\u0E49\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49"))))));
+                !(expModal.imgs || []).length && React.createElement("div", { style: { fontSize: 11.5, color: "#b3762f", marginTop: 8 } }, "\u26A0 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E41\u0E19\u0E1A\u0E23\u0E39\u0E1B \u2014 \u0E1B\u0E38\u0E48\u0E21\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E30\u0E43\u0E0A\u0E49\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49"))))));
 }
 function RefundManager({ db, setDb, ui, canEdit, lockRoom = "", viewer }) {
     const ro = !canEdit;
@@ -1867,7 +1911,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
         setDb(mut); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
     const reset = () => { setForm({ dept: "", type: "in", title: "", amount: "", date: todayStr(), note: "", billDataUrl: "", billUrl: "", billId: "" }); setEditId(null); };
     const pickBill = (file) => { if (!file)
-        return; const rd = new FileReader(); rd.onload = () => setForm((p) => ({ ...p, billDataUrl: rd.result })); rd.readAsDataURL(file); };
+        return; compressImage(file, 1280, 0.72).then((d) => d && setForm((p) => ({ ...p, billDataUrl: d }))); };
     const save = () => {
         if (!form.dept) {
             ui.notify("เลือกฝ่าย (รายการแข่ง/กิจกรรม)");
@@ -1977,13 +2021,15 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     const openExpModalG = () => { const picked = selObjs().filter((r) => r.type === "out"); if (!picked.length) {
         ui.notify("ติ๊กเลือกรายการจ่ายก่อน");
         return;
-    } setExpModalG({ ids: picked.map((r) => r.id), img: "", payeeName: "", payeePosition: "" }); };
-    const onExpImgG = (e) => { const f = e.target.files && e.target.files[0]; if (!f)
-        return; const rd = new FileReader(); rd.onload = () => setExpModalG((m) => ({ ...m, img: rd.result })); rd.readAsDataURL(f); };
-    const doIssueExpenseG = () => { const m = expModalG; if (!m || !m.img) {
-        ui.notify("ต้องแนบรูปใบเสร็จตัวจริงก่อน จึงออกใบเสร็จได้");
+    } setExpModalG({ ids: picked.map((r) => r.id), imgs: [], payeeName: "", payeePosition: "" }); };
+    const onExpImgG = (e) => { const files = Array.from(e.target.files || []); if (!files.length)
+        return; files.forEach((f) => compressImage(f, 1280, 0.72).then((d) => { if (d)
+        setExpModalG((m) => m ? ({ ...m, imgs: [...(m.imgs || []), d] }) : m); })); e.target.value = ""; };
+    const delExpImgG = (i) => setExpModalG((m) => ({ ...m, imgs: (m.imgs || []).filter((_, idx) => idx !== i) }));
+    const doIssueExpenseG = () => { const m = expModalG; if (!m || !(m.imgs || []).length) {
+        ui.notify("ต้องแนบรูปใบเสร็จตัวจริงอย่างน้อย 1 รูปก่อน");
         return;
-    } const picked = (db.finance || []).filter((r) => m.ids.includes(r.id)); const preview = (db.receiptSeq || 0) + 1; const receiptNo = preview + "/" + buddhistYear(); setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const ids = new Set(m.ids); return { ...p, receiptSeq: seq, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear(), billUrl: m.img, payeeReal: m.payeeName, payeePosReal: m.payeePosition } : f) }; }); const recorder = receiptPersonInfo(db, picked[0].byId); makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน", kind: "out", receiptNo, date: picked[0].date, time: picked[0].time, rows: picked.map((r) => ({ label: r.title + " (" + compName(r.dept) + ")" + (r.note ? " · " + r.note : ""), amount: r.amount })), notify: ui.notify, payerName: recorder.name, payerLabel: "ผู้จ่ายเงิน", payerPosition: recorder.pos, payeeName: m.payeeName, payeePosition: m.payeePosition }); setExpModalG(null); setSelRows([]); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
+    } const picked = (db.finance || []).filter((r) => m.ids.includes(r.id)); const preview = (db.receiptSeq || 0) + 1; const receiptNo = preview + "/" + buddhistYear(); setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const ids = new Set(m.ids); return { ...p, receiptSeq: seq, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear(), billUrl: (m.imgs || [])[0], billUrls: m.imgs, payeeReal: m.payeeName, payeePosReal: m.payeePosition } : f) }; }); const recorder = receiptPersonInfo(db, picked[0].byId); makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน", kind: "out", receiptNo, date: picked[0].date, time: picked[0].time, rows: picked.map((r) => ({ label: r.title + " (" + compName(r.dept) + ")" + (r.note ? " · " + r.note : ""), amount: r.amount })), notify: ui.notify, payerName: recorder.name, payerLabel: "ผู้จ่ายเงิน", payerPosition: recorder.pos, payeeName: m.payeeName, payeePosition: m.payeePosition, bills: m.imgs }); setExpModalG(null); setSelRows([]); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
     const selHasIncome = selObjs().some((r) => r.type !== "out");
     const selHasExpense = selObjs().some((r) => r.type === "out");
     const rowKey = (f) => (f.date || "") + " " + (f.time || "00:00") + " " + (f.at || 0);
@@ -2080,12 +2126,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             React.createElement(Field, { label: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48", type: "date", value: form.date, onChange: (v) => setForm((p) => ({ ...p, date: v })) }),
             React.createElement(Field, { label: "\u0E40\u0E27\u0E25\u0E32", type: "time", value: form.time, onChange: (v) => setForm((p) => ({ ...p, time: v })) }),
             React.createElement(Field, { label: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", value: form.note, onChange: (v) => setForm((p) => ({ ...p, note: v })), placeholder: "\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E40\u0E15\u0E34\u0E21 (\u0E16\u0E49\u0E32\u0E21\u0E35)" }),
-            React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, margin: "2px 0 5px" } }, "\uD83D\uDCCE \u0E41\u0E19\u0E1A\u0E1A\u0E34\u0E25/\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 (\u0E23\u0E39\u0E1B \u2014 \u0E40\u0E01\u0E47\u0E1A\u0E43\u0E19 Google Drive)"),
-            React.createElement("input", { type: "file", accept: "image/*", onChange: (e) => pickBill(e.target.files && e.target.files[0]), style: { fontSize: 12.5, marginBottom: 8 } }),
-            (form.billDataUrl || form.billUrl) && React.createElement("div", { style: { marginBottom: 8 } },
-                React.createElement("img", { src: form.billDataUrl || form.billUrl, alt: "\u0E1A\u0E34\u0E25", style: { maxWidth: 160, maxHeight: 160, borderRadius: 8, border: `1px solid ${C.line}` } }),
-                (form.billDataUrl || form.billUrl) && React.createElement("div", null,
-                    React.createElement("button", { onClick: () => setForm((p) => ({ ...p, billDataUrl: "", billUrl: "", billId: "" })), style: { fontSize: 11.5, border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 700, padding: 0, marginTop: 2 } }, "\u0E25\u0E1A\u0E1A\u0E34\u0E25"))),
+            React.createElement("div", { style: { fontSize: 11.5, color: C.muted, margin: "2px 0 8px" } }, "\uD83D\uDCA1 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E23\u0E34\u0E07\u0E08\u0E32\u0E01\u0E23\u0E49\u0E32\u0E19\u0E04\u0E49\u0E32 \u0E41\u0E19\u0E1A\u0E15\u0E2D\u0E19 \"\u0E23\u0E27\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2192 \u0E2A\u0E23\u0E49\u0E32\u0E07\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\" (1 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E23\u0E27\u0E21\u0E44\u0E14\u0E49\u0E2B\u0E25\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)"),
             React.createElement("div", { style: { display: "flex", gap: 8 } },
                 React.createElement(Btn, { onClick: save }, editId ? "บันทึกการแก้ไข" : "บันทึกรายการ"),
                 editId && React.createElement(Btn, { variant: "ghost", onClick: reset }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01")))),
@@ -2344,18 +2385,23 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                     "\u0E40\u0E25\u0E37\u0E2D\u0E01 ",
                     expModalG.ids.length,
                     " \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u00B7 ",
-                    React.createElement("b", { style: { color: "#c0392b" } }, "\u0E15\u0E49\u0E2D\u0E07\u0E41\u0E19\u0E1A\u0E23\u0E39\u0E1B\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07\u0E01\u0E48\u0E2D\u0E19"),
-                    " \u0E08\u0E36\u0E07\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E44\u0E14\u0E49"),
-                React.createElement("label", { style: { fontSize: 13, fontWeight: 700, color: C.ink } }, "\u0E23\u0E39\u0E1B\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07 *"),
+                    React.createElement("b", { style: { color: "#c0392b" } }, "\u0E15\u0E49\u0E2D\u0E07\u0E41\u0E19\u0E1A\u0E23\u0E39\u0E1B\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E19\u0E49\u0E2D\u0E22 1 \u0E23\u0E39\u0E1B"),
+                    " \u00B7 \u0E41\u0E19\u0E1A\u0E2B\u0E25\u0E32\u0E22\u0E23\u0E39\u0E1B/\u0E2B\u0E25\u0E32\u0E22\u0E04\u0E23\u0E31\u0E49\u0E07\u0E44\u0E14\u0E49 \u0E25\u0E1A\u0E23\u0E39\u0E1B\u0E17\u0E35\u0E48\u0E1C\u0E34\u0E14\u0E01\u0E48\u0E2D\u0E19\u0E2D\u0E2D\u0E01\u0E44\u0E14\u0E49"),
+                React.createElement("label", { style: { fontSize: 13, fontWeight: 700, color: C.ink } },
+                    "\u0E23\u0E39\u0E1B\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07 * (",
+                    (expModalG.imgs || []).length,
+                    " \u0E23\u0E39\u0E1B)"),
                 React.createElement("div", { style: { marginTop: 6, marginBottom: 12 } },
-                    React.createElement("input", { type: "file", accept: "image/*", onChange: onExpImgG }),
-                    expModalG.img && React.createElement("img", { src: expModalG.img, alt: "\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08", style: { maxHeight: 140, borderRadius: 8, marginTop: 8, display: "block", border: `1px solid ${C.line}` } })),
+                    React.createElement("input", { type: "file", accept: "image/*", multiple: true, onChange: onExpImgG }),
+                    (expModalG.imgs || []).length > 0 && React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 } }, (expModalG.imgs || []).map((im, i) => React.createElement("div", { key: i, style: { position: "relative" } },
+                        React.createElement("img", { src: im, alt: "บิล" + (i + 1), style: { height: 90, borderRadius: 8, border: `1px solid ${C.line}` } }),
+                        React.createElement("button", { onClick: () => delExpImgG(i), style: { position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: "50%", border: "none", background: "#c0392b", color: "#fff", fontWeight: 800, cursor: "pointer", lineHeight: "20px" } }, "\u00D7"))))),
                 React.createElement(Field, { label: "\u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19 (\u0E08\u0E32\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E23\u0E34\u0E07)", value: expModalG.payeeName, onChange: (v) => setExpModalG((m) => ({ ...m, payeeName: v })), placeholder: "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E0A\u0E37\u0E48\u0E2D\u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19\u0E15\u0E32\u0E21\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E23\u0E34\u0E07" }),
                 React.createElement(Field, { label: "\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19", value: expModalG.payeePosition, onChange: (v) => setExpModalG((m) => ({ ...m, payeePosition: v })), placeholder: "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19" }),
                 React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 14 } },
-                    React.createElement(Btn, { onClick: doIssueExpenseG, disabled: !expModalG.img }, "\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E48\u0E32\u0E22"),
+                    React.createElement(Btn, { onClick: doIssueExpenseG, disabled: !(expModalG.imgs || []).length }, "\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E48\u0E32\u0E22"),
                     React.createElement(Btn, { variant: "ghost", onClick: () => setExpModalG(null) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01")),
-                !expModalG.img && React.createElement("div", { style: { fontSize: 11.5, color: "#b3762f", marginTop: 8 } }, "\u26A0 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E41\u0E19\u0E1A\u0E23\u0E39\u0E1B \u2014 \u0E1B\u0E38\u0E48\u0E21\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E30\u0E43\u0E0A\u0E49\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49"))))));
+                !(expModalG.imgs || []).length && React.createElement("div", { style: { fontSize: 11.5, color: "#b3762f", marginTop: 8 } }, "\u26A0 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E41\u0E19\u0E1A\u0E23\u0E39\u0E1B \u2014 \u0E1B\u0E38\u0E48\u0E21\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E30\u0E43\u0E0A\u0E49\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49"))))));
 }
 /* ============================================================
    ADMIN
