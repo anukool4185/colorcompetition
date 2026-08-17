@@ -3284,8 +3284,9 @@ function phoneOk(v) { v = String(v == null ? "" : v).trim(); return v === "" || 
 function PersonForm({ kind, person, db, onClose, onSave, ui, houses }) {
     var _a;
     const base = kind === "student"
-        ? { id: "", pre: "เด็กชาย", first: "", last: "", grade: "", room: "", phone: "", house: 0, gender: "", guardian: "" }
-        : { id: "", pre: "นาย", first: "", last: "", phone: "", house: 0 };
+        ? { id: "", pre: "เด็กชาย", first: "", last: "", grade: "", room: "", phone: "", house: 0, gender: "", guardian: "", guardianPhone: "", guardianRelation: "", password: "" }
+        : { id: "", pre: "นาย", first: "", last: "", phone: "", house: 0, user: "", password: "" };
+    const rels = ["บิดา", "มารดา", "ปู่", "ย่า", "ตา", "ยาย", "ลุง", "ป้า", "น้า", "อา", "พี่", "ผู้ปกครองอื่น ๆ"];
     const [f, setF] = useState(person || base);
     const [preview, setPreview] = useState((person === null || person === void 0 ? void 0 : person.photoUrl) || "");
     const [newPhoto, setNewPhoto] = useState("");
@@ -3373,7 +3374,16 @@ function PersonForm({ kind, person, db, onClose, onSave, ui, houses }) {
                     React.createElement("option", { value: "\u0E2B\u0E0D\u0E34\u0E07" }, "\u0E2B\u0E0D\u0E34\u0E07")))),
             React.createElement("label", { style: lblCss },
                 React.createElement("span", { style: capCss }, "\u0E2A\u0E35\u0E17\u0E35\u0E21"),
-                React.createElement("select", { value: (_a = f.house) !== null && _a !== void 0 ? _a : 0, onChange: (e) => set("house")(Number(e.target.value)), style: selCss }, (houses || []).map((h, i) => React.createElement("option", { key: i, value: i }, h.name))))),
+                React.createElement("select", { value: (_a = f.house) !== null && _a !== void 0 ? _a : 0, onChange: (e) => set("house")(Number(e.target.value)), style: selCss }, (houses || []).map((h, i) => React.createElement("option", { key: i, value: i }, h.name)))),
+            kind === "teacher" && React.createElement(Field, { label: "\u0E0A\u0E37\u0E48\u0E2D\u0E1C\u0E39\u0E49\u0E43\u0E0A\u0E49 (login)", value: f.user || "", onChange: set("user"), placeholder: "\u0E0A\u0E37\u0E48\u0E2D\u0E1A\u0E31\u0E0D\u0E0A\u0E35\u0E40\u0E02\u0E49\u0E32\u0E23\u0E30\u0E1A\u0E1A\u0E02\u0E2D\u0E07\u0E04\u0E23\u0E39" }),
+            React.createElement(Field, { label: "\u0E23\u0E2B\u0E31\u0E2A\u0E1C\u0E48\u0E32\u0E19", value: f.password || "", onChange: set("password"), placeholder: "\u0E15\u0E31\u0E49\u0E07/\u0E41\u0E01\u0E49\u0E23\u0E2B\u0E31\u0E2A\u0E1C\u0E48\u0E32\u0E19" }),
+            kind === "student" && React.createElement(Field, { label: "\u0E0A\u0E37\u0E48\u0E2D\u0E1C\u0E39\u0E49\u0E1B\u0E01\u0E04\u0E23\u0E2D\u0E07", value: f.guardian || "", onChange: set("guardian") }),
+            kind === "student" && React.createElement(Field, { label: "\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23\u0E1C\u0E39\u0E49\u0E1B\u0E01\u0E04\u0E23\u0E2D\u0E07", value: f.guardianPhone || "", onChange: set("guardianPhone"), placeholder: "\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02\u0E25\u0E49\u0E27\u0E19" }),
+            kind === "student" && React.createElement("label", { style: lblCss },
+                React.createElement("span", { style: capCss }, "\u0E04\u0E27\u0E32\u0E21\u0E40\u0E01\u0E35\u0E48\u0E22\u0E27\u0E02\u0E49\u0E2D\u0E07\u0E01\u0E31\u0E1A\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19"),
+                React.createElement("select", { value: f.guardianRelation || "", onChange: (e) => set("guardianRelation")(e.target.value), style: selCss },
+                    React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01 \u2014"),
+                    rels.map((r) => React.createElement("option", { key: r, value: r }, r))))),
         React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 6 } },
             React.createElement(Btn, { onClick: submit }, person ? "บันทึกการแก้ไข" : "บันทึก"),
             React.createElement(Btn, { variant: "ghost", onClick: onClose }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"))));
