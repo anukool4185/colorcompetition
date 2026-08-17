@@ -6941,17 +6941,29 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps: myCompsRaw, sub })
         }
         ui.notify("ล้างเวลาแล้ว");
     };
+    const [clearAsk, setClearAsk] = useState(false);
+    const clearDateAll = () => {
+        const apply = (base) => { const att = { ...(base.attendance || {}) }; delete att[date]; return { ...base, attendance: att }; };
+        if (window.__commitRemote)
+            window.__commitRemote(apply);
+        else {
+            setDb(apply);
+            setTimeout(() => window.__forceSave && window.__forceSave(), 200);
+        }
+        setClearAsk(false);
+        ui.notify("ล้างเวลาทั้งหมดของวันที่ " + date + " แล้ว");
+    };
     const ckey = (compId, sid) => compId + ":" + sid;
     const toggleCheck = (compId, sid) => setChecked((p) => { const k = ckey(compId, sid); const n = { ...p }; if (n[k])
         delete n[k];
     else
         n[k] = true; return n; });
     const batchSave = (compId, sids) => {
-        if (markMode === "in" && !inOpen) {
+        if (!isAdmin && markMode === "in" && !inOpen) {
             ui.notify(`ยังไม่ถึงช่วงเช็คเข้า (${win.inStart}-${win.inEnd})`);
             return;
         }
-        if (markMode === "out" && !outOpen) {
+        if (!isAdmin && markMode === "out" && !outOpen) {
             ui.notify(`ยังไม่ถึงช่วงเช็คออก (${win.outStart}-${win.outEnd})`);
             return;
         }
@@ -7052,7 +7064,9 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps: myCompsRaw, sub })
                 win.outStart,
                 "-",
                 win.outEnd),
-            !isToday && React.createElement("span", { style: { fontSize: 12, color: "#b3762f", fontWeight: 700 } }, "\u0E14\u0E39/\u0E41\u0E01\u0E49\u0E22\u0E49\u0E2D\u0E19\u0E2B\u0E25\u0E31\u0E07 (\u0E19\u0E2D\u0E01\u0E0A\u0E48\u0E27\u0E07\u0E01\u0E47\u0E40\u0E0A\u0E47\u0E04\u0E44\u0E14\u0E49)")),
+            !isToday && React.createElement("span", { style: { fontSize: 12, color: "#b3762f", fontWeight: 700 } }, "\u0E14\u0E39/\u0E41\u0E01\u0E49\u0E22\u0E49\u0E2D\u0E19\u0E2B\u0E25\u0E31\u0E07 (\u0E19\u0E2D\u0E01\u0E0A\u0E48\u0E27\u0E07\u0E01\u0E47\u0E40\u0E0A\u0E47\u0E04\u0E44\u0E14\u0E49)"),
+            isAdmin && React.createElement("button", { onClick: () => setClearAsk(true), style: { border: "1px solid #c0392b", background: "#fbeeee", color: "#c0392b", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" } }, "\uD83D\uDDD1 \u0E25\u0E49\u0E32\u0E07\u0E40\u0E27\u0E25\u0E32\u0E17\u0E31\u0E49\u0E07\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49 (\u0E41\u0E2D\u0E14\u0E21\u0E34\u0E19)")),
+        clearAsk && React.createElement(ConfirmModal, { title: "\u0E25\u0E49\u0E32\u0E07\u0E40\u0E27\u0E25\u0E32\u0E17\u0E31\u0E49\u0E07\u0E27\u0E31\u0E19", message: `ยืนยันล้างเวลาเข้า-ออก ทั้งหมดของวันที่ ${date}? (ใช้สำหรับทดสอบ — ข้อมูลเวลาของวันนี้จะถูกลบทั้งหมด กู้คืนไม่ได้)`, confirmLabel: "\u0E25\u0E49\u0E32\u0E07\u0E17\u0E31\u0E49\u0E07\u0E27\u0E31\u0E19", onConfirm: clearDateAll, onClose: () => setClearAsk(false) }),
         isToday && (React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" } },
             React.createElement("span", { style: { fontSize: 12.5, fontWeight: 700, color: inOpen ? "#1e7a4d" : "#c0392b" } },
                 "\u0E40\u0E0A\u0E47\u0E04\u0E40\u0E02\u0E49\u0E32: ",
