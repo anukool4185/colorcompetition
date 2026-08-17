@@ -89,7 +89,7 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v138";
+const APP_VERSION = "v142";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -7139,14 +7139,24 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps: myCompsRaw, sub, s
                     "\u0E2B\u0E49\u0E2D\u0E07 ",
                     r)))),
         (() => {
-            const groups = soloGroups || myComps;
+            // เพิ่มบล็อกกรรมการนักเรียนในการดูแล (แยกตามระดับชั้น) ให้เช็คชื่อได้แบบเช็คบ็อกซ์
+            let groups = soloGroups;
+            if (!soloGroups) {
+                const myCompIdSet = new Set((myComps || []).map((c) => String(c.id)));
+                const scomIds = [...new Set((db.org2 || []).filter((n) => n.side === "student" && myCompIdSet.has(String(n.compId)) && n.personId && String(n.personId) !== String(meId)).map((n) => String(n.personId)))];
+                const scomStudents = scomIds.map((id) => db.students.find((s) => String(s.id) === String(id))).filter(Boolean);
+                const byGrade = {};
+                scomStudents.forEach((s) => { (byGrade[s.grade || "-"] = byGrade[s.grade || "-"] || []).push(s); });
+                const scomGroups = Object.keys(byGrade).sort().map((g) => ({ id: "_scom_" + g, name: "กรรมการนักเรียนในการดูแล · ชั้น " + g, students: byGrade[g], scom: true }));
+                groups = [...myComps, ...scomGroups];
+            }
             return groups.length === 0 ? React.createElement(Empty, { text: soloGroups ? "ไม่มีนักเรียนกลุ่มนี้" : "คุณยังไม่ได้ดูแลรายการแข่ง/กิจกรรมใด" }) : groups.map((c) => {
                 const attLay = ((db.settings && db.settings.layouts) || {}).attend || "list";
                 const committeeIds = new Set((db.org2 || []).map((n) => String(n.personId)).filter(Boolean));
                 const students = c.students ? c.students.filter((s) => (!fGrade || s.grade === fGrade) && (!fRoom || s.room === fRoom)).sort((a, b) => (a.grade + a.room + a.first).localeCompare(b.grade + b.room + b.first, "th")) : (() => { const parts = (c.participants || []).filter((x) => x.sel === "main" || x.sel === "reserve"); return parts.map((x) => db.students.find((s) => String(s.id) === String(x.sid))).filter(Boolean).filter((s) => !committeeIds.has(String(s.id))).sort((a, b) => (a.grade + a.room + a.first).localeCompare(b.grade + b.room + b.first, "th")); })();
                 return (React.createElement(Card, { key: c.id, style: { padding: 14, marginBottom: 14 } },
                     React.createElement("div", { style: { fontWeight: 800, color: C.ink, marginBottom: 2 } },
-                        c.students ? "👥" : (c.kind === "กิจกรรม" ? "🎯" : "🏅"),
+                        c.scom ? "🧑‍💼" : (c.students ? "👥" : (c.kind === "กิจกรรม" ? "🎯" : "🏅")),
                         " ",
                         c.students ? c.name : sportItemName(c),
                         " ",
@@ -8651,32 +8661,27 @@ function StudentResults({ me, db, ui }) {
 const API_URL = "https://script.google.com/macros/s/AKfycbzpV1GA5NDLcr3xfm1eODizmhLkrnZhIc-YTEiHGxqcg2tOHt_rYhkpQ9wjtQaDgG2r/exec";
 // sync รายชื่อนักเรียนไปอีกฐาน: upsert เฉพาะฟิลด์ตัวตน + ลบคนที่ไม่มีในชุดปัจจุบัน (คงฟิลด์เฉพาะระบบของอีกฝั่งไว้)
 function mirrorStudentsInto(odb, students) {
-    const idFields = ["id", "pre", "first", "last", "grade", "room", "house", "phone", "gender", "guardian", "guardianPhone", "photoUrl", "photoId"];
+    // ข้อมูลส่วนตัวเดียวกันทั้ง 2 ระบบ → คัดลอกทุกฟิลด์ (คงฟิลด์เฉพาะฝั่งที่ไม่มีในชุดใหม่ไว้)
     const oById = new Map((odb.students || []).map((s) => [String(s.id), s]));
-    odb.students = (students || []).map((s) => { const ex = oById.get(String(s.id)) || {}; const out = { ...ex }; idFields.forEach((k) => { out[k] = s[k]; }); return out; });
+    odb.students = (students || []).map((s) => ({ ...(oById.get(String(s.id)) || {}), ...s }));
     return odb;
 }
 // sync รายชื่อครูไปอีกฐาน (ฐานเดียวกัน): upsert ฟิลด์ตัวตน + ลบคนที่ไม่มีในชุดปัจจุบัน (คงฟิลด์ล็อกอินของอีกฝั่งไว้)
 // sync ผู้ช่วยแอดมิน (บัญชีล็อกอินร่วม) — ใช้ชุดเดียวกันทั้ง 2 ฐาน
 function mirrorAssistantsInto(odb, assistants) { odb.assistants = (assistants || []).slice(); return odb; }
 function mirrorTeachersInto(odb, teachers) {
-    const idFields = ["id", "pre", "first", "last", "phone", "photoUrl", "photoId"];
     const oById = new Map((odb.teachers || []).map((t) => [String(t.id), t]));
-    odb.teachers = (teachers || []).map((t) => { const ex = oById.get(String(t.id)) || {}; const out = { ...ex }; idFields.forEach((k) => { out[k] = t[k]; }); return out; });
+    odb.teachers = (teachers || []).map((t) => ({ ...(oById.get(String(t.id)) || {}), ...t }));
     return odb;
 }
-// upsert ครู 1 คนเข้าอีกฐาน (คงฟิลด์เฉพาะระบบของอีกฝั่ง เช่น user/password ถ้ามี)
+// upsert ครู 1 คนเข้าอีกฐาน (ข้อมูลส่วนตัวเดียวกัน → ทุกฟิลด์)
 function upsertTeacherInto(odb, teacher) {
-    const idFields = ["id", "pre", "first", "last", "phone", "photoUrl", "photoId"];
     const list = (odb.teachers || []).slice();
     const i = list.findIndex((t) => String(t.id) === String(teacher.id));
-    if (i >= 0) {
-        const out = { ...list[i] };
-        idFields.forEach((k) => { out[k] = teacher[k]; });
-        list[i] = out;
-    }
+    if (i >= 0)
+        list[i] = { ...list[i], ...teacher };
     else
-        list.push({ id: teacher.id, pre: teacher.pre, first: teacher.first, last: teacher.last, phone: teacher.phone, photoUrl: teacher.photoUrl, photoId: teacher.photoId });
+        list.push({ ...teacher });
     odb.teachers = list;
     return odb;
 }
