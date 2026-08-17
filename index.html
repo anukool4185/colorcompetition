@@ -89,7 +89,7 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v128";
+const APP_VERSION = "v130";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -97,9 +97,19 @@ const BASE_NAVS = {
     admin: [{ key: "home", label: "ภาพรวม", icon: "📊" }, { key: "people", label: "บุคลากร", icon: "👥" }, { key: "orgsetup", label: "ตั้งค่าผัง", icon: "⚙️" }, { key: "org2", label: "ผังองค์กร", icon: "🌳" }, { key: "comp", label: "การแข่งขัน", icon: "🏆" }, { key: "results", label: "จัดการผลการแข่งขัน", icon: "🏅" }, { key: "attend", label: "ลงเวลา", icon: "⏱" }, { key: "promote", label: "เลื่อนชั้น", icon: "⬆️" }, { key: "trash", label: "ถังขยะ", icon: "🗑" }, { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" }, { key: "promo", label: "ตั้งค่า", icon: "⚙️" }],
 };
 BASE_NAVS.studentSelected = BASE_NAVS.student;
-BASE_NAVS.studentCommittee = BASE_NAVS.committee;
-BASE_NAVS.teacherGeneral = BASE_NAVS.committee;
-BASE_NAVS.teacherCommittee = BASE_NAVS.committee;
+BASE_NAVS.studentCommittee = [
+    { key: "noti", label: "แจ้งเตือน", icon: "🔔" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "students", label: "ข้อมูลนักเรียน", icon: "📋" },
+    { key: "select", label: "คัดเลือก", icon: "✅" }, { key: "schedule", label: "ตารางแข่ง", icon: "📅" }, { key: "items", label: "รายการแข่งขัน", icon: "🏆" },
+    { key: "results", label: "ส่งผล", icon: "🏅" }, { key: "register", label: "เพิ่มนักกีฬา", icon: "🏃" }, { key: "selfreg", label: "สมัครแข่ง", icon: "✍️" },
+    { key: "org2", label: "ผังองค์กร", icon: "🌳" }, { key: "orgjoin", label: "ขอสมัครหน้าที่เพิ่ม", icon: "🌳" }, { key: "attend", label: "ลงเวลา", icon: "⏱" }, { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" },
+];
+BASE_NAVS.teacherCommittee = [
+    { key: "noti", label: "แจ้งเตือน", icon: "🔔" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" },
+    { key: "select", label: "คัดเลือก", icon: "✅" }, { key: "schedule", label: "ตารางแข่ง", icon: "📅" }, { key: "items", label: "รายการแข่งขัน", icon: "🏆" },
+    { key: "results", label: "ส่งผล", icon: "🏅" }, { key: "register", label: "เพิ่มนักกีฬา", icon: "🏃" },
+    { key: "org2", label: "ผังองค์กร", icon: "🌳" }, { key: "orgjoin", label: "ขอสมัครหน้าที่เพิ่ม", icon: "🌳" }, { key: "attend", label: "ลงเวลา", icon: "⏱" }, { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" },
+];
+BASE_NAVS.teacherGeneral = BASE_NAVS.teacherCommittee;
 const MENU_DESC = {
     home: "หน้าแรก/ภาพรวม — สรุปข้อมูลรวม กิจกรรมล่าสุด และทางลัดต่าง ๆ",
     me: "ข้อมูลของฉัน — ดู/แก้ไขข้อมูลส่วนตัว รูปโปรไฟล์ เบอร์โทร รหัสผ่าน",
@@ -8409,8 +8419,10 @@ function StudentSchedule({ me, db, ui }) {
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\u0E15\u0E32\u0E23\u0E32\u0E07\u0E41\u0E02\u0E48\u0E07\u0E02\u0E2D\u0E07\u0E09\u0E31\u0E19", sub: "\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E09\u0E31\u0E19\u0E2A\u0E21\u0E31\u0E04\u0E23/\u0E16\u0E39\u0E01\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01 \u0E1E\u0E23\u0E49\u0E2D\u0E21\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22" }),
         React.createElement(LayoutPicker, { value: homeLayout, onChange: setHomeLayout, options: [{ k: "1col", shape: "1col", label: "รายการเดี่ยว" }, { k: "2col", shape: "grid", label: "2 คอลัมน์" }] }),
-        React.createElement("div", { style: cardWrap },
-            mine.map((c) => (React.createElement(Card, { key: c.id, style: { padding: 14 } },
+        (() => {
+            const passed = mine.filter((c) => { const p = c.participants.find((x) => x.sid === me.id); return p && (p.sel === "main" || p.sel === "reserve"); });
+            const waiting = mine.filter((c) => { const p = c.participants.find((x) => x.sid === me.id); return !p || (p.sel !== "main" && p.sel !== "reserve"); });
+            const cardOf = (c, tone) => (React.createElement(Card, { key: c.id, style: { padding: 14, borderLeft: `5px solid ${tone.bar}`, background: tone.bg } },
                 React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" } },
                     React.createElement("div", { style: { fontWeight: 700, color: C.ink } },
                         sportItemName(c),
@@ -8419,7 +8431,7 @@ function StudentSchedule({ me, db, ui }) {
                             "(",
                             c.kind,
                             ")")),
-                    React.createElement("span", { style: { fontSize: 11.5, fontWeight: 700, color: C.primaryDark, background: C.soft, borderRadius: 12, padding: "2px 10px" } }, statusText(c))),
+                    React.createElement("span", { style: { fontSize: 11.5, fontWeight: 800, color: "#fff", background: tone.bar, borderRadius: 12, padding: "2px 10px" } }, statusText(c))),
                 React.createElement("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 5 } },
                     (c.schedule || []).map((s, i) => React.createElement("div", { key: i, style: { fontSize: 12.5, color: C.ink } },
                         "\u2022 ",
@@ -8430,8 +8442,28 @@ function StudentSchedule({ me, db, ui }) {
                         s.time,
                         " ",
                         s.place ? `· ${s.place}` : "")),
-                    (!c.schedule || c.schedule.length === 0) && React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22"))))),
-            mine.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E14 \u2014 \u0E44\u0E1B\u0E17\u0E35\u0E48\u0E40\u0E21\u0E19\u0E39 \u0E2A\u0E21\u0E31\u0E04\u0E23\u0E41\u0E02\u0E48\u0E07" })),
+                    (!c.schedule || c.schedule.length === 0) && React.createElement("div", { style: { fontSize: 12, color: C.muted } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E14\u0E2B\u0E21\u0E32\u0E22"))));
+            return (React.createElement("div", null,
+                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, margin: "6px 0 8px" } },
+                    React.createElement("span", { style: { fontWeight: 800, color: "#1e7a4d" } }, "\u2705 \u0E1C\u0E48\u0E32\u0E19\u0E01\u0E32\u0E23\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E41\u0E25\u0E49\u0E27"),
+                    React.createElement("span", { style: { fontSize: 11.5, color: C.muted } },
+                        "(",
+                        passed.length,
+                        " \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)")),
+                React.createElement("div", { style: cardWrap },
+                    passed.map((c) => cardOf(c, { bar: "#2f9e6b", bg: "#eefaf2" })),
+                    passed.length === 0 && React.createElement("div", { style: { fontSize: 12.5, color: C.muted, padding: "4px 2px" } }, "\u2014 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E1C\u0E48\u0E32\u0E19\u0E01\u0E32\u0E23\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01 \u2014")),
+                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, margin: "16px 0 8px" } },
+                    React.createElement("span", { style: { fontWeight: 800, color: "#b3762f" } }, "\u23F3 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E1C\u0E48\u0E32\u0E19\u0E01\u0E32\u0E23\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01 (\u0E23\u0E2D\u0E04\u0E31\u0E14)"),
+                    React.createElement("span", { style: { fontSize: 11.5, color: C.muted } },
+                        "(",
+                        waiting.length,
+                        " \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)")),
+                React.createElement("div", { style: cardWrap },
+                    waiting.map((c) => cardOf(c, { bar: "#c99a2e", bg: "#fff8ec" })),
+                    waiting.length === 0 && React.createElement("div", { style: { fontSize: 12.5, color: C.muted, padding: "4px 2px" } }, "\u2014 \u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E23\u0E2D\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01 \u2014")),
+                mine.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E14 \u2014 \u0E44\u0E1B\u0E17\u0E35\u0E48\u0E40\u0E21\u0E19\u0E39 \u0E2A\u0E21\u0E31\u0E04\u0E23\u0E41\u0E02\u0E48\u0E07" })));
+        })(),
         (() => {
             const rows = [];
             mine.forEach((c) => trainingSorted(c).forEach((t) => rows.push({ c, t })));
