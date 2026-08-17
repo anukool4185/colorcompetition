@@ -93,7 +93,7 @@ const APP_VERSION = "v127";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
-    committee: [{ key: "noti", label: "แจ้งเตือน", icon: "🔔" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "students", label: "ข้อมูลนักเรียน", icon: "👥" }, { key: "select", label: "หน้าที่ของฉัน", icon: "✅" }, { key: "schedule", label: "ตารางแข่ง", icon: "📅" }, { key: "items", label: "รายการแข่งขัน", icon: "🏆" }, { key: "results", label: "ส่งผล", icon: "🏅" }, { key: "register", label: "สมัคร", icon: "✍️" }, { key: "org2", label: "ผังองค์กร", icon: "🌳" }, { key: "orgjoin", label: "ขอสมัครหน้าที่เพิ่ม", icon: "🌳" }, { key: "attend", label: "ลงเวลา", icon: "⏱" }, { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" }],
+    committee: [{ key: "noti", label: "แจ้งเตือน", icon: "🔔" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "students", label: "ข้อมูลนักเรียน", icon: "👥" }, { key: "select", label: "หน้าที่ของฉัน", icon: "✅" }, { key: "schedule", label: "ตารางแข่ง", icon: "📅" }, { key: "items", label: "รายการแข่งขัน", icon: "🏆" }, { key: "results", label: "ส่งผล", icon: "🏅" }, { key: "register", label: "เพิ่มนักกีฬา", icon: "🏃" }, { key: "org2", label: "ผังองค์กร", icon: "🌳" }, { key: "orgjoin", label: "ขอสมัครหน้าที่เพิ่ม", icon: "🌳" }, { key: "attend", label: "ลงเวลา", icon: "⏱" }, { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" }],
     admin: [{ key: "home", label: "ภาพรวม", icon: "📊" }, { key: "people", label: "บุคลากร", icon: "👥" }, { key: "orgsetup", label: "ตั้งค่าผัง", icon: "⚙️" }, { key: "org2", label: "ผังองค์กร", icon: "🌳" }, { key: "comp", label: "การแข่งขัน", icon: "🏆" }, { key: "results", label: "จัดการผลการแข่งขัน", icon: "🏅" }, { key: "attend", label: "ลงเวลา", icon: "⏱" }, { key: "promote", label: "เลื่อนชั้น", icon: "⬆️" }, { key: "trash", label: "ถังขยะ", icon: "🗑" }, { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" }, { key: "promo", label: "ตั้งค่า", icon: "⚙️" }],
 };
 BASE_NAVS.studentSelected = BASE_NAVS.student;
@@ -7434,8 +7434,10 @@ function CommitteeRegister({ myCompIds, db, setDb, ui, role, meId }) {
     const [kind, setKind] = useState("แข่งขัน");
     const [pick, setPick] = useState("");
     const [addOpen, setAddOpen] = useState(false);
+    const [scope, setScope] = useState("mine");
     const listAll = db.competitions.filter((c) => c.kind === kind);
-    const list = [...listAll.filter((c) => myCompIds.includes(c.id)), ...listAll.filter((c) => !myCompIds.includes(c.id))];
+    const behalfList = scope === "mine" ? listAll.filter((c) => myCompIds.includes(c.id)) : listAll;
+    const list = behalfList;
     const comp = list.find((c) => c.id === pick) || list[0];
     const add = (sid, status) => ui.run("กำลังเพิ่มผู้สมัคร...", () => setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, participants: [...c.participants, { sid, status, sel: undefined }] } : c) })));
     const remove = (sid) => ui.run("กำลังยกเลิก...", () => setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === comp.id ? { ...c, participants: c.participants.filter((x) => x.sid !== sid) } : c) })));
@@ -7486,32 +7488,35 @@ function CommitteeRegister({ myCompIds, db, setDb, ui, role, meId }) {
                             regClosed(c) && React.createElement("span", { style: { fontSize: 11.5, fontWeight: 700, color: "#c0392b" } }, "\u0E1B\u0E34\u0E14\u0E23\u0E31\u0E1A\u0E2A\u0E21\u0E31\u0E04\u0E23 (\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E04\u0E23\u0E1A)"))));
                 }),
                 selfList.length === 0 && React.createElement(Empty, { text: `ไม่มีรายการ${kind}สำหรับระดับชั้นของคุณ` })))),
-        React.createElement("div", { style: { fontWeight: 800, color: C.ink, marginBottom: 8 } }, "\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E41\u0E17\u0E19\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19"),
-        React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12 } },
-            React.createElement(Select, { value: (comp === null || comp === void 0 ? void 0 : comp.id) || "", onChange: setPick }, list.map((c) => React.createElement("option", { key: c.id, value: c.id },
-                myCompIds.includes(c.id) ? "★ " : "",
-                sportItemName(c)))),
-            comp && React.createElement(ItemStatusBadge, { c: comp }),
-            comp && React.createElement(Btn, { small: true, onClick: () => setAddOpen(true) }, "+ \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E1C\u0E39\u0E49\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E41\u0E17\u0E19")),
-        comp && (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
-            comp.participants.map((x) => {
-                const s = db.students.find((st) => st.id === x.sid);
-                if (!s)
-                    return null;
-                return (React.createElement(Card, { key: x.sid, style: { padding: 10, display: "flex", alignItems: "center", gap: 10 } },
-                    React.createElement(Avatar, { person: s, size: 34 }),
-                    React.createElement("div", { style: { flex: 1, minWidth: 0 } },
-                        React.createElement("div", { style: { fontSize: 13, fontWeight: 600, color: C.ink } }, fullName(s)),
-                        React.createElement("div", { style: { fontSize: 11, color: C.muted } },
-                            s.grade,
-                            "/",
-                            s.room,
-                            " \u00B7 ",
-                            s.phone)),
-                    React.createElement(Badge, { status: x.sel || x.status }),
-                    React.createElement(Btn, { variant: "ghost", small: true, onClick: () => remove(x.sid) }, "\u0E19\u0E33\u0E2D\u0E2D\u0E01")));
-            }),
-            comp.participants.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E39\u0E49\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E43\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49" }))),
+        React.createElement("div", { style: { fontWeight: 800, color: C.ink, marginBottom: 8 } }, "\uD83C\uDFC3 \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E19\u0E31\u0E01\u0E01\u0E35\u0E2C\u0E32"),
+        React.createElement(Tabs, { tabs: [{ key: "mine", label: "รายการที่ฉันดูแล" }, { key: "other", label: "เลือกรายการอื่น" }], active: scope, onChange: (k) => { setScope(k); setPick(""); } }),
+        scope === "other" && React.createElement("div", { style: { fontSize: 11.5, color: "#b3762f", margin: "4px 0 8px" } }, "\u0E42\u0E2B\u0E21\u0E14\u0E0A\u0E48\u0E27\u0E22\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E04\u0E19\u0E2D\u0E37\u0E48\u0E19 \u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E14\u0E01\u0E47\u0E44\u0E14\u0E49\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E19\u0E31\u0E01\u0E01\u0E35\u0E2C\u0E32\u0E41\u0E17\u0E19"),
+        list.length === 0 ? React.createElement(Empty, { text: scope === "mine" ? `คุณยังไม่ได้ดูแลรายการ${kind}ใด — สลับไป "เลือกรายการอื่น" เพื่อช่วยเพิ่มแทน` : `ไม่มีรายการ${kind}` }) : (React.createElement(React.Fragment, null,
+            React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12 } },
+                React.createElement(Select, { value: (comp === null || comp === void 0 ? void 0 : comp.id) || "", onChange: setPick }, list.map((c) => React.createElement("option", { key: c.id, value: c.id },
+                    myCompIds.includes(c.id) ? "★ " : "",
+                    sportItemName(c)))),
+                comp && React.createElement(ItemStatusBadge, { c: comp }),
+                comp && React.createElement(Btn, { small: true, onClick: () => setAddOpen(true) }, "+ \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E19\u0E31\u0E01\u0E01\u0E35\u0E2C\u0E32")),
+            comp && (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } },
+                comp.participants.map((x) => {
+                    const s = db.students.find((st) => st.id === x.sid);
+                    if (!s)
+                        return null;
+                    return (React.createElement(Card, { key: x.sid, style: { padding: 10, display: "flex", alignItems: "center", gap: 10 } },
+                        React.createElement(Avatar, { person: s, size: 34 }),
+                        React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                            React.createElement("div", { style: { fontSize: 13, fontWeight: 600, color: C.ink } }, fullName(s)),
+                            React.createElement("div", { style: { fontSize: 11, color: C.muted } },
+                                s.grade,
+                                "/",
+                                s.room,
+                                " \u00B7 ",
+                                s.phone)),
+                        React.createElement(Badge, { status: x.sel || x.status }),
+                        React.createElement(Btn, { variant: "ghost", small: true, onClick: () => remove(x.sid) }, "\u0E19\u0E33\u0E2D\u0E2D\u0E01")));
+                }),
+                comp.participants.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E39\u0E49\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E43\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E35\u0E49" }))))),
         addOpen && comp && React.createElement(AddApplicantModal, { comp: comp, db: db, onClose: () => setAddOpen(false), onAdd: (sid, status) => add(sid, status) })));
 }
 function MyDutyScreen({ role, meId, db, setDb, ui }) {
