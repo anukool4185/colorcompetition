@@ -89,7 +89,7 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v130";
+const APP_VERSION = "v131";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -8397,12 +8397,15 @@ function StudentRegister({ me, db, setDb, ui }) {
                                 "\u0E23\u0E31\u0E1A\u0E2A\u0E21\u0E31\u0E04\u0E23 ",
                                 c.regStart || "-",
                                 " \u0E16\u0E36\u0E07 ",
-                                c.regEnd || "-")),
-                        mine && React.createElement(Badge, { status: mine.sel || mine.status })),
+                                c.regEnd || "-"))),
                     React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap", alignItems: "center" } },
-                        React.createElement(Btn, { variant: "soft", small: true, disabled: quotaFull || mainSelFull(c), onClick: () => enroll(c.id, "main") }, "\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07"),
-                        React.createElement(Btn, { variant: "ghost", small: true, disabled: quotaFull || reserveSelFull(c), onClick: () => enroll(c.id, "reserve") }, "\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E2A\u0E33\u0E23\u0E2D\u0E07"),
-                        mine && React.createElement(Btn, { variant: "ghost", small: true, onClick: () => unreg(c.id) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E2A\u0E21\u0E31\u0E04\u0E23"),
+                        (() => {
+                            const st = mine ? mine.status : null;
+                            return React.createElement(React.Fragment, null,
+                                React.createElement(Btn, { variant: st === "main" ? "primary" : "ghost", small: true, disabled: quotaFull || (mainSelFull(c) && st !== "main"), onClick: () => enroll(c.id, "main") }, st === "main" ? "✓ ตัวจริง" : "ตัวจริง"),
+                                React.createElement(Btn, { variant: st === "reserve" ? "primary" : "ghost", small: true, disabled: quotaFull || (reserveSelFull(c) && st !== "reserve"), onClick: () => enroll(c.id, "reserve") }, st === "reserve" ? "✓ สำรอง" : "สำรอง"),
+                                mine && React.createElement(Btn, { variant: "ghost", small: true, onClick: () => unreg(c.id) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"));
+                        })(),
                         regClosed(c) && React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#c0392b" } }, "\u0E1B\u0E34\u0E14\u0E23\u0E31\u0E1A\u0E2A\u0E21\u0E31\u0E04\u0E23 (\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E04\u0E23\u0E1A\u0E41\u0E25\u0E49\u0E27) \u2014 \u0E14\u0E39\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E44\u0E14\u0E49"),
                         !regClosed(c) && mainSelFull(c) && React.createElement("span", { style: { fontSize: 11.5, color: "#c0392b" } }, "\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07\u0E04\u0E23\u0E1A"),
                         !regClosed(c) && reserveSelFull(c) && React.createElement("span", { style: { fontSize: 11.5, color: "#c0392b" } }, "\u0E15\u0E31\u0E27\u0E2A\u0E33\u0E23\u0E2D\u0E07\u0E04\u0E23\u0E1A"))));
