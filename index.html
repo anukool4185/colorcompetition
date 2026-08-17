@@ -7234,7 +7234,7 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
         view === "schedule" && React.createElement(CommitteeSchedule, { myCompIds: myCompIds, db: db, setDb: setDb, ui: ui, me: role === "studentcom" ? db.students.find((s) => s.id === meId) : null }),
         view === "items" && React.createElement(CompDisplayTabs, { db: db, ui: ui }),
         view === "register" && React.createElement(CommitteeRegister, { myCompIds: myCompIds, db: db, setDb: setDb, ui: ui, role: role, meId: meId, mode: "add" }),
-        view === "selfreg" && React.createElement(CommitteeRegister, { myCompIds: myCompIds, db: db, setDb: setDb, ui: ui, role: role, meId: meId, mode: "self" })));
+        view === "selfreg" && role === "studentcom" && (() => { const meS = db.students.find((s) => String(s.id) === String(meId)); return meS ? React.createElement(StudentRegister, { me: meS, db: db, setDb: setDb, ui: ui }) : React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25" }); })()));
 }
 function trainingSorted(c) { return (c.training || []).slice().sort((a, b) => ((a.date || "") + (a.time || "")).localeCompare((b.date || "") + (b.time || ""))); }
 function TrainingModal({ comp, db, setDb, ui, onClose }) {
@@ -7473,9 +7473,9 @@ function CommitteeRegister({ myCompIds, db, setDb, ui, role, meId, mode }) {
     } ui.run("กำลังสมัคร...", () => { setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === compId ? { ...c, participants: [...c.participants.filter((x) => x.sid !== me.id), { sid: me.id, status, sel: undefined }] } : c) })); ui.notify("สมัครสำเร็จ"); }); };
     const unregSelf = (compId) => ui.run("กำลังยกเลิก...", () => setDb((p) => ({ ...p, competitions: p.competitions.map((c) => c.id === compId ? { ...c, participants: c.participants.filter((x) => x.sid !== me.id) } : c) })));
     return (React.createElement("div", null,
-        React.createElement(PageHead, { title: mode === "self" ? "สมัครแข่งของฉัน" : "🏃 เพิ่มนักกีฬา", sub: mode === "self" ? "สมัครด้วยตัวเอง (เฉพาะระดับชั้นตน)" : "เพิ่มนักกีฬาแทน · รายการที่ฉันดูแลขึ้นก่อน (★)" }),
+        React.createElement(PageHead, { title: "\uD83C\uDFC3 \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E19\u0E31\u0E01\u0E01\u0E35\u0E2C\u0E32", sub: "\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E19\u0E31\u0E01\u0E01\u0E35\u0E2C\u0E32\u0E41\u0E17\u0E19 \u00B7 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E09\u0E31\u0E19\u0E14\u0E39\u0E41\u0E25\u0E02\u0E36\u0E49\u0E19\u0E01\u0E48\u0E2D\u0E19 (\u2605)" }),
         React.createElement(Tabs, { tabs: [{ key: "แข่งขัน", label: "รายการแข่งขัน" }, { key: "กิจกรรม", label: "รายการกิจกรรม" }], active: kind, onChange: (k) => { setKind(k); setPick(""); } }),
-        mode === "self" && me && (React.createElement(Card, { style: { padding: 14, marginBottom: 16, background: "#f6faf7", border: `1px solid ${C.line}` } },
+        false && me && (React.createElement(Card, { style: { padding: 14, marginBottom: 16, background: "#f6faf7", border: `1px solid ${C.line}` } },
             React.createElement("div", { style: { fontWeight: 800, color: "#2f9e6b", marginBottom: 4 } },
                 "\u0E15\u0E19\u0E40\u0E2D\u0E07\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19 (\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E0A\u0E31\u0E49\u0E19 ",
                 me.grade,
@@ -7503,7 +7503,7 @@ function CommitteeRegister({ myCompIds, db, setDb, ui, role, meId, mode }) {
                             regClosed(c) && React.createElement("span", { style: { fontSize: 11.5, fontWeight: 700, color: "#c0392b" } }, "\u0E1B\u0E34\u0E14\u0E23\u0E31\u0E1A\u0E2A\u0E21\u0E31\u0E04\u0E23 (\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E04\u0E23\u0E1A)"))));
                 }),
                 selfList.length === 0 && React.createElement(Empty, { text: `ไม่มีรายการ${kind}สำหรับระดับชั้นของคุณ` })))),
-        mode !== "self" && React.createElement(React.Fragment, null,
+        true && React.createElement(React.Fragment, null,
             React.createElement("div", { style: { fontWeight: 800, color: C.ink, marginBottom: 8 } }, "\uD83C\uDFC3 \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E19\u0E31\u0E01\u0E01\u0E35\u0E2C\u0E32"),
             React.createElement(Tabs, { tabs: [{ key: "mine", label: "รายการที่ฉันดูแล" }, { key: "other", label: "เลือกรายการอื่น" }], active: scope, onChange: (k) => { setScope(k); setPick(""); } }),
             scope === "other" && React.createElement("div", { style: { fontSize: 11.5, color: "#b3762f", margin: "4px 0 8px" } }, "\u0E42\u0E2B\u0E21\u0E14\u0E0A\u0E48\u0E27\u0E22\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E04\u0E19\u0E2D\u0E37\u0E48\u0E19 \u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E14\u0E01\u0E47\u0E44\u0E14\u0E49\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E19\u0E31\u0E01\u0E01\u0E35\u0E2C\u0E32\u0E41\u0E17\u0E19"),
