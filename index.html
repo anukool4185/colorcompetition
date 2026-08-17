@@ -89,7 +89,7 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v132";
+const APP_VERSION = "v134";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -961,14 +961,22 @@ function Shell({ role, nav, view, setView, onExit, children, ui, sz = {}, navOrd
         update();
         return () => { vv.removeEventListener("resize", update); vv.removeEventListener("scroll", update); };
     }, []);
+    // ซูมเริ่มต้นแบบ inline (คำนวณตอน render แรก) — กันวูบวาบตอนโหลด/ล็อกอิน
+    const initZoom = (() => { try {
+        const isM = typeof window !== "undefined" && window.innerWidth < 768;
+        return ((isM ? (sz.zoomMobile || 100) : (sz.zoomDesktop || 100)) / 100);
+    }
+    catch (e) {
+        return 1;
+    } })();
     // ปรับขนาดรวมทุกส่วน (zoom) แยกมือถือ/คอม ตามการตั้งค่า
     useEffect(() => {
         const apply = () => {
             const isM = window.innerWidth < 768;
             const z = (isM ? (sz.zoomMobile || 100) : (sz.zoomDesktop || 100)) / 100;
             const el = document.getElementById("appScaleRoot");
-            if (el)
-                el.style.zoom = z;
+            if (el && String(el.style.zoom) !== String(z))
+                el.style.zoom = z; // ตั้งเฉพาะเมื่อค่าเปลี่ยนจริง (กันวูบซ้ำ)
         };
         apply();
         window.addEventListener("resize", apply);
@@ -1026,7 +1034,7 @@ function Shell({ role, nav, view, setView, onExit, children, ui, sz = {}, navOrd
                     React.createElement("span", { style: { fontSize: 16 } }, n.icon),
                     n.label))),
                 React.createElement("button", { onClick: () => setConfirmOut(true), style: { width: "100%", textAlign: "left", padding: "10px 12px", border: "none", background: "transparent", color: C.muted, cursor: "pointer", fontSize: 14, marginTop: 2 } }, "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A"))),
-        React.createElement("div", { id: "appScaleRoot", style: { flex: 1, minWidth: 0, paddingBottom: navH + 16 }, className: "md:pb-0" },
+        React.createElement("div", { id: "appScaleRoot", style: { flex: 1, minWidth: 0, paddingBottom: navH + 16, zoom: initZoom }, className: "md:pb-0" },
             React.createElement("div", { className: "md:hidden", style: { background: C.surface, borderBottom: `1px solid ${C.line}`, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10 } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
                     React.createElement("div", { style: { width: 32, height: 32, borderRadius: 9, background: C.primary, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14 } }, "\u0E2A\u0E35"),
@@ -3004,17 +3012,21 @@ function dutyOf(db, kind, id) {
 }
 function CommitteeBadge({ d }) {
     if (!d.isCom)
-        return (React.createElement("div", { style: { textAlign: "center", minWidth: 78 } },
+        return (React.createElement("div", { style: { minWidth: 78 } },
             React.createElement("div", { style: { fontSize: 9.5, color: C.muted } }, "\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23"),
-            React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700, color: C.muted, background: C.soft, borderRadius: 12, padding: "2px 8px", marginTop: 2 } }, "\u0E44\u0E21\u0E48\u0E40\u0E1B\u0E47\u0E19")));
+            React.createElement("div", { style: { display: "inline-block", fontSize: 11.5, fontWeight: 700, color: C.muted, background: C.soft, borderRadius: 12, padding: "2px 8px", marginTop: 2 } }, "\u0E44\u0E21\u0E48\u0E40\u0E1B\u0E47\u0E19")));
     const roles = [d.comp && "แข่งขัน", d.act && "กิจกรรม"].filter(Boolean).join("/") || "ยังไม่ลงผัง";
-    return (React.createElement("div", { style: { textAlign: "center", minWidth: 92, maxWidth: 200 } },
+    const comps = d.comps || [];
+    const compsShown = comps.slice(0, 3).join(" · ") + (comps.length > 3 ? ` +${comps.length - 3}` : "");
+    return (React.createElement("div", { style: { minWidth: 92, maxWidth: 260 } },
         React.createElement("div", { style: { fontSize: 9.5, color: C.muted } },
             "\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23 \u00B7 \u0E14\u0E39\u0E41\u0E25",
             d.money ? " · 💰" : ""),
-        React.createElement("div", { style: { fontSize: 11.5, fontWeight: 700, color: "#2f9e6b", background: "#e6f4ec", borderRadius: 12, padding: "2px 8px", marginTop: 2 } }, roles),
-        d.titles.length > 0 && React.createElement("div", { style: { fontSize: 10, color: C.ink, fontWeight: 600, marginTop: 2 } }, d.titles.join(", ")),
-        d.comps && d.comps.length > 0 && React.createElement("div", { style: { fontSize: 9.5, color: C.muted, marginTop: 1, lineHeight: 1.3 } }, d.comps.join(" · "))));
+        React.createElement("div", { style: { display: "inline-block", fontSize: 11.5, fontWeight: 700, color: "#2f9e6b", background: "#e6f4ec", borderRadius: 12, padding: "2px 8px", marginTop: 2 } }, roles),
+        d.titles.length > 0 && React.createElement("div", { style: { fontSize: 10, color: C.ink, fontWeight: 600, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+            d.titles.slice(0, 3).join(", "),
+            d.titles.length > 3 ? ` +${d.titles.length - 3}` : ""),
+        comps.length > 0 && React.createElement("div", { style: { fontSize: 9.5, color: C.muted, marginTop: 1, lineHeight: 1.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, compsShown)));
 }
 function OrgDot({ db, kind, id }) {
     const d = dutyOf(db, kind, id);
@@ -3272,28 +3284,29 @@ function PersonList({ kind, db, setDb, ui }) {
                 React.createElement("option", { value: "act" }, "\u0E14\u0E39\u0E41\u0E25\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21"),
                 React.createElement("option", { value: "none" }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E25\u0E07\u0E1C\u0E31\u0E07")))),
         React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
-            filtered.map((s) => (React.createElement(Card, { key: s.id, style: { padding: 12, display: "flex", alignItems: "center", gap: 10, outline: selSet.has(s.id) ? `2px solid ${C.primary}` : "none" } },
-                React.createElement("input", { type: "checkbox", checked: selSet.has(s.id), onChange: () => toggle(s.id), style: { width: 17, height: 17, flexShrink: 0 } }),
-                React.createElement(Avatar, { person: s }),
-                React.createElement("div", { style: { flex: 1, minWidth: 0 } },
-                    React.createElement("div", { style: { fontWeight: 700, color: C.ink, fontSize: 14 } },
-                        fullName(s),
-                        React.createElement(OrgDot, { db: db, kind: kind, id: s.id }),
-                        kind === "student" && (s.profileDone || studentProfileComplete(s)) && React.createElement("span", { style: { fontSize: 10.5, fontWeight: 700, color: "#2f9e6b", background: "#eaf7f0", borderRadius: 10, padding: "1px 8px", marginLeft: 6, whiteSpace: "nowrap" } }, "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E04\u0E23\u0E1A\u0E14\u0E49\u0E27\u0E22\u0E01\u0E32\u0E23 login \u0E04\u0E23\u0E31\u0E49\u0E07\u0E41\u0E23\u0E01")),
-                    React.createElement("div", { style: { fontSize: 12, color: C.muted } },
-                        "\u0E23\u0E2B\u0E31\u0E2A ",
-                        s.id,
-                        s.grade ? ` · ${s.grade}/${s.room}` : "",
-                        " \u00B7 ",
-                        s.phone)),
-                kind === "student" && (React.createElement("div", { style: { display: "flex", gap: 6 } },
-                    React.createElement(StatusBadge, { label: "\u0E2A\u0E21\u0E31\u0E04\u0E23", value: regStatusOf(db, s.id), emptyText: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E2A\u0E21\u0E31\u0E04\u0E23", emptyRed: true }),
-                    React.createElement(StatusBadge, { label: "\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01", value: selStatusOf(db, s.id), emptyText: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E04\u0E31\u0E14" }),
-                    React.createElement(CommitteeBadge, { d: dutyOf(db, "student", s.id) }))),
-                kind === "teacher" && React.createElement(CommitteeBadge, { d: dutyOf(db, "teacher", s.id) }),
-                React.createElement("div", { style: { display: "flex", gap: 6 } },
-                    React.createElement(Btn, { variant: "ghost", small: true, onClick: () => setEdit(s) }, "\u0E41\u0E01\u0E49\u0E44\u0E02"),
-                    React.createElement(Btn, { variant: "danger", small: true, onClick: () => setConfirm({ ids: [s.id], msg: `ลบ ${fullName(s)} พร้อมตัดความเกี่ยวข้องและลบรูปใน Drive ?` }) }, "\u0E25\u0E1A"))))),
+            filtered.map((s) => (React.createElement(Card, { key: s.id, style: { padding: 12, display: "flex", flexDirection: "column", gap: 8, outline: selSet.has(s.id) ? `2px solid ${C.primary}` : "none" } },
+                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
+                    React.createElement("input", { type: "checkbox", checked: selSet.has(s.id), onChange: () => toggle(s.id), style: { width: 17, height: 17, flexShrink: 0 } }),
+                    React.createElement(Avatar, { person: s }),
+                    React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                        React.createElement("div", { style: { fontWeight: 700, color: C.ink, fontSize: 14, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" } },
+                            fullName(s),
+                            React.createElement(OrgDot, { db: db, kind: kind, id: s.id }),
+                            kind === "student" && (s.profileDone || studentProfileComplete(s)) && React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: "#2f9e6b", background: "#eaf7f0", borderRadius: 10, padding: "1px 7px", whiteSpace: "nowrap" } }, "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E04\u0E23\u0E1A")),
+                        React.createElement("div", { style: { fontSize: 12, color: C.muted } },
+                            "\u0E23\u0E2B\u0E31\u0E2A ",
+                            s.id,
+                            s.grade ? ` · ${s.grade}/${s.room}` : "",
+                            " \u00B7 ",
+                            s.phone)),
+                    React.createElement("div", { style: { display: "flex", gap: 6, flexShrink: 0 } },
+                        React.createElement(Btn, { variant: "ghost", small: true, onClick: () => setEdit(s) }, "\u0E41\u0E01\u0E49\u0E44\u0E02"),
+                        React.createElement(Btn, { variant: "danger", small: true, onClick: () => setConfirm({ ids: [s.id], msg: `ลบ ${fullName(s)} พร้อมตัดความเกี่ยวข้องและลบรูปใน Drive ?` }) }, "\u0E25\u0E1A"))),
+                React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-start", paddingLeft: 44 } },
+                    kind === "student" && React.createElement(React.Fragment, null,
+                        React.createElement(StatusBadge, { label: "\u0E2A\u0E21\u0E31\u0E04\u0E23", value: regStatusOf(db, s.id), emptyText: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E2A\u0E21\u0E31\u0E04\u0E23", emptyRed: true }),
+                        React.createElement(StatusBadge, { label: "\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01", value: selStatusOf(db, s.id), emptyText: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E04\u0E31\u0E14" })),
+                    React.createElement(CommitteeBadge, { d: dutyOf(db, kind, s.id) }))))),
             filtered.length === 0 && React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D\u0E15\u0E32\u0E21\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02" })),
         (add || edit) && React.createElement(PersonForm, { kind: kind, person: edit, db: db, ui: ui, houses: db.settings.houses, onClose: () => { setAdd(false); setEdit(null); }, onSave: save }),
         rawRows && React.createElement(ImportPreview, { kind: kind, rawRows: rawRows, existing: list, houses: db.settings.houses, onClose: () => setRawRows(null), onConfirm: (rows) => ui.run("กำลังโอนเข้าระบบ...", () => { setDb((p) => { const next = { ...p, [key]: [...p[key], ...rows] }; if (window.__pushOther)
