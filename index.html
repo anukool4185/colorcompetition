@@ -6018,6 +6018,13 @@ function buildOrg2(db) {
             people.forEach((pp) => {
                 // รายการที่คนนี้ดูแล: ถ้า all = ทุกรายการที่อนุญาต, ไม่งั้น = ที่ติ๊ก (กรองในขอบเขต)
                 const comps = pp.all ? allowIds : (pp.comps || []).map(String).filter((x) => allowIds.includes(x));
+                if (comps.length === 0) {
+                    // ไม่มีรายการแข่ง (เช่น ฝ่ายการเงิน) หรือยังไม่ติ๊ก → สร้างโหนดระดับฝ่าย ให้ชื่อโผล่ในผังเสมอ
+                    const key = "|" + d.id + "|" + r.dutyId + "|" + pp.pid;
+                    const ex = byKey[key];
+                    out.push({ id: ex ? ex.id : "o2" + Math.random().toString(36).slice(2, 9), pid: pp.pid, compId: "", deptId: d.id, dutyId: r.dutyId, num: duty.num, side: pp.side, personId: ex ? ex.personId : (pp.personId || ""), money: !!pp.money });
+                    return;
+                }
                 comps.forEach((cid) => {
                     const key = cid + "|" + d.id + "|" + r.dutyId + "|" + pp.pid;
                     const ex = byKey[key];
