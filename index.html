@@ -89,7 +89,7 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v136";
+const APP_VERSION = "v137";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -110,6 +110,7 @@ BASE_NAVS.teacherCommittee = [
     { key: "org2", label: "ผังองค์กร", icon: "🌳" }, { key: "orgjoin", label: "ขอสมัครหน้าที่เพิ่ม", icon: "🌳" }, { key: "attend", label: "ลงเวลา", icon: "⏱" }, { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" },
 ];
 BASE_NAVS.teacherGeneral = BASE_NAVS.teacherCommittee;
+BASE_NAVS.studentCommitteeSelected = BASE_NAVS.studentCommittee;
 const MENU_DESC = {
     home: "หน้าแรก/ภาพรวม — สรุปข้อมูลรวม กิจกรรมล่าสุด และทางลัดต่าง ๆ",
     me: "ข้อมูลของฉัน — ดู/แก้ไขข้อมูลส่วนตัว รูปโปรไฟล์ เบอร์โทร รหัสผ่าน",
@@ -6512,7 +6513,7 @@ function ScheduleSettings({ db, setDb, ui }) {
         addTo && React.createElement(SchForm, { onClose: () => setAddTo(null), onSave: (s) => addSch(addTo, s) })));
 }
 function MenuConfigCard({ db, setDb, ui }) {
-    const roles = [{ k: "student", label: "นักเรียนทั่วไป" }, { k: "studentSelected", label: "นักเรียนที่คัดเลือกแล้ว" }, { k: "studentCommittee", label: "นักเรียนกรรมการ" }, { k: "teacherGeneral", label: "ครูทั่วไป" }, { k: "teacherCommittee", label: "ครูกรรมการ" }, { k: "admin", label: "แอดมิน" }];
+    const roles = [{ k: "student", label: "นักเรียนทั่วไป (ยังไม่ผ่านการคัดเลือก)" }, { k: "studentSelected", label: "นักเรียนที่คัดเลือกแล้ว (ลงแข่งกีฬา/กรีฑา/กิจกรรม)" }, { k: "studentCommittee", label: "กรรมการนักเรียน (ยังไม่ผ่านการคัดเลือก)" }, { k: "studentCommitteeSelected", label: "กรรมการที่คัดเลือกแล้ว (ผ่านคัด + ลงแข่ง)" }, { k: "teacherGeneral", label: "ครูทั่วไป" }, { k: "teacherCommittee", label: "ครูกรรมการ" }, { k: "admin", label: "แอดมิน" }];
     const [role, setRole] = useState("student");
     const [expandKey, setExpandKey] = useState("");
     const base = (MENU_REGISTRY[role] && MENU_REGISTRY[role].length ? MENU_REGISTRY[role] : (BASE_NAVS[role] || []));
@@ -7238,7 +7239,7 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
         { key: "attend", label: "ลงเวลา", icon: "⏱", defaultKey: "attend:day", children: [{ key: "attend:day", label: "ลงเวลาซ้อม-วันจริง" }, { key: "attend:none", label: "บุคคลไม่มีส่วนร่วม" }, { key: "attend:sum", label: "สรุปเวลารวม" }] },
         { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" },
     ];
-    return (React.createElement(Shell, { role: role, nav: applyMenuCfg(role === "studentcom" ? "studentCommittee" : ((db.org2 || []).some((n) => String(n.personId) === String(meId)) ? "teacherCommittee" : "teacherGeneral"), nav, (db.settings && db.settings.menus) || {}), view: view, setView: setView, onExit: onExit, ui: ui, sz: (db.settings && db.settings.ui) || {}, navOrder: ((db.settings && db.settings.navOrder) || {})[role] },
+    return (React.createElement(Shell, { role: role, nav: applyMenuCfg(role === "studentcom" ? ((db.competitions || []).some((c) => (c.participants || []).some((x) => String(x.sid) === String(meId) && (x.sel === "main" || x.sel === "reserve"))) ? "studentCommitteeSelected" : "studentCommittee") : ((db.org2 || []).some((n) => String(n.personId) === String(meId)) ? "teacherCommittee" : "teacherGeneral"), nav, (db.settings && db.settings.menus) || {}), view: view, setView: setView, onExit: onExit, ui: ui, sz: (db.settings && db.settings.ui) || {}, navOrder: ((db.settings && db.settings.navOrder) || {})[role] },
         view === "noti" && React.createElement(NotificationCenter, { db: db, setDb: setDb, ui: ui, admin: false, viewerId: meId, viewerRole: role, onGoResults: (id) => { setJumpComp(id); setView("results"); } }),
         view === "me" && React.createElement(CommitteeProfile, { role: role, meId: meId, db: db, setDb: setDb, ui: ui }),
         view === "students" && React.createElement(StudentInfoList, { db: db }),
