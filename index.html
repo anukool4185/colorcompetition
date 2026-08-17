@@ -8650,6 +8650,8 @@ function mergeDb(loaded) {
             houses: (s.houses && s.houses.length) ? s.houses : seed.settings.houses,
             scoreConfig: { ...seed.settings.scoreConfig, ...(s.scoreConfig || {}) },
             announce: { ...seed.settings.announce, ...(s.announce || {}) },
+            menus: (() => { const mm = { ...((s.settings && s.settings.menus) || s.menus || {}) }; Object.keys(mm).forEach((rk) => { if (Array.isArray(mm[rk]))
+                mm[rk] = mm[rk].map((it) => (it.key === "register" && (!it.label || it.label === "สมัคร" || it.icon === "✍️")) ? { ...it, label: "เพิ่มนักกีฬา", icon: "🏃" } : it); }); return mm; })(),
         },
     };
 }
