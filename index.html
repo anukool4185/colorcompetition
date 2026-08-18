@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
 <title>ระบบจัดการแข่งขันวิชาการสี</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -89,7 +92,7 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v142";
+const APP_VERSION = "v144";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -6119,7 +6122,7 @@ function Org2Manager({ db, setDb, ui, viewer, canEdit = true, selfSignup = false
     const byComp = {};
     nodes.forEach((n) => { (byComp[n.compId] = byComp[n.compId] || {}); (byComp[n.compId][n.deptId] = byComp[n.compId][n.deptId] || []).push(n); });
     const compName2 = (id) => { if (!id)
-        return "ระดับฝ่าย (ไม่ผูกรายการแข่ง)"; const c = comps.find((x) => String(x.id) === String(id)); return c ? compFullName(c) : id; };
+        return "ระดับฝ่าย (ไม่ผูกรายการแข่ง)"; const c = comps.find((x) => String(x.id) === String(id)) || (db.competitions || []).find((x) => String(x.id) === String(id)); return c ? compFullName(c) : "รายการถูกลบ/เปลี่ยน — กดอัปเดตผัง"; };
     const exportExcel = () => { try {
         const aoa = [["รายการ", "ฝ่าย", "เลข", "หน้าที่", "ชื่อ-สกุล", "ประเภท"]];
         nodes.slice().sort((a, b) => String(a.compId).localeCompare(String(b.compId)) || (a.num || 99) - (b.num || 99)).forEach((n) => { const per = n.personId ? ([...(db.teachers || []), ...(db.students || [])].find((x) => String(x.id) === String(n.personId))) : null; aoa.push([compName2(n.compId), deptName(n.deptId), n.num, dutyName2(n.dutyId), per ? fullName(per) : "", n.side === "teacher" ? "ครู" : (n.side === "student" ? "นักเรียน" : "")]); });
@@ -8734,7 +8737,7 @@ function mergeDb(loaded) {
         activities: (loaded && loaded.activities) || [],
         deptTemplates: (loaded && loaded.deptTemplates) || {},
         deptTemplateComps: (loaded && loaded.deptTemplateComps) || {},
-        org2: (loaded && loaded.org2) || [],
+        org2: (() => { const validIds = new Set((_outComps || []).map((c) => String(c.id))); return ((loaded && loaded.org2) || []).map((n) => (n.compId && !validIds.has(String(n.compId))) ? { ...n, compId: "" } : n); })(),
         org2Requests: (loaded && loaded.org2Requests) || [],
         orgRequests: (loaded && loaded.orgRequests) || [],
         training: (loaded && loaded.training) || [],
@@ -8884,6 +8887,7 @@ function App() {
             try {
                 const raw = JSON.stringify(dbRef.current);
                 localStorage.setItem("dbcache_" + (modeRef.current || "academic"), raw);
+                localStorage.setItem("dbcache_ver", APP_VERSION);
                 lastRawRef.current = raw;
             }
             catch (e) { }
@@ -9019,15 +9023,25 @@ function App() {
         if (!API_URL)
             return;
         // แสดงข้อมูลจากแคชในเครื่องทันที (รู้สึกเร็ว) แล้วค่อยดึงของจริงมาอัปเดต
+        // แต่ถ้าอัปเดตแอป (เวอร์ชันต่างจากที่แคชไว้) → ข้ามแคชเก่า ดึงของจริงล้วน กันยึดผัง/รูปแบบเดิม
         try {
+            const verOk = localStorage.getItem("dbcache_ver") === APP_VERSION;
             const c = localStorage.getItem(cacheKey());
-            if (c && !everLoadedRef.current) {
+            if (c && verOk && !everLoadedRef.current) {
                 const cd = mergeDb(JSON.parse(c));
                 dbRef.current = cd;
                 justLoaded.current = true;
                 setDb(cd);
                 loadedRef.current = true;
                 setSync("loading");
+            }
+            else if (!verOk) {
+                try {
+                    localStorage.removeItem(cacheKey());
+                    localStorage.removeItem("dbcache_academic");
+                    localStorage.removeItem("dbcache_sport");
+                }
+                catch (e2) { }
             }
         }
         catch (e) { }
@@ -9049,6 +9063,7 @@ function App() {
                     lastRawRef.current = j.data;
                     try {
                         localStorage.setItem(cacheKey(), j.data);
+                        localStorage.setItem("dbcache_ver", APP_VERSION);
                     }
                     catch (e) { }
                     if (!(_parsed.settings && _parsed.settings.genderFilled) || !(_parsed.settings && _parsed.settings.compsDeduped)) {
@@ -9124,6 +9139,32 @@ function App() {
         window.addEventListener("pagehide", flush);
         return () => { window.removeEventListener("beforeunload", flush); window.removeEventListener("pagehide", flush); };
     }, []);
+    // ดึงข้อมูลล่าสุดทันทีเมื่อกลับมาเปิดแอป/สลับกลับแท็บ (เห็นผัง/แม่แบบที่แอดมินเพิ่งแก้ ไม่ต้องรอ poll)
+    useEffect(() => {
+        if (!API_URL)
+            return;
+        const onVis = () => {
+            if (document.hidden)
+                return;
+            if (!loadedRef.current || dirtyRef.current || savingRef.current)
+                return;
+            const started = Date.now();
+            fetch(API_URL + sheetQS()).then((r) => r.text()).then((t) => {
+                if (dirtyRef.current || savingRef.current || lastSaveAt.current > started)
+                    return;
+                const j = JSON.parse(t);
+                if (j && j.ok && j.data && j.data !== lastRawRef.current) {
+                    lastRawRef.current = j.data;
+                    justLoaded.current = true;
+                    setDb(mergeDb(JSON.parse(j.data)));
+                    setLastSaved(Date.now());
+                }
+            }).catch(() => { });
+        };
+        document.addEventListener("visibilitychange", onVis);
+        window.addEventListener("focus", onVis);
+        return () => { document.removeEventListener("visibilitychange", onVis); window.removeEventListener("focus", onVis); };
+    }, []);
     // ดึงข้อมูลล่าสุดอัตโนมัติทุก ~4 วิ (เห็นการลงชื่อ/แก้ไขของคนอื่นเกือบทันที) — ข้ามถ้ากำลังแก้/บันทึกอยู่ กันทับงานที่ยังไม่บันทึก
     useEffect(() => {
         if (!API_URL)
@@ -9148,7 +9189,7 @@ function App() {
                     setLastSaved(Date.now());
                 }
             }).catch(() => { });
-        }, 30000);
+        }, 15000);
         return () => clearInterval(iv);
     }, []);
     // ธีมสีแบบตายตัว — วิชาการ = ชมพู · กีฬา = น้ำเงิน · ไม่มีสลับสีตามผู้ใช้/บ้าน · ก่อนล็อกอินใช้ชมพูกลาง
