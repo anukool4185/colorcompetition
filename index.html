@@ -92,7 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v146";
+const APP_VERSION = "v147";
+const BUILD_TIME = "18/08/2026 17:02 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -1037,7 +1038,13 @@ function Shell({ role, nav, view, setView, onExit, children, ui, sz = {}, navOrd
                     expanded[n.key] && React.createElement("div", { style: { marginBottom: 4 } }, n.children.map((ch, i) => ch.header ? (React.createElement("div", { key: "h" + i, style: { fontSize: 11, fontWeight: 700, color: C.muted, padding: "6px 10px 2px 30px" } }, ch.label)) : (React.createElement("button", { key: ch.key, onClick: () => setView(ch.key), style: { width: "100%", textAlign: "left", padding: "7px 10px 7px 30px", borderRadius: 8, border: "none", cursor: "pointer", marginBottom: 2, background: view === ch.key ? C.soft : "transparent", color: view === ch.key ? C.primaryDark : C.ink, fontWeight: view === ch.key ? 700 : 500, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" } }, ch.label)))))) : (React.createElement("button", { key: n.key, onClick: () => setView(n.key), style: { width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, border: "none", cursor: "pointer", marginBottom: 3, background: view === n.key ? C.soft : "transparent", color: view === n.key ? C.primaryDark : C.ink, fontWeight: view === n.key ? 700 : 500, fontSize: 14 } },
                     React.createElement("span", { style: { fontSize: 16 } }, n.icon),
                     n.label))),
-                React.createElement("button", { onClick: () => setConfirmOut(true), style: { width: "100%", textAlign: "left", padding: "10px 12px", border: "none", background: "transparent", color: C.muted, cursor: "pointer", fontSize: 14, marginTop: 2 } }, "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A"))),
+                React.createElement("button", { onClick: () => setConfirmOut(true), style: { width: "100%", textAlign: "left", padding: "10px 12px", border: "none", background: "transparent", color: C.muted, cursor: "pointer", fontSize: 14, marginTop: 2 } }, "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A"),
+                React.createElement("div", { style: { padding: "8px 12px 2px", fontSize: 11, color: C.muted, lineHeight: 1.5 } },
+                    "\u0E40\u0E27\u0E2D\u0E23\u0E4C\u0E0A\u0E31\u0E19 ",
+                    APP_VERSION,
+                    React.createElement("br", null),
+                    "\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15 ",
+                    BUILD_TIME))),
         React.createElement("div", { id: "appScaleRoot", style: { flex: 1, minWidth: 0, paddingBottom: navH + 16, zoom: initZoom }, className: "md:pb-0" },
             React.createElement("div", { className: "md:hidden", style: { background: C.surface, borderBottom: `1px solid ${C.line}`, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10 } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
