@@ -92,7 +92,7 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v144";
+const APP_VERSION = "v146";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -383,7 +383,7 @@ function scoreStats(db) {
 }
 /* ---------------- utils + primitives ---------------- */
 const initials = (a = "", b = "") => (a[0] || "") + (b[0] || "");
-const fullName = (p) => `${p.pre || ""}${p.first} ${p.last}`;
+const fullName = (p) => p ? `${p.pre || ""}${p.first || ""} ${p.last || ""}`.trim() : "";
 function Avatar({ person, size = 44 }) {
     var _a;
     const h = HOUSES[(_a = person === null || person === void 0 ? void 0 : person.house) !== null && _a !== void 0 ? _a : 0] || HOUSES[0] || "#c9c3d6";
@@ -6136,15 +6136,16 @@ function Org2Manager({ db, setDb, ui, viewer, canEdit = true, selfSignup = false
     return (React.createElement("div", null,
         React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
             canEdit && React.createElement(Btn, { small: true, onClick: () => setConfirmGen(true) }, "\uD83C\uDFD7 \u0E2A\u0E23\u0E49\u0E32\u0E07/\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15\u0E1C\u0E31\u0E07\u0E08\u0E32\u0E01\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A"),
-            React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u0E1D\u0E48\u0E32\u0E22:"),
-            React.createElement("select", { value: pickDept, onChange: (e) => { setPickDept(e.target.value); setPickComp(""); }, style: { padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14, fontWeight: 700 } },
-                React.createElement("option", { value: "" }, "\u2014 \u0E17\u0E38\u0E01\u0E1D\u0E48\u0E32\u0E22 \u2014"),
-                (db.departments || []).map((d) => React.createElement("option", { key: d.id, value: d.id }, d.name))),
-            React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23:"),
-            React.createElement("select", { value: pickComp, onChange: (e) => setPickComp(e.target.value), style: { padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14 } },
-                React.createElement("option", { value: "" }, "\u2014 \u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2014"),
-                comps.filter((c) => { if (!pickDept)
-                    return true; const d = (db.departments || []).find((x) => x.id === pickDept); return d && (d.comps || []).map(String).includes(String(c.id)); }).map((c) => React.createElement("option", { key: c.id, value: c.id }, compFullName(c)))),
+            canEdit && React.createElement(React.Fragment, null,
+                React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u0E1D\u0E48\u0E32\u0E22:"),
+                React.createElement("select", { value: pickDept, onChange: (e) => { setPickDept(e.target.value); setPickComp(""); }, style: { padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14, fontWeight: 700 } },
+                    React.createElement("option", { value: "" }, "\u2014 \u0E17\u0E38\u0E01\u0E1D\u0E48\u0E32\u0E22 \u2014"),
+                    (db.departments || []).map((d) => React.createElement("option", { key: d.id, value: d.id }, d.name))),
+                React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23:"),
+                React.createElement("select", { value: pickComp, onChange: (e) => setPickComp(e.target.value), style: { padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 14 } },
+                    React.createElement("option", { value: "" }, "\u2014 \u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2014"),
+                    comps.filter((c) => { if (!pickDept)
+                        return true; const d = (db.departments || []).find((x) => x.id === pickDept); return d && (d.comps || []).map(String).includes(String(c.id)); }).map((c) => React.createElement("option", { key: c.id, value: c.id }, compFullName(c))))),
             (db.org2 || []).length > 0 && React.createElement(React.Fragment, null,
                 React.createElement("span", { style: { flex: 1 } }),
                 React.createElement(Btn, { small: true, variant: chartView ? "soft" : "ghost", onClick: () => setChartView((v) => !v) }, chartView ? "📋 รายการ" : "📊 แผนภูมิ"),
