@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v152";
-const BUILD_TIME = "19/08/2026 11:21 น.";
+const APP_VERSION = "v153";
+const BUILD_TIME = "19/08/2026 11:33 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -7258,11 +7258,17 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
         return false; const a = reqApprovers(db, r); const canApp = role === "teacher" ? a.teacherIds.has(meId) : a.studentIds.has(meId); const isRep = String(r.replacementId || "") === String(meId); const isReq = String(r.personId) === String(meId); if (r.status === "rejected")
         return isReq; if (r.status === "pending")
         return canApp || (isRep && r.replacementStatus !== "declined") || isReq; return false; }).length;
+    // ตัวตนผู้ล็อกอิน: จับผังด้วย id ก่อน ถ้าไม่เจอใช้ "ชื่อ" ที่ตรงกัน (กันกรณี id เปลี่ยนจากการ rebuild แม่แบบ)
+    const mePerson = (role === "teacher" ? (db.teachers || []) : (db.students || [])).find((x) => String(x.id) === String(meId));
+    const myName = fullName(mePerson);
+    const personById = useMemo(() => { const m = {}; (db.students || []).forEach((s) => { m[String(s.id)] = s; }); (db.teachers || []).forEach((t) => { m[String(t.id)] = t; }); return m; }, [db.students, db.teachers]);
+    const nodeIsMine = (n) => { if (String(n.personId) === String(meId))
+        return true; if (!myName)
+        return false; const pp = personById[String(n.personId)]; return !!(pp && fullName(pp) === myName); };
     const myComps = useMemo(() => {
-        // ระบบใหม่ (org2) เท่านั้น: รายการที่ฉันดูแล = รายการที่มีชื่อฉันอยู่ในผังใหม่
-        const myCompIdSet = new Set((db.org2 || []).filter((n) => String(n.personId) === String(meId)).map((n) => String(n.compId)));
+        const myCompIdSet = new Set((db.org2 || []).filter(nodeIsMine).map((n) => String(n.compId)));
         return db.competitions.filter((c) => myCompIdSet.has(String(c.id)));
-    }, [db.competitions, db.org2, meId]);
+    }, [db.competitions, db.org2, meId, myName, personById]);
     const myCompIds = myComps.map((c) => c.id);
     const orgDefault = myComps[0] ? "org:" + myComps[0].id : "org:all";
     const orgChildren = [{ header: true, label: "รายการแข่งขัน" }, ...myComps.filter((c) => c.kind === "แข่งขัน").map((c) => ({ key: "org:" + c.id, label: c.name })), { header: true, label: "รายการกิจกรรม" }, ...myComps.filter((c) => c.kind === "กิจกรรม").map((c) => ({ key: "org:" + c.id, label: c.name }))];
@@ -7281,7 +7287,7 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
         { key: "attend", label: "ลงเวลา", icon: "⏱", defaultKey: "attend:day", children: [{ key: "attend:day", label: "ลงเวลาซ้อม-วันจริง" }, { key: "attend:none", label: "บุคคลไม่มีส่วนร่วม" }, { key: "attend:sum", label: "สรุปเวลารวม" }] },
         { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" },
     ];
-    return (React.createElement(Shell, { role: role, nav: applyMenuCfg(role === "studentcom" ? ((db.competitions || []).some((c) => (c.participants || []).some((x) => String(x.sid) === String(meId) && (x.sel === "main" || x.sel === "reserve"))) ? "studentCommitteeSelected" : "studentCommittee") : ((db.org2 || []).some((n) => String(n.personId) === String(meId)) ? "teacherCommittee" : "teacherGeneral"), nav, (db.settings && db.settings.menus) || {}), view: view, setView: setView, onExit: onExit, ui: ui, sz: (db.settings && db.settings.ui) || {}, navOrder: ((db.settings && db.settings.navOrder) || {})[role] },
+    return (React.createElement(Shell, { role: role, nav: applyMenuCfg(role === "studentcom" ? ((db.competitions || []).some((c) => (c.participants || []).some((x) => String(x.sid) === String(meId) && (x.sel === "main" || x.sel === "reserve"))) ? "studentCommitteeSelected" : "studentCommittee") : ((db.org2 || []).some(nodeIsMine) ? "teacherCommittee" : "teacherGeneral"), nav, (db.settings && db.settings.menus) || {}), view: view, setView: setView, onExit: onExit, ui: ui, sz: (db.settings && db.settings.ui) || {}, navOrder: ((db.settings && db.settings.navOrder) || {})[role] },
         view === "noti" && React.createElement(NotificationCenter, { db: db, setDb: setDb, ui: ui, admin: false, viewerId: meId, viewerRole: role, onGoResults: (id) => { setJumpComp(id); setView("results"); } }),
         view === "me" && React.createElement(CommitteeProfile, { role: role, meId: meId, db: db, setDb: setDb, ui: ui }),
         view === "students" && React.createElement(StudentInfoList, { db: db }),
