@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v155";
-const BUILD_TIME = "19/08/2026 12:04 น.";
+const APP_VERSION = "v156";
+const BUILD_TIME = "19/08/2026 12:09 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -3192,6 +3192,22 @@ function PersonList({ kind, db, setDb, ui }) {
                 d[ck] = cm;
             } }); att[date] = d; });
             b.attendance = att;
+            // การเงิน: บันทึกรายการ (byId) + รับเงินนักเรียน (_submits: byId/acceptedById) + ยืมเงิน + คำขอใบเสร็จ + แจ้งเตือน
+            const idf = (v) => String(v) === oldId ? newId : v;
+            b.finance = (b.finance || []).map((f) => ({ ...f, byId: idf(f.byId), acceptedById: f.acceptedById != null ? idf(f.acceptedById) : f.acceptedById }));
+            if (b.studentIncome) {
+                const si2 = { ...b.studentIncome };
+                if (Array.isArray(si2._submits))
+                    si2._submits = si2._submits.map((x) => ({ ...x, byId: idf(x.byId), acceptedById: x.acceptedById != null ? idf(x.acceptedById) : x.acceptedById }));
+                b.studentIncome = si2;
+            }
+            b.loans = (b.loans || []).map((l) => ({ ...l, sid: l.sid != null ? idf(l.sid) : l.sid, borrowerId: l.borrowerId != null ? idf(l.borrowerId) : l.borrowerId, byId: l.byId != null ? idf(l.byId) : l.byId }));
+            b.fundReceiptReqs = (b.fundReceiptReqs || []).map((r) => ({ ...r, byId: idf(r.byId) }));
+            b.financeNotis = (b.financeNotis || []).map((n) => ({ ...n, byId: n.byId != null ? idf(n.byId) : n.byId }));
+            b.refundAmounts = (() => { const ra = { ...(b.refundAmounts || {}) }; if (ra[oldId] != null) {
+                ra[newId] = ra[oldId];
+                delete ra[oldId];
+            } return ra; })();
             return b;
         };
         if (window.__commitRemote)
