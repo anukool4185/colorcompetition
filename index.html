@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v147";
-const BUILD_TIME = "18/08/2026 17:02 น.";
+const APP_VERSION = "v150";
+const BUILD_TIME = "19/08/2026 10:40 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -1039,7 +1039,7 @@ function Shell({ role, nav, view, setView, onExit, children, ui, sz = {}, navOrd
                     React.createElement("span", { style: { fontSize: 16 } }, n.icon),
                     n.label))),
                 React.createElement("button", { onClick: () => setConfirmOut(true), style: { width: "100%", textAlign: "left", padding: "10px 12px", border: "none", background: "transparent", color: C.muted, cursor: "pointer", fontSize: 14, marginTop: 2 } }, "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A"),
-                React.createElement("div", { style: { padding: "8px 12px 2px", fontSize: 11, color: C.muted, lineHeight: 1.5 } },
+                React.createElement("div", { style: { margin: "8px 8px 2px", fontSize: 12, color: C.primaryDark, fontWeight: 700, lineHeight: 1.5, border: `1px solid ${C.line}`, borderRadius: 8, padding: "6px 10px", background: C.soft } },
                     "\u0E40\u0E27\u0E2D\u0E23\u0E4C\u0E0A\u0E31\u0E19 ",
                     APP_VERSION,
                     React.createElement("br", null),
@@ -1050,9 +1050,16 @@ function Shell({ role, nav, view, setView, onExit, children, ui, sz = {}, navOrd
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
                     React.createElement("div", { style: { width: 32, height: 32, borderRadius: 9, background: C.primary, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 14 } }, "\u0E2A\u0E35"),
                     React.createElement("span", { style: { fontWeight: 700, color: C.ink, fontSize: 15 } }, cur === null || cur === void 0 ? void 0 : cur.label)),
-                React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12 } },
-                    React.createElement("button", { onClick: () => setConfirmOut(true), style: { fontSize: 13, fontWeight: 500, color: C.muted, background: "none", border: "none", padding: 0, cursor: "pointer" } }, "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A"),
-                    React.createElement("button", { onClick: () => setConfirmClose(true), "aria-label": "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", style: { fontSize: 16, fontWeight: 700, color: "#c0392b", background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1 } }, "\u2715"))),
+                React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 } },
+                    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12 } },
+                        React.createElement("button", { onClick: () => setConfirmOut(true), style: { fontSize: 13, fontWeight: 500, color: C.muted, background: "none", border: "none", padding: 0, cursor: "pointer" } }, "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A"),
+                        React.createElement("button", { onClick: () => setConfirmClose(true), "aria-label": "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", style: { fontSize: 16, fontWeight: 700, color: "#c0392b", background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1 } }, "\u2715")),
+                    React.createElement("div", { style: { fontSize: 15, color: "#fff", fontWeight: 800, lineHeight: 1.45, border: `2px solid ${C.primary}`, borderRadius: 10, padding: "6px 12px", background: C.primary, textAlign: "right", boxShadow: "0 2px 6px rgba(0,0,0,.15)" } },
+                        "\u0E40\u0E27\u0E2D\u0E23\u0E4C\u0E0A\u0E31\u0E19 ",
+                        APP_VERSION,
+                        React.createElement("br", null),
+                        "\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15 ",
+                        BUILD_TIME))),
             React.createElement("div", { style: { maxWidth: 960, margin: "0 auto", padding: 16 } },
                 React.createElement(ErrorBoundary, { key: view }, children))),
         React.createElement("nav", { ref: mobileNavRef, className: "md:hidden", style: { position: "fixed", bottom: 0, left: 0, right: 0, boxSizing: "border-box", maxWidth: "100%", overflow: "hidden", paddingLeft: "max(4px, env(safe-area-inset-left))", paddingRight: "max(4px, env(safe-area-inset-right))", paddingBottom: "env(safe-area-inset-bottom)", background: C.surface, borderTop: `1px solid ${C.line}`, display: "flex", alignItems: "stretch", zIndex: 20, boxShadow: "0 -2px 10px rgba(0,0,0,.06)" } },
@@ -9041,6 +9048,7 @@ function App() {
                 justLoaded.current = true;
                 setDb(cd);
                 loadedRef.current = true;
+                everLoadedRef.current = true;
                 setSync("loading");
             }
             else if (!verOk) {
@@ -9097,7 +9105,13 @@ function App() {
             switchingRef.current = false;
             setSync("saved");
             setLastSaved(Date.now());
-        }).catch((err) => { console.warn("[โหลดไม่สำเร็จ]", err); loadedRef.current = false; everLoadedRef.current = false; switchingRef.current = false; setSync("offline"); });
+        }).catch((err) => { console.warn("[โหลดไม่สำเร็จ]", err); switchingRef.current = false; if (!everLoadedRef.current) {
+            loadedRef.current = false;
+            setSync("offline");
+        }
+        else {
+            setSync("saved");
+        } });
     };
     useEffect(() => { if (auth)
         toast("กลับสู่ระบบ"); loadData(); }, []);
