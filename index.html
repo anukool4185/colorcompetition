@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v153";
-const BUILD_TIME = "19/08/2026 11:33 น.";
+const APP_VERSION = "v154";
+const BUILD_TIME = "19/08/2026 11:48 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -3146,15 +3146,64 @@ function PersonList({ kind, db, setDb, ui }) {
     const toggle = (id) => setSel((p) => p.includes(id) ? p.filter((x) => x !== id) : [...p, id]);
     const toggleAll = () => setSel(allVisibleSelected ? [] : filtered.map((s) => s.id));
     const save = (data, isEdit) => {
-        const apply = (base) => { const arr = isEdit ? (base[key] || []).map((s) => (s.id === data.id ? data : s)) : [...(base[key] || []), data]; return { ...base, [key]: arr }; };
+        const oldId = isEdit && edit ? String(edit.id) : null;
+        const newId = String(data.id);
+        const idChanged = !!oldId && oldId !== newId;
+        const migrate = (base) => {
+            let b = { ...base };
+            // 1) อัปเดตตัวบุคคล
+            b[key] = isEdit ? (b[key] || []).map((s) => String(s.id) === (oldId || newId) ? data : s) : [...(b[key] || []), data];
+            if (!idChanged)
+                return b;
+            // 2) เปลี่ยน id ตามทุกจุดที่อ้างถึง (ผัง/แม่แบบ/ผู้สมัคร/ผล/เวลา/การเงิน)
+            b.org2 = (b.org2 || []).map((n) => String(n.personId) === oldId ? { ...n, personId: newId } : n);
+            b.org2Requests = (b.org2Requests || []).map((r) => ({ ...r, personId: String(r.personId) === oldId ? newId : r.personId, replacementId: String(r.replacementId || "") === oldId ? newId : r.replacementId }));
+            const dt = { ...(b.deptTemplates || {}) };
+            Object.keys(dt).forEach((dep) => { dt[dep] = (dt[dep] || []).map((row) => ({ ...row, people: (row.people || []).map((pp) => String(pp.personId) === oldId ? { ...pp, personId: newId } : pp) })); });
+            b.deptTemplates = dt;
+            if (kind === "student") {
+                b.competitions = (b.competitions || []).map((c) => {
+                    const parts = (c.participants || []).map((x) => String(x.sid) === oldId ? { ...x, sid: newId } : x);
+                    const results = { ...(c.results || {}) };
+                    if (results[oldId] != null) {
+                        results[newId] = results[oldId];
+                        delete results[oldId];
+                    }
+                    return { ...c, participants: parts, results };
+                });
+                const si = { ...(b.studentIncome || {}) };
+                if (si[oldId] != null) {
+                    si[newId] = si[oldId];
+                    delete si[oldId];
+                }
+                b.studentIncome = si;
+                const rp = { ...(b.refundPaid || {}) };
+                if (rp[oldId] != null) {
+                    rp[newId] = rp[oldId];
+                    delete rp[oldId];
+                }
+                b.refundPaid = rp;
+            }
+            // เวลา (attendance): _day[id] + ต่อรายการ cm[id]
+            const att = { ...(b.attendance || {}) };
+            Object.keys(att).forEach((date) => { const d = { ...att[date] }; Object.keys(d).forEach((ck) => { const cm = { ...d[ck] }; if (cm[oldId] != null) {
+                cm[newId] = cm[oldId];
+                delete cm[oldId];
+                d[ck] = cm;
+            } }); att[date] = d; });
+            b.attendance = att;
+            return b;
+        };
         if (window.__commitRemote)
-            window.__commitRemote(apply);
+            window.__commitRemote(migrate);
         else {
-            setDb(apply);
+            setDb(migrate);
             setTimeout(() => window.__forceSave && window.__forceSave(), 300);
         }
         if (window.__pushOther)
-            window.__pushOther((odb) => kind === "student" ? mirrorStudentsInto(odb, apply(db)[key]) : mirrorTeachersInto(odb, apply(db)[key]));
+            window.__pushOther((odb) => kind === "student" ? mirrorStudentsInto(odb, migrate(db)[key]) : mirrorTeachersInto(odb, migrate(db)[key]));
+        if (idChanged)
+            ui.notify("เปลี่ยนรหัสแล้ว — อัปเดตผัง/แม่แบบ/ผู้สมัคร/เวลา ตามให้อัตโนมัติ");
         setAdd(false);
         setEdit(null);
     };
