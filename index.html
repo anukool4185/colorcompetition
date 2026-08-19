@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v150";
-const BUILD_TIME = "19/08/2026 10:40 น.";
+const APP_VERSION = "v151";
+const BUILD_TIME = "19/08/2026 10:57 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -1052,9 +1052,9 @@ function Shell({ role, nav, view, setView, onExit, children, ui, sz = {}, navOrd
                     React.createElement("span", { style: { fontWeight: 700, color: C.ink, fontSize: 15 } }, cur === null || cur === void 0 ? void 0 : cur.label)),
                 React.createElement("div", { style: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 } },
                     React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 12 } },
-                        React.createElement("button", { onClick: () => setConfirmOut(true), style: { fontSize: 13, fontWeight: 500, color: C.muted, background: "none", border: "none", padding: 0, cursor: "pointer" } }, "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A"),
+                        React.createElement("button", { onClick: () => setConfirmOut(true), style: { fontSize: 19.5, fontWeight: 700, color: C.ink, background: C.surface, border: `1.5px solid ${C.line}`, borderRadius: 10, padding: "6px 14px", cursor: "pointer" } }, "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A"),
                         React.createElement("button", { onClick: () => setConfirmClose(true), "aria-label": "\u0E1B\u0E34\u0E14\u0E2B\u0E19\u0E49\u0E32\u0E40\u0E27\u0E47\u0E1A", style: { fontSize: 16, fontWeight: 700, color: "#c0392b", background: "none", border: "none", padding: 0, cursor: "pointer", lineHeight: 1 } }, "\u2715")),
-                    React.createElement("div", { style: { fontSize: 15, color: "#fff", fontWeight: 800, lineHeight: 1.45, border: `2px solid ${C.primary}`, borderRadius: 10, padding: "6px 12px", background: C.primary, textAlign: "right", boxShadow: "0 2px 6px rgba(0,0,0,.15)" } },
+                    React.createElement("div", { style: { fontSize: 15, color: C.muted, fontWeight: 500, lineHeight: 1.45, textAlign: "right" } },
                         "\u0E40\u0E27\u0E2D\u0E23\u0E4C\u0E0A\u0E31\u0E19 ",
                         APP_VERSION,
                         React.createElement("br", null),
