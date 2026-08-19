@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v156";
-const BUILD_TIME = "19/08/2026 12:09 น.";
+const APP_VERSION = "v157";
+const BUILD_TIME = "19/08/2026 12:21 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -8425,9 +8425,27 @@ function ProfileGate({ me, setDb, ui, onExit }) {
             !ok && React.createElement("p", { style: { fontSize: 12, color: "#c0392b", marginBottom: 0 } }, "* \u0E01\u0E23\u0E2D\u0E01\u0E43\u0E2B\u0E49\u0E04\u0E23\u0E1A\u0E17\u0E38\u0E01\u0E0A\u0E48\u0E2D\u0E07 (\u0E2B\u0E23\u0E37\u0E2D\u0E01\u0E14 \"\u0E2D\u0E2D\u0E01\" \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E01\u0E25\u0E31\u0E1A\u0E2B\u0E19\u0E49\u0E32\u0E41\u0E23\u0E01)"))));
 }
 function StudentApp({ db, setDb, onExit, meId }) {
-    const me = db.students.find((s) => s.id === meId) || db.students[0];
-    const [view, setView] = useState("home");
     const ui = useUI();
+    let me = (db.students || []).find((s) => String(s.id) === String(meId));
+    if (!me) {
+        try {
+            const auth = JSON.parse(localStorage.getItem("auth") || "{}");
+            const nm = (auth && auth.name) || "";
+            if (nm)
+                me = (db.students || []).find((s) => fullName(s) === nm);
+        }
+        catch (e) { }
+    }
+    const [view, setView] = useState("home");
+    if (!me)
+        return (React.createElement("div", { style: { padding: 40, textAlign: "center" } },
+            React.createElement("div", { style: { fontSize: 40 } }, "\uD83D\uDD12"),
+            React.createElement("div", { style: { fontWeight: 800, color: C.ink, margin: "10px 0" } }, "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E02\u0E2D\u0E07\u0E04\u0E38\u0E13"),
+            React.createElement("div", { style: { fontSize: 13, color: C.muted, marginBottom: 16 } }, "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E2D\u0E32\u0E08\u0E16\u0E39\u0E01\u0E1B\u0E23\u0E31\u0E1A\u0E23\u0E2B\u0E31\u0E2A \u0E01\u0E23\u0E38\u0E13\u0E32\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A\u0E41\u0E25\u0E49\u0E27\u0E40\u0E02\u0E49\u0E32\u0E43\u0E2B\u0E21\u0E48"),
+            React.createElement(Btn, { onClick: () => { try {
+                    localStorage.removeItem("auth");
+                }
+                catch (e) { } onExit && onExit(); } }, "\u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E23\u0E30\u0E1A\u0E1A")));
     if (me && !me.profileDone && !studentProfileComplete(me))
         return (React.createElement(React.Fragment, null,
             React.createElement(ProfileGate, { me: me, setDb: setDb, ui: ui, onExit: onExit }),
