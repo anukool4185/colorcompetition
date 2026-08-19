@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v154";
-const BUILD_TIME = "19/08/2026 11:48 น.";
+const APP_VERSION = "v155";
+const BUILD_TIME = "19/08/2026 12:04 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -7778,8 +7778,21 @@ function StudentInfoList({ db }) {
             list.length === 0 && React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19" }))));
 }
 function CommitteeProfile({ role, meId, db, setDb, ui }) {
-    const meStudent = role === "studentcom" ? db.students.find((s) => String(s.id) === String(meId)) : null;
-    const meTeacher = role !== "studentcom" ? (db.teachers.find((t) => String(t.id) === String(meId)) || db.teachers[0]) : null;
+    const meStudent = role === "studentcom" ? (db.students.find((s) => String(s.id) === String(meId)) || null) : null;
+    // ครู: จับด้วย id ก่อน ถ้าไม่เจอลองด้วยชื่อผู้ล็อกอิน (กัน id เปลี่ยนจาก rebuild)
+    const meTeacher = role !== "studentcom" ? (() => {
+        let t = (db.teachers || []).find((x) => String(x.id) === String(meId));
+        if (!t) {
+            try {
+                const auth = JSON.parse(localStorage.getItem("auth") || "{}");
+                const nm = (auth && auth.name) || "";
+                if (nm)
+                    t = (db.teachers || []).find((x) => fullName(x) === nm);
+            }
+            catch (e) { }
+        }
+        return t || null;
+    })() : null;
     const me = meStudent || meTeacher;
     const [f, setF] = useState(me ? { pre: me.pre || "", first: me.first || "", last: me.last || "", phone: me.phone || "", password: me.password || "" } : { pre: "", first: "", last: "", phone: "", password: "" });
     if (role === "studentcom")
