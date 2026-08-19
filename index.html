@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v158";
-const BUILD_TIME = "19/08/2026 13:31 น.";
+const APP_VERSION = "v159";
+const BUILD_TIME = "19/08/2026 13:52 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -6196,7 +6196,7 @@ function Org2Manager({ db, setDb, ui, viewer, canEdit = true, selfSignup = false
     const save = () => setTimeout(() => window.__forceSave && window.__forceSave(), 400);
     const generate = () => { setDb((p) => ({ ...p, org2: buildOrg2(p) })); save(); setConfirmGen(false); ui.notify("สร้าง/อัปเดตผังจากแม่แบบแล้ว (เก็บคนที่ลงชื่อไว้เดิม)"); };
     const setPerson = (nodeId, personId, side) => { setDb((p) => ({ ...p, org2: (p.org2 || []).map((n) => n.id === nodeId ? { ...n, personId, side } : n) })); save(); };
-    const nodes = (db.org2 || []).filter((n) => (!pickComp || String(n.compId) === String(pickComp)) && (!pickDept || String(n.deptId) === String(pickDept)) && (!visibleCompIds || visibleCompIds.map(String).includes(String(n.compId))) && (!visibleDeptIds || !n.compId ? (!visibleDeptIds || visibleDeptIds.map(String).includes(String(n.deptId))) : true));
+    const nodes = (db.org2 || []).filter((n) => (!pickComp || String(n.compId) === String(pickComp)) && (!pickDept || String(n.deptId) === String(pickDept)) && (!visibleCompIds || visibleCompIds.map(String).includes(String(n.compId))) && (!visibleDeptIds || !n.compId ? (!visibleDeptIds || visibleDeptIds.map(String).includes(String(n.deptId))) : true) && (canEdit || !!n.compId));
     // จัดกลุ่มตาม comp → dept → เรียง num
     const byComp = {};
     nodes.forEach((n) => { (byComp[n.compId] = byComp[n.compId] || {}); (byComp[n.compId][n.deptId] = byComp[n.compId][n.deptId] || []).push(n); });
@@ -7374,8 +7374,8 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
                             "\u0E44\u0E1B\u0E17\u0E35\u0E48\u0E40\u0E21\u0E19\u0E39 ",
                             React.createElement("b", null, "\u23F1 \u0E25\u0E07\u0E40\u0E27\u0E25\u0E32"),
                             " \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E40\u0E0A\u0E47\u0E04\u0E40\u0E27\u0E25\u0E32\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E01\u0E25\u0E38\u0E48\u0E21\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48/\u0E44\u0E21\u0E48\u0E1C\u0E48\u0E32\u0E19\u0E04\u0E31\u0E14 (\u0E01\u0E23\u0E2D\u0E07\u0E15\u0E32\u0E21\u0E0A\u0E31\u0E49\u0E19/\u0E2B\u0E49\u0E2D\u0E07\u0E44\u0E14\u0E49)")));
-            const mine = [...new Set((db.org2 || []).filter(nodeIsMine).map((n) => String(n.compId)))];
-            const myDeptIds = [...new Set((db.org2 || []).filter(nodeIsMine).map((n) => String(n.deptId)))];
+            const mine = [...new Set((db.org2 || []).filter((n) => nodeIsMine(n) && n.compId).map((n) => String(n.compId)))];
+            const myDeptIds = [...new Set((db.org2 || []).filter((n) => nodeIsMine(n) && n.compId).map((n) => String(n.deptId)))];
             return React.createElement("div", null,
                 React.createElement(PageHead, { title: "\uD83C\uDF33 \u0E1C\u0E31\u0E07\u0E2D\u0E07\u0E04\u0E4C\u0E01\u0E23", sub: "\u0E1C\u0E31\u0E07\u0E02\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E04\u0E38\u0E13\u0E23\u0E31\u0E1A\u0E1C\u0E34\u0E14\u0E0A\u0E2D\u0E1A \u00B7 \u0E02\u0E2D\u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E15\u0E31\u0E27\u0E44\u0E14\u0E49" }),
                 mine.length === 0 ? React.createElement(Empty, { text: "\u0E04\u0E38\u0E13\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E1C\u0E31\u0E07\u0E17\u0E35\u0E48\u0E23\u0E31\u0E1A\u0E1C\u0E34\u0E14\u0E0A\u0E2D\u0E1A \u2014 \u0E44\u0E1B\u0E17\u0E35\u0E48\u0E40\u0E21\u0E19\u0E39 '\u0E02\u0E2D\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E40\u0E1E\u0E34\u0E48\u0E21' \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E23\u0E31\u0E1A\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48" })
