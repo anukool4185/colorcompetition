@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v162";
-const BUILD_TIME = "20/08/2026 11:57 น.";
+const APP_VERSION = "v163";
+const BUILD_TIME = "20/08/2026 12:43 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -3143,6 +3143,7 @@ function PersonList({ kind, db, setDb, ui }) {
     const [reg, setReg] = useState(""); // "" ทั้งหมด | "no" ยังไม่สมัคร | "yes" สมัครแล้ว
     const [com, setCom] = useState(""); // กรรมการ: "" ทั้งหมด | "yes" | "no"
     const [duty, setDuty] = useState(""); // "" ทั้งหมด | "comp" | "act"
+    const [dutyFor, setDutyFor] = useState(null); // นักเรียนที่กำลังเปิด popup ลงหน้าที่/สมัคร (แอดมิน)
     const [add, setAdd] = useState(false);
     const [edit, setEdit] = useState(null);
     const [rawRows, setRawRows] = useState(null);
@@ -3463,16 +3464,24 @@ function PersonList({ kind, db, setDb, ui }) {
                     React.createElement("div", { style: { display: "flex", gap: 6, flexShrink: 0 } },
                         React.createElement(Btn, { variant: "ghost", small: true, onClick: () => setEdit(s) }, "\u0E41\u0E01\u0E49\u0E44\u0E02"),
                         React.createElement(Btn, { variant: "danger", small: true, onClick: () => setConfirm({ ids: [s.id], msg: `ลบ ${fullName(s)} พร้อมตัดความเกี่ยวข้องและลบรูปใน Drive ?` }) }, "\u0E25\u0E1A"))),
-                React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "flex-start", paddingLeft: 44 } },
+                React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", paddingLeft: 44 } },
                     kind === "student" && React.createElement(React.Fragment, null,
                         React.createElement(StatusBadge, { label: "\u0E2A\u0E21\u0E31\u0E04\u0E23", value: regStatusOf(db, s.id), emptyText: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E2A\u0E21\u0E31\u0E04\u0E23", emptyRed: true }),
                         React.createElement(StatusBadge, { label: "\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01", value: selStatusOf(db, s.id), emptyText: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E04\u0E31\u0E14" })),
-                    React.createElement(CommitteeBadge, { d: dutyOf(db, kind, s.id) }))))),
+                    React.createElement(CommitteeBadge, { d: dutyOf(db, kind, s.id) }),
+                    kind === "student" && (() => { const st = presenceOf(db, s); const bd = st === "main" ? { t: "มีตัว", c: "#2f9e6b", b: "#eaf7f0" } : st === "reserve" ? { t: "ไม่มีตัว", c: "#c0392b", b: "#fbeeee" } : { t: "ยังไม่มีตัว", c: "#b3762f", b: "#fff8ec" }; return React.createElement("span", { style: { fontSize: 11.5, fontWeight: 700, color: bd.c, background: bd.b, borderRadius: 10, padding: "3px 10px", whiteSpace: "nowrap" } }, bd.t); })(),
+                    kind === "student" && (() => {
+                        const inOrg = (db.org2 || []).some((n) => String(n.personId) === String(s.id));
+                        return inOrg
+                            ? React.createElement("span", { style: { fontSize: 11.5, fontWeight: 800, color: "#2f9e6b", background: "#e6f4ec", border: "1px solid #2f9e6b", borderRadius: 10, padding: "3px 12px" } }, "\u2713 \u0E21\u0E35\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E41\u0E25\u0E49\u0E27")
+                            : React.createElement("button", { onClick: () => setDutyFor(s), style: { fontSize: 11.5, fontWeight: 800, color: "#b3762f", background: "#fff8ec", border: "1px solid #d9a441", borderRadius: 10, padding: "4px 12px", cursor: "pointer" } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48");
+                    })())))),
             filtered.length === 0 && React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D\u0E15\u0E32\u0E21\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02" })),
         (add || edit) && React.createElement(PersonForm, { kind: kind, person: edit, db: db, ui: ui, houses: db.settings.houses, onClose: () => { setAdd(false); setEdit(null); }, onSave: save }),
         rawRows && React.createElement(ImportPreview, { kind: kind, rawRows: rawRows, existing: list, houses: db.settings.houses, onClose: () => setRawRows(null), onConfirm: (rows) => ui.run("กำลังโอนเข้าระบบ...", () => { setDb((p) => { const next = { ...p, [key]: [...p[key], ...rows] }; if (window.__pushOther)
                 window.__pushOther((odb) => kind === "student" ? mirrorStudentsInto(odb, next.students) : mirrorTeachersInto(odb, next.teachers)); return next; }); setRawRows(null); ui.notify(`โอนเข้าระบบแล้ว ${rows.length} คน`); }) }),
-        confirm && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E01\u0E32\u0E23\u0E25\u0E1A", message: confirm.msg, onConfirm: () => purge(confirm.ids), onClose: () => setConfirm(null) })));
+        confirm && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E01\u0E32\u0E23\u0E25\u0E1A", message: confirm.msg, onConfirm: () => purge(confirm.ids), onClose: () => setConfirm(null) }),
+        dutyFor && React.createElement(NoWorkModal, { db: db, ui: ui, viewer: { role: "admin", id: "admin", name: "แอดมิน" }, student: dutyFor, initial: null, saving: false, onClose: () => setDutyFor(null), onConfirm: (rec) => { waitUpsert(rec).then(() => { setDutyFor(null); ui.notify("บันทึกแล้ว — รอกดปุ่ม 'นำเข้าหน้าที่' ด้านบนเพื่อลงระบบ"); }); } })));
 }
 function phoneOk(v) { v = String(v == null ? "" : v).trim(); return v === "" || /^[0-9]{9,10}$/.test(v); }
 function PersonForm({ kind, person, db, onClose, onSave, ui, houses }) {
