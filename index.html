@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v166";
-const BUILD_TIME = "20/08/2026 23:14 น.";
+const APP_VERSION = "v167";
+const BUILD_TIME = "20/08/2026 23:45 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -3479,7 +3479,8 @@ function PersonList({ kind, db, setDb, ui }) {
             filtered.length === 0 && React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D\u0E15\u0E32\u0E21\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02" })),
         (add || edit) && React.createElement(PersonForm, { kind: kind, person: edit, db: db, ui: ui, houses: db.settings.houses, onClose: () => { setAdd(false); setEdit(null); }, onSave: save }),
         rawRows && React.createElement(ImportPreview, { kind: kind, rawRows: rawRows, existing: list, houses: db.settings.houses, onClose: () => setRawRows(null), onConfirm: (rows) => ui.run("กำลังโอนเข้าระบบ...", () => { setDb((p) => { const next = { ...p, [key]: [...p[key], ...rows] }; if (window.__pushOther)
-                window.__pushOther((odb) => kind === "student" ? mirrorStudentsInto(odb, next.students) : mirrorTeachersInto(odb, next.teachers)); return next; }); setRawRows(null); ui.notify(`โอนเข้าระบบแล้ว ${rows.length} คน`); }) }),
+                window.__pushOther((odb) => kind === "student" ? mirrorStudentsInto(odb, next.students) : mirrorTeachersInto(odb, next.teachers)); return next; }); setRawRows(null); setTimeout(() => { window.__forceSave && window.__forceSave(); if (kind === "student")
+                setTimeout(() => syncTimeRoster(), 1500); }, 300); ui.notify(`โอนเข้าระบบแล้ว ${rows.length} คน`); }) }),
         confirm && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E01\u0E32\u0E23\u0E25\u0E1A", message: confirm.msg, onConfirm: () => purge(confirm.ids), onClose: () => setConfirm(null) }),
         dutyFor && React.createElement(NoWorkModal, { db: db, ui: ui, viewer: { role: "admin", id: "admin", name: "แอดมิน" }, student: dutyFor, initial: null, saving: false, onClose: () => setDutyFor(null), onConfirm: (rec) => { waitUpsert(rec).then(() => { setDutyFor(null); ui.notify("บันทึกแล้ว — รอกดปุ่ม 'นำเข้าหน้าที่' ด้านบนเพื่อลงระบบ"); }); } })));
 }
@@ -7882,6 +7883,13 @@ async function timeImportNow() { try {
 }
 catch (e) {
     return { ok: false };
+} }
+async function syncTimeRoster() { try {
+    await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "syncTimeRoster" }) });
+    return true;
+}
+catch (e) {
+    return false;
 } }
 function compKindGroup(c) { return c.kind === "กิจกรรม" ? "กิจกรรม" : ((c.sportType || "กีฬา") === "กรีฑา" ? "กรีฑา" : "กีฬา"); }
 function NoWorkPanel({ db, ui, viewer }) {
