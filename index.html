@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v163";
-const BUILD_TIME = "20/08/2026 12:43 น.";
+const APP_VERSION = "v164";
+const BUILD_TIME = "20/08/2026 13:10 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -3471,8 +3471,8 @@ function PersonList({ kind, db, setDb, ui }) {
                     React.createElement(CommitteeBadge, { d: dutyOf(db, kind, s.id) }),
                     kind === "student" && (() => { const st = presenceOf(db, s); const bd = st === "main" ? { t: "มีตัว", c: "#2f9e6b", b: "#eaf7f0" } : st === "reserve" ? { t: "ไม่มีตัว", c: "#c0392b", b: "#fbeeee" } : { t: "ยังไม่มีตัว", c: "#b3762f", b: "#fff8ec" }; return React.createElement("span", { style: { fontSize: 11.5, fontWeight: 700, color: bd.c, background: bd.b, borderRadius: 10, padding: "3px 10px", whiteSpace: "nowrap" } }, bd.t); })(),
                     kind === "student" && (() => {
-                        const inOrg = (db.org2 || []).some((n) => String(n.personId) === String(s.id));
-                        return inOrg
+                        const dutyOk = hasDuty(db, s);
+                        return dutyOk
                             ? React.createElement("span", { style: { fontSize: 11.5, fontWeight: 800, color: "#2f9e6b", background: "#e6f4ec", border: "1px solid #2f9e6b", borderRadius: 10, padding: "3px 12px" } }, "\u2713 \u0E21\u0E35\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E41\u0E25\u0E49\u0E27")
                             : React.createElement("button", { onClick: () => setDutyFor(s), style: { fontSize: 11.5, fontWeight: 800, color: "#b3762f", background: "#fff8ec", border: "1px solid #d9a441", borderRadius: 10, padding: "4px 12px", cursor: "pointer" } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48");
                     })())))),
@@ -5744,15 +5744,21 @@ function eligibleForStudent(c, s) {
         return false;
     return true;
 }
+// "มีหน้าที่/มีงาน" = ผ่านการคัดเลือกแล้ว (ตัวจริง/สำรอง) หรือ เป็นกรรมการในผัง (org2)
+function hasDuty(db, s) {
+    if (!s)
+        return false;
+    const passed = (db.competitions || []).some((c) => (c.participants || []).some((p) => String(p.sid) === String(s.id) && (p.sel === "main" || p.sel === "reserve")));
+    const inOrg = (db.org2 || []).some((n) => String(n.personId) === String(s.id));
+    return passed || inOrg;
+}
 // สถานะ "มีตัว/ไม่มีตัว" ของนักเรียน — main=มีตัว, reserve=ไม่มีตัว(กรรมการปรับ), none=ยังไม่มีตัว
 function presenceOf(db, s) {
     if (!s)
         return "none";
     if (s.mainStatus === "reserve")
         return "reserve"; // กรรมการปรับเป็นไม่มีตัว (ทับ)
-    const reg = (db.competitions || []).some((c) => (c.participants || []).some((p) => String(p.sid) === String(s.id)));
-    const inOrg = (db.org2 || []).some((n) => String(n.personId) === String(s.id));
-    if (s.mainStatus === "main" || reg || inOrg || s.profileDone)
+    if (s.mainStatus === "main" || hasDuty(db, s) || s.profileDone)
         return "main";
     return "none";
 }
@@ -7896,9 +7902,8 @@ function NoWorkPanel({ db, ui, viewer }) {
     const [q, setQ] = useState("");
     useEffect(() => { waitList().then((rows) => { const m = {}; (rows || []).forEach((r) => { if (r && r.sid != null)
         m[String(r.sid)] = r; }); setWait(m); }); }, []);
-    const registered = new Set();
-    (db.competitions || []).forEach((c) => (c.participants || []).forEach((x) => registered.add(String(x.sid))));
-    const list = (db.students || []).filter((s) => !registered.has(String(s.id))).filter((s) => (fullName(s) + (s.id || "") + (s.grade || "") + (s.room || "")).toLowerCase().includes(q.trim().toLowerCase())).sort((a, b) => (a.grade || "").localeCompare(b.grade || "") || (a.room || "").localeCompare(b.room || "") || fullName(a).localeCompare(fullName(b)));
+    const isRegistered = (s) => (db.competitions || []).some((c) => (c.participants || []).some((x) => String(x.sid) === String(s.id)));
+    const list = (db.students || []).filter((s) => !hasDuty(db, s)).filter((s) => (fullName(s) + (s.id || "") + (s.grade || "") + (s.room || "")).toLowerCase().includes(q.trim().toLowerCase())).sort((a, b) => (a.grade || "").localeCompare(b.grade || "") || (a.room || "").localeCompare(b.room || "") || fullName(a).localeCompare(fullName(b)));
     const openStudent = list.find((s) => String(s.id) === String(openId)) || (db.students || []).find((s) => String(s.id) === String(openId));
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\u0E04\u0E19\u0E44\u0E21\u0E48\u0E21\u0E35\u0E07\u0E32\u0E19", sub: `นักเรียนที่ยังไม่ได้สมัคร/ยังไม่อยู่ในโซนคัดเลือก · ${list.length} คน` }),
@@ -7907,6 +7912,7 @@ function NoWorkPanel({ db, ui, viewer }) {
             list.length === 0 && React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E01\u0E25\u0E38\u0E48\u0E21\u0E19\u0E35\u0E49" }),
             list.map((s) => {
                 const done = !!wait[String(s.id)];
+                const reg = isRegistered(s);
                 return (React.createElement("button", { key: s.id, onClick: () => setOpenId(s.id), style: { textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: 12, borderRadius: 10, border: `1px solid ${C.line}`, background: done ? "#f0f9f3" : C.surface, cursor: "pointer" } },
                     React.createElement(Avatar, { person: s, size: 38 }),
                     React.createElement("div", { style: { flex: 1, minWidth: 0 } },
@@ -7920,6 +7926,7 @@ function NoWorkPanel({ db, ui, viewer }) {
                             s.room,
                             " \u00B7 ",
                             s.gender || "-")),
+                    reg && React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#b3762f", background: "#fff8ec", borderRadius: 10, padding: "2px 9px", whiteSpace: "nowrap" } }, "\u23F3 \u0E23\u0E2D\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01"),
                     done && React.createElement("span", { style: { fontSize: 11.5, fontWeight: 700, color: "#2f9e6b", background: "#eaf7f0", borderRadius: 10, padding: "2px 9px" } }, "\u2713 \u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E41\u0E25\u0E49\u0E27")));
             })),
         openStudent && React.createElement(NoWorkModal, { db: db, ui: ui, viewer: viewer, student: openStudent, initial: wait[String(openStudent.id)], saving: saving, onClose: () => setOpenId(null), onConfirm: (rec) => { setSaving(true); waitUpsert(rec).then(() => { setWait((p) => ({ ...p, [String(openStudent.id)]: rec })); setSaving(false); setOpenId(null); ui.notify("ยืนยันแล้ว — รอแอดมินนำเข้า (เก็บแยกแถว ไม่ทับกัน)"); }); } })));
