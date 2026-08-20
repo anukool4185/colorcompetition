@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v164";
-const BUILD_TIME = "20/08/2026 13:10 น.";
+const APP_VERSION = "v165";
+const BUILD_TIME = "20/08/2026 13:20 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -7927,7 +7927,7 @@ function NoWorkPanel({ db, ui, viewer }) {
                             " \u00B7 ",
                             s.gender || "-")),
                     reg && React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#b3762f", background: "#fff8ec", borderRadius: 10, padding: "2px 9px", whiteSpace: "nowrap" } }, "\u23F3 \u0E23\u0E2D\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01"),
-                    done && React.createElement("span", { style: { fontSize: 11.5, fontWeight: 700, color: "#2f9e6b", background: "#eaf7f0", borderRadius: 10, padding: "2px 9px" } }, "\u2713 \u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E41\u0E25\u0E49\u0E27")));
+                    done && React.createElement("span", { style: { fontSize: 10.5, fontWeight: 700, color: "#2f9e6b", background: "#eaf7f0", borderRadius: 10, padding: "5px 10px", lineHeight: 1.5, maxWidth: 240, whiteSpace: "normal", textAlign: "right" } }, "\u2713 \u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E21\u0E35\u0E15\u0E31\u0E27\u0E15\u0E19\u0E41\u0E25\u0E49\u0E27 \u0E41\u0E25\u0E30\u0E23\u0E2D\u0E41\u0E2D\u0E14\u0E21\u0E34\u0E19\u0E19\u0E33\u0E40\u0E02\u0E49\u0E32\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48 \u00B7 \u0E23\u0E2D\u0E01\u0E32\u0E23\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07 \u0E40\u0E21\u0E37\u0E48\u0E2D\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E01\u0E32\u0E23\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01 \u0E0A\u0E37\u0E48\u0E2D\u0E02\u0E2D\u0E07\u0E17\u0E48\u0E32\u0E19\u0E08\u0E30\u0E2B\u0E32\u0E22\u0E44\u0E1B\u0E08\u0E32\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E2B\u0E19\u0E49\u0E32\u0E19\u0E35\u0E49")));
             })),
         openStudent && React.createElement(NoWorkModal, { db: db, ui: ui, viewer: viewer, student: openStudent, initial: wait[String(openStudent.id)], saving: saving, onClose: () => setOpenId(null), onConfirm: (rec) => { setSaving(true); waitUpsert(rec).then(() => { setWait((p) => ({ ...p, [String(openStudent.id)]: rec })); setSaving(false); setOpenId(null); ui.notify("ยืนยันแล้ว — รอแอดมินนำเข้า (เก็บแยกแถว ไม่ทับกัน)"); }); } })));
 }
