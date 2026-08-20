@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v165";
-const BUILD_TIME = "20/08/2026 13:20 น.";
+const APP_VERSION = "v166";
+const BUILD_TIME = "20/08/2026 23:14 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -6242,7 +6242,7 @@ function AttendWindowSettings({ db, setDb, ui }) {
                 " (\u0E2D\u0E48\u0E32\u0E19/\u0E2A\u0E33\u0E23\u0E2D\u0E07\u0E41\u0E22\u0E01\u0E44\u0E14\u0E49) \u00B7 \u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30",
                 React.createElement("b", null, "\u0E15\u0E23\u0E27\u0E08\u0E01\u0E48\u0E2D\u0E19\u0E27\u0E48\u0E32 Deploy Code.gs \u0E43\u0E2B\u0E21\u0E48\u0E41\u0E25\u0E49\u0E27\u0E08\u0E23\u0E34\u0E07"),
                 " \u0E16\u0E36\u0E07\u0E08\u0E30\u0E40\u0E02\u0E35\u0E22\u0E19 \u2014 \u0E01\u0E31\u0E19\u0E40\u0E02\u0E35\u0E22\u0E19\u0E17\u0E31\u0E1A\u0E0A\u0E35\u0E17\u0E2D\u0E37\u0E48\u0E19\u0E42\u0E14\u0E22\u0E44\u0E21\u0E48\u0E15\u0E31\u0E49\u0E07\u0E43\u0E08"),
-            React.createElement(Btn, { small: true, variant: "ghost", onClick: exportToTimeSheet, disabled: exporting }, exporting ? "กำลังส่งออก..." : "📤 ส่งออกไปชีท time_sport"))));
+            false && React.createElement(Btn, { small: true, variant: "ghost", onClick: exportToTimeSheet, disabled: exporting }, exporting ? "กำลังส่งออก..." : "📤 ส่งออกไปชีท time_sport"))));
 }
 function buildOrg2(db) {
     const existing = db.org2 || [];
@@ -7107,9 +7107,25 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps: myCompsRaw, sub, s
     const nowHM = () => { const d = new Date(); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; };
     const inOpen = !isToday || (nowHM() >= win.inStart && nowHM() <= win.inEnd);
     const outOpen = !isToday || (nowHM() >= win.outStart && nowHM() <= win.outEnd);
-    const save = () => setTimeout(() => window.__saveSoon ? window.__saveSoon() : (window.__forceSave && window.__forceSave()), 100);
-    // อ่านเวลา: ใช้เวลา "รายวันต่อคน" (_day) เป็นหลัก — เช็คที่ผังไหนก็ได้เวลาเดียวกันทุกผัง
-    const rec = (compId, sid) => (((db.attendance || {})[date] || {})["_day"] || {})[sid] || (((db.attendance || {})[date] || {})[compId] || {})[sid] || {};
+    const [timeMap, setTimeMap] = useState({}); // { [sid]: {in,out} } ของวันที่เลือก
+    const [backdateAsk, setBackdateAsk] = useState(false);
+    const nameOf = (sid) => { const s = (db.students || []).find((x) => String(x.id) === String(sid)) || (db.teachers || []).find((x) => String(x.id) === String(sid)); return s ? fullName(s) : ""; };
+    const loadTimes = React.useCallback(() => {
+        if (date === todayStr()) {
+            timeWaitList().then((rows) => { const m = {}; (rows || []).forEach((w) => { if (!w || w.date !== date || w.sid == null)
+                return; const k = String(w.sid); m[k] = m[k] || {}; if (w.kind === "in" && w.time)
+                m[k].in = w.time; if (w.kind === "out" && w.time)
+                m[k].out = w.time; }); setTimeMap(m); });
+        }
+        else {
+            timeDataMap().then((mp) => { const m = {}; Object.keys(mp || {}).forEach((sid) => { const dd = (mp[sid].days || {})[date]; if (dd)
+                m[String(sid)] = { in: dd.in || "", out: dd.out || "" }; }); setTimeMap(m); });
+        }
+    }, [date]);
+    useEffect(() => { loadTimes(); }, [loadTimes]);
+    const save = () => { };
+    const rec = (compId, sid) => timeMap[String(sid)] || {};
+    const pushTime = (sid, kind, t) => { setTimeMap((p) => ({ ...p, [String(sid)]: { ...(p[String(sid)] || {}), [kind]: t } })); timeAppendRec({ sid: String(sid), name: nameOf(sid), date, kind, time: t }); };
     const setMark = (compId, sid, kind) => {
         if (kind === "in" && !inOpen) {
             ui.notify(`ยังไม่ถึงช่วงเช็คเข้า (${win.inStart}-${win.inEnd})`);
@@ -7120,33 +7136,16 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps: myCompsRaw, sub, s
             return;
         }
         const t = nowHM();
-        // สร้างการแก้ไขจาก "ข้อมูลล่าสุด" เสมอ → รวมเฉพาะ key รายคน ไม่ทับของคนอื่นที่ส่งพร้อมกัน
-        const apply = (base) => {
-            const att = { ...(base.attendance || {}) };
-            const d = { ...(att[date] || {}) };
-            const day = { ...(d["_day"] || {}) };
-            const cur = { ...(day[sid] || {}) };
-            cur[kind] = cur[kind] ? undefined : t; // กดซ้ำ = ยกเลิก (อิงสถานะล่าสุด)
-            day[sid] = cur;
-            const cm = { ...(d[compId] || {}) };
-            cm[sid] = { ...(cm[sid] || {}), [kind]: cur[kind] };
-            const meCur = { ...(day[meId] || {}) };
-            if (kind === "in" && !meCur.in)
-                meCur.in = t;
-            if (kind === "out" && !meCur.out)
-                meCur.out = t;
-            day[meId] = meCur;
-            d["_day"] = day;
-            d[compId] = cm;
-            att[date] = d;
-            return { ...base, attendance: att };
-        };
-        if (window.__commitRemote)
-            window.__commitRemote((latest) => apply(latest));
-        else {
-            setDb((p) => apply(p));
-            save();
-        }
+        pushTime(sid, kind, t);
+        if (meId && String(meId) !== String(sid)) {
+            const me = timeMap[String(meId)] || {};
+            if (kind === "in" && !me.in)
+                pushTime(meId, "in", t);
+            if (kind === "out" && !me.out)
+                pushTime(meId, "out", t);
+        } // กรรมการได้เวลาอัตโนมัติ
+        if (!isToday)
+            setBackdateAsk(true);
     };
     const [markMode, setMarkMode] = useState("in");
     const [fGrade, setFGrade] = useState("");
@@ -7155,40 +7154,17 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps: myCompsRaw, sub, s
     const [locking, setLocking] = useState(false);
     const isAdmin = String(role) === "admin";
     const clearMark = (compId, sid, which) => {
-        const apply = (base) => {
-            const att = { ...(base.attendance || {}) };
-            const d = { ...(att[date] || {}) };
-            const day = { ...(d["_day"] || {}) };
-            const cm = { ...(d[compId] || {}) };
-            const cur = { ...(day[sid] || {}) };
-            cur[which] = undefined;
-            day[sid] = cur;
-            if (cm[sid])
-                cm[sid] = { ...cm[sid], [which]: undefined };
-            d["_day"] = day;
-            d[compId] = cm;
-            att[date] = d;
-            return { ...base, attendance: att };
-        };
-        if (window.__commitRemote)
-            window.__commitRemote(apply);
-        else {
-            setDb(apply);
-            setTimeout(() => window.__forceSave && window.__forceSave(), 200);
-        }
-        ui.notify("ล้างเวลาแล้ว");
+        // ล้าง = เขียนแถวใหม่ค่าว่างทับตอนรวม (append time="") + อัปเดตจอ
+        setTimeMap((p) => ({ ...p, [String(sid)]: { ...(p[String(sid)] || {}), [which]: "" } }));
+        timeAppendRec({ sid: String(sid), name: nameOf(sid), date, kind: which, time: "" });
+        ui.notify("ล้างเวลาแล้ว (จะมีผลหลังระบบรวมเวลา 23:00 หรือกดนำเวลาเข้าระบบ)");
     };
     const [clearAsk, setClearAsk] = useState(false);
     const clearDateAll = () => {
-        const apply = (base) => { const att = { ...(base.attendance || {}) }; delete att[date]; return { ...base, attendance: att }; };
-        if (window.__commitRemote)
-            window.__commitRemote(apply);
-        else {
-            setDb(apply);
-            setTimeout(() => window.__forceSave && window.__forceSave(), 200);
-        }
+        Object.keys(timeMap).forEach((sid) => { timeAppendRec({ sid, name: nameOf(sid), date, kind: "in", time: "" }); timeAppendRec({ sid, name: nameOf(sid), date, kind: "out", time: "" }); });
+        setTimeMap({});
         setClearAsk(false);
-        ui.notify("ล้างเวลาทั้งหมดของวันที่ " + date + " แล้ว");
+        ui.notify("ล้างเวลาทั้งหมดของวันที่ " + date + " แล้ว (มีผลหลังรวมเวลา)");
     };
     const ckey = (compId, sid) => compId + ":" + sid;
     const toggleCheck = (compId, sid) => setChecked((p) => { const k = ckey(compId, sid); const n = { ...p }; if (n[k])
@@ -7210,36 +7186,16 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps: myCompsRaw, sub, s
             return;
         }
         const t = nowHM();
-        const apply = (base) => {
-            const att = { ...(base.attendance || {}) };
-            const d = { ...(att[date] || {}) };
-            const day = { ...(d["_day"] || {}) };
-            const cm = { ...(d[compId] || {}) };
-            pick.forEach((sid) => { const cur = { ...(day[sid] || {}) }; if (!cur[markMode])
-                cur[markMode] = t; day[sid] = cur; cm[sid] = { ...(cm[sid] || {}), [markMode]: cur[markMode] }; });
-            const meCur = { ...(day[meId] || {}) };
-            if (!meCur[markMode])
-                meCur[markMode] = t;
-            day[meId] = meCur;
-            d["_day"] = day;
-            d[compId] = cm;
-            att[date] = d;
-            return { ...base, attendance: att };
-        };
         setLocking(true);
-        // ล็อกหน้าจอกันกดที่อื่นระหว่างบันทึก + ดึงล่าสุดมารวมก่อนเขียน (กันชนกัน)
-        const done = () => { setChecked((p) => { const n = { ...p }; pick.forEach((sid) => delete n[ckey(compId, sid)]); return n; }); setLocking(false); ui.notify(`บันทึกเวลา${markMode === "in" ? "เข้า" : "ออก"} ${pick.length} คนแล้ว`); };
-        if (window.__commitRemote) {
-            try {
-                window.__commitRemote((latest) => apply(latest));
-            }
-            catch (e) { }
-            setTimeout(done, 900);
-        }
-        else {
-            setDb((p) => apply(p));
-            setTimeout(() => { window.__forceSave && window.__forceSave(); done(); }, 300);
-        }
+        pick.forEach((sid) => pushTime(sid, markMode, t));
+        if (meId) {
+            const me = timeMap[String(meId)] || {};
+            if (!me[markMode])
+                pushTime(meId, markMode, t);
+        } // กรรมการได้เวลาอัตโนมัติ
+        const done = () => { setChecked((p) => { const n = { ...p }; pick.forEach((sid) => delete n[ckey(compId, sid)]); return n; }); setLocking(false); ui.notify(`บันทึกเวลา${markMode === "in" ? "เข้า" : "ออก"} ${pick.length} คนแล้ว` + (isToday ? "" : " (ย้อนหลัง)")); if (!isToday)
+            setBackdateAsk(true); };
+        setTimeout(done, 700);
     };
     if (sub === "none") {
         const registered = new Set();
@@ -7302,7 +7258,10 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps: myCompsRaw, sub, s
                 "-",
                 win.outEnd),
             !isToday && React.createElement("span", { style: { fontSize: 12, color: "#b3762f", fontWeight: 700 } }, "\u0E14\u0E39/\u0E41\u0E01\u0E49\u0E22\u0E49\u0E2D\u0E19\u0E2B\u0E25\u0E31\u0E07 (\u0E19\u0E2D\u0E01\u0E0A\u0E48\u0E27\u0E07\u0E01\u0E47\u0E40\u0E0A\u0E47\u0E04\u0E44\u0E14\u0E49)"),
-            isAdmin && React.createElement("button", { onClick: () => setClearAsk(true), style: { border: "1px solid #c0392b", background: "#fbeeee", color: "#c0392b", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" } }, "\uD83D\uDDD1 \u0E25\u0E49\u0E32\u0E07\u0E40\u0E27\u0E25\u0E32\u0E17\u0E31\u0E49\u0E07\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49 (\u0E41\u0E2D\u0E14\u0E21\u0E34\u0E19)")),
+            isAdmin && React.createElement("button", { onClick: () => setClearAsk(true), style: { border: "1px solid #c0392b", background: "#fbeeee", color: "#c0392b", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" } }, "\uD83D\uDDD1 \u0E25\u0E49\u0E32\u0E07\u0E40\u0E27\u0E25\u0E32\u0E17\u0E31\u0E49\u0E07\u0E27\u0E31\u0E19\u0E19\u0E35\u0E49 (\u0E41\u0E2D\u0E14\u0E21\u0E34\u0E19)"),
+            isAdmin && React.createElement("button", { onClick: () => { ui.run("กำลังนำเวลาเข้าระบบ...", () => { timeImportNow().then((r) => { loadTimes(); ui.notify(r && r.ok ? `นำเวลาเข้าระบบแล้ว (${r.students || 0} คน)` : "นำเวลาไม่สำเร็จ"); }); }); }, style: { border: "1px solid #2f9e6b", background: "#eaf7f0", color: "#1e7a4d", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" } }, "\u2B07 \u0E19\u0E33\u0E40\u0E27\u0E25\u0E32\u0E40\u0E02\u0E49\u0E32\u0E23\u0E30\u0E1A\u0E1A (\u0E41\u0E2D\u0E14\u0E21\u0E34\u0E19)"),
+            React.createElement("button", { onClick: loadTimes, style: { border: `1px solid ${C.line}`, background: C.surface, color: C.muted, borderRadius: 8, padding: "6px 12px", fontSize: 12, cursor: "pointer" } }, "\uD83D\uDD04 \u0E23\u0E35\u0E40\u0E1F\u0E23\u0E0A\u0E40\u0E27\u0E25\u0E32")),
+        backdateAsk && React.createElement(ConfirmModal, { title: "\u0E25\u0E07\u0E40\u0E27\u0E25\u0E32\u0E22\u0E49\u0E2D\u0E19\u0E2B\u0E25\u0E31\u0E07", message: "\u0E01\u0E32\u0E23\u0E25\u0E07\u0E22\u0E49\u0E2D\u0E19\u0E2B\u0E25\u0E31\u0E07\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E44\u0E21\u0E48\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E17\u0E31\u0E19\u0E17\u0E35 \u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E40\u0E27\u0E25\u0E32\u0E2B\u0E25\u0E31\u0E07\u0E08\u0E32\u0E01 23.00 \u0E19.\u0E02\u0E2D\u0E07\u0E17\u0E38\u0E01\u0E27\u0E31\u0E19 \u0E41\u0E15\u0E48\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E07\u0E27\u0E48\u0E32\u0E44\u0E14\u0E49\u0E2A\u0E33\u0E23\u0E2D\u0E07\u0E40\u0E27\u0E25\u0E32\u0E44\u0E27\u0E49\u0E41\u0E25\u0E49\u0E27 \u0E44\u0E21\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E25\u0E07\u0E0B\u0E49\u0E33", confirmLabel: "\u0E23\u0E31\u0E1A\u0E17\u0E23\u0E32\u0E1A", onConfirm: () => setBackdateAsk(false), onClose: () => setBackdateAsk(false) }),
         clearAsk && React.createElement(ConfirmModal, { title: "\u0E25\u0E49\u0E32\u0E07\u0E40\u0E27\u0E25\u0E32\u0E17\u0E31\u0E49\u0E07\u0E27\u0E31\u0E19", message: `ยืนยันล้างเวลาเข้า-ออก ทั้งหมดของวันที่ ${date}? (ใช้สำหรับทดสอบ — ข้อมูลเวลาของวันนี้จะถูกลบทั้งหมด กู้คืนไม่ได้)`, confirmLabel: "\u0E25\u0E49\u0E32\u0E07\u0E17\u0E31\u0E49\u0E07\u0E27\u0E31\u0E19", onConfirm: clearDateAll, onClose: () => setClearAsk(false) }),
         isToday && (React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" } },
             React.createElement("span", { style: { fontSize: 12.5, fontWeight: 700, color: inOpen ? "#1e7a4d" : "#c0392b" } },
@@ -7893,6 +7852,36 @@ async function waitClear() { try {
 }
 catch (e) {
     return false;
+} }
+async function timeAppendRec(rec) { try {
+    await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "timeAppend", rec }) });
+    return true;
+}
+catch (e) {
+    return false;
+} }
+async function timeWaitList() { try {
+    const r = await fetch(API_URL + "?sheet=timewaitsport");
+    const j = JSON.parse(await r.text());
+    return j && j.ok && Array.isArray(j.rows) ? j.rows : [];
+}
+catch (e) {
+    return [];
+} }
+async function timeDataMap() { try {
+    const r = await fetch(API_URL + "?sheet=time_sport");
+    const j = JSON.parse(await r.text());
+    return j && j.ok && j.map ? j.map : {};
+}
+catch (e) {
+    return {};
+} }
+async function timeImportNow() { try {
+    const r = await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "timeImport" }) });
+    return JSON.parse(await r.text());
+}
+catch (e) {
+    return { ok: false };
 } }
 function compKindGroup(c) { return c.kind === "กิจกรรม" ? "กิจกรรม" : ((c.sportType || "กีฬา") === "กรีฑา" ? "กรีฑา" : "กีฬา"); }
 function NoWorkPanel({ db, ui, viewer }) {
