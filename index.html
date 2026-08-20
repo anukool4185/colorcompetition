@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v159";
-const BUILD_TIME = "19/08/2026 13:52 น.";
+const APP_VERSION = "v160";
+const BUILD_TIME = "20/08/2026 07:36 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -2968,11 +2968,93 @@ function RestoreDialog({ ids, archived, onClose, onConfirm }) {
             React.createElement(Btn, { onClick: () => onConfirm(ids, g.trim(), r.trim()) }, "\u0E19\u0E33\u0E01\u0E25\u0E31\u0E1A"),
             React.createElement(Btn, { variant: "ghost", onClick: onClose }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01"))));
 }
+function NoWorkImport({ db, setDb, ui }) {
+    const [wait, setWait] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const refresh = () => waitLoad().then((w) => setWait(w || {}));
+    useEffect(() => { refresh(); }, []);
+    const count = wait ? Object.keys(wait).length : 0;
+    const doImport = () => {
+        if (!wait || count === 0) {
+            ui.notify("ไม่มีข้อมูลคนไม่มีงานรอนำเข้า");
+            return;
+        }
+        setBusy(true);
+        ui.run("กำลังนำเข้าคนไม่มีงาน...", () => {
+            const apply = (base) => {
+                let b = { ...base };
+                let comps = (b.competitions || []).map((c) => ({ ...c, participants: [...(c.participants || [])] }));
+                let duties = [...(b.duties || [])];
+                const dt = { ...(b.deptTemplates || {}) };
+                const depts = b.departments || [];
+                // หา/สร้าง duty ผู้จัดการ (role manager)
+                let mgr = duties.find((d) => d.role === "manager");
+                if (!mgr) {
+                    mgr = { id: "duty_mgr_" + Date.now(), name: "ผู้จัดการ", num: 1, role: "manager" };
+                    duties.push(mgr);
+                }
+                Object.keys(wait).forEach((sid) => {
+                    const rec = wait[sid] || {};
+                    // ส่วนที่ 2: ลงสมัคร เฉพาะ status = main (มีตัว) เท่านั้น
+                    if (rec.status === "main" && Array.isArray(rec.regComps)) {
+                        rec.regComps.forEach((cid) => {
+                            const c = comps.find((x) => String(x.id) === String(cid));
+                            if (c && !c.participants.some((p) => String(p.sid) === String(sid)))
+                                c.participants.push({ sid, status: "main", sel: undefined });
+                        });
+                    }
+                    // ส่วนที่ 3: ลงหน้าที่ผู้จัดการในแม่แบบฝ่ายของรายการที่ติ๊ก
+                    if (Array.isArray(rec.dutyComps)) {
+                        rec.dutyComps.forEach((cid) => {
+                            const dep = depts.find((d) => (d.comps || []).map(String).includes(String(cid)));
+                            if (!dep)
+                                return;
+                            const rows = [...(dt[dep.id] || [])];
+                            let row = rows.find((r) => r.dutyId === mgr.id);
+                            if (!row) {
+                                row = { dutyId: mgr.id, people: [] };
+                                rows.push(row);
+                            }
+                            row.people = [...(row.people || [])];
+                            if (!row.people.some((pp) => String(pp.personId) === String(sid)))
+                                row.people.push({ pid: "p" + Date.now() + Math.floor(Math.random() * 999), personId: sid, side: "student", num: (row.people.length + 1), money: false, comps: [], all: false });
+                            dt[dep.id] = rows;
+                        });
+                    }
+                });
+                b.competitions = comps;
+                b.duties = duties;
+                b.deptTemplates = dt;
+                return b;
+            };
+            if (window.__commitRemote)
+                window.__commitRemote(apply);
+            else {
+                setDb(apply);
+                setTimeout(() => window.__forceSave && window.__forceSave(), 300);
+            }
+            waitSave({}).then(() => { setWait({}); setBusy(false); ui.notify("นำเข้าเรียบร้อย — ลงสมัคร(รอคัด)+ลงหน้าที่ผู้จัดการในแม่แบบแล้ว · กด 'สร้าง/อัปเดตผังจากแม่แบบ' เพื่อขึ้นผังจริง"); });
+        });
+    };
+    if (!wait || count === 0)
+        return null;
+    return (React.createElement(Card, { style: { padding: 14, marginBottom: 12, border: `1px solid ${C.primary}`, background: C.soft } },
+        React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } },
+            React.createElement("div", { style: { flex: 1, minWidth: 180 } },
+                React.createElement("div", { style: { fontWeight: 800, color: C.primaryDark } },
+                    "\uD83D\uDCE5 \u0E04\u0E19\u0E44\u0E21\u0E48\u0E21\u0E35\u0E07\u0E32\u0E19\u0E23\u0E2D\u0E19\u0E33\u0E40\u0E02\u0E49\u0E32: ",
+                    count,
+                    " \u0E04\u0E19"),
+                React.createElement("div", { style: { fontSize: 12, color: C.muted, marginTop: 2 } }, "\u0E19\u0E33\u0E40\u0E02\u0E49\u0E32 \u2192 \u0E25\u0E07\u0E2A\u0E21\u0E31\u0E04\u0E23(\u0E40\u0E09\u0E1E\u0E32\u0E30 \"\u0E21\u0E35\u0E15\u0E31\u0E27\", \u0E23\u0E2D\u0E04\u0E31\u0E14) + \u0E25\u0E07\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E43\u0E19\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A\u0E1D\u0E48\u0E32\u0E22")),
+            React.createElement(Btn, { small: true, variant: "ghost", onClick: refresh, disabled: busy }, "\u0E23\u0E35\u0E40\u0E1F\u0E23\u0E0A"),
+            React.createElement(Btn, { small: true, onClick: doImport, disabled: busy }, busy ? "กำลังนำเข้า..." : "นำเข้าหน้าที่"))));
+}
 function PeopleManager({ db, setDb, ui }) {
     const [tab, setTab] = useState("students");
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\u0E1A\u0E38\u0E04\u0E25\u0E32\u0E01\u0E23", sub: "นักเรียน · ครู · บัญชีผู้ใช้ · หน้าที่อ่านจากผังใหม่ (org2) · " + APP_VERSION }),
         React.createElement(Tabs, { tabs: [{ key: "students", label: "นักเรียน" }, { key: "teachers", label: "ครู" }, { key: "accounts", label: "บัญชีผู้ใช้ / รหัสผ่าน" }], active: tab, onChange: setTab }),
+        tab === "students" && React.createElement(NoWorkImport, { db: db, setDb: setDb, ui: ui }),
         tab === "students" && React.createElement(PersonList, { kind: "student", db: db, setDb: setDb, ui: ui }),
         tab === "teachers" && React.createElement(PersonList, { kind: "teacher", db: db, setDb: setDb, ui: ui }),
         tab === "accounts" && React.createElement(AccountsManager, { db: db, setDb: setDb, ui: ui })));
@@ -7355,7 +7437,7 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
     return (React.createElement(Shell, { role: role, nav: applyMenuCfg(role === "studentcom" ? ((db.competitions || []).some((c) => (c.participants || []).some((x) => String(x.sid) === String(meId) && (x.sel === "main" || x.sel === "reserve"))) ? "studentCommitteeSelected" : "studentCommittee") : ((db.org2 || []).some(nodeIsMine) ? "teacherCommittee" : "teacherGeneral"), nav, (db.settings && db.settings.menus) || {}), view: view, setView: setView, onExit: onExit, ui: ui, sz: (db.settings && db.settings.ui) || {}, navOrder: ((db.settings && db.settings.navOrder) || {})[role] },
         view === "noti" && React.createElement(NotificationCenter, { db: db, setDb: setDb, ui: ui, admin: false, viewerId: meId, viewerRole: role, onGoResults: (id) => { setJumpComp(id); setView("results"); } }),
         view === "me" && React.createElement(CommitteeProfile, { role: role, meId: meId, db: db, setDb: setDb, ui: ui }),
-        view === "students" && React.createElement(StudentInfoList, { db: db }),
+        view === "students" && React.createElement(StudentCheckTabs, { db: db, ui: ui, viewer: { role, id: meId, name: (function () { const p = (role === "teacher" ? db.teachers : db.students).find((x) => String(x.id) === String(meId)); return p ? fullName(p) : ""; })() } }),
         String(view).startsWith("org:") && React.createElement(OrgViewManager, { db: db, setDb: setDb, ui: ui, committee: { role, meId }, orgComp: view === "org:all" ? "" : String(view).replace("org:", "") }),
         view === "select" && React.createElement(MyDutyScreen, { role: role, meId: meId, db: db, setDb: setDb, ui: ui }),
         view === "results" && React.createElement(ResultsManager, { db: db, setDb: setDb, ui: ui, scopeCompIds: myCompIds, autoOpen: jumpComp, onAutoOpened: () => setJumpComp(null) }),
@@ -7766,6 +7848,112 @@ function MyDutyScreen({ role, meId, db, setDb, ui }) {
             comp && React.createElement("div", { id: "myDutyArea" },
                 React.createElement(ParticipantManager, { comp: comp, db: db, setDb: setDb, ui: ui })),
             addOpen && comp && React.createElement(AddApplicantModal, { comp: comp, db: db, onClose: () => setAddOpen(false), onAdd: (sid, status) => addStudent(sid, status) })))));
+}
+async function waitLoad() { try {
+    const r = await fetch(API_URL + "?sheet=datawaitsport");
+    const j = JSON.parse(await r.text());
+    return j && j.ok && j.data ? JSON.parse(j.data) : {};
+}
+catch (e) {
+    return {};
+} }
+async function waitSave(obj) { try {
+    await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "data", sheet: "datawaitsport", data: JSON.stringify(obj) }) });
+    return true;
+}
+catch (e) {
+    return false;
+} }
+function compKindGroup(c) { return c.kind === "กิจกรรม" ? "กิจกรรม" : ((c.sportType || "กีฬา") === "กรีฑา" ? "กรีฑา" : "กีฬา"); }
+function NoWorkPanel({ db, ui, viewer }) {
+    const [openId, setOpenId] = useState(null);
+    const [wait, setWait] = useState({});
+    const [saving, setSaving] = useState(false);
+    const [q, setQ] = useState("");
+    useEffect(() => { waitLoad().then((w) => setWait(w || {})); }, []);
+    const registered = new Set();
+    (db.competitions || []).forEach((c) => (c.participants || []).forEach((x) => registered.add(String(x.sid))));
+    const list = (db.students || []).filter((s) => !registered.has(String(s.id))).filter((s) => (fullName(s) + (s.id || "") + (s.grade || "") + (s.room || "")).toLowerCase().includes(q.trim().toLowerCase())).sort((a, b) => (a.grade || "").localeCompare(b.grade || "") || (a.room || "").localeCompare(b.room || "") || fullName(a).localeCompare(fullName(b)));
+    const openStudent = list.find((s) => String(s.id) === String(openId)) || (db.students || []).find((s) => String(s.id) === String(openId));
+    return (React.createElement("div", null,
+        React.createElement(PageHead, { title: "\u0E04\u0E19\u0E44\u0E21\u0E48\u0E21\u0E35\u0E07\u0E32\u0E19", sub: `นักเรียนที่ยังไม่ได้สมัคร/ยังไม่อยู่ในโซนคัดเลือก · ${list.length} คน` }),
+        React.createElement("input", { value: q, onChange: (e) => setQ(e.target.value), placeholder: "\u0E04\u0E49\u0E19\u0E2B\u0E32 \u0E0A\u0E37\u0E48\u0E2D / \u0E23\u0E2B\u0E31\u0E2A / \u0E0A\u0E31\u0E49\u0E19-\u0E2B\u0E49\u0E2D\u0E07", style: { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, marginBottom: 12 } }),
+        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
+            list.length === 0 && React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E01\u0E25\u0E38\u0E48\u0E21\u0E19\u0E35\u0E49" }),
+            list.map((s) => {
+                const done = !!wait[String(s.id)];
+                return (React.createElement("button", { key: s.id, onClick: () => setOpenId(s.id), style: { textAlign: "left", display: "flex", alignItems: "center", gap: 10, padding: 12, borderRadius: 10, border: `1px solid ${C.line}`, background: done ? "#f0f9f3" : C.surface, cursor: "pointer" } },
+                    React.createElement(Avatar, { person: s, size: 38 }),
+                    React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                        React.createElement("div", { style: { fontWeight: 700, color: C.ink, fontSize: 14 } }, fullName(s)),
+                        React.createElement("div", { style: { fontSize: 12, color: C.muted } },
+                            "\u0E23\u0E2B\u0E31\u0E2A ",
+                            s.id,
+                            " \u00B7 ",
+                            s.grade,
+                            "/",
+                            s.room,
+                            " \u00B7 ",
+                            s.gender || "-")),
+                    done && React.createElement("span", { style: { fontSize: 11.5, fontWeight: 700, color: "#2f9e6b", background: "#eaf7f0", borderRadius: 10, padding: "2px 9px" } }, "\u2713 \u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E41\u0E25\u0E49\u0E27")));
+            })),
+        openStudent && React.createElement(NoWorkModal, { db: db, ui: ui, viewer: viewer, student: openStudent, initial: wait[String(openStudent.id)], saving: saving, onClose: () => setOpenId(null), onConfirm: (rec) => { setSaving(true); const next = { ...wait, [String(openStudent.id)]: rec }; waitSave(next).then(() => { setWait(next); setSaving(false); setOpenId(null); ui.notify("ยืนยันแล้ว — รอแอดมินนำเข้า"); }); } })));
+}
+function NoWorkModal({ db, ui, viewer, student, initial, saving, onClose, onConfirm }) {
+    const [status, setStatus] = useState((initial && initial.status) || "");
+    const [regComps, setRegComps] = useState(new Set((initial && initial.regComps) || []));
+    const [dutyComps, setDutyComps] = useState(new Set((initial && initial.dutyComps) || []));
+    const elig = (db.competitions || []).filter((c) => eligibleForStudent(c, student));
+    const hasDuty = (db.org2 || []).some((n) => String(n.personId) === String(student.id));
+    const showDuty = !!student.committee && !hasDuty; // เป็นกรรมการแต่ยังไม่มีหน้าที่
+    const groups = ["กีฬา", "กรีฑา", "กิจกรรม"];
+    const tog = (setFn) => (id) => setFn((p) => { const n = new Set(p); if (n.has(id))
+        n.delete(id);
+    else
+        n.add(id); return n; });
+    const grpComps = (arr) => groups.map((g) => ({ g, items: arr.filter((c) => compKindGroup(c) === g) })).filter((x) => x.items.length);
+    const confirm = () => { onConfirm({ status, regComps: [...regComps], dutyComps: showDuty ? [...dutyComps] : [], byName: (viewer && viewer.name) || "", at: Date.now() }); };
+    return (React.createElement(Modal, { title: `คนไม่มีงาน: ${fullName(student)}`, onClose: onClose },
+        React.createElement("div", { style: { padding: 16, maxHeight: "70vh", overflowY: "auto" } },
+            React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 12 } },
+                student.grade,
+                "/",
+                student.room,
+                " \u00B7 ",
+                student.gender || "-"),
+            React.createElement("div", { style: { fontWeight: 800, color: C.primaryDark, marginBottom: 6 } }, "1) \u0E2A\u0E16\u0E32\u0E19\u0E30"),
+            React.createElement("div", { style: { display: "flex", gap: 10, marginBottom: 16 } }, [{ k: "main", l: "มีตัว" }, { k: "reserve", l: "ไม่มีตัว" }].map((o) => React.createElement("label", { key: o.k, style: { display: "flex", alignItems: "center", gap: 6, cursor: "pointer", border: `1.5px solid ${status === o.k ? C.primary : C.line}`, borderRadius: 10, padding: "8px 16px", fontWeight: 700, color: status === o.k ? C.primaryDark : C.muted } },
+                React.createElement("input", { type: "checkbox", checked: status === o.k, onChange: () => setStatus(status === o.k ? "" : o.k) }),
+                o.l))),
+            status === "reserve" && React.createElement("div", { style: { fontSize: 11.5, color: "#b3762f", marginTop: -10, marginBottom: 14 } }, "* \"\u0E44\u0E21\u0E48\u0E21\u0E35\u0E15\u0E31\u0E27\" = \u0E08\u0E30\u0E44\u0E21\u0E48\u0E25\u0E07\u0E2A\u0E21\u0E31\u0E04\u0E23\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E15\u0E34\u0E4A\u0E01 (\u0E04\u0E49\u0E32\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E04\u0E19\u0E44\u0E21\u0E48\u0E21\u0E35\u0E07\u0E32\u0E19\u0E15\u0E48\u0E2D)"),
+            React.createElement("div", { style: { fontWeight: 800, color: C.primaryDark, marginBottom: 6 } }, "2) \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E2A\u0E21\u0E31\u0E04\u0E23 (\u0E23\u0E2D\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01)"),
+            elig.length === 0 ? React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 14 } }, "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E15\u0E23\u0E07\u0E23\u0E30\u0E14\u0E31\u0E1A\u0E0A\u0E31\u0E49\u0E19/\u0E40\u0E1E\u0E28") : grpComps(elig).map(({ g, items }) => (React.createElement("div", { key: g, style: { marginBottom: 10 } },
+                React.createElement("div", { style: { fontSize: 12.5, fontWeight: 700, color: C.ink, marginBottom: 4 } },
+                    g === "กีฬา" ? "🏅" : g === "กรีฑา" ? "🏃" : "🎯",
+                    " ",
+                    g),
+                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } }, items.map((c) => React.createElement("label", { key: c.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", background: "#f7f9ff", borderRadius: 8, cursor: "pointer", fontSize: 13 } },
+                    React.createElement("input", { type: "checkbox", checked: regComps.has(c.id), onChange: () => tog(setRegComps)(c.id) }),
+                    sportItemName(c))))))),
+            showDuty && React.createElement(React.Fragment, null,
+                React.createElement("div", { style: { fontWeight: 800, color: C.primaryDark, margin: "14px 0 6px" } }, "3) \u0E25\u0E07\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23 (\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23)"),
+                React.createElement("div", { style: { fontSize: 11.5, color: C.muted, marginBottom: 8 } }, "\u0E15\u0E34\u0E4A\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E08\u0E30\u0E40\u0E1B\u0E47\u0E19 \"\u0E1C\u0E39\u0E49\u0E08\u0E31\u0E14\u0E01\u0E32\u0E23\" \u2014 \u0E41\u0E2D\u0E14\u0E21\u0E34\u0E19\u0E19\u0E33\u0E40\u0E02\u0E49\u0E32\u0E08\u0E30\u0E25\u0E07\u0E43\u0E19\u0E41\u0E21\u0E48\u0E41\u0E1A\u0E1A\u0E1C\u0E31\u0E07\u0E02\u0E2D\u0E07\u0E1D\u0E48\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E19\u0E31\u0E49\u0E19"),
+                grpComps(db.competitions || []).map(({ g, items }) => (React.createElement("div", { key: g, style: { marginBottom: 10 } },
+                    React.createElement("div", { style: { fontSize: 12.5, fontWeight: 700, color: C.ink, marginBottom: 4 } },
+                        "\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E1D\u0E31\u0E48\u0E07",
+                        g),
+                    React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 4 } }, items.map((c) => React.createElement("label", { key: c.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", background: "#fff8ec", borderRadius: 8, cursor: "pointer", fontSize: 13 } },
+                        React.createElement("input", { type: "checkbox", checked: dutyComps.has(c.id), onChange: () => tog(setDutyComps)(c.id) }),
+                        sportItemName(c)))))))),
+            React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 16 } },
+                React.createElement(Btn, { onClick: confirm, disabled: saving }, saving ? "กำลังบันทึก..." : "ยืนยัน"),
+                React.createElement(Btn, { variant: "ghost", onClick: onClose }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01")))));
+}
+function StudentCheckTabs({ db, ui, viewer }) {
+    const [tab, setTab] = useState("info");
+    return (React.createElement("div", null,
+        React.createElement(Tabs, { tabs: [{ key: "info", label: "ข้อมูลนักเรียน" }, { key: "nowork", label: "คนไม่มีงาน" }], active: tab, onChange: setTab }),
+        tab === "info" ? React.createElement(StudentInfoList, { db: db }) : React.createElement(NoWorkPanel, { db: db, ui: ui, viewer: viewer })));
 }
 function StudentInfoList({ db }) {
     const [q, setQ] = useState("");
