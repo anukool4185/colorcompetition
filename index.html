@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v161";
-const BUILD_TIME = "20/08/2026 10:44 น.";
+const APP_VERSION = "v162";
+const BUILD_TIME = "20/08/2026 11:57 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -108,7 +108,7 @@ BASE_NAVS.studentCommittee = [
     { key: "org2", label: "ผังองค์กร", icon: "🌳" }, { key: "orgjoin", label: "ขอสมัครหน้าที่เพิ่ม", icon: "🌳" }, { key: "attend", label: "ลงเวลา", icon: "⏱" }, { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" },
 ];
 BASE_NAVS.teacherCommittee = [
-    { key: "noti", label: "แจ้งเตือน", icon: "🔔" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" },
+    { key: "noti", label: "แจ้งเตือน", icon: "🔔" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "students", label: "ตรวจสอบสมาชิก", icon: "📋" },
     { key: "select", label: "คัดเลือก", icon: "✅" }, { key: "schedule", label: "ตารางแข่ง", icon: "📅" }, { key: "items", label: "รายการแข่งขัน", icon: "🏆" },
     { key: "results", label: "ส่งผล", icon: "🏅" }, { key: "register", label: "เพิ่มนักกีฬา", icon: "🏃" },
     { key: "org2", label: "ผังองค์กร", icon: "🌳" }, { key: "orgjoin", label: "ขอสมัครหน้าที่เพิ่ม", icon: "🌳" }, { key: "attend", label: "ลงเวลา", icon: "⏱" }, { key: "finance", label: "การเงิน-พัสดุ", icon: "💰" },
@@ -5735,6 +5735,18 @@ function eligibleForStudent(c, s) {
         return false;
     return true;
 }
+// สถานะ "มีตัว/ไม่มีตัว" ของนักเรียน — main=มีตัว, reserve=ไม่มีตัว(กรรมการปรับ), none=ยังไม่มีตัว
+function presenceOf(db, s) {
+    if (!s)
+        return "none";
+    if (s.mainStatus === "reserve")
+        return "reserve"; // กรรมการปรับเป็นไม่มีตัว (ทับ)
+    const reg = (db.competitions || []).some((c) => (c.participants || []).some((p) => String(p.sid) === String(s.id)));
+    const inOrg = (db.org2 || []).some((n) => String(n.personId) === String(s.id));
+    if (s.mainStatus === "main" || reg || inOrg || s.profileDone)
+        return "main";
+    return "none";
+}
 function genderSummary(genders) {
     const g = genders || [];
     const hasM = g.includes("ชาย"), hasF = g.includes("หญิง");
@@ -7418,7 +7430,7 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
     const nav = [
         { key: "noti", label: pendingCount ? `แจ้งเตือน (${pendingCount})` : "แจ้งเตือน", icon: "🔔" },
         { key: "me", label: "ข้อมูลฉัน", icon: "🪪" },
-        ...(role === "studentcom" ? [{ key: "students", label: "ข้อมูลนักเรียน", icon: "📋" }] : []),
+        { key: "students", label: "ตรวจสอบสมาชิก", icon: "📋" },
         { key: "select", label: "คัดเลือก", icon: "✅" },
         { key: "schedule", label: "ตารางแข่ง", icon: "📅" },
         { key: "items", label: "รายการแข่งขัน", icon: "🏆" },
@@ -7433,7 +7445,7 @@ function CommitteeApp({ role, db, setDb, onExit, meId }) {
     return (React.createElement(Shell, { role: role, nav: applyMenuCfg(role === "studentcom" ? ((db.competitions || []).some((c) => (c.participants || []).some((x) => String(x.sid) === String(meId) && (x.sel === "main" || x.sel === "reserve"))) ? "studentCommitteeSelected" : "studentCommittee") : ((db.org2 || []).some(nodeIsMine) ? "teacherCommittee" : "teacherGeneral"), nav, (db.settings && db.settings.menus) || {}), view: view, setView: setView, onExit: onExit, ui: ui, sz: (db.settings && db.settings.ui) || {}, navOrder: ((db.settings && db.settings.navOrder) || {})[role] },
         view === "noti" && React.createElement(NotificationCenter, { db: db, setDb: setDb, ui: ui, admin: false, viewerId: meId, viewerRole: role, onGoResults: (id) => { setJumpComp(id); setView("results"); } }),
         view === "me" && React.createElement(CommitteeProfile, { role: role, meId: meId, db: db, setDb: setDb, ui: ui }),
-        view === "students" && React.createElement(StudentCheckTabs, { db: db, ui: ui, viewer: { role, id: meId, name: (function () { const p = (role === "teacher" ? db.teachers : db.students).find((x) => String(x.id) === String(meId)); return p ? fullName(p) : ""; })() } }),
+        view === "students" && React.createElement(StudentCheckTabs, { db: db, setDb: setDb, ui: ui, viewer: { role, id: meId, name: (function () { const p = (role === "teacher" ? db.teachers : db.students).find((x) => String(x.id) === String(meId)); return p ? fullName(p) : ""; })() } }),
         String(view).startsWith("org:") && React.createElement(OrgViewManager, { db: db, setDb: setDb, ui: ui, committee: { role, meId }, orgComp: view === "org:all" ? "" : String(view).replace("org:", "") }),
         view === "select" && React.createElement(MyDutyScreen, { role: role, meId: meId, db: db, setDb: setDb, ui: ui }),
         view === "results" && React.createElement(ResultsManager, { db: db, setDb: setDb, ui: ui, scopeCompIds: myCompIds, autoOpen: jumpComp, onAutoOpened: () => setJumpComp(null) }),
@@ -7915,6 +7927,9 @@ function NoWorkModal({ db, ui, viewer, student, initial, saving, onClose, onConf
         n.delete(id);
     else
         n.add(id); return n; });
+    // เลือกกีฬา/กรีฑา/กิจกรรม หรือ ผู้จัดการ → ติ๊ก "มีตัว" อัตโนมัติ (แก้กลับเป็นไม่มีตัวเองได้)
+    useEffect(() => { if ((regComps.size > 0 || dutyComps.size > 0) && status === "")
+        setStatus("main"); }, [regComps, dutyComps]);
     const grpComps = (arr) => groups.map((g) => ({ g, items: arr.filter((c) => compKindGroup(c) === g) })).filter((x) => x.items.length);
     const confirm = () => { onConfirm({ sid: student.id, name: fullName(student), status, regComps: [...regComps], dutyComps: showDuty ? [...dutyComps] : [], byName: (viewer && viewer.name) || "", at: Date.now() }); };
     return (React.createElement(Modal, { title: `คนไม่มีงาน: ${fullName(student)}`, onClose: onClose },
@@ -7953,38 +7968,58 @@ function NoWorkModal({ db, ui, viewer, student, initial, saving, onClose, onConf
                 React.createElement(Btn, { onClick: confirm, disabled: saving }, saving ? "กำลังบันทึก..." : "ยืนยัน"),
                 React.createElement(Btn, { variant: "ghost", onClick: onClose }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01")))));
 }
-function StudentCheckTabs({ db, ui, viewer }) {
+function StudentCheckTabs({ db, setDb, ui, viewer }) {
     const [tab, setTab] = useState("info");
     return (React.createElement("div", null,
         React.createElement(Tabs, { tabs: [{ key: "info", label: "ข้อมูลนักเรียน" }, { key: "nowork", label: "คนไม่มีงาน" }], active: tab, onChange: setTab }),
-        tab === "info" ? React.createElement(StudentInfoList, { db: db }) : React.createElement(NoWorkPanel, { db: db, ui: ui, viewer: viewer })));
+        tab === "info" ? React.createElement(StudentInfoList, { db: db, setDb: setDb, ui: ui, viewer: viewer }) : React.createElement(NoWorkPanel, { db: db, ui: ui, viewer: viewer })));
 }
-function StudentInfoList({ db }) {
+function StudentInfoList({ db, setDb, ui, viewer }) {
     const [q, setQ] = useState("");
+    const canEdit = !!viewer; // กรรมการ/แอดมิน ปรับได้
     const isDone = (s) => !!(s.profileDone || studentProfileComplete(s));
     const list = db.students.filter((s) => (fullName(s) + (s.id || "") + (s.grade || "") + (s.room || "")).toLowerCase().includes(q.trim().toLowerCase())).slice().sort((a, b) => (a.grade || "").localeCompare(b.grade || "") || (a.room || "").localeCompare(b.room || "") || fullName(a).localeCompare(fullName(b)));
     const doneCount = db.students.filter(isDone).length;
+    const setPresence = (sid, val) => {
+        const apply = (base) => ({ ...base, students: (base.students || []).map((s) => String(s.id) === String(sid) ? { ...s, mainStatus: val } : s) });
+        if (window.__commitRemote)
+            window.__commitRemote(apply);
+        else {
+            setDb(apply);
+            setTimeout(() => window.__forceSave && window.__forceSave(), 200);
+        }
+        if (window.__pushOther)
+            window.__pushOther((odb) => mirrorStudentsInto(odb, apply(db).students));
+        ui && ui.notify(val === "reserve" ? "ปรับเป็น 'ไม่มีตัว' แล้ว" : "ปรับเป็น 'มีตัว' แล้ว");
+    };
+    const badge = (st) => st === "main" ? { t: "มีตัว", c: "#2f9e6b", b: "#eaf7f0" } : st === "reserve" ? { t: "ไม่มีตัว", c: "#c0392b", b: "#fbeeee" } : { t: "ยังไม่มีตัว", c: "#b3762f", b: "#fff8ec" };
     return (React.createElement("div", null,
         React.createElement(PageHead, { title: "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19", sub: `ทั้งหมด ${db.students.length} คน · ข้อมูลครบ ${doneCount} คน` }),
         React.createElement("input", { value: q, onChange: (e) => setQ(e.target.value), placeholder: "\u0E04\u0E49\u0E19\u0E2B\u0E32 \u0E0A\u0E37\u0E48\u0E2D / \u0E23\u0E2B\u0E31\u0E2A / \u0E0A\u0E31\u0E49\u0E19-\u0E2B\u0E49\u0E2D\u0E07", style: { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, marginBottom: 12 } }),
         React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
-            list.map((s) => (React.createElement(Card, { key: s.id, style: { padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 } },
-                React.createElement(Avatar, { person: s, size: 36 }),
-                React.createElement("div", { style: { flex: 1, minWidth: 0 } },
-                    React.createElement("div", { style: { fontSize: 13.5, fontWeight: 700, color: C.ink } },
-                        fullName(s),
-                        " ",
-                        isDone(s) && React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#2f9e6b", background: "#eaf7f0", borderRadius: 10, padding: "1px 8px", whiteSpace: "nowrap" } }, "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E04\u0E23\u0E1A\u0E14\u0E49\u0E27\u0E22\u0E01\u0E32\u0E23 login \u0E04\u0E23\u0E31\u0E49\u0E07\u0E41\u0E23\u0E01")),
-                    React.createElement("div", { style: { fontSize: 12, color: C.muted } },
-                        s.id ? `${s.id} · ` : "",
-                        s.grade || "",
-                        s.room ? `/${s.room}` : "",
-                        s.phone ? React.createElement(React.Fragment, null,
+            list.map((s) => {
+                const st = presenceOf(db, s);
+                const bd = badge(st);
+                return (React.createElement(Card, { key: s.id, style: { padding: 12, display: "flex", alignItems: "center", gap: 10 } },
+                    React.createElement(Avatar, { person: s, size: 38 }),
+                    React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                        React.createElement("div", { style: { fontWeight: 700, color: C.ink, fontSize: 14 } }, fullName(s)),
+                        React.createElement("div", { style: { fontSize: 12, color: C.muted } },
+                            "\u0E23\u0E2B\u0E31\u0E2A ",
+                            s.id,
                             " \u00B7 ",
-                            React.createElement("a", { href: `tel:${s.phone}`, style: { color: C.primary, textDecoration: "none", fontWeight: 700 } },
-                                "\u260E ",
-                                s.phone)) : ""))))),
-            list.length === 0 && React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19" }))));
+                            s.grade,
+                            "/",
+                            s.room,
+                            " \u00B7 ",
+                            s.gender || "-",
+                            isDone(s) ? " · ข้อมูลครบ" : "")),
+                    React.createElement("span", { style: { fontSize: 11.5, fontWeight: 700, color: bd.c, background: bd.b, borderRadius: 10, padding: "3px 10px", whiteSpace: "nowrap" } }, bd.t),
+                    canEdit && (st === "reserve"
+                        ? React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setPresence(s.id, "main") }, "\u0E04\u0E37\u0E19\u0E40\u0E1B\u0E47\u0E19\u0E21\u0E35\u0E15\u0E31\u0E27")
+                        : React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setPresence(s.id, "reserve") }, "\u0E1B\u0E23\u0E31\u0E1A\u0E40\u0E1B\u0E47\u0E19\u0E44\u0E21\u0E48\u0E21\u0E35\u0E15\u0E31\u0E27"))));
+            }),
+            list.length === 0 && React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D" }))));
 }
 function CommitteeProfile({ role, meId, db, setDb, ui }) {
     const meStudent = role === "studentcom" ? (db.students.find((s) => String(s.id) === String(meId)) || null) : null;
