@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v167";
-const BUILD_TIME = "20/08/2026 23:45 น.";
+const APP_VERSION = "v168";
+const BUILD_TIME = "21/08/2026 10:19 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -7109,6 +7109,7 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps: myCompsRaw, sub, s
     const inOpen = !isToday || (nowHM() >= win.inStart && nowHM() <= win.inEnd);
     const outOpen = !isToday || (nowHM() >= win.outStart && nowHM() <= win.outEnd);
     const [timeMap, setTimeMap] = useState({}); // { [sid]: {in,out} } ของวันที่เลือก
+    const [mineMap, setMineMap] = useState({}); // { [sid]: {compId,compName} } วันนี้ซ้อมที่ไหน
     const [backdateAsk, setBackdateAsk] = useState(false);
     const nameOf = (sid) => { const s = (db.students || []).find((x) => String(x.id) === String(sid)) || (db.teachers || []).find((x) => String(x.id) === String(sid)); return s ? fullName(s) : ""; };
     const loadTimes = React.useCallback(() => {
@@ -7124,6 +7125,11 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps: myCompsRaw, sub, s
         }
     }, [date]);
     useEffect(() => { loadTimes(); }, [loadTimes]);
+    useEffect(() => { if (date === todayStr())
+        mineList().then((rows) => { const m = {}; (rows || []).forEach((r) => { if (r && r.date === date && r.sid != null)
+            m[String(r.sid)] = { compId: String(r.compId), compName: r.compName || "" }; }); setMineMap(m); });
+    else
+        setMineMap({}); }, [date]);
     const save = () => { };
     const rec = (compId, sid) => timeMap[String(sid)] || {};
     const pushTime = (sid, kind, t) => { setTimeMap((p) => ({ ...p, [String(sid)]: { ...(p[String(sid)] || {}), [kind]: t } })); timeAppendRec({ sid: String(sid), name: nameOf(sid), date, kind, time: t }); };
@@ -7337,7 +7343,10 @@ function TimeAttendance({ db, setDb, ui, meId, role, myComps: myCompsRaw, sub, s
                                         s.grade,
                                         "/",
                                         s.room,
-                                        ")")),
+                                        ")"),
+                                    (() => { const mn = mineMap[String(s.id)]; return mn && String(mn.compId) !== String(c.id) ? React.createElement("span", { style: { fontSize: 10.5, fontWeight: 700, color: "#b3762f", background: "#fff8ec", borderRadius: 8, padding: "1px 7px", marginLeft: 6, whiteSpace: "nowrap" } },
+                                        "\u23F3 \u0E44\u0E1B\u0E0B\u0E49\u0E2D\u0E21: ",
+                                        mn.compName) : null; })()),
                                 React.createElement("span", { onClick: isAdmin && r.in ? (e) => { e.preventDefault(); clearMark(c.id, s.id, "in"); } : undefined, style: { fontSize: 11.5, fontWeight: 700, color: r.in ? "#1e7a4d" : C.muted, cursor: isAdmin && r.in ? "pointer" : "default", textDecoration: isAdmin && r.in ? "underline dotted" : "none" } }, r.in ? "เข้า " + r.in + (isAdmin ? " ✕" : "") : "—"),
                                 React.createElement("span", { onClick: isAdmin && r.out ? (e) => { e.preventDefault(); clearMark(c.id, s.id, "out"); } : undefined, style: { fontSize: 11.5, fontWeight: 700, color: r.out ? "#b3762f" : C.muted, cursor: isAdmin && r.out ? "pointer" : "default", textDecoration: isAdmin && r.out ? "underline dotted" : "none" } }, r.out ? "ออก " + r.out + (isAdmin ? " ✕" : "") : "—")));
                         })),
@@ -7886,6 +7895,21 @@ catch (e) {
 } }
 async function syncTimeRoster() { try {
     await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "syncTimeRoster" }) });
+    return true;
+}
+catch (e) {
+    return false;
+} }
+async function mineList() { try {
+    const r = await fetch(API_URL + "?sheet=minetimewaitsport");
+    const j = JSON.parse(await r.text());
+    return j && j.ok && Array.isArray(j.rows) ? j.rows : [];
+}
+catch (e) {
+    return [];
+} }
+async function mineUpsert(rec) { try {
+    await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "mineUpsert", rec }) });
     return true;
 }
 catch (e) {
@@ -8923,7 +8947,35 @@ function StudentSchedule({ me, db, ui }) {
                             t.place ? ` · ${t.place}` : "",
                             t.note ? ` · ${t.note}` : "")))),
                     rows.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E01\u0E32\u0E23\u0E1D\u0E36\u0E01\u0E0B\u0E49\u0E2D\u0E21" }))));
-        })()));
+        })(),
+        (() => { const passed = mine.filter((c) => { const p = c.participants.find((x) => String(x.sid) === String(me.id)); return p && (p.sel === "main" || p.sel === "reserve"); }); return passed.length > 0 ? React.createElement(MineTrainPicker, { me: me, passed: passed, ui: ui }) : null; })()));
+}
+function MineTrainPicker({ me, passed, ui }) {
+    const [pick, setPick] = useState("");
+    const [saved, setSaved] = useState("");
+    const [busy, setBusy] = useState(false);
+    useEffect(() => { mineList().then((rows) => { const mineRec = (rows || []).find((r) => String(r.sid) === String(me.id) && r.date === todayStr()); if (mineRec) {
+        setSaved(String(mineRec.compId));
+        setPick(String(mineRec.compId));
+    } }); }, []);
+    const save = () => { if (!pick) {
+        ui.notify("เลือกรายการก่อน");
+        return;
+    } const c = passed.find((x) => String(x.id) === String(pick)); setBusy(true); mineUpsert({ sid: String(me.id), name: fullName(me), compId: String(pick), compName: c ? sportItemName(c) : "", date: todayStr(), at: Date.now() }).then(() => { setSaved(String(pick)); setBusy(false); ui.notify("บันทึกแล้ว — กรรมการจะเห็นว่าคุณไปซ้อมที่รายการนี้"); }); };
+    return (React.createElement("div", { style: { marginTop: 18 } },
+        React.createElement("div", { style: { fontWeight: 800, color: "#1e7a4d", marginBottom: 4 } }, "\uD83D\uDCCD \u0E27\u0E31\u0E19\u0E19\u0E35\u0E49\u0E09\u0E31\u0E19\u0E0B\u0E49\u0E2D\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E14\u0E40\u0E1B\u0E47\u0E19\u0E2B\u0E25\u0E31\u0E01"),
+        React.createElement("div", { style: { fontSize: 12, color: C.muted, marginBottom: 8 } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E14\u0E49 1 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 (\u0E17\u0E35\u0E48\u0E08\u0E30\u0E44\u0E1B\u0E25\u0E07\u0E40\u0E27\u0E25\u0E32\u0E0B\u0E49\u0E2D\u0E21\u0E08\u0E23\u0E34\u0E07) \u00B7 \u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E44\u0E14\u0E49 \u00B7 \u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E2D\u0E37\u0E48\u0E19\u0E08\u0E30\u0E40\u0E2B\u0E47\u0E19\u0E27\u0E48\u0E32\u0E04\u0E38\u0E13\u0E44\u0E1B\u0E0B\u0E49\u0E2D\u0E21\u0E17\u0E35\u0E48\u0E44\u0E2B\u0E19"),
+        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, passed.map((c) => React.createElement("label", { key: c.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderRadius: 10, border: `1.5px solid ${String(pick) === String(c.id) ? C.primary : C.line}`, background: String(saved) === String(c.id) ? "#eefaf2" : C.surface, cursor: "pointer", fontSize: 13.5, fontWeight: 600 } },
+            React.createElement("input", { type: "checkbox", checked: String(pick) === String(c.id), onChange: () => setPick(String(pick) === String(c.id) ? "" : String(c.id)) }),
+            sportItemName(c),
+            " ",
+            React.createElement("span", { style: { fontSize: 11, color: C.muted, fontWeight: 400 } },
+                "(",
+                c.kind,
+                ")"),
+            String(saved) === String(c.id) && React.createElement("span", { style: { marginLeft: "auto", fontSize: 11, fontWeight: 700, color: "#2f9e6b" } }, "\u2713 \u0E01\u0E33\u0E25\u0E31\u0E07\u0E0B\u0E49\u0E2D\u0E21\u0E17\u0E35\u0E48\u0E19\u0E35\u0E48")))),
+        React.createElement("div", { style: { marginTop: 10 } },
+            React.createElement(Btn, { onClick: save, disabled: busy || !pick || String(pick) === String(saved) }, busy ? "กำลังบันทึก..." : (saved ? "เปลี่ยนรายการซ้อม" : "บันทึกรายการซ้อมวันนี้")))));
 }
 function StudentAllSchedule({ db, ui }) {
     const [kind, setKind] = useState("แข่งขัน");
