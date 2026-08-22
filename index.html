@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v169";
-const BUILD_TIME = "22/08/2026 09:50 น.";
+const APP_VERSION = "v170";
+const BUILD_TIME = "22/08/2026 22:31 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -9333,7 +9333,7 @@ function App() {
         savingRef.current = true;
         setSync("saving");
         let st = 0;
-        fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "data", sheet: modeRef.current, data: dbRef.current }) })
+        fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "data", sheet: modeRef.current, data: dbRef.current, force: window.__forceEmptySave === true }) })
             .then((r) => { st = r.status; return r.text(); })
             .then((t) => {
             window.__saveLog = `POST HTTP ${st} · ตอบกลับ: ${String(t).slice(0, 140)}`;
@@ -9343,6 +9343,17 @@ function App() {
             }
             catch (e) {
                 throw new Error("ตอบกลับไม่ใช่ JSON (มักเป็นเพราะ Deploy ไม่ได้ตั้ง Who has access = Anyone): " + String(t).slice(0, 80));
+            }
+            if (j && j.blocked) { // เซิร์ฟเวอร์ปฏิเสธการเขียนว่างทับข้อมูลจริง — โหลดข้อมูลจริงกลับมา
+                try {
+                    window.__uiNotify && window.__uiNotify("⚠️ ระบบป้องกันข้อมูลหาย: ปฏิเสธการบันทึกข้อมูลว่างทับข้อมูลจริง กำลังโหลดข้อมูลจริงกลับ...");
+                }
+                catch (e) { }
+                savingRef.current = false;
+                setSync("saved");
+                if (window.__reloadFromServer)
+                    window.__reloadFromServer();
+                return;
             }
             if (!j.ok)
                 throw new Error(j.error || "server ok=false");
@@ -9372,6 +9383,14 @@ function App() {
         return;
     } clearTimeout(timerRef.current); doSave(); }; // บันทึกได้เสมอหลังเคยโหลด/บันทึกสำเร็จอย่างน้อย 1 ครั้ง (กันทับด้วยข้อมูลว่างตอนยังไม่เคยโหลด)
     window.__forceSave = saveNow; // ให้หน้าจอย่อยสั่งบันทึกขึ้น Sheet ทันทีได้
+    window.__reloadFromServer = () => { try {
+        loadData();
+    }
+    catch (e) { } };
+    try {
+        window.__uiNotify = (m) => toast(m);
+    }
+    catch (e) { }
     // บันทึกแบบรวบ (debounce) — กดรัว ๆ (เช่นเช็คชื่อหลายคน) จะบันทึกครั้งเดียวหลังหยุด ~1.2 วิ ลดการเรียก Apps Script
     const saveSoonRef = timerRef; // ใช้ timer เดียวกับ auto-save
     window.__saveSoon = () => { if (!everLoadedRef.current)
@@ -9544,9 +9563,15 @@ function App() {
                     nd = mergeDb({});
                 }
             }
-            else {
+            else { // ชีทตอบว่าง — ถ้าเดิมเคยมีข้อมูล (แคช/โหลดแล้ว) อย่าทับด้วยค่าว่าง (กันข้อมูลหายจากอ่านพลาด)
+                const hadData = (dbRef.current && ((dbRef.current.students || []).length + (dbRef.current.teachers || []).length + (dbRef.current.competitions || []).length) > 0);
+                if (hadData) {
+                    setSync("saved");
+                    switchingRef.current = false;
+                    return;
+                } // คงข้อมูลเดิมไว้ ไม่ทับ
                 nd = mergeDb({});
-            } // ชีทว่าง (ระบบใหม่) → เริ่มด้วยค่าเริ่มต้นของระบบนี้ (ปลอดภัย: บันทึกทับชีทที่ว่างอยู่แล้ว)
+            }
             dbRef.current = nd;
             justLoaded.current = true;
             setDb(nd); // ตั้ง dbRef ทันที กันช่วงที่ค่ายังเป็นของระบบเก่า
