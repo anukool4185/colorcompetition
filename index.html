@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v168";
-const BUILD_TIME = "21/08/2026 10:19 น.";
+const APP_VERSION = "v169";
+const BUILD_TIME = "22/08/2026 09:50 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -939,6 +939,54 @@ class ErrorBoundary extends React.Component {
         return this.props.children;
     }
 }
+function ConnStatus({ compact }) {
+    const [sync, setSync] = useState(typeof window !== "undefined" ? (window.__sync || "loading") : "loading");
+    const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
+    useEffect(() => {
+        const onSync = (e) => setSync(e.detail);
+        const onUp = () => setOnline(true);
+        const onDown = () => setOnline(false);
+        window.addEventListener("syncchange", onSync);
+        window.addEventListener("online", onUp);
+        window.addEventListener("offline", onDown);
+        return () => { window.removeEventListener("syncchange", onSync); window.removeEventListener("online", onUp); window.removeEventListener("offline", onDown); };
+    }, []);
+    const speed = (() => { try {
+        const c = navigator.connection;
+        if (c && c.downlink != null)
+            return c.downlink;
+    }
+    catch (e) { } return null; })();
+    let color = "#2f9e6b", dot = "#2f9e6b", msg = "เชื่อมต่อระบบแล้ว";
+    if (!online) {
+        color = "#c0392b";
+        dot = "#c0392b";
+        msg = "ขาดการติดต่อกับระบบ (network) — ไม่มีอินเทอร์เน็ต" + (speed != null ? ` · ~${speed} Mbps` : "");
+    }
+    else if (sync === "offline") {
+        color = "#c0392b";
+        dot = "#c0392b";
+        msg = "ขาดการติดต่อกับระบบ" + (speed != null ? ` · เน็ต ~${speed} Mbps ${speed < 1 ? "(ช้ามาก อาจโหลดไม่สำเร็จ)" : "(ลองใหม่อีกครั้ง)"}` : " — ตรวจการเชื่อมต่อ");
+    }
+    else if (sync === "loading") {
+        color = "#b3762f";
+        dot = "#d9a441";
+        msg = "กำลังโหลดข้อมูล รอสักครู่..." + (speed != null && speed < 1 ? ` (เน็ตช้า ~${speed} Mbps)` : "");
+    }
+    else if (sync === "saving") {
+        color = "#b3762f";
+        dot = "#d9a441";
+        msg = "กำลังบันทึก...";
+    }
+    else if (sync === "local") {
+        color = C.muted;
+        dot = C.muted;
+        msg = "โหมดออฟไลน์ (ไม่ได้ตั้งฐานข้อมูล)";
+    }
+    return (React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginTop: 4, justifyContent: compact ? "flex-end" : "flex-start" } },
+        React.createElement("span", { style: { width: 8, height: 8, borderRadius: 4, background: dot, flexShrink: 0, display: "inline-block" } }),
+        React.createElement("span", { style: { fontSize: compact ? 11 : 11.5, color, fontWeight: 600, lineHeight: 1.35, textAlign: compact ? "right" : "left" } }, msg)));
+}
 function Shell({ role, nav, view, setView, onExit, children, ui, sz = {}, navOrder }) {
     const orderBy = (list) => { if (!list || !list.length)
         return nav; const idx = (k) => { const i = list.indexOf(k); return i < 0 ? 999 : i; }; return nav.slice().map((n, i) => ({ n, i })).sort((a, b) => (idx(a.n.key) - idx(b.n.key)) || (a.i - b.i)).map((x) => x.n); };
@@ -1044,7 +1092,8 @@ function Shell({ role, nav, view, setView, onExit, children, ui, sz = {}, navOrd
                     APP_VERSION,
                     React.createElement("br", null),
                     "\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15 ",
-                    BUILD_TIME))),
+                    BUILD_TIME,
+                    React.createElement(ConnStatus, null)))),
         React.createElement("div", { id: "appScaleRoot", style: { flex: 1, minWidth: 0, paddingBottom: navH + 44, zoom: initZoom }, className: "md:pb-0" },
             React.createElement("div", { className: "md:hidden", style: { background: C.surface, borderBottom: `1px solid ${C.line}`, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", position: "sticky", top: 0, zIndex: 10 } },
                 React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
@@ -1059,7 +1108,8 @@ function Shell({ role, nav, view, setView, onExit, children, ui, sz = {}, navOrd
                         APP_VERSION,
                         React.createElement("br", null),
                         "\u0E2D\u0E31\u0E1B\u0E40\u0E14\u0E15 ",
-                        BUILD_TIME))),
+                        BUILD_TIME),
+                    React.createElement(ConnStatus, { compact: true }))),
             React.createElement("div", { style: { maxWidth: 960, margin: "0 auto", padding: 16 } },
                 React.createElement(ErrorBoundary, { key: view }, children))),
         React.createElement("nav", { ref: mobileNavRef, className: "md:hidden", style: { position: "fixed", bottom: 0, left: 0, right: 0, boxSizing: "border-box", maxWidth: "100%", overflow: "hidden", paddingLeft: "max(4px, env(safe-area-inset-left))", paddingRight: "max(4px, env(safe-area-inset-right))", paddingBottom: "env(safe-area-inset-bottom)", background: C.surface, borderTop: `1px solid ${C.line}`, display: "flex", alignItems: "stretch", zIndex: 20, boxShadow: "0 -2px 10px rgba(0,0,0,.06)" } },
@@ -9222,6 +9272,11 @@ function App() {
     } });
     const [db, setDb] = useState(seed);
     const [sync, setSync] = useState(API_URL ? "loading" : "local");
+    useEffect(() => { try {
+        window.__sync = sync;
+        window.dispatchEvent(new CustomEvent("syncchange", { detail: sync }));
+    }
+    catch (e) { } }, [sync]);
     const [lastSaved, setLastSaved] = useState(null);
     const loadedRef = useRef(!API_URL); // สถานะเชื่อมต่อล่าสุด (โหลด/บันทึกสำเร็จ)
     const everLoadedRef = useRef(!API_URL); // เคยโหลด/บันทึกสำเร็จอย่างน้อย 1 ครั้ง (มีข้อมูลจริงแล้ว) — ใช้ตัดสินว่าปลอดภัยที่จะบันทึก
