@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v170";
-const BUILD_TIME = "22/08/2026 22:31 น.";
+const APP_VERSION = "v172";
+const BUILD_TIME = "22/08/2026 23:01 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -1567,6 +1567,7 @@ function LoanManager({ db, setDb, ui, viewer }) {
 }
 function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit, buyerMode }) {
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff", marginBottom: 10 };
+    const canApprove = String(viewer.role) === "admin" || (db.org2 || []).some((n) => String(n.personId) === String(viewer.id) && n.money); // แอดมิน หรือ ผู้ถือเงินในผัง
     const [type, setType] = useState(buyerMode ? "out" : "in");
     const [title, setTitle] = useState("");
     const [amount, setAmount] = useState("");
