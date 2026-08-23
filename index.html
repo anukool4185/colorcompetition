@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v175";
-const BUILD_TIME = "23/08/2026 07:34 น.";
+const APP_VERSION = "v176";
+const BUILD_TIME = "23/08/2026 23:39 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -2041,6 +2041,41 @@ function FinanceManager({ db, setDb, ui, viewer }) {
         });
     };
     const [fundEdit, setFundEdit] = useState(null);
+    const [incLines, setIncLines] = useState([{ label: "", amount: "" }]);
+    const incTotal = incLines.reduce((s, l) => s + (Number(String(l.amount).replace(/[^0-9.]/g, "")) || 0), 0);
+    const resetInc = () => setIncLines([{ label: "", amount: "" }]);
+    const saveIncomeReceipt = () => {
+        if (!form.dept) {
+            ui.notify("เลือกฝ่าย (รายการแข่ง/กิจกรรม)");
+            return;
+        }
+        if (!form.title.trim()) {
+            ui.notify("ใส่ชื่อใบเสร็จ");
+            return;
+        }
+        const lines = incLines.map((l) => ({ label: (l.label || "").trim(), amount: Number(String(l.amount).replace(/[^0-9.]/g, "")) || 0 })).filter((l) => l.label && l.amount > 0);
+        if (!lines.length) {
+            ui.notify("ใส่รายการรับเงินอย่างน้อย 1 รายการ (พร้อมจำนวนเงิน)");
+            return;
+        }
+        const canRecordDept = (dept) => { if (acc.full)
+            return true; const dc = deptComps(dept); if (dc)
+            return acc.depts.size > 0 || dc.some((cid) => acc.depts.has(String(cid))); return acc.depts.has(String(dept)); };
+        if (!acc.full && !canRecordDept(form.dept)) {
+            ui.notify("คุณไม่มีสิทธิ์บันทึกของฝ่าย/รายการนี้");
+            return;
+        }
+        const total = lines.reduce((s, l) => s + l.amount, 0);
+        const preview = (db.receiptSeq || 0) + 1, receiptNo = preview + "/" + buddhistYear();
+        ui.run("บันทึกรายรับ + ออกใบเสร็จแล้ว", () => {
+            commit((p) => ({ ...p, receiptSeq: (p.receiptSeq || 0) + 1, finance: [...(p.finance || []), { id: "fn" + Date.now() + Math.random().toString(36).slice(2, 6), dept: form.dept, type: "in", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), receiptNo, by: viewer.id, byName: viewer.name || "", at: Date.now() }] }));
+            const holder = receiptMoneyHolder(db);
+            makeReceiptPdf({ title: "ใบเสร็จรับเงิน · " + form.title.trim(), receiptNo, date: form.date, time: form.time || nowTime(), rows: lines, notify: ui.notify, payerName: viewer.name || "", payeeName: holder.name, payeePosition: holder.pos });
+            reset();
+            resetInc();
+            setTab("list");
+        });
+    };
     const startEdit = (f) => { if (String(f.dept) === "FUND") {
         setFundEdit(f);
         setTab("fund");
@@ -2217,15 +2252,37 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 (db.departments || []).length > 0 && React.createElement("optgroup", { label: "\uD83C\uDFE2 \u0E1D\u0E48\u0E32\u0E22 (\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21 \u0E44\u0E21\u0E48\u0E41\u0E22\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)" }, (db.departments || []).map((d) => React.createElement("option", { key: d.id, value: "D:" + d.id }, d.name))),
                 React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19" }, allowedComps.filter((c) => c.kind === "แข่งขัน").map((c) => React.createElement("option", { key: c.id, value: c.id }, sportItemName(c)))),
                 React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }, allowedComps.filter((c) => c.kind === "กิจกรรม").map((c) => React.createElement("option", { key: c.id, value: c.id }, sportItemName(c))))),
-            React.createElement(Field, { label: "\u0E0A\u0E37\u0E48\u0E2D\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", value: form.title, onChange: (v) => setForm((p) => ({ ...p, title: v })), placeholder: "\u0E40\u0E0A\u0E48\u0E19 \u0E04\u0E48\u0E32\u0E2D\u0E38\u0E1B\u0E01\u0E23\u0E13\u0E4C, \u0E40\u0E07\u0E34\u0E19\u0E2A\u0E19\u0E31\u0E1A\u0E2A\u0E19\u0E38\u0E19" }),
-            React.createElement(Field, { label: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19 (\u0E1A\u0E32\u0E17)", type: "number", value: form.amount, onChange: (v) => setForm((p) => ({ ...p, amount: v })), placeholder: "0" }),
-            React.createElement(Field, { label: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48", type: "date", value: form.date, onChange: (v) => setForm((p) => ({ ...p, date: v })) }),
-            React.createElement(Field, { label: "\u0E40\u0E27\u0E25\u0E32", type: "time", value: form.time, onChange: (v) => setForm((p) => ({ ...p, time: v })) }),
-            React.createElement(Field, { label: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", value: form.note, onChange: (v) => setForm((p) => ({ ...p, note: v })), placeholder: "\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E40\u0E15\u0E34\u0E21 (\u0E16\u0E49\u0E32\u0E21\u0E35)" }),
-            React.createElement("div", { style: { fontSize: 11.5, color: C.muted, margin: "2px 0 8px" } }, "\uD83D\uDCA1 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E23\u0E34\u0E07\u0E08\u0E32\u0E01\u0E23\u0E49\u0E32\u0E19\u0E04\u0E49\u0E32 \u0E41\u0E19\u0E1A\u0E15\u0E2D\u0E19 \"\u0E23\u0E27\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2192 \u0E2A\u0E23\u0E49\u0E32\u0E07\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\" (1 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E23\u0E27\u0E21\u0E44\u0E14\u0E49\u0E2B\u0E25\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)"),
-            React.createElement("div", { style: { display: "flex", gap: 8 } },
-                React.createElement(Btn, { onClick: save }, editId ? "บันทึกการแก้ไข" : "บันทึกรายการ"),
-                editId && React.createElement(Btn, { variant: "ghost", onClick: reset }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01")))),
+            tab === "addin" && !editId ? (React.createElement(React.Fragment, null,
+                React.createElement(Field, { label: "\u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08", value: form.title, onChange: (v) => setForm((p) => ({ ...p, title: v })), placeholder: "\u0E40\u0E0A\u0E48\u0E19 \u0E40\u0E07\u0E34\u0E19\u0E2A\u0E19\u0E31\u0E1A\u0E2A\u0E19\u0E38\u0E19\u0E2A\u0E35, \u0E04\u0E48\u0E32\u0E1A\u0E33\u0E23\u0E38\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }),
+                React.createElement("div", { style: { fontSize: 13, color: C.muted, margin: "6px 0 4px", fontWeight: 600 } }, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19 (\u0E43\u0E2A\u0E48\u0E44\u0E14\u0E49\u0E2B\u0E25\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19 1 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08)"),
+                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, incLines.map((l, i) => (React.createElement("div", { key: i, style: { display: "flex", gap: 6, alignItems: "center" } },
+                    React.createElement("input", { value: l.label, onChange: (e) => setIncLines((p) => p.map((x, j) => j === i ? { ...x, label: e.target.value } : x)), placeholder: `รายการที่ ${i + 1}`, style: { flex: 2, padding: "9px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 13.5 } }),
+                    React.createElement("input", { value: l.amount, onChange: (e) => setIncLines((p) => p.map((x, j) => j === i ? { ...x, amount: e.target.value } : x)), placeholder: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19", inputMode: "decimal", style: { flex: 1, padding: "9px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 13.5, textAlign: "right" } }),
+                    incLines.length > 1 && React.createElement("button", { onClick: () => setIncLines((p) => p.filter((_, j) => j !== i)), style: { border: "1px solid #e0b4b4", background: "#fbeeee", color: "#c0392b", borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontWeight: 700 } }, "\u00D7"))))),
+                React.createElement("button", { onClick: () => setIncLines((p) => [...p, { label: "", amount: "" }]), style: { marginTop: 6, border: `1px dashed ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "7px 12px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" } }, "\uFF0B \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"),
+                React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, padding: "10px 12px", borderRadius: 10, background: "#eefaf2", border: "1px solid #bfe6cf" } },
+                    React.createElement("span", { style: { fontWeight: 700, color: "#1e7a4d" } }, "\u0E23\u0E27\u0E21\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34"),
+                    React.createElement("span", { style: { fontWeight: 800, color: "#1e7a4d", fontSize: 16 } }, money(incTotal))),
+                React.createElement(Field, { label: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48", type: "date", value: form.date, onChange: (v) => setForm((p) => ({ ...p, date: v })) }),
+                React.createElement(Field, { label: "\u0E40\u0E27\u0E25\u0E32", type: "time", value: form.time, onChange: (v) => setForm((p) => ({ ...p, time: v })) }),
+                React.createElement(Field, { label: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", value: form.note, onChange: (v) => setForm((p) => ({ ...p, note: v })), placeholder: "\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E40\u0E15\u0E34\u0E21 (\u0E16\u0E49\u0E32\u0E21\u0E35)" }),
+                React.createElement("div", { style: { fontSize: 11.5, color: C.muted, margin: "2px 0 8px" } },
+                    "\uD83D\uDCA1 \u0E01\u0E14\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E41\u0E25\u0E49\u0E27\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19\u0E43\u0E2B\u0E49\u0E17\u0E31\u0E19\u0E17\u0E35 (\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48 ",
+                    (db.receiptSeq || 0) + 1,
+                    "/",
+                    buddhistYear(),
+                    ")"),
+                React.createElement("div", { style: { display: "flex", gap: 8 } },
+                    React.createElement(Btn, { onClick: saveIncomeReceipt }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 + \u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08")))) : (React.createElement(React.Fragment, null,
+                React.createElement(Field, { label: tab === "addin" ? "ชื่อใบเสร็จ" : "ชื่อรายการ", value: form.title, onChange: (v) => setForm((p) => ({ ...p, title: v })), placeholder: "\u0E40\u0E0A\u0E48\u0E19 \u0E04\u0E48\u0E32\u0E2D\u0E38\u0E1B\u0E01\u0E23\u0E13\u0E4C, \u0E40\u0E07\u0E34\u0E19\u0E2A\u0E19\u0E31\u0E1A\u0E2A\u0E19\u0E38\u0E19" }),
+                React.createElement(Field, { label: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19 (\u0E1A\u0E32\u0E17)", type: "number", value: form.amount, onChange: (v) => setForm((p) => ({ ...p, amount: v })), placeholder: "0" }),
+                React.createElement(Field, { label: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48", type: "date", value: form.date, onChange: (v) => setForm((p) => ({ ...p, date: v })) }),
+                React.createElement(Field, { label: "\u0E40\u0E27\u0E25\u0E32", type: "time", value: form.time, onChange: (v) => setForm((p) => ({ ...p, time: v })) }),
+                React.createElement(Field, { label: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", value: form.note, onChange: (v) => setForm((p) => ({ ...p, note: v })), placeholder: "\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E40\u0E15\u0E34\u0E21 (\u0E16\u0E49\u0E32\u0E21\u0E35)" }),
+                React.createElement("div", { style: { fontSize: 11.5, color: C.muted, margin: "2px 0 8px" } }, "\uD83D\uDCA1 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E23\u0E34\u0E07\u0E08\u0E32\u0E01\u0E23\u0E49\u0E32\u0E19\u0E04\u0E49\u0E32 \u0E41\u0E19\u0E1A\u0E15\u0E2D\u0E19 \"\u0E23\u0E27\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2192 \u0E2A\u0E23\u0E49\u0E32\u0E07\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\" (1 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E23\u0E27\u0E21\u0E44\u0E14\u0E49\u0E2B\u0E25\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)"),
+                React.createElement("div", { style: { display: "flex", gap: 8 } },
+                    React.createElement(Btn, { onClick: save }, editId ? "บันทึกการแก้ไข" : "บันทึกรายการ"),
+                    editId && React.createElement(Btn, { variant: "ghost", onClick: reset }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01")))))),
         tab === "list" && (React.createElement(Card, { style: { padding: 16 } },
             React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" } },
                 React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E1D\u0E48\u0E32\u0E22:"),
