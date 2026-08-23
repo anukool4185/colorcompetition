@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v180";
-const BUILD_TIME = "24/08/2026 01:13 น.";
+const APP_VERSION = "v181";
+const BUILD_TIME = "24/08/2026 01:26 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -2277,6 +2277,9 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     const money = (n) => (Number(n) || 0).toLocaleString("th-TH");
     const rowsIn = rows.filter((f) => f.type !== "out").reduce((s, f) => s + (Number(f.amount) || 0), 0);
     const rowsOut = rows.filter((f) => f.type === "out").reduce((s, f) => s + (Number(f.amount) || 0), 0);
+    const refundSum = rows.filter((f) => f.type !== "out" && f.kind === "refund").reduce((s, f) => s + (Number(f.amount) || 0), 0);
+    const plainInSum = rowsIn - refundSum; // รายรับ (ไม่รวมคืนเงิน) + จะบวก incomeSum(นร.) ทีหลัง
+    const receiptComplete = Math.round(loanSum) === Math.round(rowsOut + refundSum); // ยืม = จ่าย + คืนเงิน
     const exportExcel = () => {
         try {
             const aoa = [["วันที่", "ฝ่าย", "ประเภท", "รายการ", "จำนวนเงิน", "หมายเหตุ", "ผู้บันทึก", "ลิงก์บิล"]];
@@ -2537,16 +2540,26 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 React.createElement(Btn, { small: true, variant: sortDir === "desc" ? "soft" : "ghost", onClick: () => setSortDir("desc") }, "\u0E25\u0E48\u0E32\u0E2A\u0E38\u0E14\u0E1A\u0E19\u0E2A\u0E38\u0E14 \u2193"),
                 React.createElement(Btn, { small: true, variant: sortDir === "asc" ? "soft" : "ghost", onClick: () => setSortDir("asc") }, "\u0E27\u0E31\u0E19\u0E41\u0E23\u0E01\u0E1A\u0E19\u0E2A\u0E38\u0E14 \u2191"),
                 React.createElement(Btn, { small: true, variant: "ghost", onClick: exportExcel }, "\u2B07 \u0E14\u0E32\u0E27\u0E19\u0E4C\u0E42\u0E2B\u0E25\u0E14 Excel")),
-            React.createElement("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12, fontSize: 13 } },
-                React.createElement("span", { style: { background: "#eaf7f0", color: "#2f9e6b", fontWeight: 700, borderRadius: 8, padding: "4px 12px" } },
+            React.createElement("div", { style: { display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12, fontSize: 13, alignItems: "center" } },
+                React.createElement("span", { style: { background: "#eaf7f0", color: "#2f9e6b", fontWeight: 700, borderRadius: 8, padding: "6px 14px", fontSize: 14 } },
                     "\u0E23\u0E31\u0E1A ",
-                    money(rowsIn)),
-                React.createElement("span", { style: { background: "#fdeceb", color: "#c0392b", fontWeight: 700, borderRadius: 8, padding: "4px 12px" } },
-                    "\u0E08\u0E48\u0E32\u0E22 ",
-                    money(rowsOut)),
+                    money(plainInSum + incomeSum)),
+                React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", border: `1px solid ${C.line}`, borderRadius: 12, padding: "6px 12px", background: "#f7f9fc" } },
+                    React.createElement("span", { style: { background: "#fff4d6", color: "#b8860b", fontWeight: 700, borderRadius: 8, padding: "4px 12px" } },
+                        "\u0E22\u0E37\u0E21 ",
+                        money(loanSum)),
+                    React.createElement("span", { style: { color: C.muted, fontWeight: 700 } }, "="),
+                    React.createElement("span", { style: { background: "#fdeceb", color: "#c0392b", fontWeight: 700, borderRadius: 8, padding: "4px 12px" } },
+                        "\u0E08\u0E48\u0E32\u0E22 ",
+                        money(rowsOut)),
+                    React.createElement("span", { style: { color: C.muted, fontWeight: 700 } }, "+"),
+                    React.createElement("span", { style: { background: "#eaf1fb", color: "#2f6ba3", fontWeight: 700, borderRadius: 8, padding: "4px 12px" } },
+                        "\u0E04\u0E37\u0E19\u0E40\u0E07\u0E34\u0E19 ",
+                        money(refundSum)),
+                    React.createElement("span", { style: { background: receiptComplete ? "#eaf7f0" : "#fdeceb", color: receiptComplete ? "#1e7a4d" : "#c0392b", fontWeight: 800, borderRadius: 8, padding: "4px 12px" } }, loanSum === 0 && rowsOut === 0 && refundSum === 0 ? "— ยังไม่มีข้อมูล —" : receiptComplete ? "✓ ใบเสร็จครบถ้วน" : "⚠ ใบเสร็จไม่ครบถ้วน (ต่าง " + money(Math.abs(loanSum - rowsOut - refundSum)) + ")")),
                 React.createElement("span", { style: { background: C.soft, color: C.primaryDark, fontWeight: 700, borderRadius: 8, padding: "4px 12px" } },
                     "\u0E04\u0E07\u0E40\u0E2B\u0E25\u0E37\u0E2D ",
-                    money(rowsIn - rowsOut)),
+                    money(plainInSum + incomeSum + refundSum - rowsOut)),
                 React.createElement("span", { style: { color: C.muted, alignSelf: "center" } },
                     "(",
                     rows.length,
@@ -2620,7 +2633,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                                 "\uD83D\uDCDD ",
                                 x.note)),
                         React.createElement("div", { style: { fontWeight: 800, fontSize: 16, color: "#c99a2e" } }, money(x.amount)))));
-                const rIn = rows.filter((f) => f.type !== "out"), rOut = rows.filter((f) => f.type === "out");
+                const rIn = rows.filter((f) => f.type !== "out" && f.kind !== "refund"), rOut = rows.filter((f) => f.type === "out"), rRef = rows.filter((f) => f.type !== "out" && f.kind === "refund");
                 const blockHead = (label, color, count, sum) => React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 6, marginTop: 4 } },
                     React.createElement("span", { style: { fontWeight: 800, color } }, label),
                     React.createElement("span", { style: { fontSize: 11.5, color: C.muted } },
@@ -2650,10 +2663,13 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                     React.createElement("button", { onClick: () => { const holder = receiptMoneyHolder(db); makeReceiptPdf({ title: "ใบเสร็จรับเงิน (รายรับนักเรียน)", receiptNo: x.receiptNo, date: x.date, time: x.time, rows: [{ label: "รับเงินห้อง " + x.room + (x.note ? " · " + x.note : ""), amount: x.amount }], notify: ui.notify, payerName: x.by || "", payeeName: holder.name, payeePosition: holder.pos }); }, style: { border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" } }, "\u2B07 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08")));
                 return (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 14 } },
                     showIn && React.createElement("div", null,
-                        blockHead("💰 รายรับ (นักเรียน + กองทุน + บันทึกรายการ)", "#2f9e6b", rIn.length + incomeRows.length, rowsIn + incomeSum),
+                        blockHead("💰 รายรับ (นักเรียน + กองทุน + บันทึกรายการ)", "#2f9e6b", rIn.length + incomeRows.length, (rowsIn - refundSum) + incomeSum),
                         (rIn.length + incomeRows.length) === 0 ? React.createElement("div", { style: { fontSize: 12.5, color: C.muted, padding: "4px 2px" } }, "\u2014 \u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A \u2014") : React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
                             rIn.map(finRow),
                             incomeRows.map(incomeRow))),
+                    showIn && rRef.length > 0 && React.createElement("div", null,
+                        blockHead("↩️ คืนเงิน", "#2f6ba3", rRef.length, refundSum),
+                        React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, rRef.map(finRow))),
                     showOut && React.createElement("div", null,
                         blockHead("💸 รายจ่าย", "#c0392b", rOut.length, rowsOut),
                         rOut.length === 0 ? React.createElement("div", { style: { fontSize: 12.5, color: C.muted, padding: "4px 2px" } }, "\u2014 \u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E08\u0E48\u0E32\u0E22 \u2014") : React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, rOut.map(finRow))),
