@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v176";
-const BUILD_TIME = "23/08/2026 23:39 น.";
+const APP_VERSION = "v177";
+const BUILD_TIME = "24/08/2026 00:03 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -2042,6 +2042,79 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     };
     const [fundEdit, setFundEdit] = useState(null);
     const [incLines, setIncLines] = useState([{ label: "", amount: "" }]);
+    const [expLines, setExpLines] = useState([{ label: "", amount: "" }]);
+    const [expReceiptNo, setExpReceiptNo] = useState(""); // เลขที่ออกไว้ (จอง)
+    const [expBill, setExpBill] = useState(""); // dataURL ใบเสร็จที่แนบ
+    const [expNoModal, setExpNoModal] = useState(false);
+    const [expWarnModal, setExpWarnModal] = useState(false);
+    const expTotal = expLines.reduce((s, l) => s + (Number(String(l.amount).replace(/[^0-9.]/g, "")) || 0), 0);
+    const resetExp = () => { setExpLines([{ label: "", amount: "" }]); setExpReceiptNo(""); setExpBill(""); };
+    const issueExpReceiptNo = () => {
+        if (!form.dept) {
+            ui.notify("เลือกฝ่าย (รายการแข่ง/กิจกรรม) ก่อน");
+            return;
+        }
+        const lines = expLines.filter((l) => (l.label || "").trim() && (Number(String(l.amount).replace(/[^0-9.]/g, "")) || 0) > 0);
+        if (!lines.length) {
+            ui.notify("ใส่รายการจ่ายเงินอย่างน้อย 1 รายการก่อน");
+            return;
+        }
+        if (expReceiptNo) {
+            setExpNoModal(true);
+            return;
+        } // ออกแล้ว แสดงเลขเดิม
+        const preview = (db.receiptSeq || 0) + 1, receiptNo = preview + "/" + buddhistYear();
+        commit((p) => ({ ...p, receiptSeq: (p.receiptSeq || 0) + 1 }));
+        setExpReceiptNo(receiptNo);
+        setExpNoModal(true);
+    };
+    const pickExpBill = (file) => { if (!file)
+        return; compressImage(file, 1280, 0.72).then((d) => d && setExpBill(d)); };
+    const saveExpense = () => {
+        if (!form.dept) {
+            ui.notify("เลือกฝ่าย (รายการแข่ง/กิจกรรม)");
+            return;
+        }
+        if (!form.title.trim()) {
+            ui.notify("ใส่ชื่อใบเสร็จ");
+            return;
+        }
+        const lines = expLines.map((l) => ({ label: (l.label || "").trim(), amount: Number(String(l.amount).replace(/[^0-9.]/g, "")) || 0 })).filter((l) => l.label && l.amount > 0);
+        if (!lines.length) {
+            ui.notify("ใส่รายการจ่ายเงินอย่างน้อย 1 รายการ (พร้อมจำนวนเงิน)");
+            return;
+        }
+        const canRecordDept = (dept) => { if (acc.full)
+            return true; const dc = deptComps(dept); if (dc)
+            return acc.depts.size > 0 || dc.some((cid) => acc.depts.has(String(cid))); return acc.depts.has(String(dept)); };
+        if (!acc.full && !canRecordDept(form.dept)) {
+            ui.notify("คุณไม่มีสิทธิ์บันทึกของฝ่าย/รายการนี้");
+            return;
+        }
+        if (!expBill) {
+            setExpWarnModal(true);
+            return;
+        } // บังคับแนบใบเสร็จ
+        const total = lines.reduce((s, l) => s + l.amount, 0);
+        ui.runAsync("กำลังอัปโหลดใบเสร็จ + บันทึก...", async () => {
+            let billUrl = "", billId = "";
+            const up = await uploadImageRemote(expBill, { id: "bill" + Date.now(), first: form.title.trim() || "bill", last: form.date }, "finance", "");
+            if (up) {
+                billUrl = up.photoUrl;
+                billId = up.photoId;
+            }
+            else {
+                ui.notify("อัปโหลดใบเสร็จไม่สำเร็จ ลองใหม่");
+                return;
+            }
+            const receiptNo = expReceiptNo || (((db.receiptSeq || 0) + 1) + "/" + buddhistYear());
+            commit((p) => ({ ...p, receiptSeq: expReceiptNo ? (p.receiptSeq || 0) : (p.receiptSeq || 0) + 1, finance: [...(p.finance || []), { id: "fn" + Date.now() + Math.random().toString(36).slice(2, 6), dept: form.dept, type: "out", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), receiptNo, billUrl, billId, billUrls: [billUrl], by: viewer.id, byName: viewer.name || "", at: Date.now() }] }));
+            ui.notify("บันทึกรายจ่าย + แนบใบเสร็จแล้ว");
+            reset();
+            resetExp();
+            setTab("list");
+        });
+    };
     const incTotal = incLines.reduce((s, l) => s + (Number(String(l.amount).replace(/[^0-9.]/g, "")) || 0), 0);
     const resetInc = () => setIncLines([{ label: "", amount: "" }]);
     const saveIncomeReceipt = () => {
@@ -2252,7 +2325,29 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 (db.departments || []).length > 0 && React.createElement("optgroup", { label: "\uD83C\uDFE2 \u0E1D\u0E48\u0E32\u0E22 (\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21 \u0E44\u0E21\u0E48\u0E41\u0E22\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)" }, (db.departments || []).map((d) => React.createElement("option", { key: d.id, value: "D:" + d.id }, d.name))),
                 React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19" }, allowedComps.filter((c) => c.kind === "แข่งขัน").map((c) => React.createElement("option", { key: c.id, value: c.id }, sportItemName(c)))),
                 React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }, allowedComps.filter((c) => c.kind === "กิจกรรม").map((c) => React.createElement("option", { key: c.id, value: c.id }, sportItemName(c))))),
-            tab === "addin" && !editId ? (React.createElement(React.Fragment, null,
+            tab === "addout" && !editId ? (React.createElement(React.Fragment, null,
+                React.createElement(Field, { label: "\u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08", value: form.title, onChange: (v) => setForm((p) => ({ ...p, title: v })), placeholder: "\u0E40\u0E0A\u0E48\u0E19 \u0E04\u0E48\u0E32\u0E2D\u0E38\u0E1B\u0E01\u0E23\u0E13\u0E4C\u0E01\u0E35\u0E2C\u0E32, \u0E04\u0E48\u0E32\u0E2D\u0E32\u0E2B\u0E32\u0E23" }),
+                React.createElement("div", { style: { fontSize: 13, color: C.muted, margin: "6px 0 4px", fontWeight: 600 } }, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19 (\u0E43\u0E2A\u0E48\u0E44\u0E14\u0E49\u0E2B\u0E25\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19 1 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08)"),
+                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, expLines.map((l, i) => (React.createElement("div", { key: i, style: { display: "flex", gap: 6, alignItems: "center" } },
+                    React.createElement("input", { value: l.label, onChange: (e) => setExpLines((p) => p.map((x, j) => j === i ? { ...x, label: e.target.value } : x)), placeholder: `รายการที่ ${i + 1}`, style: { flex: 2, padding: "9px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 13.5 } }),
+                    React.createElement("input", { value: l.amount, onChange: (e) => setExpLines((p) => p.map((x, j) => j === i ? { ...x, amount: e.target.value } : x)), placeholder: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19", inputMode: "decimal", style: { flex: 1, padding: "9px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 13.5, textAlign: "right" } }),
+                    expLines.length > 1 && React.createElement("button", { onClick: () => setExpLines((p) => p.filter((_, j) => j !== i)), style: { border: "1px solid #e0b4b4", background: "#fbeeee", color: "#c0392b", borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontWeight: 700 } }, "\u00D7"))))),
+                React.createElement("button", { onClick: () => setExpLines((p) => [...p, { label: "", amount: "" }]), style: { marginTop: 6, border: `1px dashed ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "7px 12px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" } }, "\uFF0B \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"),
+                React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, padding: "10px 12px", borderRadius: 10, background: "#fbeeee", border: "1px solid #e6c3c3" } },
+                    React.createElement("span", { style: { fontWeight: 700, color: "#c0392b" } }, "\u0E23\u0E27\u0E21\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34"),
+                    React.createElement("span", { style: { fontWeight: 800, color: "#c0392b", fontSize: 16 } }, money(expTotal))),
+                React.createElement("div", { style: { display: "flex", gap: 8, margin: "10px 0" } },
+                    React.createElement("button", { onClick: issueExpReceiptNo, style: { flex: 1, padding: "10px", borderRadius: 10, border: "1.5px solid #2f9e6b", background: "#fff", color: "#1e7a4d", fontWeight: 800, fontSize: 13.5, cursor: "pointer" } }, expReceiptNo ? `เลขที่ ${expReceiptNo}` : "ออกเลขใบเสร็จ"),
+                    React.createElement("label", { style: { flex: 1, padding: "10px", borderRadius: 10, border: `1.5px solid ${expBill ? "#2f9e6b" : "#2f9e6b"}`, background: expBill ? "#eefaf2" : "#fff", color: "#1e7a4d", fontWeight: 800, fontSize: 13.5, cursor: "pointer", textAlign: "center" } },
+                        expBill ? "✓ แนบใบเสร็จแล้ว" : "แนบใบเสร็จ",
+                        React.createElement("input", { type: "file", accept: "image/*", onChange: (e) => pickExpBill(e.target.files && e.target.files[0]), style: { display: "none" } }))),
+                expBill && React.createElement("img", { src: expBill, alt: "\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08", style: { width: "100%", maxHeight: 200, objectFit: "contain", borderRadius: 8, border: `1px solid ${C.line}`, marginBottom: 8 } }),
+                React.createElement(Field, { label: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48", type: "date", value: form.date, onChange: (v) => setForm((p) => ({ ...p, date: v })) }),
+                React.createElement(Field, { label: "\u0E40\u0E27\u0E25\u0E32", type: "time", value: form.time, onChange: (v) => setForm((p) => ({ ...p, time: v })) }),
+                React.createElement(Field, { label: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", value: form.note, onChange: (v) => setForm((p) => ({ ...p, note: v })), placeholder: "\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E40\u0E15\u0E34\u0E21 (\u0E16\u0E49\u0E32\u0E21\u0E35)" }),
+                React.createElement("div", { style: { fontSize: 11.5, color: C.muted, margin: "2px 0 8px" } }, "\uD83D\uDCA1 \u0E15\u0E49\u0E2D\u0E07\u0E41\u0E19\u0E1A\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07\u0E01\u0E48\u0E2D\u0E19\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 \u00B7 \u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02 \u2192 \u0E40\u0E02\u0E35\u0E22\u0E19\u0E40\u0E25\u0E02\u0E1A\u0E19\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08+\u0E02\u0E35\u0E14\u0E40\u0E2A\u0E49\u0E19\u0E41\u0E14\u0E07 \u2192 \u0E16\u0E48\u0E32\u0E22\u0E23\u0E39\u0E1B\u0E41\u0E19\u0E1A \u2192 \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01"),
+                React.createElement("div", { style: { display: "flex", gap: 8 } },
+                    React.createElement(Btn, { onClick: saveExpense }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23")))) : tab === "addin" && !editId ? (React.createElement(React.Fragment, null,
                 React.createElement(Field, { label: "\u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08", value: form.title, onChange: (v) => setForm((p) => ({ ...p, title: v })), placeholder: "\u0E40\u0E0A\u0E48\u0E19 \u0E40\u0E07\u0E34\u0E19\u0E2A\u0E19\u0E31\u0E1A\u0E2A\u0E19\u0E38\u0E19\u0E2A\u0E35, \u0E04\u0E48\u0E32\u0E1A\u0E33\u0E23\u0E38\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }),
                 React.createElement("div", { style: { fontSize: 13, color: C.muted, margin: "6px 0 4px", fontWeight: 600 } }, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19 (\u0E43\u0E2A\u0E48\u0E44\u0E14\u0E49\u0E2B\u0E25\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19 1 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08)"),
                 React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, incLines.map((l, i) => (React.createElement("div", { key: i, style: { display: "flex", gap: 6, alignItems: "center" } },
@@ -2283,6 +2378,20 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 React.createElement("div", { style: { display: "flex", gap: 8 } },
                     React.createElement(Btn, { onClick: save }, editId ? "บันทึกการแก้ไข" : "บันทึกรายการ"),
                     editId && React.createElement(Btn, { variant: "ghost", onClick: reset }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01")))))),
+        expNoModal && React.createElement(Modal, { onClose: () => setExpNoModal(false) },
+            React.createElement("div", { style: { padding: 20, textAlign: "center" } },
+                React.createElement("div", { style: { fontSize: 15, fontWeight: 700, color: C.ink, marginBottom: 8 } }, "\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08"),
+                React.createElement("div", { style: { fontSize: 30, fontWeight: 800, color: "#c0392b", margin: "10px 0" } }, expReceiptNo),
+                React.createElement("div", { style: { fontSize: 13, color: C.muted, lineHeight: 1.6 } }, "\u0E01\u0E23\u0E38\u0E13\u0E32\u0E19\u0E33\u0E40\u0E25\u0E02\u0E19\u0E35\u0E49\u0E40\u0E02\u0E35\u0E22\u0E19\u0E25\u0E07\u0E1A\u0E19\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 \u0E41\u0E25\u0E30\u0E02\u0E35\u0E14\u0E40\u0E2A\u0E49\u0E19\u0E14\u0E49\u0E27\u0E22\u0E1B\u0E32\u0E01\u0E01\u0E32\u0E41\u0E14\u0E07\u0E43\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23 \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2A\u0E48\u0E07\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u0E01\u0E48\u0E2D\u0E19\u0E16\u0E48\u0E32\u0E22\u0E23\u0E39\u0E1B\u0E41\u0E19\u0E1A"),
+                React.createElement("div", { style: { marginTop: 14 } },
+                    React.createElement(Btn, { onClick: () => setExpNoModal(false) }, "\u0E23\u0E31\u0E1A\u0E17\u0E23\u0E32\u0E1A")))),
+        expWarnModal && React.createElement(Modal, { onClose: () => setExpWarnModal(false) },
+            React.createElement("div", { style: { padding: 20, textAlign: "center" } },
+                React.createElement("div", { style: { fontSize: 34, marginBottom: 6 } }, "\uD83D\uDCCE"),
+                React.createElement("div", { style: { fontSize: 15, fontWeight: 700, color: "#c0392b", marginBottom: 8 } }, "\u0E01\u0E23\u0E38\u0E13\u0E32\u0E41\u0E19\u0E1A\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07"),
+                React.createElement("div", { style: { fontSize: 13, color: C.muted, lineHeight: 1.6 } }, "\u0E01\u0E14\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E25\u0E49\u0E27\u0E16\u0E49\u0E32\u0E44\u0E21\u0E48\u0E41\u0E19\u0E1A\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E44\u0E21\u0E48\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 \u00B7 \u0E01\u0E23\u0E38\u0E13\u0E32\u0E19\u0E33\u0E40\u0E25\u0E02\u0E19\u0E35\u0E49\u0E40\u0E02\u0E35\u0E22\u0E19\u0E25\u0E07\u0E1A\u0E19\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 \u0E41\u0E25\u0E30\u0E02\u0E35\u0E14\u0E40\u0E2A\u0E49\u0E19\u0E14\u0E49\u0E27\u0E22\u0E1B\u0E32\u0E01\u0E01\u0E32\u0E41\u0E14\u0E07\u0E43\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23 \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2A\u0E48\u0E07\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u0E01\u0E48\u0E2D\u0E19\u0E16\u0E48\u0E32\u0E22\u0E23\u0E39\u0E1B\u0E41\u0E19\u0E1A"),
+                React.createElement("div", { style: { marginTop: 14 } },
+                    React.createElement(Btn, { onClick: () => setExpWarnModal(false) }, "\u0E40\u0E02\u0E49\u0E32\u0E43\u0E08\u0E41\u0E25\u0E49\u0E27")))),
         tab === "list" && (React.createElement(Card, { style: { padding: 16 } },
             React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" } },
                 React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E1D\u0E48\u0E32\u0E22:"),
