@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v179";
-const BUILD_TIME = "24/08/2026 01:01 น.";
+const APP_VERSION = "v180";
+const BUILD_TIME = "24/08/2026 01:13 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -2042,6 +2042,39 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     };
     const [fundEdit, setFundEdit] = useState(null);
     const [incLines, setIncLines] = useState([{ label: "", amount: "" }]);
+    const [refLines, setRefLines] = useState([{ label: "", amount: "" }]);
+    const refTotal = refLines.reduce((s, l) => s + (Number(String(l.amount).replace(/[^0-9.]/g, "")) || 0), 0);
+    const resetRef = () => setRefLines([{ label: "", amount: "" }]);
+    const saveRefund = () => {
+        if (!form.dept) {
+            ui.notify("เลือกฝ่าย (รายการแข่ง/กิจกรรม)");
+            return;
+        }
+        if (!form.title.trim()) {
+            ui.notify("ใส่ชื่อใบเสร็จ");
+            return;
+        }
+        const lines = refLines.map((l) => ({ label: (l.label || "").trim(), amount: Number(String(l.amount).replace(/[^0-9.]/g, "")) || 0 })).filter((l) => l.label && l.amount > 0);
+        if (!lines.length) {
+            ui.notify("ใส่รายการคืนเงินอย่างน้อย 1 รายการ (พร้อมจำนวนเงิน)");
+            return;
+        }
+        const canRecordDept = (dept) => { if (acc.full)
+            return true; const dc = deptComps(dept); if (dc)
+            return acc.depts.size > 0 || dc.some((cid) => acc.depts.has(String(cid))); return acc.depts.has(String(dept)); };
+        if (!acc.full && !canRecordDept(form.dept)) {
+            ui.notify("คุณไม่มีสิทธิ์บันทึกของฝ่าย/รายการนี้");
+            return;
+        }
+        const total = lines.reduce((s, l) => s + l.amount, 0);
+        const preview = (db.receiptSeq || 0) + 1, receiptNo = preview + "/" + buddhistYear();
+        ui.run("บันทึกคืนเงิน + ออกใบเสร็จแล้ว (กดปุ่ม ⬇ ใบเสร็จ ในรายการเพื่อดาวน์โหลด)", () => {
+            commit((p) => ({ ...p, receiptSeq: (p.receiptSeq || 0) + 1, finance: [...(p.finance || []), { id: "fn" + Date.now() + Math.random().toString(36).slice(2, 6), dept: form.dept, type: "in", kind: "refund", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), receiptNo, by: viewer.id, byName: viewer.name || "", at: Date.now() }] }));
+            reset();
+            resetRef();
+            setTab("list");
+        });
+    };
     const [expLines, setExpLines] = useState([{ label: "", amount: "" }]);
     const [expReceiptNo, setExpReceiptNo] = useState(""); // เลขที่ออกไว้ (จอง)
     const [expBill, setExpBill] = useState(""); // dataURL ใบเสร็จที่แนบ
@@ -2300,7 +2333,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                     acc.full && React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setTab("income") }, "\u0E44\u0E1B\u0E2B\u0E19\u0E49\u0E32\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\u0E2B\u0E49\u0E2D\u0E07\u0E19\u0E35\u0E49"),
                     React.createElement(Btn, { small: true, onClick: () => markRead(n.id) }, "\u2713 \u0E17\u0E23\u0E32\u0E1A\u0E41\u0E25\u0E49\u0E27")))))));
         })(),
-        React.createElement(Tabs, { tabs: [...(finFull ? [{ key: "fund", label: "🏦 กองทุนสำรอง" }] : []), ...(isFinance ? [{ key: "income", label: "รายรับนักเรียน" }] : []), ...(finFull ? [{ key: "addin", label: editId && form.type !== "out" ? "แก้ไขรายรับ" : "＋ บันทึกรายรับ" }, { key: "loan", label: "บันทึกยืมเงิน" }, { key: "addout", label: editId && form.type === "out" ? "แก้ไขรายจ่าย" : "－ บันทึกรายจ่าย" }] : []), ...(canBuy ? [{ key: "buy", label: "🛒 สร้างรายการซื้อ" }] : []), { key: "list", label: "แสดงรายการรับ-จ่าย" }, { key: "summary", label: "ภาพรวม/สรุป" }, ...(isFinance ? [{ key: "refund", label: "เฉลี่ยคืน" }] : [])], active: tab, onChange: (k) => { if (k === "addin") {
+        React.createElement(Tabs, { tabs: [...(finFull ? [{ key: "fund", label: "🏦 กองทุนสำรอง" }] : []), ...(isFinance ? [{ key: "income", label: "รายรับนักเรียน" }] : []), ...(finFull ? [{ key: "addin", label: editId && form.type !== "out" ? "แก้ไขรายรับ" : "＋ บันทึกรายรับ" }, { key: "loan", label: "บันทึกยืมเงิน" }, { key: "addout", label: editId && form.type === "out" ? "แก้ไขรายจ่าย" : "－ บันทึกรายจ่าย" }, { key: "refundin", label: "↩️ คืนเงิน" }] : []), ...(canBuy ? [{ key: "buy", label: "🛒 สร้างรายการซื้อ" }] : []), { key: "list", label: "แสดงรายการรับ-จ่าย" }, { key: "summary", label: "ภาพรวม/สรุป" }, ...(isFinance ? [{ key: "refund", label: "เฉลี่ยคืน" }] : [])], active: tab, onChange: (k) => { if (k === "addin") {
                 reset();
                 setForm((p) => ({ ...p, type: "in" }));
             }
@@ -2315,15 +2348,36 @@ function FinanceManager({ db, setDb, ui, viewer }) {
         tab === "loan" && finFull && React.createElement(LoanManager, { db: db, setDb: setDb, ui: ui, viewer: viewer }),
         tab === "fund" && finFull && React.createElement(FundManager, { db: db, setDb: setDb, ui: ui, viewer: viewer, editRec: fundEdit, onDoneEdit: () => setFundEdit(null) }),
         tab === "income" && isFinance && React.createElement(StudentIncomeGrid, { db: db, setDb: setDb, ui: ui, viewer: viewer, acc: acc, canEntry: financeMoneyHolder || isFinanceManager || (isFinance && finRank >= 6), lockRoom: finLockRoom, canManageCols: finFull }),
-        (tab === "addin" || tab === "addout") && finFull && (React.createElement(Card, { style: { padding: 16, marginBottom: 12 } },
-            React.createElement("div", { style: { fontWeight: 700, color: tab === "addout" ? "#c0392b" : "#2f9e6b", marginBottom: 10 } }, editId ? (tab === "addout" ? "แก้ไขรายจ่าย" : "แก้ไขรายรับ") : (tab === "addout" ? "－ บันทึกรายจ่าย" : "＋ บันทึกรายรับ")),
+        (tab === "addin" || tab === "addout" || tab === "refundin") && finFull && (React.createElement(Card, { style: { padding: 16, marginBottom: 12 } },
+            React.createElement("div", { style: { fontWeight: 700, color: tab === "addout" ? "#c0392b" : "#2f9e6b", marginBottom: 10 } }, editId ? (tab === "addout" ? "แก้ไขรายจ่าย" : "แก้ไขรายรับ") : (tab === "addout" ? "－ บันทึกรายจ่าย" : tab === "refundin" ? "↩️ บันทึกคืนเงิน" : "＋ บันทึกรายรับ")),
             React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1D\u0E48\u0E32\u0E22 (\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21) \u0E2B\u0E23\u0E37\u0E2D \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21"),
             React.createElement("select", { value: form.dept, onChange: (e) => setForm((p) => ({ ...p, dept: e.target.value })), style: selCss },
                 React.createElement("option", { value: "" }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01 \u2014"),
                 (db.departments || []).length > 0 && React.createElement("optgroup", { label: "\uD83C\uDFE2 \u0E1D\u0E48\u0E32\u0E22 (\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21 \u0E44\u0E21\u0E48\u0E41\u0E22\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)" }, (db.departments || []).map((d) => React.createElement("option", { key: d.id, value: "D:" + d.id }, d.name))),
                 React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07\u0E02\u0E31\u0E19" }, allowedComps.filter((c) => c.kind === "แข่งขัน").map((c) => React.createElement("option", { key: c.id, value: c.id }, sportItemName(c)))),
                 React.createElement("optgroup", { label: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }, allowedComps.filter((c) => c.kind === "กิจกรรม").map((c) => React.createElement("option", { key: c.id, value: c.id }, sportItemName(c))))),
-            tab === "addout" && !editId ? (React.createElement(React.Fragment, null,
+            tab === "refundin" && !editId ? (React.createElement(React.Fragment, null,
+                React.createElement(Field, { label: "\u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08", value: form.title, onChange: (v) => setForm((p) => ({ ...p, title: v })), placeholder: "\u0E40\u0E0A\u0E48\u0E19 \u0E04\u0E37\u0E19\u0E40\u0E07\u0E34\u0E19\u0E04\u0E48\u0E32\u0E21\u0E31\u0E14\u0E08\u0E33, \u0E04\u0E37\u0E19\u0E40\u0E07\u0E34\u0E19\u0E2A\u0E48\u0E27\u0E19\u0E40\u0E01\u0E34\u0E19" }),
+                React.createElement("div", { style: { fontSize: 13, color: C.muted, margin: "6px 0 4px", fontWeight: 600 } }, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E04\u0E37\u0E19\u0E40\u0E07\u0E34\u0E19 (\u0E43\u0E2A\u0E48\u0E44\u0E14\u0E49\u0E2B\u0E25\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19 1 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08)"),
+                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, refLines.map((l, i) => (React.createElement("div", { key: i, style: { display: "flex", gap: 6, alignItems: "center" } },
+                    React.createElement("input", { value: l.label, onChange: (e) => setRefLines((p) => p.map((x, j) => j === i ? { ...x, label: e.target.value } : x)), placeholder: `รายการที่ ${i + 1}`, style: { flex: 2, padding: "9px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 13.5 } }),
+                    React.createElement("input", { value: l.amount, onChange: (e) => setRefLines((p) => p.map((x, j) => j === i ? { ...x, amount: e.target.value } : x)), placeholder: "\u0E08\u0E33\u0E19\u0E27\u0E19\u0E40\u0E07\u0E34\u0E19", inputMode: "decimal", style: { flex: 1, padding: "9px 10px", borderRadius: 8, border: `1px solid ${C.line}`, fontSize: 13.5, textAlign: "right" } }),
+                    refLines.length > 1 && React.createElement("button", { onClick: () => setRefLines((p) => p.filter((_, j) => j !== i)), style: { border: "1px solid #e0b4b4", background: "#fbeeee", color: "#c0392b", borderRadius: 8, width: 32, height: 32, cursor: "pointer", fontWeight: 700 } }, "\u00D7"))))),
+                React.createElement("button", { onClick: () => setRefLines((p) => [...p, { label: "", amount: "" }]), style: { marginTop: 6, border: `1px dashed ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "7px 12px", fontSize: 12.5, fontWeight: 700, cursor: "pointer" } }, "\uFF0B \u0E40\u0E1E\u0E34\u0E48\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"),
+                React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, padding: "10px 12px", borderRadius: 10, background: "#eef4fb", border: "1px solid #c3d4e6" } },
+                    React.createElement("span", { style: { fontWeight: 700, color: "#2f6ba3" } }, "\u0E23\u0E27\u0E21\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34"),
+                    React.createElement("span", { style: { fontWeight: 800, color: "#2f6ba3", fontSize: 16 } }, money(refTotal))),
+                React.createElement(Field, { label: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48", type: "date", value: form.date, onChange: (v) => setForm((p) => ({ ...p, date: v })) }),
+                React.createElement(Field, { label: "\u0E40\u0E27\u0E25\u0E32", type: "time", value: form.time, onChange: (v) => setForm((p) => ({ ...p, time: v })) }),
+                React.createElement(Field, { label: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", value: form.note, onChange: (v) => setForm((p) => ({ ...p, note: v })), placeholder: "\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E40\u0E15\u0E34\u0E21 (\u0E16\u0E49\u0E32\u0E21\u0E35)" }),
+                React.createElement("div", { style: { fontSize: 11.5, color: C.muted, margin: "2px 0 8px" } },
+                    "\uD83D\uDCA1 \u0E04\u0E37\u0E19\u0E40\u0E07\u0E34\u0E19 = \u0E40\u0E07\u0E34\u0E19\u0E40\u0E02\u0E49\u0E32 \u00B7 \u0E01\u0E14\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E41\u0E25\u0E49\u0E27\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E43\u0E2B\u0E49 (\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48 ",
+                    (db.receiptSeq || 0) + 1,
+                    "/",
+                    buddhistYear(),
+                    ")"),
+                React.createElement("div", { style: { display: "flex", gap: 8 } },
+                    React.createElement(Btn, { onClick: saveRefund }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 + \u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08")))) : tab === "addout" && !editId ? (React.createElement(React.Fragment, null,
                 React.createElement(Field, { label: "\u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08", value: form.title, onChange: (v) => setForm((p) => ({ ...p, title: v })), placeholder: "\u0E40\u0E0A\u0E48\u0E19 \u0E04\u0E48\u0E32\u0E2D\u0E38\u0E1B\u0E01\u0E23\u0E13\u0E4C\u0E01\u0E35\u0E2C\u0E32, \u0E04\u0E48\u0E32\u0E2D\u0E32\u0E2B\u0E32\u0E23" }),
                 React.createElement("div", { style: { fontSize: 13, color: C.muted, margin: "6px 0 4px", fontWeight: 600 } }, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19 (\u0E43\u0E2A\u0E48\u0E44\u0E14\u0E49\u0E2B\u0E25\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19 1 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08)"),
                 React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, expLines.map((l, i) => (React.createElement("div", { key: i, style: { display: "flex", gap: 6, alignItems: "center" } },
@@ -2425,6 +2479,37 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                             f.byName ? " · " + f.byName : "")),
                     React.createElement("div", { style: { fontWeight: 800, color: wantOut ? "#c0392b" : "#2f9e6b", whiteSpace: "nowrap" } },
                         wantOut ? "-" : "+",
+                        money(f.amount)),
+                    f.receiptNo && React.createElement("button", { onClick: () => dl(f), style: { fontSize: 11, border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "3px 8px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" } }, "\u2B07"),
+                    canEditRow(f) && React.createElement("button", { onClick: () => del(f), style: { fontSize: 11, border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 700 } }, "\u0E25\u0E1A")))))));
+        })(),
+        tab === "refundin" && finFull && (() => {
+            const mine = (db.finance || []).filter((f) => String(f.dept) !== "FUND" && f.kind === "refund" && deptMatch(f)).slice().sort((a, b) => (String(b.date) + (b.time || "") + b.at).localeCompare(String(a.date) + (a.time || "") + a.at)).slice(0, 50);
+            const sum = mine.reduce((s, f) => s + (Number(f.amount) || 0), 0);
+            const dl = (f) => { const holder = receiptMoneyHolder(db); makeReceiptPdf({ title: "ใบเสร็จคืนเงิน · " + f.title, receiptNo: f.receiptNo, date: f.date, time: f.time, rows: (f.items && f.items.length ? f.items : [{ label: f.title, amount: f.amount }]), notify: ui.notify, payeeName: holder.name, payeePosition: holder.pos }); };
+            return (React.createElement(Card, { style: { padding: 16, marginTop: 12 } },
+                React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 } },
+                    React.createElement("div", { style: { fontWeight: 800, color: "#2f6ba3" } }, "\u21A9\uFE0F \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E04\u0E37\u0E19\u0E40\u0E07\u0E34\u0E19\u0E17\u0E35\u0E48\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E44\u0E27\u0E49"),
+                    React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: "#2f6ba3" } },
+                        mine.length,
+                        " \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u00B7 ",
+                        money(sum))),
+                mine.length === 0 ? React.createElement("div", { style: { fontSize: 12.5, color: C.muted } }, "\u2014 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2014") : React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, mine.map((f) => (React.createElement("div", { key: f.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderRadius: 10, border: `1px solid ${C.line}`, borderLeft: "4px solid #2f6ba3" } },
+                    React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                        React.createElement("div", { style: { fontWeight: 700, color: C.ink, fontSize: 13.5 } },
+                            f.title,
+                            f.receiptNo && React.createElement("span", { style: { fontSize: 11, color: "#1e7a4d", fontWeight: 700 } },
+                                " \u00B7 \uD83E\uDDFE ",
+                                f.receiptNo)),
+                        React.createElement("div", { style: { fontSize: 11.5, color: C.muted } },
+                            "\u25B8 ",
+                            compName(f.dept),
+                            " \u00B7 ",
+                            f.date,
+                            f.time ? " " + f.time : "",
+                            f.byName ? " · " + f.byName : "")),
+                    React.createElement("div", { style: { fontWeight: 800, color: "#2f6ba3", whiteSpace: "nowrap" } },
+                        "+",
                         money(f.amount)),
                     f.receiptNo && React.createElement("button", { onClick: () => dl(f), style: { fontSize: 11, border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "3px 8px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" } }, "\u2B07"),
                     canEditRow(f) && React.createElement("button", { onClick: () => del(f), style: { fontSize: 11, border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 700 } }, "\u0E25\u0E1A")))))));
