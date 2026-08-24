@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v191";
-const BUILD_TIME = "24/08/2026 14:49 น.";
+const APP_VERSION = "v192";
+const BUILD_TIME = "24/08/2026 15:41 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -2000,7 +2000,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     const isBuyer = finNodes.some((n) => { const role = dutyRoleOf(n.dutyId); return role === "buyer" || (!role && /ผู้ซื้อ/.test(duty2Name(n.dutyId))); });
     const fundBuyEnabled = !!(db.settings && db.settings.fundBuyEnabled);
     const canBuy = fundBuyEnabled && isBuyer && !finFull; // ผู้ซื้อ (เมื่อเปิดสิทธิ์) เห็นเฉพาะแท็บสร้างรายการซื้อ
-    const canEditRow = (f) => isMoneyHolder;
+    const canEditRow = (f) => isFinance || isMoneyHolder; // ลบ/แก้ไข: สมาชิกฝ่ายการเงินและบัญชี (ทุกตำแหน่ง) หรือ ผู้ถือเงิน/แอดมิน
     const [form, setForm] = useState({ dept: "", type: "in", title: "", amount: "", date: todayStr(), time: nowTime(), note: "", billDataUrl: "", billUrl: "", billId: "" });
     const [editId, setEditId] = useState(null);
     const [fDept, setFDept] = useState("");
@@ -2032,8 +2032,8 @@ function FinanceManager({ db, setDb, ui, viewer }) {
         const canRecordDept = (dept) => { if (acc.full)
             return true; const dc = deptComps(dept); if (dc)
             return acc.depts.size > 0 || dc.some((cid) => acc.depts.has(String(cid))); return acc.depts.has(String(dept)); };
-        if (editId ? !isMoneyHolder : (!acc.full && !canRecordDept(form.dept))) {
-            ui.notify(editId ? "แก้ไขได้เฉพาะผู้มีหน้าที่ถือเงินหรือแอดมิน" : "คุณไม่มีสิทธิ์บันทึกของฝ่าย/รายการนี้");
+        if (editId ? !(isFinance || isMoneyHolder) : (!acc.full && !canRecordDept(form.dept))) {
+            ui.notify(editId ? "แก้ไขได้เฉพาะสมาชิกฝ่ายการเงินและบัญชี หรือแอดมิน" : "คุณไม่มีสิทธิ์บันทึกของฝ่าย/รายการนี้");
             return;
         }
         ui.runAsync(form.billDataUrl ? "กำลังอัปโหลดบิล..." : "กำลังบันทึก...", async () => {
