@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v193";
-const BUILD_TIME = "24/08/2026 15:57 น.";
+const APP_VERSION = "v194";
+const BUILD_TIME = "24/08/2026 16:19 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -5550,10 +5550,36 @@ function respCommForComp(db, comp) {
 function financeAccess(db, personId, role) {
     if (role === "admin")
         return { full: true, depts: new Set(), admin: true };
-    const hasFin = (t) => /การเงิน|เหรัญญิก|เหรัญ|คลัง|บัญชี/.test(t || "");
-    const mine = [...(db.orgTeacher || []), ...(db.orgStudent || [])].filter((n) => String(n.personId) === String(personId));
-    const full = mine.some((n) => hasFin(n.title));
+    const finRe = /การเงิน|บัญชี|เหรัญญิก|เหรัญ|คลัง|ถือเงิน|เก็บเงิน|พัสดุ/;
+    const hasFin = (t) => finRe.test(t || "");
+    const dutyName = (id) => { const d = (db.duties || []).find((x) => String(x.id) === String(id)); return d ? d.name : ""; };
+    const deptName = (id) => { const d = (db.departments || []).find((x) => String(x.id) === String(id)); return d ? d.name : ""; };
+    const deptOfComp = (compId) => (db.departments || []).find((d) => (d.comps || []).map(String).includes(String(compId)));
     const depts = new Set();
+    let full = false;
+    // ผังใหม่ org2
+    (db.org2 || []).filter((n) => String(n.personId) === String(personId)).forEach((n) => {
+        const dn = deptName(n.deptId), du = dutyName(n.dutyId);
+        let compFin = false;
+        if (n.compId) {
+            const c = (db.competitions || []).find((x) => String(x.id) === String(n.compId));
+            const dc = deptOfComp(n.compId);
+            if ((c && hasFin(c.name)) || (dc && hasFin(dc.name)))
+                compFin = true;
+        }
+        if (hasFin(dn) || hasFin(du) || compFin)
+            full = true; // อยู่ในฝ่าย/ตำแหน่ง/รายการการเงิน = บันทึกได้ทุกฝ่าย
+        if (n.compId)
+            depts.add(String(n.compId)); // รายการที่สังกัด = บันทึกฝ่ายตนได้
+        if (n.deptId) {
+            const d = (db.departments || []).find((x) => String(x.id) === String(n.deptId));
+            (d && d.comps ? d.comps : []).forEach((cid) => depts.add(String(cid)));
+        }
+    });
+    // ผังเก่า (เผื่อข้อมูลเดิม)
+    const mineOld = [...(db.orgTeacher || []), ...(db.orgStudent || [])].filter((n) => String(n.personId) === String(personId));
+    if (mineOld.some((n) => hasFin(n.title)))
+        full = true;
     (db.competitions || []).forEach((c) => { const r = respCommForComp(db, c); if (r.teacherIds.has(String(personId)) || r.studentIds.has(String(personId)))
         depts.add(String(c.id)); });
     return { full, depts, admin: false };
