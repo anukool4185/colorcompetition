@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v194";
-const BUILD_TIME = "24/08/2026 16:19 น.";
+const APP_VERSION = "v198";
+const BUILD_TIME = "24/08/2026 20:10 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -245,6 +245,20 @@ function scoreOf(r, cfg) {
 function todayStr() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
 function nowTime() { const d = new Date(); return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`; }
 function buddhistYear() { return new Date().getFullYear() + 543; }
+// เลขที่ใบเสร็จที่ "ใช้จริง" = มีอยู่ในรายการ (finance/loans/studentIncome) · เลขที่ออกแล้วไม่อยู่ในรายการ = ยังไม่ใช้ นำกลับมาใช้ได้
+function usedReceiptNums(db) {
+    const s = new Set();
+    const add = (rn) => { if (rn == null || rn === "")
+        return; const n = parseInt(String(rn).split("/")[0], 10); if (n > 0)
+        s.add(n); };
+    (db.finance || []).forEach((f) => add(f.receiptNo));
+    (db.loans || []).forEach((x) => add(x.receiptNo));
+    ((((db.studentIncome || {})["_submits"]) || [])).forEach((x) => add(x.receiptNo));
+    return s;
+}
+function nextReceiptSeq(db) { const used = usedReceiptNums(db); let n = 1; while (used.has(n))
+    n++; return n; } // เลขว่างที่เล็กที่สุด
+function nextReceiptNo(db) { return nextReceiptSeq(db) + "/" + buddhistYear(); }
 // สร้างใบเสร็จเป็น PDF (หัวใบเสร็จ / เลขที่ใบเสร็จ/ปีพ.ศ. / วันที่ เวลา / ตารางรายการ)
 async function makeReceiptPdf({ orgName, title, receiptNo, date, time, rows, notify, kind, payeeName, payeePosition, payerName, payerPosition, payerLabel, payeeLabel, bills }) {
     if (typeof html2canvas === "undefined" || !window.jspdf) {
@@ -264,7 +278,6 @@ async function makeReceiptPdf({ orgName, title, receiptNo, date, time, rows, not
             (rows || []).map((r, i) => `<tr><td style="border:1px solid #bbb;padding:7px;text-align:center;font-size:13px">${i + 1}</td><td style="border:1px solid #bbb;padding:7px;font-size:13px">${r.label || ""}</td><td style="border:1px solid #bbb;padding:7px;text-align:right;font-size:13px">${(Number(r.amount) || 0).toLocaleString("th-TH")}</td></tr>`).join("") +
             `<tr><td colspan="2" style="border:1px solid #bbb;padding:7px;text-align:right;font-weight:800;font-size:13px">รวมทั้งสิ้น</td><td style="border:1px solid #bbb;padding:7px;text-align:right;font-weight:800;font-size:13px">${total.toLocaleString("th-TH")}</td></tr>` +
             `</tbody></table>` +
-            ((bills && bills.length) ? `<div style="margin-top:16px"><div style="font-size:13px;font-weight:700;color:#555;margin-bottom:8px">📎 หลักฐาน/ใบเสร็จจากร้านค้า (${bills.length} รูป)</div><div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-start">${bills.map((b) => `<img src="${b}" style="max-width:330px;max-height:430px;border:1px solid #ccc;border-radius:6px;object-fit:contain" />`).join("")}</div></div>` : "") +
             (payerName || payerPosition ? `<div style="margin-top:44px;text-align:right;font-size:15px">${payerLabel || "ผู้ส่งเงิน"} ..................................................</div>` + (payerName ? `<div style="text-align:right;font-size:14px;margin-top:6px">( ${payerName} )</div>` : "") + (payerPosition ? `<div style="text-align:right;font-size:14px;margin-top:4px">ตำแหน่ง ${payerPosition}</div>` : "") : "") +
             `<div style="margin-top:${payerName || payerPosition ? 40 : 48}px;text-align:right;font-size:15px">${payeeLabel || ("ผู้" + (kind === "out" ? "จ่ายเงิน" : "รับเงิน"))} ..................................................</div>` +
             (payeeName ? `<div style="text-align:right;font-size:14px;margin-top:6px">( ${payeeName} )</div>` : "") +
@@ -1299,7 +1312,7 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc, canEntry = true, lockRo
     const startEditSub = (x) => { setEditSubId(x.id); setSubAmt(String(x.amount || "")); setSubDate(x.date || todayStr()); setSubTime(x.time || nowTime()); setSubNote(x.note || ""); };
     const cancelEditSub = () => { setEditSubId(null); setSubAmt(""); setSubNote(""); };
     const removeSubmit = (id) => ui.run("ลบแล้ว", () => { setDb((p) => ({ ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: (((p.studentIncome || {})["_submits"]) || []).filter((x) => x.id !== id) } })); save(); });
-    const acceptSubmit = (id) => ui.run("ยอมรับเงินแล้ว — ออกใบเสร็จ + แจ้งผู้ดูแล", () => { const sub = submits.find((x) => x.id === id); const amt = sub ? (Number(sub.amount) || 0) : 0; const dref = amt - grand; setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const receiptNo = seq + "/" + buddhistYear(); return { ...p, receiptSeq: seq, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: (((p.studentIncome || {})["_submits"]) || []).map((x) => x.id === id ? { ...x, status: "accepted", acceptedBy: viewer.name || "", acceptedById: viewer.id, acceptedAt: Date.now(), receiptNo } : x) }, financeNotis: [{ id: "fnoti" + Date.now(), room, amount: amt, tableTotal: grand, diff: dref, acceptedBy: viewer.name || "", acceptorRank: myRankNum, date: sub ? sub.date : todayStr(), at: Date.now(), readBy: [] }, ...((p.financeNotis) || [])] }; }); save(); });
+    const acceptSubmit = (id) => ui.run("ยอมรับเงินแล้ว — ออกใบเสร็จ + แจ้งผู้ดูแล", () => { const sub = submits.find((x) => x.id === id); const amt = sub ? (Number(sub.amount) || 0) : 0; const dref = amt - grand; setDb((p) => { const receiptNo = nextReceiptNo(p); return { ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: (((p.studentIncome || {})["_submits"]) || []).map((x) => x.id === id ? { ...x, status: "accepted", acceptedBy: viewer.name || "", acceptedById: viewer.id, acceptedAt: Date.now(), receiptNo } : x) }, financeNotis: [{ id: "fnoti" + Date.now(), room, amount: amt, tableTotal: grand, diff: dref, acceptedBy: viewer.name || "", acceptorRank: myRankNum, date: sub ? sub.date : todayStr(), at: Date.now(), readBy: [] }, ...((p.financeNotis) || [])] }; }); save(); });
     const receiptFor = (x) => { const sender = receiptPersonInfo(db, x.byId); const holder = receiptMoneyHolder(db); makeReceiptPdf({ title: "ใบเสร็จรับเงิน (รายรับนักเรียน)", receiptNo: x.receiptNo, date: x.date, time: x.time, rows: [{ label: "รับเงินห้อง " + x.room + (x.note ? " · " + x.note : ""), amount: x.amount }], notify: ui.notify, payerName: sender.name || x.by || "", payerPosition: sender.pos, payeeName: holder.name, payeePosition: holder.pos }); };
     const diff = submitSum - grand;
     // สิทธิ์กดยอมรับเงิน: แอดมิน หรือ ผู้ดูแล(ลำดับ5)ขึ้นไป · ผู้ช่วย(ลำดับ6)เท่านั้น = กดไม่ได้ (เป็นผู้รวบรวมเงิน)
@@ -1467,7 +1480,7 @@ function LoanManager({ db, setDb, ui, viewer }) {
                     photoId = up.photoId;
                 }
             }
-            setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const receiptNo = seq + "/" + buddhistYear(); return { ...p, receiptSeq: seq, loans: [...(p.loans || []), { id: "L" + Date.now(), date, time, studentId, studentName: fullName(chosen), comps: selComps, deptNames: selDepts.map((d) => d.name), amount: amt, note, photoUrl, photoId, receiptNo, status: "pending", by: viewer.name || "", at: Date.now() }] }; });
+            setDb((p) => { const receiptNo = nextReceiptNo(p); return { ...p, loans: [...(p.loans || []), { id: "L" + Date.now(), date, time, studentId, studentName: fullName(chosen), comps: selComps, deptNames: selDepts.map((d) => d.name), amount: amt, note, photoUrl, photoId, receiptNo, status: "pending", by: viewer.name || "", at: Date.now() }] }; });
             setStudentId("");
             setQ("");
             setSelComps([]);
@@ -1578,6 +1591,46 @@ function LoanManager({ db, setDb, ui, viewer }) {
                 x.receiptNo),
             React.createElement("button", { onClick: () => del(x.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715"))))))));
 }
+function PayerPicker({ label, people, value, onChange, viewerName, allowLogin }) {
+    return (React.createElement("div", { style: { marginBottom: 10 } },
+        React.createElement("div", { style: { fontSize: 13, color: C.muted, marginBottom: 5, fontWeight: 600 } }, label),
+        React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 6 } },
+            allowLogin && viewerName && React.createElement("button", { onClick: () => onChange({ name: viewerName, pos: "ผู้บันทึก (เข้าระบบ)" }), style: { fontSize: 12.5, fontWeight: 700, padding: "6px 12px", borderRadius: 9, cursor: "pointer", border: `1.5px solid ${value && value.name === viewerName ? C.primary : C.line}`, background: value && value.name === viewerName ? C.soft : "#fff", color: value && value.name === viewerName ? C.primaryDark : C.ink } },
+                "\uD83D\uDC64 \u0E09\u0E31\u0E19 (",
+                viewerName,
+                ")"),
+            people.map((p) => { const on = value && String(value.name) === String(p.name) && value.pos === p.pos; return React.createElement("button", { key: p.side + p.id, onClick: () => onChange({ name: p.name, pos: p.pos, id: p.id }), style: { fontSize: 12.5, fontWeight: 700, padding: "6px 12px", borderRadius: 9, cursor: "pointer", border: `1.5px solid ${on ? C.primary : C.line}`, background: on ? C.soft : "#fff", color: on ? C.primaryDark : C.ink } },
+                p.side === "teacher" ? "👩‍🏫" : "🧑‍🎓",
+                " ",
+                p.name,
+                p.pos ? React.createElement("span", { style: { fontSize: 11, color: C.muted, fontWeight: 400 } },
+                    " \u00B7 ",
+                    p.pos) : ""); }),
+            people.length === 0 && !allowLogin && React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1D\u0E48\u0E32\u0E22\u0E01\u0E48\u0E2D\u0E19 \u2014")),
+        value && React.createElement("div", { style: { fontSize: 12, color: "#1e7a4d", marginTop: 6, fontWeight: 700 } },
+            "\u0E40\u0E25\u0E37\u0E2D\u0E01: ",
+            value.name,
+            value.pos ? " · " + value.pos : "")));
+}
+function PayeeSearch({ allPeople, dutyLookup, value, onChange, q, setQ, pos, setPos }) {
+    const matches = q.trim().length >= 1 ? allPeople.filter((p) => p.name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 8) : [];
+    return (React.createElement("div", { style: { marginBottom: 10 } },
+        React.createElement("div", { style: { fontSize: 13, color: C.muted, marginBottom: 5, fontWeight: 600 } }, "\u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19 (\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E0A\u0E37\u0E48\u0E2D\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E04\u0E49\u0E19\u0E2B\u0E32 \u0E2B\u0E23\u0E37\u0E2D\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E2B\u0E21\u0E48)"),
+        React.createElement("input", { value: q, onChange: (e) => { setQ(e.target.value); onChange(null); }, placeholder: "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E0A\u0E37\u0E48\u0E2D\u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19", style: { width: "100%", padding: "9px 12px", borderRadius: 9, border: `1px solid ${C.line}`, fontSize: 13.5 } }),
+        matches.length > 0 && !value && React.createElement("div", { style: { border: `1px solid ${C.line}`, borderRadius: 9, marginTop: 4, overflow: "hidden" } }, matches.map((p) => React.createElement("div", { key: p.side + p.id, onClick: () => { const dp = dutyLookup(p.id, p.side); onChange({ name: p.name, pos: dp }); setQ(p.name); setPos(dp); }, style: { padding: "7px 11px", cursor: "pointer", fontSize: 12.5, borderBottom: `1px solid ${C.line}` } },
+            p.side === "teacher" ? "👩‍🏫" : "🧑‍🎓",
+            " ",
+            p.name,
+            dutyLookup(p.id, p.side) ? React.createElement("span", { style: { fontSize: 11, color: C.muted } },
+                " \u00B7 ",
+                dutyLookup(p.id, p.side)) : ""))),
+        React.createElement("input", { value: pos, onChange: (e) => { setPos(e.target.value); if (q.trim())
+                onChange({ name: q.trim(), pos: e.target.value }); }, placeholder: "\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07 (\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E40\u0E2D\u0E07 \u0E2B\u0E23\u0E37\u0E2D\u0E44\u0E14\u0E49\u0E08\u0E32\u0E01\u0E01\u0E32\u0E23\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E0A\u0E37\u0E48\u0E2D)", style: { width: "100%", padding: "9px 12px", borderRadius: 9, border: `1px solid ${C.line}`, fontSize: 13.5, marginTop: 6 } }),
+        q.trim() && React.createElement("div", { style: { fontSize: 12, color: "#1e7a4d", marginTop: 6, fontWeight: 700 } },
+            "\u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19: ",
+            q.trim(),
+            pos ? " · " + pos : "")));
+}
 function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit, buyerMode }) {
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff", marginBottom: 10 };
     const canApprove = String(viewer.role) === "admin" || (db.org2 || []).some((n) => String(n.personId) === String(viewer.id) && n.money); // แอดมิน หรือ ผู้ถือเงินในผัง
@@ -1612,9 +1665,9 @@ function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit, buyerMode }) 
             ui.notify("ส่งคำขอสร้างใบเสร็จแล้ว — รอแอดมิน/ผู้ถือเงินตรวจและยอมรับ");
             return;
         }
-        const preview = (db.receiptSeq || 0) + 1;
+        const preview = nextReceiptSeq(db);
         const receiptNo = preview + "/" + buddhistYear();
-        setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const ids = new Set(m.ids); return { ...p, receiptSeq: seq, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear(), billUrl: (m.imgs || [])[0], billUrls: m.imgs, payeeReal: m.payeeName, payeePosReal: m.payeePosition } : f) }; });
+        setDb((p) => { const seq = nextReceiptSeq(p); const ids = new Set(m.ids); return { ...p, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear(), billUrl: (m.imgs || [])[0], billUrls: m.imgs, payeeReal: m.payeeName, payeePosReal: m.payeePosition } : f) }; });
         const recorder = receiptPersonInfo(db, picked[0].byId);
         makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน (กองทุนสำรอง)", kind: "out", receiptNo, date: picked[0].date, time: picked[0].time, rows: picked.map((r) => ({ label: r.title + (r.note ? " · " + r.note : ""), amount: r.amount })), notify: ui.notify, payerName: recorder.name, payerLabel: "ผู้จ่ายเงิน", payerPosition: recorder.pos, payeeName: m.payeeName, payeePosition: m.payeePosition, bills: m.imgs });
         setExpModal(null);
@@ -1624,7 +1677,7 @@ function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit, buyerMode }) 
     const approveReq = (req) => { const picked = rows.filter((r) => req.ids.includes(r.id)); if (!picked.length) {
         ui.notify("ไม่พบรายการ (อาจถูกลบ)");
         return;
-    } const imgs = req.imgs || (req.img ? [req.img] : []); const preview = (db.receiptSeq || 0) + 1; const receiptNo = preview + "/" + buddhistYear(); setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const ids = new Set(req.ids); return { ...p, receiptSeq: seq, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear(), billUrl: imgs[0], billUrls: imgs, payeeReal: req.payeeName, payeePosReal: req.payeePosition } : f), fundReceiptReqs: (p.fundReceiptReqs || []).map((x) => x.id === req.id ? { ...x, status: "approved", receiptNo: seq + "/" + buddhistYear(), approvedBy: viewer.name } : x) }; }); const recorder = receiptPersonInfo(db, picked[0].byId); makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน (กองทุนสำรอง)", kind: "out", receiptNo, date: picked[0].date, time: picked[0].time, rows: picked.map((r) => ({ label: r.title + (r.note ? " · " + r.note : ""), amount: r.amount })), notify: ui.notify, payerName: recorder.name, payerLabel: "ผู้จ่ายเงิน", payerPosition: recorder.pos, payeeName: req.payeeName, payeePosition: req.payeePosition, bills: imgs }); ui.notify("ยอมรับและออกใบเสร็จแล้ว"); save(); };
+    } const imgs = req.imgs || (req.img ? [req.img] : []); const preview = nextReceiptSeq(db); const receiptNo = preview + "/" + buddhistYear(); setDb((p) => { const seq = nextReceiptSeq(p); const ids = new Set(req.ids); return { ...p, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear(), billUrl: imgs[0], billUrls: imgs, payeeReal: req.payeeName, payeePosReal: req.payeePosition } : f), fundReceiptReqs: (p.fundReceiptReqs || []).map((x) => x.id === req.id ? { ...x, status: "approved", receiptNo: seq + "/" + buddhistYear(), approvedBy: viewer.name } : x) }; }); const recorder = receiptPersonInfo(db, picked[0].byId); makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน (กองทุนสำรอง)", kind: "out", receiptNo, date: picked[0].date, time: picked[0].time, rows: picked.map((r) => ({ label: r.title + (r.note ? " · " + r.note : ""), amount: r.amount })), notify: ui.notify, payerName: recorder.name, payerLabel: "ผู้จ่ายเงิน", payerPosition: recorder.pos, payeeName: req.payeeName, payeePosition: req.payeePosition, bills: imgs }); ui.notify("ยอมรับและออกใบเสร็จแล้ว"); save(); };
     const rejectReq = (req) => { setDb((p) => ({ ...p, fundReceiptReqs: (p.fundReceiptReqs || []).map((x) => x.id === req.id ? { ...x, status: "rejected", rejectedBy: viewer.name } : x) })); setTimeout(() => window.__forceSave && window.__forceSave(), 300); ui.notify("ปฏิเสธคำขอแล้ว"); };
     const pendingReqs = (db.fundReceiptReqs || []).filter((x) => x.status === "pending");
     useEffect(() => { if (editRec) {
@@ -1643,11 +1696,11 @@ function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit, buyerMode }) 
     const combineReceipt = () => { const picked = rows.filter((r) => selIds.includes(r.id) && r.type !== "out"); if (!picked.length) {
         ui.notify("ติ๊กเลือกรายการรับก่อน");
         return;
-    } setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const receiptNo = seq + "/" + buddhistYear(); const ids = new Set(picked.map((x) => x.id)); const fin = (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo } : f); return { ...p, receiptSeq: seq, finance: fin }; }); const seqPreview = (db.receiptSeq || 0) + 1; makeReceiptPdf({ title: "ใบเสร็จรับเงิน (กองทุนสำรอง)", receiptNo: seqPreview + "/" + buddhistYear(), date: picked[0].date, time: picked[0].time, rows: picked.map((r) => ({ label: r.title + (r.note ? " · " + r.note : ""), amount: r.amount })), notify: ui.notify, payerName: receiptPersonInfo(db, picked[0].byId).name, payerPosition: receiptPersonInfo(db, picked[0].byId).pos, payeeName: receiptMoneyHolder(db).name, payeePosition: receiptMoneyHolder(db).pos }); setSelIds([]); save(); };
+    } setDb((p) => { const seq = nextReceiptSeq(p); const receiptNo = seq + "/" + buddhistYear(); const ids = new Set(picked.map((x) => x.id)); const fin = (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo } : f); return { ...p, finance: fin }; }); const seqPreview = nextReceiptSeq(db); makeReceiptPdf({ title: "ใบเสร็จรับเงิน (กองทุนสำรอง)", receiptNo: seqPreview + "/" + buddhistYear(), date: picked[0].date, time: picked[0].time, rows: picked.map((r) => ({ label: r.title + (r.note ? " · " + r.note : ""), amount: r.amount })), notify: ui.notify, payerName: receiptPersonInfo(db, picked[0].byId).name, payerPosition: receiptPersonInfo(db, picked[0].byId).pos, payeeName: receiptMoneyHolder(db).name, payeePosition: receiptMoneyHolder(db).pos }); setSelIds([]); save(); };
     const issueFundExpenseNo = () => { const picked = rows.filter((r) => selIds.includes(r.id) && r.type === "out"); if (!picked.length) {
         ui.notify("ติ๊กเลือกรายการจ่ายก่อน");
         return;
-    } setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const ids = new Set(picked.map((x) => x.id)); return { ...p, receiptSeq: seq, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear() } : f) }; }); ui.notify("ออกเลขใบเสร็จแล้ว — นำไปเขียนบนใบเสร็จจริง"); setSelIds([]); save(); };
+    } setDb((p) => { const seq = nextReceiptSeq(p); const ids = new Set(picked.map((x) => x.id)); return { ...p, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear() } : f) }; }); ui.notify("ออกเลขใบเสร็จแล้ว — นำไปเขียนบนใบเสร็จจริง"); setSelIds([]); save(); };
     const selInc = selIds.filter((id) => (rows.find((r) => r.id === id) || {}).type !== "out").length;
     const selExp = selIds.filter((id) => (rows.find((r) => r.id === id) || {}).type === "out").length;
     const inSum = rows.filter((r) => r.type !== "out").reduce((s, r) => s + (Number(r.amount) || 0), 0);
@@ -1894,8 +1947,7 @@ function RefundManager({ db, setDb, ui, canEdit, lockRoom = "", viewer }) {
                     return null;
                 const roomManager = (rm) => { const st = (db.students || []).filter((s) => `${s.grade}/${s.room}` === rm); const mgrNode = (db.org2 || []).find((n) => (n.manager || /ผู้จัดการ/.test((((db.duties || []).find((z) => String(z.id) === String(n.dutyId)) || {}).name || ""))) && st.some((s) => String(s.id) === String(n.personId))); if (!mgrNode)
                     return { name: "", pos: "นักเรียน · ผู้จัดการ" }; const info = receiptPersonInfo(db, mgrNode.personId); return info; };
-                const issueRoomReceipt = (rm, amount) => { const holder = receiptMoneyHolder(db); const mgr = roomManager(rm); const preview = (db.receiptSeq || 0) + 1; const receiptNo = preview + "/" + buddhistYear(); if (setDb) {
-                    setDb((p) => ({ ...p, receiptSeq: (p.receiptSeq || 0) + 1 }));
+                const issueRoomReceipt = (rm, amount) => { const holder = receiptMoneyHolder(db); const mgr = roomManager(rm); const receiptNo = nextReceiptNo(db); if (setDb) {
                     setTimeout(() => window.__forceSave && window.__forceSave(), 300);
                 } makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน (เฉลี่ยคืน ห้อง " + rm + ")", kind: "out", receiptNo, date: todayStr(), time: nowHM(), rows: [{ label: "เงินเฉลี่ยคืนสำหรับนักเรียนห้อง " + rm, amount }], notify: ui.notify, payerName: holder.name, payerLabel: "ผู้จ่ายเงิน", payerPosition: holder.pos, payeeName: mgr.name, payeeLabel: "ผู้รับเงิน (ผู้จัดการห้อง)", payeePosition: mgr.pos }); };
                 return (React.createElement("div", { style: { marginBottom: 14 } },
@@ -1996,8 +2048,55 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     const dutyRoleOf = (dutyId) => { const d = (db.duties || []).find((z) => String(z.id) === String(dutyId)); return d ? (d.role || "") : ""; };
     const isFinanceManager = finNodes.some((n) => { const role = dutyRoleOf(n.dutyId); return role === "manager" || (!role && /ผู้จัดการ/.test(duty2Name(n.dutyId))); });
     const finLockRoom = (isFinanceManager && String(viewer.role) !== "admin" && !financeMoneyHolder && viewerRoom) ? viewerRoom : "";
-    // ผู้ซื้อ = มีตำแหน่งชื่อ "ผู้ซื้อ" ในฝ่าย/รายการการเงิน · สร้างรายการซื้อได้เมื่อแอดมิน/ผู้ถือเงินเปิดสวิตช์
-    const isBuyer = finNodes.some((n) => { const role = dutyRoleOf(n.dutyId); return role === "buyer" || (!role && /ผู้ซื้อ/.test(duty2Name(n.dutyId))); });
+    // รายชื่อคนในผัง org2 ของฝ่าย/รายการที่เลือก (สำหรับติ๊กเลือกผู้ส่ง/จ่ายเงิน) — คืน {id, side, name, pos}
+    const orgPeopleOfDept = (deptKey) => {
+        if (!deptKey)
+            return [];
+        const out = [];
+        const seen = new Set();
+        const dutyName = (id) => { const d = (db.duties || []).find((x) => String(x.id) === String(id)); return d ? d.name : ""; };
+        let compIds = null, deptIdMatch = null;
+        if (String(deptKey).startsWith("D:")) {
+            const dep = (db.departments || []).find((x) => "D:" + x.id === String(deptKey));
+            if (dep) {
+                compIds = (dep.comps || []).map(String);
+                deptIdMatch = dep.id;
+            }
+        }
+        else
+            compIds = [String(deptKey)];
+        (db.org2 || []).forEach((n) => {
+            const match = (n.compId && compIds && compIds.includes(String(n.compId))) || (deptIdMatch && String(n.deptId) === String(deptIdMatch));
+            if (!match || !n.personId)
+                return;
+            const key = n.side + ":" + n.personId;
+            if (seen.has(key))
+                return;
+            seen.add(key);
+            const p = (n.side === "teacher" ? db.teachers : db.students).find((x) => String(x.id) === String(n.personId)) || [...(db.teachers || []), ...(db.students || [])].find((x) => String(x.id) === String(n.personId));
+            if (p)
+                out.push({ id: p.id, side: n.side, name: fullName(p), pos: dutyName(n.dutyId) || "" });
+        });
+        return out;
+    };
+    const allPeople = () => [...(db.teachers || []).map((p) => ({ id: p.id, side: "teacher", name: fullName(p) })), ...(db.students || []).map((p) => ({ id: p.id, side: "student", name: fullName(p) }))];
+    const dutyLookup = (pid, side) => { const n = (db.org2 || []).find((x) => String(x.personId) === String(pid) && x.side === side); if (!n)
+        return ""; const d = (db.duties || []).find((z) => String(z.id) === String(n.dutyId)); return d ? d.name : ""; };
+    const [payer, setPayer] = useState(null); // ผู้ส่ง/จ่ายเงิน {name,pos}
+    const [payee, setPayee] = useState(null); // ผู้รับเงิน {name,pos} (รายจ่าย)
+    const [payeeQ, setPayeeQ] = useState("");
+    const [payeePos, setPayeePos] = useState("");
+    // เฟส 2/3: อนุมัติรายจ่าย (กรรมการฝ่ายการเงินที่เข้าระบบ) + popup + เปิดบิล 5 วิ
+    const pendingExpenses = (db.finance || []).filter((f) => f.type === "out" && f.payStatus === "pending");
+    const [approveModal, setApproveModal] = useState(false); // popup แจ้งเตือน
+    const [approveTarget, setApproveTarget] = useState(null); // รายการที่กำลังตรวจ
+    const [billOpenedAt, setBillOpenedAt] = useState(0); // เวลาเปิดบิล
+    const [billTick, setBillTick] = useState(0);
+    useEffect(() => { if (!billOpenedAt)
+        return; const t = setInterval(() => setBillTick(Math.max(0, 5 - Math.floor((Date.now() - billOpenedAt) / 1000))), 250); return () => clearInterval(t); }, [billOpenedAt]);
+    const approveExpense = (f) => ui.run("อนุมัติรายจ่ายแล้ว — ออกใบเสร็จ", () => { commit((p) => ({ ...p, finance: (p.finance || []).map((x) => x.id === f.id ? { ...x, payStatus: "approved", payApprovedBy: viewer.name || "", payApprovedAt: Date.now() } : x) })); ui.notify("อนุมัติรายจ่าย + ออกใบเสร็จเลขที่ " + (f.receiptNo || "-") + " แล้ว"); setApproveTarget(null); setBillOpenedAt(0); });
+    useEffect(() => { if (isFinance && pendingExpenses.length > 0)
+        setApproveModal(true); }, [isFinance, pendingExpenses.length]);
     const fundBuyEnabled = !!(db.settings && db.settings.fundBuyEnabled);
     const canBuy = fundBuyEnabled && isBuyer && !finFull; // ผู้ซื้อ (เมื่อเปิดสิทธิ์) เห็นเฉพาะแท็บสร้างรายการซื้อ
     const canEditRow = (f) => isFinance || isMoneyHolder; // ลบ/แก้ไข: สมาชิกฝ่ายการเงินและบัญชี (ทุกตำแหน่ง) หรือ ผู้ถือเงิน/แอดมิน
@@ -2082,9 +2181,8 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             return;
         }
         const total = lines.reduce((s, l) => s + l.amount, 0);
-        const preview = (db.receiptSeq || 0) + 1, receiptNo = preview + "/" + buddhistYear();
         ui.run("บันทึกคืนเงิน + ออกใบเสร็จแล้ว (กดปุ่ม ⬇ ใบเสร็จ ในรายการเพื่อดาวน์โหลด)", () => {
-            commit((p) => ({ ...p, receiptSeq: (p.receiptSeq || 0) + 1, finance: [...(p.finance || []), { id: "fn" + Date.now() + Math.random().toString(36).slice(2, 6), dept: form.dept, type: "in", kind: "refund", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), receiptNo, by: viewer.id, byName: viewer.name || "", at: Date.now() }] }));
+            commit((p) => ({ ...p, finance: [...(p.finance || []), { id: "fn" + Date.now() + Math.random().toString(36).slice(2, 6), dept: form.dept, type: "in", kind: "refund", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), receiptNo: nextReceiptNo(p), by: viewer.id, byName: viewer.name || "", at: Date.now() }] }));
             resetRef();
             setForm((p) => ({ ...p, title: "", note: "" }));
         });
@@ -2110,10 +2208,8 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             setExpNoModal(true);
             return;
         } // ออกแล้ว แสดงเลขเดิม
-        const preview = (db.receiptSeq || 0) + 1, receiptNo = preview + "/" + buddhistYear();
-        commit((p) => ({ ...p, receiptSeq: (p.receiptSeq || 0) + 1 }));
-        setExpReceiptNo(receiptNo);
-        setExpNoModal(true);
+        setExpReceiptNo(nextReceiptNo(db));
+        setExpNoModal(true); // แสดงเลขว่างถัดไป (ยังไม่จอง — ถือว่าใช้จริงเมื่อบันทึกลงรายการ)
     };
     const pickExpBill = (file) => { if (!file)
         return; const raw = () => { const r = new FileReader(); r.onload = () => setExpBill(r.result); r.readAsDataURL(file); }; try {
@@ -2151,14 +2247,17 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             return;
         } // บังคับแนบใบเสร็จ
         const total = lines.reduce((s, l) => s + l.amount, 0);
-        const receiptNo = expReceiptNo || (((db.receiptSeq || 0) + 1) + "/" + buddhistYear());
         const fid = "fn" + Date.now() + Math.random().toString(36).slice(2, 6);
         // บันทึกทันที (แนบรูปแบบ local ไว้ก่อน) — ไม่รอ upload ที่อาจช้า/ล้มเหลว
-        commit((p) => ({ ...p, receiptSeq: expReceiptNo ? (p.receiptSeq || 0) : (p.receiptSeq || 0) + 1, finance: [...(p.finance || []), { id: fid, dept: form.dept, type: "out", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), receiptNo, billDataUrl: expBill, billUrl: "", billId: "", by: viewer.id, byName: viewer.name || "", at: Date.now() }] }));
-        ui.notify("บันทึกรายจ่ายแล้ว ✓ (กำลังอัปโหลดใบเสร็จเข้าคลังเบื้องหลัง)");
+        commit((p) => ({ ...p, finance: [...(p.finance || []), { id: fid, dept: form.dept, type: "out", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), receiptNo: expReceiptNo || nextReceiptNo(p), billDataUrl: expBill, billUrl: "", billId: "", payerName: payer ? payer.name : "", payerPos: payer ? payer.pos : "", payeeName: payee ? payee.name : (payeeQ.trim() || ""), payeePos: payee ? payee.pos : payeePos, payStatus: "pending", by: viewer.id, byName: viewer.name || "", at: Date.now() }] }));
+        ui.notify("บันทึกรายจ่ายแล้ว — รอกรรมการฝ่ายการเงินอนุมัติ (กำลังอัปโหลดใบเสร็จ)");
         reset();
         resetExp();
         setForm((p) => ({ ...p, title: "", note: "" }));
+        setPayer(null);
+        setPayee(null);
+        setPayeeQ("");
+        setPayeePos("");
         // อัปโหลดรูปเบื้องหลัง แล้วอัปเดต billUrl ในรายการเดิม (ถ้าสำเร็จ)
         (async () => {
             try {
@@ -2193,11 +2292,12 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             return;
         }
         const total = lines.reduce((s, l) => s + l.amount, 0);
-        const preview = (db.receiptSeq || 0) + 1, receiptNo = preview + "/" + buddhistYear();
         ui.run("บันทึกรายรับ + ออกใบเสร็จแล้ว (กดปุ่ม ⬇ ใบเสร็จ ในรายการเพื่อดาวน์โหลด)", () => {
-            commit((p) => ({ ...p, receiptSeq: (p.receiptSeq || 0) + 1, finance: [...(p.finance || []), { id: "fn" + Date.now() + Math.random().toString(36).slice(2, 6), dept: form.dept, type: "in", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), receiptNo, by: viewer.id, byName: viewer.name || "", at: Date.now() }] }));
+            commit((p) => ({ ...p, finance: [...(p.finance || []), { id: "fn" + Date.now() + Math.random().toString(36).slice(2, 6), dept: form.dept, type: "in", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), receiptNo: nextReceiptNo(p), payerName: payer ? payer.name : "", payerPos: payer ? payer.pos : "", payeeName: payee ? payee.name : "", payeePos: payee ? payee.pos : "", by: viewer.id, byName: viewer.name || "", at: Date.now() }] }));
             resetInc();
             setForm((p) => ({ ...p, title: "", note: "" }));
+            setPayer(null);
+            setPayee(null);
         });
     };
     const startEdit = (f) => { if (String(f.dept) === "FUND") {
@@ -2221,11 +2321,11 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     const combineIncomeReceipt = () => { const picked = selObjs().filter((r) => r.type !== "out"); if (!picked.length) {
         ui.notify("ติ๊กเลือกรายการรับก่อน");
         return;
-    } const preview = (db.receiptSeq || 0) + 1, receiptNo = preview + "/" + buddhistYear(); setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const ids = new Set(picked.map((x) => x.id)); return { ...p, receiptSeq: seq, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear() } : f) }; }); const recorder = receiptPersonInfo(db, picked[0].byId); const holder = receiptMoneyHolder(db); makeReceiptPdf({ title: "ใบเสร็จรับเงิน", receiptNo, date: picked[0].date, time: picked[0].time, rows: picked.map((r) => ({ label: r.title + " (" + compName(r.dept) + ")" + (r.note ? " · " + r.note : ""), amount: r.amount })), notify: ui.notify, payerName: recorder.name, payerPosition: recorder.pos, payeeName: holder.name, payeePosition: holder.pos }); setSelRows([]); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
+    } const preview = nextReceiptSeq(db), receiptNo = preview + "/" + buddhistYear(); setDb((p) => { const seq = nextReceiptSeq(p); const ids = new Set(picked.map((x) => x.id)); return { ...p, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear() } : f) }; }); const recorder = receiptPersonInfo(db, picked[0].byId); const holder = receiptMoneyHolder(db); makeReceiptPdf({ title: "ใบเสร็จรับเงิน", receiptNo, date: picked[0].date, time: picked[0].time, rows: picked.map((r) => ({ label: r.title + " (" + compName(r.dept) + ")" + (r.note ? " · " + r.note : ""), amount: r.amount })), notify: ui.notify, payerName: recorder.name, payerPosition: recorder.pos, payeeName: holder.name, payeePosition: holder.pos }); setSelRows([]); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
     const issueExpenseNo = () => { const picked = selObjs().filter((r) => r.type === "out"); if (!picked.length) {
         ui.notify("ติ๊กเลือกรายการจ่ายก่อน");
         return;
-    } setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const ids = new Set(picked.map((x) => x.id)); return { ...p, receiptSeq: seq, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear() } : f) }; }); ui.notify("ออกเลขใบเสร็จแล้ว — นำเลขไปเขียนบนใบเสร็จจริง"); setSelRows([]); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
+    } setDb((p) => { const seq = nextReceiptSeq(p); const ids = new Set(picked.map((x) => x.id)); return { ...p, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear() } : f) }; }); ui.notify("ออกเลขใบเสร็จแล้ว — นำเลขไปเขียนบนใบเสร็จจริง"); setSelRows([]); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
     const bundleBills = async () => { const picked = selObjs().filter((r) => r.type === "out" && r.billUrl); if (!picked.length) {
         ui.notify("ต้องติ๊กรายการจ่ายที่มีรูปบิลก่อน (แนบบิลก่อนสร้าง PDF)");
         return;
@@ -2276,7 +2376,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     const doIssueExpenseG = () => { const m = expModalG; if (!m || !(m.imgs || []).length) {
         ui.notify("ต้องแนบรูปใบเสร็จตัวจริงอย่างน้อย 1 รูปก่อน");
         return;
-    } const picked = (db.finance || []).filter((r) => m.ids.includes(r.id)); const preview = (db.receiptSeq || 0) + 1; const receiptNo = preview + "/" + buddhistYear(); setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const ids = new Set(m.ids); return { ...p, receiptSeq: seq, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear(), billUrl: (m.imgs || [])[0], billUrls: m.imgs, payeeReal: m.payeeName, payeePosReal: m.payeePosition } : f) }; }); const recorder = receiptPersonInfo(db, picked[0].byId); makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน", kind: "out", receiptNo, date: picked[0].date, time: picked[0].time, rows: picked.map((r) => ({ label: r.title + " (" + compName(r.dept) + ")" + (r.note ? " · " + r.note : ""), amount: r.amount })), notify: ui.notify, payerName: recorder.name, payerLabel: "ผู้จ่ายเงิน", payerPosition: recorder.pos, payeeName: m.payeeName, payeePosition: m.payeePosition, bills: m.imgs }); setExpModalG(null); setSelRows([]); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
+    } const picked = (db.finance || []).filter((r) => m.ids.includes(r.id)); const preview = nextReceiptSeq(db); const receiptNo = preview + "/" + buddhistYear(); setDb((p) => { const seq = nextReceiptSeq(p); const ids = new Set(m.ids); return { ...p, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear(), billUrl: (m.imgs || [])[0], billUrls: m.imgs, payeeReal: m.payeeName, payeePosReal: m.payeePosition } : f) }; }); const recorder = receiptPersonInfo(db, picked[0].byId); makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน", kind: "out", receiptNo, date: picked[0].date, time: picked[0].time, rows: picked.map((r) => ({ label: r.title + " (" + compName(r.dept) + ")" + (r.note ? " · " + r.note : ""), amount: r.amount })), notify: ui.notify, payerName: recorder.name, payerLabel: "ผู้จ่ายเงิน", payerPosition: recorder.pos, payeeName: m.payeeName, payeePosition: m.payeePosition, bills: m.imgs }); setExpModalG(null); setSelRows([]); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
     const selHasIncome = selObjs().some((r) => r.type !== "out");
     const selHasExpense = selObjs().some((r) => r.type === "out");
     const rowKey = (f) => (f.date || "") + " " + (f.time || "00:00") + " " + (f.at || 0);
@@ -2397,9 +2497,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 React.createElement(Field, { label: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", value: form.note, onChange: (v) => setForm((p) => ({ ...p, note: v })), placeholder: "\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E40\u0E15\u0E34\u0E21 (\u0E16\u0E49\u0E32\u0E21\u0E35)" }),
                 React.createElement("div", { style: { fontSize: 11.5, color: C.muted, margin: "2px 0 8px" } },
                     "\uD83D\uDCA1 \u0E04\u0E37\u0E19\u0E40\u0E07\u0E34\u0E19 = \u0E40\u0E07\u0E34\u0E19\u0E40\u0E02\u0E49\u0E32 \u00B7 \u0E01\u0E14\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E41\u0E25\u0E49\u0E27\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E43\u0E2B\u0E49 (\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48 ",
-                    (db.receiptSeq || 0) + 1,
-                    "/",
-                    buddhistYear(),
+                    nextReceiptNo(db),
                     ")"),
                 React.createElement("div", { style: { display: "flex", gap: 8 } },
                     React.createElement(Btn, { onClick: saveRefund }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 + \u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08")))) : tab === "addout" && !editId ? (React.createElement(React.Fragment, null,
@@ -2413,6 +2511,8 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, padding: "10px 12px", borderRadius: 10, background: "#fbeeee", border: "1px solid #e6c3c3" } },
                     React.createElement("span", { style: { fontWeight: 700, color: "#c0392b" } }, "\u0E23\u0E27\u0E21\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34"),
                     React.createElement("span", { style: { fontWeight: 800, color: "#c0392b", fontSize: 16 } }, money(expTotal))),
+                React.createElement(PayerPicker, { label: "\u0E1C\u0E39\u0E49\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19 (\u0E15\u0E34\u0E4A\u0E01\u0E0A\u0E37\u0E48\u0E2D\u0E08\u0E32\u0E01\u0E1C\u0E31\u0E07\u0E1D\u0E48\u0E32\u0E22 \u0E2B\u0E23\u0E37\u0E2D \u0E09\u0E31\u0E19)", people: orgPeopleOfDept(form.dept), value: payer, onChange: setPayer, viewerName: viewer.name, allowLogin: true }),
+                React.createElement(PayeeSearch, { allPeople: allPeople(), dutyLookup: dutyLookup, value: payee, onChange: setPayee, q: payeeQ, setQ: setPayeeQ, pos: payeePos, setPos: setPayeePos }),
                 React.createElement("div", { style: { display: "flex", gap: 8, margin: "10px 0" } },
                     React.createElement("button", { onClick: issueExpReceiptNo, style: { flex: 1, padding: "10px", borderRadius: 10, border: "1.5px solid #2f9e6b", background: "#fff", color: "#1e7a4d", fontWeight: 800, fontSize: 13.5, cursor: "pointer" } }, expReceiptNo ? `เลขที่ ${expReceiptNo}` : "ออกเลขใบเสร็จ"),
                     React.createElement("label", { style: { flex: 1, padding: "10px", borderRadius: 10, border: `1.5px solid ${expBill ? "#2f9e6b" : "#2f9e6b"}`, background: expBill ? "#eefaf2" : "#fff", color: "#1e7a4d", fontWeight: 800, fontSize: 13.5, cursor: "pointer", textAlign: "center" } },
@@ -2435,14 +2535,15 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10, padding: "10px 12px", borderRadius: 10, background: "#eefaf2", border: "1px solid #bfe6cf" } },
                     React.createElement("span", { style: { fontWeight: 700, color: "#1e7a4d" } }, "\u0E23\u0E27\u0E21\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34"),
                     React.createElement("span", { style: { fontWeight: 800, color: "#1e7a4d", fontSize: 16 } }, money(incTotal))),
+                React.createElement(PayerPicker, { label: "\u0E1C\u0E39\u0E49\u0E2A\u0E48\u0E07\u0E40\u0E07\u0E34\u0E19 (\u0E15\u0E34\u0E4A\u0E01\u0E0A\u0E37\u0E48\u0E2D\u0E08\u0E32\u0E01\u0E1C\u0E31\u0E07\u0E1D\u0E48\u0E32\u0E22 \u0E2B\u0E23\u0E37\u0E2D \u0E09\u0E31\u0E19)", people: orgPeopleOfDept(form.dept), value: payer, onChange: setPayer, viewerName: viewer.name, allowLogin: true }),
+                String(viewer.role) === "admin" && React.createElement(PayerPicker, { label: "\u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19 (\u0E41\u0E2D\u0E14\u0E21\u0E34\u0E19: \u0E15\u0E34\u0E4A\u0E01\u0E0A\u0E37\u0E48\u0E2D\u0E08\u0E32\u0E01\u0E1C\u0E31\u0E07\u0E1D\u0E48\u0E32\u0E22)", people: orgPeopleOfDept(form.dept), value: payee, onChange: setPayee, viewerName: "", allowLogin: false }),
+                String(viewer.role) !== "admin" && React.createElement("div", { style: { fontSize: 11.5, color: C.muted, marginBottom: 8 } }, "\u2139\uFE0F \u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19 = \u0E1C\u0E39\u0E49\u0E16\u0E37\u0E2D\u0E40\u0E07\u0E34\u0E19 (\u0E15\u0E32\u0E21\u0E1C\u0E31\u0E07) \u0E08\u0E30\u0E41\u0E2A\u0E14\u0E07\u0E43\u0E19\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34"),
                 React.createElement(Field, { label: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48", type: "date", value: form.date, onChange: (v) => setForm((p) => ({ ...p, date: v })) }),
                 React.createElement(Field, { label: "\u0E40\u0E27\u0E25\u0E32", type: "time", value: form.time, onChange: (v) => setForm((p) => ({ ...p, time: v })) }),
                 React.createElement(Field, { label: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", value: form.note, onChange: (v) => setForm((p) => ({ ...p, note: v })), placeholder: "\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E40\u0E15\u0E34\u0E21 (\u0E16\u0E49\u0E32\u0E21\u0E35)" }),
                 React.createElement("div", { style: { fontSize: 11.5, color: C.muted, margin: "2px 0 8px" } },
                     "\uD83D\uDCA1 \u0E01\u0E14\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E41\u0E25\u0E49\u0E27\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19\u0E43\u0E2B\u0E49\u0E17\u0E31\u0E19\u0E17\u0E35 (\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48 ",
-                    (db.receiptSeq || 0) + 1,
-                    "/",
-                    buddhistYear(),
+                    nextReceiptNo(db),
                     ")"),
                 React.createElement("div", { style: { display: "flex", gap: 8 } },
                     React.createElement(Btn, { onClick: saveIncomeReceipt }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 + \u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08")))) : (React.createElement(React.Fragment, null,
@@ -2469,17 +2570,66 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 React.createElement("div", { style: { fontSize: 13, color: C.muted, lineHeight: 1.6 } }, "\u0E01\u0E14\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E25\u0E49\u0E27\u0E16\u0E49\u0E32\u0E44\u0E21\u0E48\u0E41\u0E19\u0E1A\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E44\u0E21\u0E48\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 \u00B7 \u0E01\u0E23\u0E38\u0E13\u0E32\u0E19\u0E33\u0E40\u0E25\u0E02\u0E19\u0E35\u0E49\u0E40\u0E02\u0E35\u0E22\u0E19\u0E25\u0E07\u0E1A\u0E19\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 \u0E41\u0E25\u0E30\u0E02\u0E35\u0E14\u0E40\u0E2A\u0E49\u0E19\u0E14\u0E49\u0E27\u0E22\u0E1B\u0E32\u0E01\u0E01\u0E32\u0E41\u0E14\u0E07\u0E43\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23 \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2A\u0E48\u0E07\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u0E01\u0E48\u0E2D\u0E19\u0E16\u0E48\u0E32\u0E22\u0E23\u0E39\u0E1B\u0E41\u0E19\u0E1A"),
                 React.createElement("div", { style: { marginTop: 14 } },
                     React.createElement(Btn, { onClick: () => setExpWarnModal(false) }, "\u0E40\u0E02\u0E49\u0E32\u0E43\u0E08\u0E41\u0E25\u0E49\u0E27")))),
+        approveModal && isFinance && pendingExpenses.length > 0 && !approveTarget && React.createElement(Modal, { onClose: () => setApproveModal(false) },
+            React.createElement("div", { style: { padding: 20, textAlign: "center" } },
+                React.createElement("div", { style: { fontSize: 34, marginBottom: 6 } }, "\uD83D\uDD14"),
+                React.createElement("div", { style: { fontSize: 15, fontWeight: 800, color: "#c0392b", marginBottom: 8 } },
+                    "\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19\u0E23\u0E2D\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34 (",
+                    pendingExpenses.length,
+                    ")"),
+                React.createElement("div", { style: { fontSize: 13, color: C.muted, lineHeight: 1.6, marginBottom: 12 } }, "\u0E01\u0E23\u0E38\u0E13\u0E32\u0E01\u0E14\u0E14\u0E39\u0E1A\u0E34\u0E25 \u0E40\u0E17\u0E35\u0E22\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19\u0E43\u0E2B\u0E49\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E48\u0E2D\u0E19\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34\u0E23\u0E32\u0E22\u0E08\u0E48\u0E32\u0E22\u0E17\u0E35\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07"),
+                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, pendingExpenses.map((f) => (React.createElement("div", { key: f.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderRadius: 10, border: `1px solid ${C.line}`, textAlign: "left" } },
+                    React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                        React.createElement("div", { style: { fontWeight: 700, color: C.ink, fontSize: 13.5 } },
+                            f.title,
+                            " \u00B7 ",
+                            money(f.amount)),
+                        React.createElement("div", { style: { fontSize: 11.5, color: C.muted } },
+                            compName(f.dept),
+                            " \u00B7 \u0E08\u0E48\u0E32\u0E22\u0E42\u0E14\u0E22 ",
+                            f.payerName || "-",
+                            " \u00B7 \uD83E\uDDFE ",
+                            f.receiptNo)),
+                    React.createElement(Btn, { small: true, onClick: () => { setApproveTarget(f); setBillOpenedAt(0); } }, "\u0E15\u0E23\u0E27\u0E08\u0E2A\u0E2D\u0E1A"))))),
+                React.createElement("div", { style: { marginTop: 14 } },
+                    React.createElement(Btn, { variant: "ghost", onClick: () => setApproveModal(false) }, "\u0E1B\u0E34\u0E14 (\u0E44\u0E27\u0E49\u0E17\u0E35\u0E2B\u0E25\u0E31\u0E07)")))),
+        approveTarget && React.createElement(Modal, { onClose: () => { setApproveTarget(null); setBillOpenedAt(0); }, wide: true },
+            React.createElement("div", { style: { padding: 20 } },
+                React.createElement("div", { style: { fontSize: 15, fontWeight: 800, color: C.ink, marginBottom: 6 } },
+                    "\u0E15\u0E23\u0E27\u0E08\u0E2A\u0E2D\u0E1A\u0E23\u0E32\u0E22\u0E08\u0E48\u0E32\u0E22 \u00B7 \uD83E\uDDFE ",
+                    approveTarget.receiptNo),
+                React.createElement("div", { style: { fontSize: 13, color: C.muted, marginBottom: 4 } },
+                    compName(approveTarget.dept),
+                    " \u00B7 \u0E08\u0E48\u0E32\u0E22\u0E42\u0E14\u0E22 ",
+                    approveTarget.payerName || "-",
+                    approveTarget.payerPos ? " (" + approveTarget.payerPos + ")" : "",
+                    approveTarget.payeeName ? " → รับโดย " + approveTarget.payeeName : ""),
+                React.createElement("div", { style: { background: "#faf9ff", border: `1px solid ${C.line}`, borderRadius: 10, padding: 10, margin: "8px 0" } },
+                    (approveTarget.items || [{ label: approveTarget.title, amount: approveTarget.amount }]).map((it, i) => React.createElement("div", { key: i, style: { display: "flex", justifyContent: "space-between", fontSize: 13, padding: "2px 0" } },
+                        React.createElement("span", null, it.label),
+                        React.createElement("span", { style: { fontWeight: 700 } }, money(it.amount)))),
+                    React.createElement("div", { style: { display: "flex", justifyContent: "space-between", borderTop: `1px solid ${C.line}`, marginTop: 6, paddingTop: 6, fontWeight: 800, color: "#c0392b" } },
+                        React.createElement("span", null, "\u0E23\u0E27\u0E21"),
+                        React.createElement("span", null, money(approveTarget.amount)))),
+                (approveTarget.billDataUrl || approveTarget.billUrl) ? React.createElement("a", { href: approveTarget.billUrl || approveTarget.billDataUrl, target: "_blank", rel: "noreferrer", onClick: () => { if (!billOpenedAt)
+                        setBillOpenedAt(Date.now()); }, style: { display: "block", textAlign: "center", padding: "10px", borderRadius: 10, border: "1.5px solid #2f9e6b", background: "#eefaf2", color: "#1e7a4d", fontWeight: 800, fontSize: 14, textDecoration: "none", marginBottom: 10 } }, "\uD83E\uDDFE \u0E01\u0E14\u0E40\u0E1B\u0E34\u0E14\u0E1A\u0E34\u0E25\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E15\u0E23\u0E27\u0E08\u0E2A\u0E2D\u0E1A") : React.createElement("div", { style: { fontSize: 12.5, color: "#c0392b", marginBottom: 10 } }, "\u26A0 \u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E39\u0E1B\u0E1A\u0E34\u0E25\u0E41\u0E19\u0E1A"),
+                billOpenedAt > 0 && billTick > 0 && React.createElement("div", { style: { textAlign: "center", fontSize: 13, color: "#b3762f", marginBottom: 8 } },
+                    "\u0E42\u0E1B\u0E23\u0E14\u0E15\u0E23\u0E27\u0E08\u0E1A\u0E34\u0E25... \u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E44\u0E14\u0E49\u0E43\u0E19 ",
+                    billTick,
+                    " \u0E27\u0E34\u0E19\u0E32\u0E17\u0E35"),
+                React.createElement(Btn, { onClick: () => approveExpense(approveTarget), disabled: !billOpenedAt || billTick > 0 }, !billOpenedAt ? "กดเปิดบิลก่อน" : billTick > 0 ? `รอ ${billTick} วิ...` : "✓ ยืนยันรายจ่ายจริง + ออกใบเสร็จ"),
+                React.createElement("div", { style: { marginTop: 8 } },
+                    React.createElement(Btn, { variant: "ghost", onClick: () => { setApproveTarget(null); setBillOpenedAt(0); } }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01")))),
         (tab === "addin" || tab === "addout") && finFull && (() => {
             const wantOut = tab === "addout";
             const mine = (db.finance || []).filter((f) => String(f.dept) !== "FUND" && (wantOut ? f.type === "out" : f.type === "in") && deptMatch(f)).slice().sort((a, b) => (String(b.date) + (b.time || "") + b.at).localeCompare(String(a.date) + (a.time || "") + a.at)).slice(0, 50);
             const sum = mine.reduce((s, f) => s + (Number(f.amount) || 0), 0);
             const dl = (f) => { if (wantOut) {
-                const rec = receiptPersonInfo(db, f.byId);
-                makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน · " + f.title, kind: "out", receiptNo: f.receiptNo, date: f.date, time: f.time, rows: (f.items && f.items.length ? f.items : [{ label: f.title, amount: f.amount }]), notify: ui.notify, payerName: rec.name, payerLabel: "ผู้จ่ายเงิน", payerPosition: rec.pos, bills: (f.billUrls && f.billUrls.length ? f.billUrls : (f.billUrl ? [f.billUrl] : (f.billDataUrl ? [f.billDataUrl] : []))) });
+                makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน · " + f.title, kind: "out", receiptNo: f.receiptNo, date: f.date, time: f.time, rows: (f.items && f.items.length ? f.items : [{ label: f.title, amount: f.amount }]), notify: ui.notify, payerName: f.payerName || "", payerLabel: "ผู้จ่ายเงิน", payerPosition: f.payerPos || "", payeeName: f.payeeName || "", payeeLabel: "ผู้รับเงิน", payeePosition: f.payeePos || "" });
             }
             else {
                 const holder = receiptMoneyHolder(db);
-                makeReceiptPdf({ title: "ใบเสร็จรับเงิน · " + f.title, receiptNo: f.receiptNo, date: f.date, time: f.time, rows: (f.items && f.items.length ? f.items : [{ label: f.title, amount: f.amount }]), notify: ui.notify, payeeName: holder.name, payeePosition: holder.pos });
+                makeReceiptPdf({ title: "ใบเสร็จรับเงิน · " + f.title, receiptNo: f.receiptNo, date: f.date, time: f.time, rows: (f.items && f.items.length ? f.items : [{ label: f.title, amount: f.amount }]), notify: ui.notify, payerName: f.payerName || "", payerPosition: f.payerPos || "", payeeName: f.payeeName || holder.name, payeePosition: f.payeePos || holder.pos });
             } };
             return (React.createElement(Card, { style: { padding: 16, marginTop: 12 } },
                 React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 } },
@@ -2650,10 +2800,13 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                             React.createElement("div", { style: { fontWeight: 800, fontSize: 16, color: f.type === "out" ? "#c0392b" : "#2f9e6b" } },
                                 f.type === "out" ? "-" : "+",
                                 money(f.amount)),
-                            f.receiptNo && f.type !== "out" && React.createElement("button", { onClick: () => { const holder = receiptMoneyHolder(db); makeReceiptPdf({ title: "ใบเสร็จรับเงิน · " + f.title, receiptNo: f.receiptNo, date: f.date, time: f.time, rows: (f.items && f.items.length ? f.items : [{ label: f.title + " (" + compName(f.dept) + ")" + (f.note ? " · " + f.note : ""), amount: f.amount }]), notify: ui.notify, payeeName: holder.name, payeePosition: holder.pos }); }, style: { fontSize: 11, border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "2px 7px", fontWeight: 700, cursor: "pointer", marginTop: 4 } },
+                            f.receiptNo && f.type !== "out" && React.createElement("button", { onClick: () => { const holder = receiptMoneyHolder(db); makeReceiptPdf({ title: "ใบเสร็จรับเงิน · " + f.title, receiptNo: f.receiptNo, date: f.date, time: f.time, rows: (f.items && f.items.length ? f.items : [{ label: f.title + " (" + compName(f.dept) + ")" + (f.note ? " · " + f.note : ""), amount: f.amount }]), notify: ui.notify, payerName: f.payerName || "", payerPosition: f.payerPos || "", payeeName: f.payeeName || holder.name, payeePosition: f.payeePos || holder.pos }); }, style: { fontSize: 11, border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "2px 7px", fontWeight: 700, cursor: "pointer", marginTop: 4 } },
                                 "\u2B07 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 ",
                                 f.receiptNo),
-                            f.receiptNo && f.type === "out" && React.createElement("button", { onClick: () => { const rec = receiptPersonInfo(db, f.byId); makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน · " + f.title, kind: "out", receiptNo: f.receiptNo, date: f.date, time: f.time, rows: (f.items && f.items.length ? f.items : [{ label: f.title + " (" + compName(f.dept) + ")" + (f.note ? " · " + f.note : ""), amount: f.amount }]), notify: ui.notify, payerName: rec.name, payerLabel: "ผู้จ่ายเงิน", payerPosition: rec.pos, bills: (f.billUrls && f.billUrls.length ? f.billUrls : (f.billUrl ? [f.billUrl] : (f.billDataUrl ? [f.billDataUrl] : []))) }); }, style: { fontSize: 11, border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "2px 7px", fontWeight: 700, cursor: "pointer", marginTop: 4 } },
+                            f.type === "out" && f.payStatus === "pending" && React.createElement("span", { style: { fontSize: 10.5, fontWeight: 700, color: "#b3762f", background: "#fff8ec", borderRadius: 8, padding: "2px 8px", marginTop: 4, display: "inline-block" } },
+                                "\u23F3 \u0E23\u0E2D\u0E1D\u0E48\u0E32\u0E22\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34",
+                                isFinance ? React.createElement("button", { onClick: () => { setApproveTarget(f); setBillOpenedAt(0); }, style: { marginLeft: 6, border: "1px solid #2f9e6b", background: "#eaf7f0", color: "#1e7a4d", borderRadius: 6, padding: "1px 7px", fontSize: 10.5, fontWeight: 800, cursor: "pointer" } }, "\u0E15\u0E23\u0E27\u0E08/\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34") : null),
+                            f.receiptNo && f.type === "out" && f.payStatus !== "pending" && React.createElement("button", { onClick: () => { makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน · " + f.title, kind: "out", receiptNo: f.receiptNo, date: f.date, time: f.time, rows: (f.items && f.items.length ? f.items : [{ label: f.title + " (" + compName(f.dept) + ")" + (f.note ? " · " + f.note : ""), amount: f.amount }]), notify: ui.notify, payerName: f.payerName || "", payerLabel: "ผู้จ่ายเงิน", payerPosition: f.payerPos || "", payeeName: f.payeeName || "", payeeLabel: "ผู้รับเงิน", payeePosition: f.payeePos || "" }); }, style: { fontSize: 11, border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "2px 7px", fontWeight: 700, cursor: "pointer", marginTop: 4 } },
                                 "\u2B07 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 ",
                                 f.receiptNo),
                             canEditRow(f) && React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 4, justifyContent: "flex-end" } },
