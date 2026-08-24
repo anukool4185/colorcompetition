@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v188";
-const BUILD_TIME = "24/08/2026 14:28 น.";
+const APP_VERSION = "v191";
+const BUILD_TIME = "24/08/2026 14:49 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -1484,6 +1484,8 @@ function LoanManager({ db, setDb, ui, viewer }) {
     const unapprove = (id) => ui.run("ยกเลิกอนุมัติ", () => { setDb((p) => ({ ...p, loans: (p.loans || []).map((x) => x.id === id ? { ...x, status: "pending", approvedBy: "", approvedAt: 0 } : x) })); save(); });
     const del = (id) => ui.run("ลบแล้ว", () => { setDb((p) => ({ ...p, loans: (p.loans || []).filter((x) => x.id !== id) })); save(); });
     const total = loans.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+    const totalApproved = loans.filter((x) => x.status === "approved").reduce((s, x) => s + (Number(x.amount) || 0), 0);
+    const totalPending = total - totalApproved;
     return (React.createElement("div", null,
         React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 10 } }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E01\u0E32\u0E23\u0E22\u0E37\u0E21\u0E40\u0E07\u0E34\u0E19\u0E02\u0E2D\u0E07\u0E19\u0E31\u0E01\u0E40\u0E23\u0E35\u0E22\u0E19\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23 \u00B7 \u0E41\u0E19\u0E1A\u0E23\u0E39\u0E1B\u0E2B\u0E25\u0E31\u0E01\u0E10\u0E32\u0E19 (\u0E40\u0E01\u0E47\u0E1A\u0E43\u0E19 Google Drive \u0E42\u0E1F\u0E25\u0E40\u0E14\u0E2D\u0E23\u0E4C\u0E15\u0E32\u0E21\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48-\u0E40\u0E27\u0E25\u0E32)"),
         React.createElement(Card, { style: { padding: 16, marginBottom: 14 } },
@@ -1542,9 +1544,13 @@ function LoanManager({ db, setDb, ui, viewer }) {
                 loans.length,
                 ")"),
             React.createElement("span", { style: { fontWeight: 800, color: C.primaryDark } },
-                "\u0E23\u0E27\u0E21 ",
-                total.toLocaleString("th-TH"),
-                " \u0E3F")),
+                "\u0E2D\u0E2D\u0E01\u0E08\u0E23\u0E34\u0E07(\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34) ",
+                totalApproved.toLocaleString("th-TH"),
+                " \u0E3F",
+                totalPending > 0 ? React.createElement("span", { style: { fontSize: 12, fontWeight: 700, color: "#b3762f" } },
+                    " \u00B7 \u0E23\u0E2D\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34 ",
+                    totalPending.toLocaleString("th-TH"),
+                    " \u0E3F") : null)),
         loans.length === 0 ? React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E22\u0E37\u0E21\u0E40\u0E07\u0E34\u0E19" }) : (React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, loans.map((x) => (React.createElement("div", { key: x.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", border: `1px solid ${C.line}`, borderRadius: 10 } },
             x.photoUrl ? React.createElement("a", { href: x.photoUrl, target: "_blank", rel: "noreferrer" },
                 React.createElement("img", { src: x.photoUrl, alt: "\u0E23\u0E39\u0E1B", style: { width: 42, height: 42, objectFit: "cover", borderRadius: 8, border: `1px solid ${C.line}` } })) : React.createElement("span", { style: { fontSize: 22 } }, "\uD83D\uDCB8"),
@@ -2606,23 +2612,10 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                     rows.length,
                     " \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23)")),
             rows.length === 0 && React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A-\u0E08\u0E48\u0E32\u0E22" }),
-            selRows.length > 0 && canRecordAny && React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: C.soft, borderRadius: 10, marginBottom: 8, flexWrap: "wrap", position: "sticky", top: 0, zIndex: 1 } },
-                React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: C.primaryDark } },
-                    "\u0E40\u0E25\u0E37\u0E2D\u0E01 ",
-                    selRows.length,
-                    " \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"),
-                React.createElement("span", { style: { flex: 1 } }),
-                selHasIncome && !selHasExpense && React.createElement(Btn, { small: true, onClick: combineIncomeReceipt }, "\uD83E\uDDFE \u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E23\u0E27\u0E21 (\u0E23\u0E31\u0E1A)"),
-                selHasExpense && !selHasIncome && React.createElement(React.Fragment, null,
-                    React.createElement(Btn, { small: true, onClick: openExpModalG }, "\uD83E\uDDFE \u0E23\u0E27\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2192 \u0E2A\u0E23\u0E49\u0E32\u0E07\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E48\u0E32\u0E22"),
-                    React.createElement(Btn, { small: true, variant: "ghost", onClick: bundleBills }, "\uD83D\uDCCE \u0E23\u0E27\u0E21\u0E1A\u0E34\u0E25 PDF")),
-                selHasIncome && selHasExpense && React.createElement("span", { style: { fontSize: 11.5, color: "#c0392b" } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E40\u0E09\u0E1E\u0E32\u0E30\u0E23\u0E31\u0E1A \u0E2B\u0E23\u0E37\u0E2D \u0E40\u0E09\u0E1E\u0E32\u0E30\u0E08\u0E48\u0E32\u0E22 \u0E2D\u0E22\u0E48\u0E32\u0E07\u0E43\u0E14\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E2B\u0E19\u0E36\u0E48\u0E07"),
-                React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setSelRows([]) }, "\u0E25\u0E49\u0E32\u0E07")),
             (() => {
                 const finRow = (f) => (React.createElement("div", { key: f.id, style: { border: `1px solid ${C.line}`, borderLeft: `4px solid ${f.type === "out" ? "#c0392b" : "#2f9e6b"}`, borderRadius: 10, padding: "9px 12px" } },
                     React.createElement("div", { style: { display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "flex-start" } },
                         React.createElement("div", { style: { minWidth: 0, display: "flex", gap: 8 } },
-                            canRecordAny && React.createElement("input", { type: "checkbox", checked: selRows.includes(f.id), onChange: () => toggleRow(f.id), style: { width: 16, height: 16, marginTop: 3 } }),
                             React.createElement("div", { style: { minWidth: 0 } },
                                 React.createElement("div", { style: { fontWeight: 700, color: C.ink } },
                                     f.title,
@@ -6880,7 +6873,11 @@ function PersonName({ db, personId, side }) {
     if (!personId)
         return React.createElement("span", { style: { fontSize: 12.5, color: C.muted } }, "\u2014 \u0E27\u0E48\u0E32\u0E07 \u2014");
     const p = (side === "teacher" ? db.teachers : db.students).find((x) => String(x.id) === String(personId)) || [...(db.teachers || []), ...(db.students || [])].find((x) => String(x.id) === String(personId));
-    return React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: C.ink } }, p ? fullName(p) : "(ไม่พบชื่อ)");
+    return React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: C.ink } },
+        p ? fullName(p) : "(ไม่พบชื่อ)",
+        p && p.phone ? React.createElement("a", { href: `tel:${p.phone}`, onClick: (e) => e.stopPropagation(), style: { fontSize: 11.5, fontWeight: 700, color: C.primary, textDecoration: "none", marginLeft: 6, whiteSpace: "nowrap" } },
+            "\u260E ",
+            p.phone) : null);
 }
 function PersonPicker({ db, value, side, onPick, onClear, only }) {
     const [q, setQ] = useState("");
