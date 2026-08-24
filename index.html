@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v186";
-const BUILD_TIME = "24/08/2026 13:57 น.";
+const APP_VERSION = "v188";
+const BUILD_TIME = "24/08/2026 14:28 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -1467,7 +1467,7 @@ function LoanManager({ db, setDb, ui, viewer }) {
                     photoId = up.photoId;
                 }
             }
-            setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const receiptNo = seq + "/" + buddhistYear(); return { ...p, receiptSeq: seq, loans: [...(p.loans || []), { id: "L" + Date.now(), date, time, studentId, studentName: fullName(chosen), comps: selComps, deptNames: selDepts.map((d) => d.name), amount: amt, note, photoUrl, photoId, receiptNo, by: viewer.name || "", at: Date.now() }] }; });
+            setDb((p) => { const seq = (p.receiptSeq || 0) + 1; const receiptNo = seq + "/" + buddhistYear(); return { ...p, receiptSeq: seq, loans: [...(p.loans || []), { id: "L" + Date.now(), date, time, studentId, studentName: fullName(chosen), comps: selComps, deptNames: selDepts.map((d) => d.name), amount: amt, note, photoUrl, photoId, receiptNo, status: "pending", by: viewer.name || "", at: Date.now() }] }; });
             setStudentId("");
             setQ("");
             setSelComps([]);
@@ -1475,10 +1475,13 @@ function LoanManager({ db, setDb, ui, viewer }) {
             setAmount("");
             setNote("");
             setPhoto("");
-            ui.notify("บันทึกการยืมเงินแล้ว");
+            ui.notify("บันทึกการยืมเงินแล้ว — รอผู้ถือเงินอนุมัติ");
             save();
         });
     };
+    const canApprove = String(viewer.role) === "admin" || (db.org2 || []).some((n) => String(n.personId) === String(viewer.id) && n.money); // แอดมิน หรือ ผู้ถือเงินในผัง
+    const approve = (id) => ui.run("อนุมัติแล้ว", () => { setDb((p) => ({ ...p, loans: (p.loans || []).map((x) => x.id === id ? { ...x, status: "approved", approvedBy: viewer.name || "", approvedAt: Date.now() } : x) })); ui.notify("อนุมัติการยืมเงินแล้ว — เงินออกจากระบบจริง"); save(); });
+    const unapprove = (id) => ui.run("ยกเลิกอนุมัติ", () => { setDb((p) => ({ ...p, loans: (p.loans || []).map((x) => x.id === id ? { ...x, status: "pending", approvedBy: "", approvedAt: 0 } : x) })); save(); });
     const del = (id) => ui.run("ลบแล้ว", () => { setDb((p) => ({ ...p, loans: (p.loans || []).filter((x) => x.id !== id) })); save(); });
     const total = loans.reduce((s, x) => s + (Number(x.amount) || 0), 0);
     return (React.createElement("div", null,
@@ -1560,6 +1563,10 @@ function LoanManager({ db, setDb, ui, viewer }) {
             React.createElement("span", { style: { fontWeight: 800, color: "#c0392b" } },
                 (Number(x.amount) || 0).toLocaleString("th-TH"),
                 " \u0E3F"),
+            (x.status === "approved") ? React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#2f9e6b", background: "#eaf7f0", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" } },
+                "\u2713 \u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34\u0E41\u0E25\u0E49\u0E27",
+                x.approvedBy ? " · " + x.approvedBy : "") : React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#b3762f", background: "#fff8ec", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" } }, "\u23F3 \u0E23\u0E2D\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34"),
+            canApprove && (x.status !== "approved" ? React.createElement("button", { onClick: () => approve(x.id), style: { border: "1px solid #2f9e6b", background: "#eaf7f0", color: "#1e7a4d", borderRadius: 8, padding: "3px 10px", fontSize: 11, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" } }, "\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34") : React.createElement("button", { onClick: () => unapprove(x.id), style: { border: `1px solid ${C.line}`, background: "#fff", color: C.muted, borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" } }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01")),
             x.receiptNo && React.createElement("button", { onClick: () => { const st = (db.students || []).find((s) => String(s.id) === String(x.studentId)); const payeeName = x.studentName + (st && (st.grade || st.room) ? ` ${st.grade || ""}${st.room ? "/" + st.room : ""}` : ""); const dutyNames = [...new Set((db.org2 || []).filter((n) => String(n.personId) === String(x.studentId) && (x.comps || []).map(String).includes(String(n.compId))).map((n) => { const dd = (db.duties || []).find((z) => String(z.id) === String(n.dutyId)); return dd ? dd.name : ""; }).filter(Boolean))]; const borrowerPos = ["นักเรียน", dutyNames.join(", "), (x.deptNames || []).join(", ")].filter(Boolean).join(" · "); const holder = receiptMoneyHolder(db); makeReceiptPdf({ title: "ใบเสร็จรับเงิน (ยืมเงิน)", receiptNo: x.receiptNo, date: x.date, time: x.time, rows: [{ label: "ยืมเงิน" + (x.note ? " · " + x.note : ""), amount: x.amount }], notify: ui.notify, payerName: payeeName, payerLabel: "ผู้รับเงิน (ผู้ยืม)", payerPosition: borrowerPos, payeeName: holder.name, payeeLabel: "ผู้จ่ายเงิน", payeePosition: holder.pos, bills: (x.photoUrls && x.photoUrls.length ? x.photoUrls : (x.photoUrl ? [x.photoUrl] : [])) }); }, title: "ใบเสร็จเลขที่ " + x.receiptNo, style: { border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" } },
                 "\u2B07 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 ",
                 x.receiptNo),
@@ -1647,7 +1654,7 @@ function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit, buyerMode }) 
         onDoneEdit(); save(); }); };
     const cancelEdit = () => { setEditId(null); setTitle(""); setAmount(""); setNote(""); if (onDoneEdit)
         onDoneEdit(); };
-    const del = (id) => ui.run("ลบแล้ว", () => { setDb((p) => ({ ...p, finance: (p.finance || []).filter((f) => f.id !== id) })); save(); });
+    const del = (id) => ui.run("ย้ายไปถังขยะแล้ว", () => { setDb((p) => { const rec = (p.finance || []).find((f) => f.id === id); return { ...p, finance: (p.finance || []).filter((f) => f.id !== id), trash: rec ? [...(p.trash || []), { ...rec, _trashKind: "finance", deletedAt: Date.now() }] : (p.trash || []) }; }); save(); });
     return (React.createElement("div", null,
         React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 10 } },
             "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E31\u0E1A-\u0E08\u0E48\u0E32\u0E22\u0E02\u0E2D\u0E07 \"\u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19\u0E2A\u0E33\u0E23\u0E2D\u0E07\" \u0E41\u0E22\u0E01\u0E15\u0E48\u0E32\u0E07\u0E2B\u0E32\u0E01 \u00B7 ",
@@ -2072,9 +2079,8 @@ function FinanceManager({ db, setDb, ui, viewer }) {
         const preview = (db.receiptSeq || 0) + 1, receiptNo = preview + "/" + buddhistYear();
         ui.run("บันทึกคืนเงิน + ออกใบเสร็จแล้ว (กดปุ่ม ⬇ ใบเสร็จ ในรายการเพื่อดาวน์โหลด)", () => {
             commit((p) => ({ ...p, receiptSeq: (p.receiptSeq || 0) + 1, finance: [...(p.finance || []), { id: "fn" + Date.now() + Math.random().toString(36).slice(2, 6), dept: form.dept, type: "in", kind: "refund", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), receiptNo, by: viewer.id, byName: viewer.name || "", at: Date.now() }] }));
-            reset();
             resetRef();
-            setTab("list");
+            setForm((p) => ({ ...p, title: "", note: "" }));
         });
     };
     const [expLines, setExpLines] = useState([{ label: "", amount: "" }]);
@@ -2145,9 +2151,8 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             const receiptNo = expReceiptNo || (((db.receiptSeq || 0) + 1) + "/" + buddhistYear());
             commit((p) => ({ ...p, receiptSeq: expReceiptNo ? (p.receiptSeq || 0) : (p.receiptSeq || 0) + 1, finance: [...(p.finance || []), { id: "fn" + Date.now() + Math.random().toString(36).slice(2, 6), dept: form.dept, type: "out", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), receiptNo, billUrl, billId, billUrls: [billUrl], by: viewer.id, byName: viewer.name || "", at: Date.now() }] }));
             ui.notify("บันทึกรายจ่าย + แนบใบเสร็จแล้ว");
-            reset();
             resetExp();
-            setTab("list");
+            setForm((p) => ({ ...p, title: "", note: "" }));
         });
     };
     const incTotal = incLines.reduce((s, l) => s + (Number(String(l.amount).replace(/[^0-9.]/g, "")) || 0), 0);
@@ -2177,9 +2182,8 @@ function FinanceManager({ db, setDb, ui, viewer }) {
         const preview = (db.receiptSeq || 0) + 1, receiptNo = preview + "/" + buddhistYear();
         ui.run("บันทึกรายรับ + ออกใบเสร็จแล้ว (กดปุ่ม ⬇ ใบเสร็จ ในรายการเพื่อดาวน์โหลด)", () => {
             commit((p) => ({ ...p, receiptSeq: (p.receiptSeq || 0) + 1, finance: [...(p.finance || []), { id: "fn" + Date.now() + Math.random().toString(36).slice(2, 6), dept: form.dept, type: "in", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), receiptNo, by: viewer.id, byName: viewer.name || "", at: Date.now() }] }));
-            reset();
             resetInc();
-            setTab("list");
+            setForm((p) => ({ ...p, title: "", note: "" }));
         });
     };
     const startEdit = (f) => { if (String(f.dept) === "FUND") {
@@ -2187,7 +2191,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
         setTab("fund");
         return;
     } setForm({ dept: f.dept, type: f.type, title: f.title, amount: String(f.amount), date: f.date, time: f.time || nowTime(), note: f.note || "", billDataUrl: "", billUrl: f.billUrl || "", billId: f.billId || "" }); setEditId(f.id); setTab(f.type === "out" ? "addout" : "addin"); };
-    const del = (f) => ui.run("กำลังลบ...", () => { commit((p) => ({ ...p, finance: (p.finance || []).filter((x) => x.id !== f.id) })); ui.notify("ลบรายการแล้ว"); });
+    const del = (f) => ui.run("ย้ายไปถังขยะแล้ว", () => { commit((p) => ({ ...p, finance: (p.finance || []).filter((x) => x.id !== f.id), trash: [...(p.trash || []), { ...f, _trashKind: "finance", deletedAt: Date.now() }] })); ui.notify("ย้ายไปถังขยะแล้ว (กู้คืนได้ในแท็บถังขยะ)"); });
     const deptMatch = (f) => { if (!fDept)
         return true; if (String(fDept).indexOf("DALL:") === 0) {
         const d = (db.departments || []).find((x) => "DALL:" + x.id === fDept);
@@ -2272,6 +2276,8 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     } return comps.includes(String(fDept)); };
     const loanRows = (db.loans || []).filter((x) => loanDeptMatch(x) && (!fFrom || (x.date || "") >= fFrom) && (!fTo || (x.date || "") <= fTo)).slice().sort((a, b) => sortDir === "asc" ? ((a.date || "") + (a.time || "")).localeCompare((b.date || "") + (b.time || "")) : ((b.date || "") + (b.time || "")).localeCompare((a.date || "") + (a.time || "")));
     const loanSum = loanRows.reduce((s, x) => s + (Number(x.amount) || 0), 0);
+    const loanApprovedSum = loanRows.filter((x) => x.status === "approved").reduce((s, x) => s + (Number(x.amount) || 0), 0); // เงินออกจริง (อนุมัติแล้ว)
+    const loanPendingSum = loanSum - loanApprovedSum;
     // รายรับนักเรียนที่ยอมรับ+ออกใบเสร็จแล้ว (studentIncome._submits status accepted)
     const incomeRows = (((db.studentIncome || {})["_submits"]) || []).filter((x) => x && x.status === "accepted" && x.receiptNo && (!fFrom || (x.date || "") >= fFrom) && (!fTo || (x.date || "") <= fTo)).slice().sort((a, b) => sortDir === "asc" ? ((a.date || "") + (a.time || "")).localeCompare((b.date || "") + (b.time || "")) : ((b.date || "") + (b.time || "")).localeCompare((a.date || "") + (a.time || "")));
     const incomeSum = incomeRows.reduce((s, x) => s + (Number(x.amount) || 0), 0);
@@ -2281,7 +2287,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     const rowsOut = rows.filter((f) => f.type === "out").reduce((s, f) => s + (Number(f.amount) || 0), 0);
     const refundSum = rows.filter((f) => f.type !== "out" && f.kind === "refund").reduce((s, f) => s + (Number(f.amount) || 0), 0);
     const plainInSum = rowsIn - refundSum; // รายรับ (ไม่รวมคืนเงิน) + จะบวก incomeSum(นร.) ทีหลัง
-    const receiptComplete = Math.round(loanSum) === Math.round(rowsOut + refundSum); // ยืม = จ่าย + คืนเงิน
+    const receiptComplete = Math.round(loanApprovedSum) === Math.round(rowsOut + refundSum); // ยืม(อนุมัติ) = จ่าย + คืนเงิน
     const exportExcel = () => {
         try {
             const aoa = [["วันที่", "ฝ่าย", "ประเภท", "รายการ", "จำนวนเงิน", "หมายเหตุ", "ผู้บันทึก", "ลิงก์บิล"]];
@@ -2338,7 +2344,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                     acc.full && React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setTab("income") }, "\u0E44\u0E1B\u0E2B\u0E19\u0E49\u0E32\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\u0E2B\u0E49\u0E2D\u0E07\u0E19\u0E35\u0E49"),
                     React.createElement(Btn, { small: true, onClick: () => markRead(n.id) }, "\u2713 \u0E17\u0E23\u0E32\u0E1A\u0E41\u0E25\u0E49\u0E27")))))));
         })(),
-        React.createElement(Tabs, { tabs: [...(finFull ? [{ key: "fund", label: "🏦 กองทุนสำรอง" }] : []), ...(isFinance ? [{ key: "income", label: "รายรับนักเรียน" }] : []), ...(finFull ? [{ key: "addin", label: editId && form.type !== "out" ? "แก้ไขรายรับ" : "＋ บันทึกรายรับ" }, { key: "loan", label: "บันทึกยืมเงิน" }, { key: "addout", label: editId && form.type === "out" ? "แก้ไขรายจ่าย" : "－ บันทึกรายจ่าย" }, { key: "refundin", label: "↩️ คืนเงิน" }] : []), ...(canBuy ? [{ key: "buy", label: "🛒 สร้างรายการซื้อ" }] : []), { key: "list", label: "แสดงรายการรับ-จ่าย" }, { key: "summary", label: "ภาพรวม/สรุป" }, ...(isFinance ? [{ key: "refund", label: "เฉลี่ยคืน" }] : [])], active: tab, onChange: (k) => { if (k === "addin") {
+        React.createElement(Tabs, { tabs: [...(finFull ? [{ key: "fund", label: "🏦 กองทุนสำรอง" }] : []), ...(isFinance ? [{ key: "income", label: "รายรับนักเรียน" }] : []), ...(finFull ? [{ key: "addin", label: editId && form.type !== "out" ? "แก้ไขรายรับ" : "＋ บันทึกรายรับ" }, { key: "loan", label: "บันทึกยืมเงิน" }, { key: "addout", label: editId && form.type === "out" ? "แก้ไขรายจ่าย" : "－ บันทึกรายจ่าย" }, { key: "refundin", label: "↩️ คืนเงิน" }] : []), ...(canBuy ? [{ key: "buy", label: "🛒 สร้างรายการซื้อ" }] : []), { key: "list", label: "แสดงรายการรับ-จ่าย" }, { key: "summary", label: "ภาพรวม/สรุป" }, ...(isFinance ? [{ key: "refund", label: "เฉลี่ยคืน" }] : []), { key: "trash", label: "🗑 ถังขยะ" }], active: tab, onChange: (k) => { if (k === "addin") {
                 reset();
                 setForm((p) => ({ ...p, type: "in" }));
             }
@@ -2523,6 +2529,31 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                         f.receiptNo),
                     canEditRow(f) && React.createElement("button", { onClick: () => del(f), style: { fontSize: 11, border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 700 } }, "\u0E25\u0E1A")))))));
         })(),
+        tab === "trash" && (() => {
+            const items = (db.trash || []).map((t, i) => ({ t, i })).filter((o) => o.t && o.t._trashKind === "finance").sort((a, b) => (b.t.deletedAt || 0) - (a.t.deletedAt || 0));
+            const restore = (rec) => ui.run("กู้คืนแล้ว", () => { commit((p) => { const { _trashKind, deletedAt, ...clean } = rec; return { ...p, finance: [...(p.finance || []), clean], trash: (p.trash || []).filter((x) => !(x.id === rec.id && x._trashKind === "finance" && x.deletedAt === rec.deletedAt)) }; }); ui.notify("กู้คืนรายการแล้ว"); });
+            const purge = (rec) => ui.run("ลบถาวรแล้ว", () => { commit((p) => ({ ...p, trash: (p.trash || []).filter((x) => !(x.id === rec.id && x._trashKind === "finance" && x.deletedAt === rec.deletedAt)) })); ui.notify("ลบถาวรแล้ว"); });
+            return (React.createElement(Card, { style: { padding: 16 } },
+                React.createElement("div", { style: { fontWeight: 800, color: C.ink, marginBottom: 4 } }, "\uD83D\uDDD1 \u0E16\u0E31\u0E07\u0E02\u0E22\u0E30\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19"),
+                React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 12 } }, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19\u0E17\u0E35\u0E48\u0E25\u0E1A\u0E08\u0E30\u0E16\u0E39\u0E01\u0E40\u0E01\u0E47\u0E1A\u0E17\u0E35\u0E48\u0E19\u0E35\u0E48 \u00B7 \u0E01\u0E39\u0E49\u0E04\u0E37\u0E19\u0E44\u0E14\u0E49 \u0E08\u0E19\u0E01\u0E27\u0E48\u0E32\u0E08\u0E30\u0E01\u0E14\u0E25\u0E1A\u0E16\u0E32\u0E27\u0E23"),
+                items.length === 0 ? React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19\u0E16\u0E31\u0E07\u0E02\u0E22\u0E30" }) : React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, items.map(({ t }) => (React.createElement("div", { key: t.id + "_" + t.deletedAt, style: { display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderRadius: 10, border: `1px solid ${C.line}`, background: "#fafafa" } },
+                    React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                        React.createElement("div", { style: { fontWeight: 700, color: C.ink, fontSize: 13.5 } },
+                            t.type === "out" ? "💸" : t.kind === "refund" ? "↩️" : "💰",
+                            " ",
+                            t.title,
+                            t.receiptNo ? " · 🧾 " + t.receiptNo : ""),
+                        React.createElement("div", { style: { fontSize: 11.5, color: C.muted } },
+                            compName(t.dept),
+                            " \u00B7 ",
+                            t.date,
+                            t.time ? " " + t.time : "",
+                            " \u00B7 ",
+                            money(t.amount),
+                            t.deletedAt ? " · ลบเมื่อ " + new Date(t.deletedAt).toLocaleString("th-TH") : "")),
+                    React.createElement("button", { onClick: () => restore(t), style: { fontSize: 11.5, border: "1px solid #2f9e6b", background: "#eaf7f0", color: "#1e7a4d", borderRadius: 8, padding: "4px 10px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" } }, "\u21A9 \u0E01\u0E39\u0E49\u0E04\u0E37\u0E19"),
+                    React.createElement("button", { onClick: () => purge(t), style: { fontSize: 11.5, border: "1px solid #e0b4b4", background: "#fbeeee", color: "#c0392b", borderRadius: 8, padding: "4px 10px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" } }, "\u0E25\u0E1A\u0E16\u0E32\u0E27\u0E23")))))));
+        })(),
         tab === "list" && (React.createElement(Card, { style: { padding: 16 } },
             React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" } },
                 React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E1D\u0E48\u0E32\u0E22:"),
@@ -2553,7 +2584,11 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", border: `1px solid ${C.line}`, borderRadius: 12, padding: "6px 12px", background: "#f7f9fc" } },
                     React.createElement("span", { style: { background: "#fff4d6", color: "#b8860b", fontWeight: 700, borderRadius: 8, padding: "4px 12px" } },
                         "\u0E22\u0E37\u0E21 ",
-                        money(loanSum)),
+                        money(loanApprovedSum),
+                        loanPendingSum > 0 ? React.createElement("span", { style: { fontSize: 11, color: "#c0392b" } },
+                            " (\u0E23\u0E2D\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34\u0E2D\u0E35\u0E01 ",
+                            money(loanPendingSum),
+                            ")") : null),
                     React.createElement("span", { style: { color: C.muted, fontWeight: 700 } }, "="),
                     React.createElement("span", { style: { background: "#fdeceb", color: "#c0392b", fontWeight: 700, borderRadius: 8, padding: "4px 12px" } },
                         "\u0E08\u0E48\u0E32\u0E22 ",
@@ -2562,7 +2597,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                     React.createElement("span", { style: { background: "#eaf1fb", color: "#2f6ba3", fontWeight: 700, borderRadius: 8, padding: "4px 12px" } },
                         "\u0E04\u0E37\u0E19\u0E40\u0E07\u0E34\u0E19 ",
                         money(refundSum)),
-                    React.createElement("span", { style: { background: receiptComplete ? "#eaf7f0" : "#fdeceb", color: receiptComplete ? "#1e7a4d" : "#c0392b", fontWeight: 800, borderRadius: 8, padding: "4px 12px" } }, loanSum === 0 && rowsOut === 0 && refundSum === 0 ? "— ยังไม่มีข้อมูล —" : receiptComplete ? "✓ ใบเสร็จครบถ้วน" : "⚠ ใบเสร็จไม่ครบถ้วน (ต่าง " + money(Math.abs(loanSum - rowsOut - refundSum)) + ")")),
+                    React.createElement("span", { style: { background: receiptComplete ? "#eaf7f0" : "#fdeceb", color: receiptComplete ? "#1e7a4d" : "#c0392b", fontWeight: 800, borderRadius: 8, padding: "4px 12px" } }, loanApprovedSum === 0 && rowsOut === 0 && refundSum === 0 ? "— ยังไม่มีข้อมูล —" : receiptComplete ? "✓ ใบเสร็จครบถ้วน" : "⚠ ใบเสร็จไม่ครบถ้วน (ต่าง " + money(Math.abs(loanApprovedSum - rowsOut - refundSum)) + ")")),
                 React.createElement("span", { style: { background: C.soft, color: C.primaryDark, fontWeight: 700, borderRadius: 8, padding: "4px 12px" } },
                     "\u0E04\u0E07\u0E40\u0E2B\u0E25\u0E37\u0E2D ",
                     money(plainInSum + incomeSum + refundSum - rowsOut)),
@@ -2630,6 +2665,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                                 x.studentName,
                                 " ",
                                 React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#fff", background: "#c99a2e", borderRadius: 8, padding: "1px 8px" } }, "\u0E22\u0E37\u0E21"),
+                                x.status === "approved" ? React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#2f9e6b", background: "#eaf7f0", borderRadius: 8, padding: "1px 8px" } }, " \u2713 \u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34") : React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#b3762f", background: "#fff8ec", borderRadius: 8, padding: "1px 8px" } }, " \u23F3 \u0E23\u0E2D\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34"),
                                 x.receiptNo && React.createElement("span", { style: { fontSize: 11, color: "#1e7a4d", fontWeight: 700 } },
                                     " \u00B7 \uD83E\uDDFE ",
                                     x.receiptNo)),
