@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v181";
-const BUILD_TIME = "24/08/2026 01:26 น.";
+const APP_VERSION = "v183";
+const BUILD_TIME = "24/08/2026 09:03 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -3528,6 +3528,9 @@ function PersonList({ kind, db, setDb, ui }) {
     const [com, setCom] = useState(""); // กรรมการ: "" ทั้งหมด | "yes" | "no"
     const [duty, setDuty] = useState(""); // "" ทั้งหมด | "comp" | "act"
     const [dutyFor, setDutyFor] = useState(null); // นักเรียนที่กำลังเปิด popup ลงหน้าที่/สมัคร (แอดมิน)
+    const [waitSet, setWaitSet] = useState(() => new Set()); // sid ที่บันทึกในชีทสำรอง (datawaitsport) รอแอดมินนำเข้า
+    useEffect(() => { if (kind === "student")
+        waitList().then((rows) => setWaitSet(new Set((rows || []).map((r) => String(r.sid))))); }, [kind]);
     const [add, setAdd] = useState(false);
     const [edit, setEdit] = useState(null);
     const [rawRows, setRawRows] = useState(null);
@@ -3856,9 +3859,12 @@ function PersonList({ kind, db, setDb, ui }) {
                     kind === "student" && (() => { const st = presenceOf(db, s); const bd = st === "main" ? { t: "มีตัว", c: "#2f9e6b", b: "#eaf7f0" } : st === "reserve" ? { t: "ไม่มีตัว", c: "#c0392b", b: "#fbeeee" } : { t: "ยังไม่มีตัว", c: "#b3762f", b: "#fff8ec" }; return React.createElement("span", { style: { fontSize: 11.5, fontWeight: 700, color: bd.c, background: bd.b, borderRadius: 10, padding: "3px 10px", whiteSpace: "nowrap" } }, bd.t); })(),
                     kind === "student" && (() => {
                         const dutyOk = hasDuty(db, s);
-                        return dutyOk
-                            ? React.createElement("span", { style: { fontSize: 11.5, fontWeight: 800, color: "#2f9e6b", background: "#e6f4ec", border: "1px solid #2f9e6b", borderRadius: 10, padding: "3px 12px" } }, "\u2713 \u0E21\u0E35\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E41\u0E25\u0E49\u0E27")
-                            : React.createElement("button", { onClick: () => setDutyFor(s), style: { fontSize: 11.5, fontWeight: 800, color: "#b3762f", background: "#fff8ec", border: "1px solid #d9a441", borderRadius: 10, padding: "4px 12px", cursor: "pointer" } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48");
+                        if (dutyOk)
+                            return React.createElement("span", { style: { fontSize: 11.5, fontWeight: 800, color: "#2f9e6b", background: "#e6f4ec", border: "1px solid #2f9e6b", borderRadius: 10, padding: "3px 12px" } }, "\u2713 \u0E21\u0E35\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48\u0E41\u0E25\u0E49\u0E27");
+                        const waiting = waitSet.has(String(s.id));
+                        return waiting
+                            ? React.createElement("button", { onClick: () => setDutyFor(s), style: { fontSize: 11, fontWeight: 800, color: "#b3762f", background: "#fff8ec", border: "1px solid #d9a441", borderRadius: 10, padding: "4px 10px", cursor: "pointer", lineHeight: 1.3, textAlign: "left", maxWidth: 220 } }, "\u0E21\u0E35\u0E15\u0E31\u0E27 \u00B7 \u0E01\u0E33\u0E25\u0E31\u0E07\u0E23\u0E2D\u0E41\u0E2D\u0E14\u0E21\u0E34\u0E19\u0E19\u0E33\u0E40\u0E02\u0E49\u0E32\u0E23\u0E30\u0E1A\u0E1A\u0E15\u0E23\u0E27\u0E08\u0E2A\u0E2D\u0E1A")
+                            : React.createElement("button", { onClick: () => setDutyFor(s), style: { fontSize: 11.5, fontWeight: 800, color: "#7a7f87", background: "#eef0f2", border: "1px solid #cfd4da", borderRadius: 10, padding: "4px 12px", cursor: "pointer" } }, "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48");
                     })())))),
             filtered.length === 0 && React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E1E\u0E1A\u0E23\u0E32\u0E22\u0E0A\u0E37\u0E48\u0E2D\u0E15\u0E32\u0E21\u0E40\u0E07\u0E37\u0E48\u0E2D\u0E19\u0E44\u0E02" })),
         (add || edit) && React.createElement(PersonForm, { kind: kind, person: edit, db: db, ui: ui, houses: db.settings.houses, onClose: () => { setAdd(false); setEdit(null); }, onSave: save }),
@@ -3866,7 +3872,14 @@ function PersonList({ kind, db, setDb, ui }) {
                 window.__pushOther((odb) => kind === "student" ? mirrorStudentsInto(odb, next.students) : mirrorTeachersInto(odb, next.teachers)); return next; }); setRawRows(null); setTimeout(() => { window.__forceSave && window.__forceSave(); if (kind === "student")
                 setTimeout(() => syncTimeRoster(), 1500); }, 300); ui.notify(`โอนเข้าระบบแล้ว ${rows.length} คน`); }) }),
         confirm && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E01\u0E32\u0E23\u0E25\u0E1A", message: confirm.msg, onConfirm: () => purge(confirm.ids), onClose: () => setConfirm(null) }),
-        dutyFor && React.createElement(NoWorkModal, { db: db, ui: ui, viewer: { role: "admin", id: "admin", name: "แอดมิน" }, student: dutyFor, initial: null, saving: false, onClose: () => setDutyFor(null), onConfirm: (rec) => { waitUpsert(rec).then(() => { setDutyFor(null); ui.notify("บันทึกแล้ว — รอกดปุ่ม 'นำเข้าหน้าที่' ด้านบนเพื่อลงระบบ"); }); } })));
+        dutyFor && React.createElement(NoWorkModal, { db: db, ui: ui, viewer: { role: "admin", id: "admin", name: "แอดมิน" }, student: dutyFor, initial: null, saving: false, onClose: () => setDutyFor(null), onConfirm: (rec) => { waitUpsert(rec).then((res) => { if (res && res.ok) {
+                setWaitSet((p) => { const n = new Set(p); n.add(String(dutyFor.id)); return n; });
+                setDutyFor(null);
+                ui.notify("บันทึกลงชีท datawaitsport แล้ว — รอกดปุ่ม 'นำเข้าหน้าที่' ด้านบน");
+            }
+            else {
+                ui.notify("บันทึกไม่สำเร็จ: " + ((res && res.error) || "ไม่ทราบสาเหตุ") + " — ตรวจว่า Deploy Code.gs เวอร์ชันล่าสุดแล้ว");
+            } }); } })));
 }
 function phoneOk(v) { v = String(v == null ? "" : v).trim(); return v === "" || /^[0-9]{9,10}$/.test(v); }
 function PersonForm({ kind, person, db, onClose, onSave, ui, houses }) {
@@ -8234,11 +8247,17 @@ catch (e) {
     return [];
 } }
 async function waitUpsert(rec) { try {
-    await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "waitUpsert", rec }) });
-    return true;
+    const r = await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "waitUpsert", rec }) });
+    const t = await r.text();
+    try {
+        return JSON.parse(t);
+    }
+    catch (e) {
+        return { ok: false, error: "ตอบกลับไม่ใช่ JSON (Code.gs อาจยังไม่ deploy ใหม่): " + String(t).slice(0, 60) };
+    }
 }
 catch (e) {
-    return false;
+    return { ok: false, error: "เชื่อมต่อไม่ได้" };
 } }
 async function waitClear() { try {
     await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "waitClear" }) });
@@ -8334,7 +8353,14 @@ function NoWorkPanel({ db, ui, viewer }) {
                     reg && React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#b3762f", background: "#fff8ec", borderRadius: 10, padding: "2px 9px", whiteSpace: "nowrap" } }, "\u23F3 \u0E23\u0E2D\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01"),
                     done && React.createElement("span", { style: { fontSize: 10.5, fontWeight: 700, color: "#2f9e6b", background: "#eaf7f0", borderRadius: 10, padding: "5px 10px", lineHeight: 1.5, maxWidth: 240, whiteSpace: "normal", textAlign: "right" } }, "\u2713 \u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E21\u0E35\u0E15\u0E31\u0E27\u0E15\u0E19\u0E41\u0E25\u0E49\u0E27 \u0E41\u0E25\u0E30\u0E23\u0E2D\u0E41\u0E2D\u0E14\u0E21\u0E34\u0E19\u0E19\u0E33\u0E40\u0E02\u0E49\u0E32\u0E2B\u0E19\u0E49\u0E32\u0E17\u0E35\u0E48 \u00B7 \u0E23\u0E2D\u0E01\u0E32\u0E23\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07 \u0E40\u0E21\u0E37\u0E48\u0E2D\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A\u0E01\u0E32\u0E23\u0E04\u0E31\u0E14\u0E40\u0E25\u0E37\u0E2D\u0E01 \u0E0A\u0E37\u0E48\u0E2D\u0E02\u0E2D\u0E07\u0E17\u0E48\u0E32\u0E19\u0E08\u0E30\u0E2B\u0E32\u0E22\u0E44\u0E1B\u0E08\u0E32\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E2B\u0E19\u0E49\u0E32\u0E19\u0E35\u0E49")));
             })),
-        openStudent && React.createElement(NoWorkModal, { db: db, ui: ui, viewer: viewer, student: openStudent, initial: wait[String(openStudent.id)], saving: saving, onClose: () => setOpenId(null), onConfirm: (rec) => { setSaving(true); waitUpsert(rec).then(() => { setWait((p) => ({ ...p, [String(openStudent.id)]: rec })); setSaving(false); setOpenId(null); ui.notify("ยืนยันแล้ว — รอแอดมินนำเข้า (เก็บแยกแถว ไม่ทับกัน)"); }); } })));
+        openStudent && React.createElement(NoWorkModal, { db: db, ui: ui, viewer: viewer, student: openStudent, initial: wait[String(openStudent.id)], saving: saving, onClose: () => setOpenId(null), onConfirm: (rec) => { setSaving(true); waitUpsert(rec).then((res) => { setSaving(false); if (res && res.ok) {
+                setWait((p) => ({ ...p, [String(openStudent.id)]: rec }));
+                setOpenId(null);
+                ui.notify("ยืนยันแล้ว — รอแอดมินนำเข้า (เก็บแยกแถว ไม่ทับกัน)");
+            }
+            else {
+                ui.notify("บันทึกไม่สำเร็จ: " + ((res && res.error) || "?") + " — ตรวจว่า Deploy Code.gs ล่าสุดแล้ว");
+            } }); } })));
 }
 function NoWorkModal({ db, ui, viewer, student, initial, saving, onClose, onConfirm }) {
     const [status, setStatus] = useState((initial && initial.status) || "");
