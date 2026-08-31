@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v205";
-const BUILD_TIME = "31/08/2026 16:50 น.";
+const APP_VERSION = "v211";
+const BUILD_TIME = "31/08/2026 21:48 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -1312,7 +1312,7 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc, canEntry = true, lockRo
     const startEditSub = (x) => { setEditSubId(x.id); setSubAmt(String(x.amount || "")); setSubDate(x.date || todayStr()); setSubTime(x.time || nowTime()); setSubNote(x.note || ""); };
     const cancelEditSub = () => { setEditSubId(null); setSubAmt(""); setSubNote(""); };
     const removeSubmit = (id) => ui.run("ลบแล้ว", () => { setDb((p) => ({ ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: (((p.studentIncome || {})["_submits"]) || []).filter((x) => x.id !== id) } })); save(); });
-    const acceptSubmit = (id) => ui.run("ยอมรับเงินแล้ว — ออกใบเสร็จ + แจ้งผู้ดูแล", () => { const sub = submits.find((x) => x.id === id); const amt = sub ? (Number(sub.amount) || 0) : 0; const dref = amt - grand; setDb((p) => { const receiptNo = nextReceiptNo(p); return { ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: (((p.studentIncome || {})["_submits"]) || []).map((x) => x.id === id ? { ...x, status: "accepted", acceptedBy: viewer.name || "", acceptedById: viewer.id, acceptedAt: Date.now(), receiptNo } : x) }, financeNotis: [{ id: "fnoti" + Date.now(), room, amount: amt, tableTotal: grand, diff: dref, acceptedBy: viewer.name || "", acceptorRank: myRankNum, date: sub ? sub.date : todayStr(), at: Date.now(), readBy: [] }, ...((p.financeNotis) || [])] }; }); save(); });
+    const acceptSubmit = (id) => ui.runAsync("ยอมรับเงินแล้ว — ออกใบเสร็จ + แจ้งผู้ดูแล", async () => { const sub = submits.find((x) => x.id === id); const amt = sub ? (Number(sub.amount) || 0) : 0; const dref = amt - grand; const rn = (await reserveReceiptNo(Array.from(usedReceiptNums(db)), buddhistYear())) || nextReceiptNo(db); setDb((p) => { return { ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: (((p.studentIncome || {})["_submits"]) || []).map((x) => x.id === id ? { ...x, status: "accepted", acceptedBy: viewer.name || "", acceptedById: viewer.id, acceptedAt: Date.now(), receiptNo: rn } : x) }, financeNotis: [{ id: "fnoti" + Date.now(), room, amount: amt, tableTotal: grand, diff: dref, acceptedBy: viewer.name || "", acceptorRank: myRankNum, date: sub ? sub.date : todayStr(), at: Date.now(), readBy: [] }, ...((p.financeNotis) || [])] }; }); save(); });
     const receiptFor = (x) => { const sender = receiptPersonInfo(db, x.byId); const holder = receiptMoneyHolder(db); makeReceiptPdf({ title: "ใบเสร็จรับเงิน (รายรับนักเรียน)", receiptNo: x.receiptNo, date: x.date, time: x.time, rows: [{ label: "รับเงินห้อง " + x.room + (x.note ? " · " + x.note : ""), amount: x.amount }], notify: ui.notify, payerName: sender.name || x.by || "", payerPosition: sender.pos, payeeName: holder.name, payeePosition: holder.pos }); };
     const diff = submitSum - grand;
     // สิทธิ์กดยอมรับเงิน: แอดมิน หรือ ผู้ดูแล(ลำดับ5)ขึ้นไป · ผู้ช่วย(ลำดับ6)เท่านั้น = กดไม่ได้ (เป็นผู้รวบรวมเงิน)
@@ -1480,7 +1480,8 @@ function LoanManager({ db, setDb, ui, viewer }) {
                     photoId = up.photoId;
                 }
             }
-            setDb((p) => { const receiptNo = nextReceiptNo(p); return { ...p, loans: [...(p.loans || []), { id: "L" + Date.now(), date, time, studentId, studentName: fullName(chosen), comps: selComps, deptNames: selDepts.map((d) => d.name), amount: amt, note, photoUrl, photoId, receiptNo, status: "pending", by: viewer.name || "", at: Date.now() }] }; });
+            const rn = (await reserveReceiptNo(Array.from(usedReceiptNums(db)), buddhistYear())) || nextReceiptNo(db);
+            setDb((p) => { return { ...p, loans: [...(p.loans || []), { id: "L" + Date.now(), date, time, studentId, studentName: fullName(chosen), comps: selComps, deptNames: selDepts.map((d) => d.name), amount: amt, note, photoUrl, photoId, receiptNo: rn, status: "pending", by: viewer.name || "", at: Date.now() }] }; });
             setStudentId("");
             setQ("");
             setSelComps([]);
@@ -1947,9 +1948,9 @@ function RefundManager({ db, setDb, ui, canEdit, lockRoom = "", viewer }) {
                     return null;
                 const roomManager = (rm) => { const st = (db.students || []).filter((s) => `${s.grade}/${s.room}` === rm); const mgrNode = (db.org2 || []).find((n) => (n.manager || /ผู้จัดการ/.test((((db.duties || []).find((z) => String(z.id) === String(n.dutyId)) || {}).name || ""))) && st.some((s) => String(s.id) === String(n.personId))); if (!mgrNode)
                     return { name: "", pos: "นักเรียน · ผู้จัดการ" }; const info = receiptPersonInfo(db, mgrNode.personId); return info; };
-                const issueRoomReceipt = (rm, amount) => { const holder = receiptMoneyHolder(db); const mgr = roomManager(rm); const receiptNo = nextReceiptNo(db); if (setDb) {
+                const issueRoomReceipt = (rm, amount) => { const holder = receiptMoneyHolder(db); const mgr = roomManager(rm); ui.runAsync("กำลังออกเลขใบเสร็จ...", async () => { const receiptNo = (await reserveReceiptNo(Array.from(usedReceiptNums(db)), buddhistYear())) || nextReceiptNo(db); if (setDb) {
                     setTimeout(() => window.__forceSave && window.__forceSave(), 300);
-                } makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน (เฉลี่ยคืน ห้อง " + rm + ")", kind: "out", receiptNo, date: todayStr(), time: nowHM(), rows: [{ label: "เงินเฉลี่ยคืนสำหรับนักเรียนห้อง " + rm, amount }], notify: ui.notify, payerName: holder.name, payerLabel: "ผู้จ่ายเงิน", payerPosition: holder.pos, payeeName: mgr.name, payeeLabel: "ผู้รับเงิน (ผู้จัดการห้อง)", payeePosition: mgr.pos }); };
+                } makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน (เฉลี่ยคืน ห้อง " + rm + ")", kind: "out", receiptNo, date: todayStr(), time: nowHM(), rows: [{ label: "เงินเฉลี่ยคืนสำหรับนักเรียนห้อง " + rm, amount }], notify: ui.notify, payerName: holder.name, payerLabel: "ผู้จ่ายเงิน", payerPosition: holder.pos, payeeName: mgr.name, payeeLabel: "ผู้รับเงิน (ผู้จัดการห้อง)", payeePosition: mgr.pos }); }); };
                 return (React.createElement("div", { style: { marginBottom: 14 } },
                     React.createElement("div", { style: { fontWeight: 800, color: C.ink, marginBottom: 6 } }, "\uD83D\uDCA0 \u0E2A\u0E23\u0E38\u0E1B\u0E22\u0E2D\u0E14\u0E04\u0E37\u0E19\u0E23\u0E32\u0E22\u0E2B\u0E49\u0E2D\u0E07"),
                     React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, roomList.map((rm) => {
@@ -2038,6 +2039,8 @@ function FinanceManager({ db, setDb, ui, viewer }) {
         return null; const d = (db.departments || []).find((x) => "D:" + x.id === String(id)); return d ? (d.comps || []).map(String) : []; };
     // แก้ไขรายการการเงินได้เฉพาะ "ผู้มีหน้าที่ถือเงิน" (ติ๊กผู้ถือเงินในผังใหม่) หรือแอดมิน
     const isMoneyHolder = financeMoneyHolder;
+    // สิทธิ์อนุมัติรายจ่าย = แอดมิน หรือ ผู้ถือเงิน หรือ "ครู" ที่อยู่ในผังฝ่ายการเงิน (นักเรียนอนุมัติไม่ได้)
+    const canApproveExpense = String(viewer.role) === "admin" || financeMoneyHolder || (String(viewer.role) === "teacher" && finNodes.length > 0);
     // ผู้ช่วยการเงิน (ไม่ใช่ผู้ถือเงิน/ผู้ดูแลขึ้นไป/แอดมิน) → ลงเงินได้เฉพาะห้องตนเอง
     const viewerRoom = (() => { if (String(viewer.role).indexOf("student") === 0) {
         const s = (db.students || []).find((x) => String(x.id) === String(viewer.id));
@@ -2106,9 +2109,9 @@ function FinanceManager({ db, setDb, ui, viewer }) {
         setApproveTarget(null);
         setBillOpenedAt(0);
     });
-    const cancelExpense = (f) => ui.run("ยกเลิกคำขอแล้ว", () => { moneyDelete(f.id).then(() => { setMoneyQueue((q) => q.filter((x) => String(x.id) !== String(f.id))); }); ui.notify("ยกเลิกคำขอจ่าย + ลบออกจากคิวแล้ว"); setApproveTarget(null); setBillOpenedAt(0); });
-    useEffect(() => { if (isFinance && pendingExpenses.length > 0)
-        setApproveModal(true); }, [isFinance, pendingExpenses.length]);
+    const cancelExpense = (f) => ui.run("ยกเลิกคำขอแล้ว", () => { moneyDelete(f.id).then(() => { setMoneyQueue((q) => q.filter((x) => String(x.id) !== String(f.id))); }); ui.notify("ยกเลิกคำขอ + ลบออกจากคิวแล้ว"); setApproveTarget(null); setBillOpenedAt(0); });
+    useEffect(() => { if (canApproveExpense && pendingExpenses.length > 0)
+        setApproveModal(true); }, [canApproveExpense, pendingExpenses.length]);
     const fundBuyEnabled = !!(db.settings && db.settings.fundBuyEnabled);
     // ผู้ซื้อ = มีตำแหน่งชื่อ "ผู้ซื้อ" ในผัง org2 (ครู/นักเรียน)
     const isBuyer = (db.org2 || []).some((n) => { if (String(n.personId) !== String(viewer.id))
@@ -2196,9 +2199,9 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             return;
         }
         const total = lines.reduce((s, l) => s + l.amount, 0);
-        const rec = { id: "mw" + Date.now() + Math.random().toString(36).slice(2, 6), dept: form.dept, deptName: compName(form.dept), type: "in", kind: "refund", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), receiptNo: nextReceiptNo(db), payerName: payer ? payer.name : "", payerPos: payer ? payer.pos : "", payeeName: payee ? payee.name : "", payeePos: payee ? payee.pos : "", by: viewer.id, byName: viewer.name || "", at: Date.now() };
-        ui.runAsync("ส่งขออนุมัติคืนเงิน...", async () => { const r = await moneyAppend(rec); if (r && r.ok) {
-            ui.notify("ส่งขออนุมัติคืนเงินแล้ว — รอแอดมิน/ผู้ถือเงินอนุมัติ");
+        const rec = { id: "mw" + Date.now() + Math.random().toString(36).slice(2, 6), dept: form.dept, deptName: compName(form.dept), type: "in", kind: "refund", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), payerName: payer ? payer.name : "", payerPos: payer ? payer.pos : "", payeeName: payee ? payee.name : "", payeePos: payee ? payee.pos : "", by: viewer.id, byName: viewer.name || "", at: Date.now() };
+        ui.runAsync("ส่งขออนุมัติคืนเงิน...", async () => { const r = await moneyAppend(rec, Array.from(usedReceiptNums(db)), buddhistYear()); if (r && r.ok) {
+            ui.notify("ส่งขออนุมัติคืนเงินแล้ว เลขที่ " + (r.receiptNo || "-") + "  — รอแอดมิน/ผู้ถือเงินอนุมัติ");
             loadMoneyQueue();
             resetRef();
             setForm((p) => ({ ...p, title: "", note: "" }));
@@ -2229,8 +2232,8 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             setExpNoModal(true);
             return;
         } // ออกแล้ว แสดงเลขเดิม
-        setExpReceiptNo(nextReceiptNo(db));
-        setExpNoModal(true); // แสดงเลขว่างถัดไป (ยังไม่จอง — ถือว่าใช้จริงเมื่อบันทึกลงรายการ)
+        setExpReceiptNo("(ระบบจะจองเลขให้อัตโนมัติตอนกดบันทึก)");
+        setExpNoModal(true);
     };
     const pickExpBill = (file) => { if (!file)
         return; const raw = () => { const r = new FileReader(); r.onload = () => setExpBill(r.result); r.readAsDataURL(file); }; try {
@@ -2269,7 +2272,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
         } // บังคับแนบใบเสร็จ
         const total = lines.reduce((s, l) => s + l.amount, 0);
         const fid = "mw" + Date.now() + Math.random().toString(36).slice(2, 6);
-        const rec = { id: fid, dept: form.dept, deptName: compName(form.dept), type: "out", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), receiptNo: expReceiptNo || nextReceiptNo(db), payerName: payer ? payer.name : "", payerPos: payer ? payer.pos : "", payeeName: payee ? payee.name : (payeeQ.trim() || ""), payeePos: payee ? payee.pos : payeePos, by: viewer.id, byName: viewer.name || "", at: Date.now() };
+        const rec = { id: fid, dept: form.dept, deptName: compName(form.dept), type: "out", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), payerName: payer ? payer.name : "", payerPos: payer ? payer.pos : "", payeeName: payee ? payee.name : (payeeQ.trim() || ""), payeePos: payee ? payee.pos : payeePos, by: viewer.id, byName: viewer.name || "", at: Date.now() };
         const billLocal = expBill;
         setExpBusy && setExpBusy(true);
         ui.runAsync("อัปโหลดใบเสร็จ + ส่งขออนุมัติ...", async () => {
@@ -2284,9 +2287,10 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             catch (e) { }
             rec.billUrl = billUrl;
             rec.billId = billId;
-            const ok = await moneyAppend(rec);
-            if (ok) {
-                ui.notify("ส่งขออนุมัติจ่ายแล้ว — รอฝ่ายการเงินตรวจ/อนุมัติ (อยู่ในคิว moneywaitsport)");
+            const r = await moneyAppend(rec, Array.from(usedReceiptNums(db)), buddhistYear());
+            if (r && r.ok) {
+                ui.notify("ส่งขออนุมัติจ่ายแล้ว เลขที่ " + (r.receiptNo || "-") + " — รอฝ่ายการเงินตรวจ/อนุมัติ");
+                loadMoneyQueue();
                 reset();
                 resetExp();
                 setForm((p) => ({ ...p, title: "", note: "" }));
@@ -2296,7 +2300,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 setPayeePos("");
             }
             else
-                ui.notify("ส่งขออนุมัติไม่สำเร็จ — ตรวจการเชื่อมต่อ/Deploy Code.gs ล่าสุด");
+                ui.notify("ส่งไม่สำเร็จ: " + ((r && r.error) || "?") + " — ตรวจการเชื่อมต่อ/Deploy Code.gs ล่าสุด");
             setExpBusy && setExpBusy(false);
         });
     };
@@ -2324,9 +2328,9 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             return;
         }
         const total = lines.reduce((s, l) => s + l.amount, 0);
-        const rec = { id: "mw" + Date.now() + Math.random().toString(36).slice(2, 6), dept: form.dept, deptName: compName(form.dept), type: "in", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), receiptNo: nextReceiptNo(db), payerName: payer ? payer.name : "", payerPos: payer ? payer.pos : "", payeeName: payee ? payee.name : "", payeePos: payee ? payee.pos : "", by: viewer.id, byName: viewer.name || "", at: Date.now() };
-        ui.runAsync("ส่งขออนุมัติรายรับ...", async () => { const r = await moneyAppend(rec); if (r && r.ok) {
-            ui.notify("ส่งขออนุมัติรายรับแล้ว — รอแอดมิน/ผู้ถือเงินอนุมัติ");
+        const rec = { id: "mw" + Date.now() + Math.random().toString(36).slice(2, 6), dept: form.dept, deptName: compName(form.dept), type: "in", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), payerName: payer ? payer.name : "", payerPos: payer ? payer.pos : "", payeeName: payee ? payee.name : "", payeePos: payee ? payee.pos : "", by: viewer.id, byName: viewer.name || "", at: Date.now() };
+        ui.runAsync("ส่งขออนุมัติรายรับ...", async () => { const r = await moneyAppend(rec, Array.from(usedReceiptNums(db)), buddhistYear()); if (r && r.ok) {
+            ui.notify("ส่งขออนุมัติรายรับแล้ว เลขที่ " + (r.receiptNo || "-") + "  — รอแอดมิน/ผู้ถือเงินอนุมัติ");
             loadMoneyQueue();
             resetInc();
             setForm((p) => ({ ...p, title: "", note: "" }));
@@ -2430,7 +2434,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                     acc.full && React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setTab("income") }, "\u0E44\u0E1B\u0E2B\u0E19\u0E49\u0E32\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\u0E2B\u0E49\u0E2D\u0E07\u0E19\u0E35\u0E49"),
                     React.createElement(Btn, { small: true, onClick: () => markRead(n.id) }, "\u2713 \u0E17\u0E23\u0E32\u0E1A\u0E41\u0E25\u0E49\u0E27")))))));
         })(),
-        React.createElement(Tabs, { tabs: [...(finFull ? [{ key: "fund", label: "🏦 กองทุนสำรอง" }] : []), ...(isFinance ? [{ key: "income", label: "รายรับนักเรียน" }] : []), ...(canRecordAny ? [{ key: "addin", label: editId && form.type !== "out" ? "แก้ไขรายรับ" : "＋ บันทึกรายรับ" }, { key: "loan", label: "บันทึกยืมเงิน" }, { key: "addout", label: editId && form.type === "out" ? "แก้ไขรายจ่าย" : "－ บันทึกรายจ่าย" }, { key: "refundin", label: "↩️ คืนเงิน" }] : []), ...(canBuy ? [{ key: "buy", label: "🛒 สร้างรายการซื้อ" }] : []), ...(isFinance ? [{ key: "approve", label: "⏳ รออนุมัติ" + ((pendingExpenses.length + pendingIncomes.length) ? " (" + (pendingExpenses.length + pendingIncomes.length) + ")" : "") }] : []), { key: "list", label: "แสดงรายการรับ-จ่าย" }, { key: "summary", label: "ภาพรวม/สรุป" }, ...(isFinance ? [{ key: "refund", label: "เฉลี่ยคืน" }] : []), { key: "trash", label: "🗑 ถังขยะ" }], active: tab, onChange: (k) => { if (k === "addin") {
+        React.createElement(Tabs, { tabs: [...(finFull ? [{ key: "fund", label: "🏦 กองทุนสำรอง" }] : []), ...(isFinance ? [{ key: "income", label: "รายรับนักเรียน" }] : []), ...(canRecordAny ? [{ key: "addin", label: editId && form.type !== "out" ? "แก้ไขรายรับ" : "＋ บันทึกรายรับ" }, { key: "loan", label: "บันทึกยืมเงิน" }, { key: "addout", label: editId && form.type === "out" ? "แก้ไขรายจ่าย" : "－ บันทึกรายจ่าย" }, { key: "refundin", label: "↩️ คืนเงิน" }] : []), ...(canBuy ? [{ key: "buy", label: "🛒 สร้างรายการซื้อ" }] : []), ...((canApproveExpense || isMoneyHolder) ? [{ key: "approve", label: "⏳ รออนุมัติ" + ((pendingExpenses.length + pendingIncomes.length) ? " (" + (pendingExpenses.length + pendingIncomes.length) + ")" : "") }] : []), { key: "list", label: "แสดงรายการรับ-จ่าย" }, { key: "summary", label: "ภาพรวม/สรุป" }, ...(isFinance ? [{ key: "refund", label: "เฉลี่ยคืน" }] : []), { key: "trash", label: "🗑 ถังขยะ" }], active: tab, onChange: (k) => { if (k === "addin") {
                 reset();
                 setForm((p) => ({ ...p, type: "in" }));
             }
@@ -2467,10 +2471,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 React.createElement(Field, { label: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48", type: "date", value: form.date, onChange: (v) => setForm((p) => ({ ...p, date: v })) }),
                 React.createElement(Field, { label: "\u0E40\u0E27\u0E25\u0E32", type: "time", value: form.time, onChange: (v) => setForm((p) => ({ ...p, time: v })) }),
                 React.createElement(Field, { label: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", value: form.note, onChange: (v) => setForm((p) => ({ ...p, note: v })), placeholder: "\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E40\u0E15\u0E34\u0E21 (\u0E16\u0E49\u0E32\u0E21\u0E35)" }),
-                React.createElement("div", { style: { fontSize: 11.5, color: C.muted, margin: "2px 0 8px" } },
-                    "\uD83D\uDCA1 \u0E04\u0E37\u0E19\u0E40\u0E07\u0E34\u0E19 = \u0E40\u0E07\u0E34\u0E19\u0E40\u0E02\u0E49\u0E32 \u00B7 \u0E01\u0E14\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E41\u0E25\u0E49\u0E27\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E43\u0E2B\u0E49 (\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48 ",
-                    nextReceiptNo(db),
-                    ")"),
+                React.createElement("div", { style: { fontSize: 11.5, color: C.muted, margin: "2px 0 8px" } }, "\uD83D\uDCA1 \u0E04\u0E37\u0E19\u0E40\u0E07\u0E34\u0E19 = \u0E40\u0E07\u0E34\u0E19\u0E40\u0E02\u0E49\u0E32 \u00B7 \u0E01\u0E14\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E41\u0E25\u0E49\u0E27\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E08\u0E2D\u0E07\u0E40\u0E25\u0E02\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E43\u0E2B\u0E49\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34 (\u0E01\u0E31\u0E19\u0E40\u0E25\u0E02\u0E0B\u0E49\u0E33) \u0E23\u0E2D\u0E1C\u0E39\u0E49\u0E16\u0E37\u0E2D\u0E40\u0E07\u0E34\u0E19\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34"),
                 React.createElement("div", { style: { display: "flex", gap: 8 } },
                     React.createElement(Btn, { onClick: saveRefund }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 + \u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08")))) : tab === "addout" && !editId ? (React.createElement(React.Fragment, null,
                 React.createElement(Field, { label: "\u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08", value: form.title, onChange: (v) => setForm((p) => ({ ...p, title: v })), placeholder: "\u0E40\u0E0A\u0E48\u0E19 \u0E04\u0E48\u0E32\u0E2D\u0E38\u0E1B\u0E01\u0E23\u0E13\u0E4C\u0E01\u0E35\u0E2C\u0E32, \u0E04\u0E48\u0E32\u0E2D\u0E32\u0E2B\u0E32\u0E23" }),
@@ -2513,10 +2514,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 React.createElement(Field, { label: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48", type: "date", value: form.date, onChange: (v) => setForm((p) => ({ ...p, date: v })) }),
                 React.createElement(Field, { label: "\u0E40\u0E27\u0E25\u0E32", type: "time", value: form.time, onChange: (v) => setForm((p) => ({ ...p, time: v })) }),
                 React.createElement(Field, { label: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", value: form.note, onChange: (v) => setForm((p) => ({ ...p, note: v })), placeholder: "\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E40\u0E15\u0E34\u0E21 (\u0E16\u0E49\u0E32\u0E21\u0E35)" }),
-                React.createElement("div", { style: { fontSize: 11.5, color: C.muted, margin: "2px 0 8px" } },
-                    "\uD83D\uDCA1 \u0E01\u0E14\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E41\u0E25\u0E49\u0E27\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19\u0E43\u0E2B\u0E49\u0E17\u0E31\u0E19\u0E17\u0E35 (\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48 ",
-                    nextReceiptNo(db),
-                    ")"),
+                React.createElement("div", { style: { fontSize: 11.5, color: C.muted, margin: "2px 0 8px" } }, "\uD83D\uDCA1 \u0E01\u0E14\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E41\u0E25\u0E49\u0E27\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E08\u0E2D\u0E07\u0E40\u0E25\u0E02\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E43\u0E2B\u0E49\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34 (\u0E01\u0E31\u0E19\u0E40\u0E25\u0E02\u0E0B\u0E49\u0E33) \u0E23\u0E2D\u0E1C\u0E39\u0E49\u0E16\u0E37\u0E2D\u0E40\u0E07\u0E34\u0E19\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34"),
                 React.createElement("div", { style: { display: "flex", gap: 8 } },
                     React.createElement(Btn, { onClick: saveIncomeReceipt }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 + \u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08")))) : (React.createElement(React.Fragment, null,
                 React.createElement(Field, { label: tab === "addin" ? "ชื่อใบเสร็จ" : "ชื่อรายการ", value: form.title, onChange: (v) => setForm((p) => ({ ...p, title: v })), placeholder: "\u0E40\u0E0A\u0E48\u0E19 \u0E04\u0E48\u0E32\u0E2D\u0E38\u0E1B\u0E01\u0E23\u0E13\u0E4C, \u0E40\u0E07\u0E34\u0E19\u0E2A\u0E19\u0E31\u0E1A\u0E2A\u0E19\u0E38\u0E19" }),
@@ -2542,7 +2540,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 React.createElement("div", { style: { fontSize: 13, color: C.muted, lineHeight: 1.6 } }, "\u0E01\u0E14\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E25\u0E49\u0E27\u0E16\u0E49\u0E32\u0E44\u0E21\u0E48\u0E41\u0E19\u0E1A\u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E44\u0E21\u0E48\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 \u00B7 \u0E01\u0E23\u0E38\u0E13\u0E32\u0E19\u0E33\u0E40\u0E25\u0E02\u0E19\u0E35\u0E49\u0E40\u0E02\u0E35\u0E22\u0E19\u0E25\u0E07\u0E1A\u0E19\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 \u0E41\u0E25\u0E30\u0E02\u0E35\u0E14\u0E40\u0E2A\u0E49\u0E19\u0E14\u0E49\u0E27\u0E22\u0E1B\u0E32\u0E01\u0E01\u0E32\u0E41\u0E14\u0E07\u0E43\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23 \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2A\u0E48\u0E07\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u0E01\u0E48\u0E2D\u0E19\u0E16\u0E48\u0E32\u0E22\u0E23\u0E39\u0E1B\u0E41\u0E19\u0E1A"),
                 React.createElement("div", { style: { marginTop: 14 } },
                     React.createElement(Btn, { onClick: () => setExpWarnModal(false) }, "\u0E40\u0E02\u0E49\u0E32\u0E43\u0E08\u0E41\u0E25\u0E49\u0E27")))),
-        approveModal && isFinance && pendingExpenses.length > 0 && !approveTarget && React.createElement(Modal, { onClose: () => setApproveModal(false) },
+        approveModal && canApproveExpense && pendingExpenses.length > 0 && !approveTarget && React.createElement(Modal, { onClose: () => setApproveModal(false) },
             React.createElement("div", { style: { padding: 20, textAlign: "center" } },
                 React.createElement("div", { style: { fontSize: 34, marginBottom: 6 } }, "\uD83D\uDD14"),
                 React.createElement("div", { style: { fontSize: 15, fontWeight: 800, color: "#c0392b", marginBottom: 8 } },
@@ -2690,7 +2688,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                     React.createElement("button", { onClick: () => restore(t), style: { fontSize: 11.5, border: "1px solid #2f9e6b", background: "#eaf7f0", color: "#1e7a4d", borderRadius: 8, padding: "4px 10px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" } }, "\u21A9 \u0E01\u0E39\u0E49\u0E04\u0E37\u0E19"),
                     React.createElement("button", { onClick: () => purge(t), style: { fontSize: 11.5, border: "1px solid #e0b4b4", background: "#fbeeee", color: "#c0392b", borderRadius: 8, padding: "4px 10px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" } }, "\u0E25\u0E1A\u0E16\u0E32\u0E27\u0E23")))))));
         })(),
-        tab === "approve" && isFinance && (React.createElement(Card, { style: { padding: 16 } },
+        tab === "approve" && (canApproveExpense || isMoneyHolder) && (React.createElement(Card, { style: { padding: 16 } },
             React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 } },
                 React.createElement("div", { style: { fontWeight: 800, color: "#c0392b" } },
                     "\u23F3 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19\u0E23\u0E2D\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34 (",
@@ -2712,7 +2710,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                         f.receiptNo,
                         " \u00B7 ",
                         f.date)),
-                React.createElement(Btn, { small: true, onClick: () => { setApproveTarget(f); setBillOpenedAt(0); } }, "\u0E15\u0E23\u0E27\u0E08/\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34"))))),
+                canApproveExpense ? React.createElement(Btn, { small: true, onClick: () => { setApproveTarget(f); setBillOpenedAt(0); } }, "\u0E15\u0E23\u0E27\u0E08/\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34") : React.createElement("span", { style: { fontSize: 11.5, color: C.muted } }, "\u0E23\u0E2D\u0E1D\u0E48\u0E32\u0E22\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19"))))),
             React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", margin: "18px 0 4px" } },
                 React.createElement("div", { style: { fontWeight: 800, color: "#1e7a4d" } },
                     "\uD83D\uDCB0 \u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A/\u0E04\u0E37\u0E19\u0E40\u0E07\u0E34\u0E19\u0E23\u0E2D\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34 (",
@@ -2826,7 +2824,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                                 f.receiptNo),
                             f.type === "out" && f.payStatus === "pending" && React.createElement("span", { style: { fontSize: 10.5, fontWeight: 700, color: "#b3762f", background: "#fff8ec", borderRadius: 8, padding: "2px 8px", marginTop: 4, display: "inline-block" } },
                                 "\u23F3 \u0E23\u0E2D\u0E1D\u0E48\u0E32\u0E22\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34",
-                                isFinance ? React.createElement("button", { onClick: () => { setApproveTarget(f); setBillOpenedAt(0); }, style: { marginLeft: 6, border: "1px solid #2f9e6b", background: "#eaf7f0", color: "#1e7a4d", borderRadius: 6, padding: "1px 7px", fontSize: 10.5, fontWeight: 800, cursor: "pointer" } }, "\u0E15\u0E23\u0E27\u0E08/\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34") : null),
+                                canApproveExpense ? React.createElement("button", { onClick: () => { setApproveTarget(f); setBillOpenedAt(0); }, style: { marginLeft: 6, border: "1px solid #2f9e6b", background: "#eaf7f0", color: "#1e7a4d", borderRadius: 6, padding: "1px 7px", fontSize: 10.5, fontWeight: 800, cursor: "pointer" } }, "\u0E15\u0E23\u0E27\u0E08/\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34") : null),
                             f.receiptNo && f.type === "out" && f.payStatus !== "pending" && React.createElement("button", { onClick: () => { makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน · " + f.title, kind: "out", receiptNo: f.receiptNo, date: f.date, time: f.time, rows: (f.items && f.items.length ? f.items : [{ label: f.title + " (" + compName(f.dept) + ")" + (f.note ? " · " + f.note : ""), amount: f.amount }]), notify: ui.notify, payerName: f.payerName || "", payerLabel: "ผู้จ่ายเงิน", payerPosition: f.payerPos || "", payeeName: f.payeeName || "", payeeLabel: "ผู้รับเงิน", payeePosition: f.payeePos || "" }); }, style: { fontSize: 11, border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "2px 7px", fontWeight: 700, cursor: "pointer", marginTop: 4 } },
                                 "\u2B07 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 ",
                                 f.receiptNo),
@@ -8568,8 +8566,8 @@ async function moneyList() { try {
 catch (e) {
     return [];
 } }
-async function moneyAppend(rec) { try {
-    const r = await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "moneyAppend", rec }) });
+async function moneyAppend(rec, usedNums, bYear) { try {
+    const r = await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "moneyAppend", rec, usedNums: usedNums || [], bYear }) });
     const t = await r.text();
     try {
         return JSON.parse(t);
@@ -8588,20 +8586,13 @@ async function moneyDelete(id) { try {
 catch (e) {
     return false;
 } }
-async function moneyList() { try {
-    const r = await fetch(API_URL + "?sheet=moneywaitsport");
+async function reserveReceiptNo(usedNums, bYear) { try {
+    const r = await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "reserveReceiptNo", usedNums: usedNums || [], bYear }) });
     const j = JSON.parse(await r.text());
-    return j && j.ok && Array.isArray(j.rows) ? j.rows : [];
+    return j && j.ok ? j.receiptNo : null;
 }
 catch (e) {
-    return [];
-} }
-async function moneyDelete(id) { try {
-    await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "moneyDelete", id }) });
-    return true;
-}
-catch (e) {
-    return false;
+    return null;
 } }
 function compKindGroup(c) { return c.kind === "กิจกรรม" ? "กิจกรรม" : ((c.sportType || "กีฬา") === "กรีฑา" ? "กรีฑา" : "กีฬา"); }
 function NoWorkPanel({ db, ui, viewer }) {
