@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v201";
-const BUILD_TIME = "31/08/2026 14:42 น.";
+const APP_VERSION = "v202";
+const BUILD_TIME = "31/08/2026 15:18 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -2397,7 +2397,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                     acc.full && React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setTab("income") }, "\u0E44\u0E1B\u0E2B\u0E19\u0E49\u0E32\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\u0E2B\u0E49\u0E2D\u0E07\u0E19\u0E35\u0E49"),
                     React.createElement(Btn, { small: true, onClick: () => markRead(n.id) }, "\u2713 \u0E17\u0E23\u0E32\u0E1A\u0E41\u0E25\u0E49\u0E27")))))));
         })(),
-        React.createElement(Tabs, { tabs: [...(finFull ? [{ key: "fund", label: "🏦 กองทุนสำรอง" }] : []), ...(isFinance ? [{ key: "income", label: "รายรับนักเรียน" }] : []), ...(finFull ? [{ key: "addin", label: editId && form.type !== "out" ? "แก้ไขรายรับ" : "＋ บันทึกรายรับ" }, { key: "loan", label: "บันทึกยืมเงิน" }, { key: "addout", label: editId && form.type === "out" ? "แก้ไขรายจ่าย" : "－ บันทึกรายจ่าย" }, { key: "refundin", label: "↩️ คืนเงิน" }] : []), ...(canBuy ? [{ key: "buy", label: "🛒 สร้างรายการซื้อ" }] : []), { key: "list", label: "แสดงรายการรับ-จ่าย" }, { key: "summary", label: "ภาพรวม/สรุป" }, ...(isFinance ? [{ key: "refund", label: "เฉลี่ยคืน" }] : []), { key: "trash", label: "🗑 ถังขยะ" }], active: tab, onChange: (k) => { if (k === "addin") {
+        React.createElement(Tabs, { tabs: [...(finFull ? [{ key: "fund", label: "🏦 กองทุนสำรอง" }] : []), ...(isFinance ? [{ key: "income", label: "รายรับนักเรียน" }] : []), ...(canRecordAny ? [{ key: "addin", label: editId && form.type !== "out" ? "แก้ไขรายรับ" : "＋ บันทึกรายรับ" }, { key: "loan", label: "บันทึกยืมเงิน" }, { key: "addout", label: editId && form.type === "out" ? "แก้ไขรายจ่าย" : "－ บันทึกรายจ่าย" }, { key: "refundin", label: "↩️ คืนเงิน" }] : []), ...(canBuy ? [{ key: "buy", label: "🛒 สร้างรายการซื้อ" }] : []), { key: "list", label: "แสดงรายการรับ-จ่าย" }, { key: "summary", label: "ภาพรวม/สรุป" }, ...(isFinance ? [{ key: "refund", label: "เฉลี่ยคืน" }] : []), { key: "trash", label: "🗑 ถังขยะ" }], active: tab, onChange: (k) => { if (k === "addin") {
                 reset();
                 setForm((p) => ({ ...p, type: "in" }));
             }
@@ -2412,7 +2412,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
         tab === "loan" && finFull && React.createElement(LoanManager, { db: db, setDb: setDb, ui: ui, viewer: viewer }),
         tab === "fund" && finFull && React.createElement(FundManager, { db: db, setDb: setDb, ui: ui, viewer: viewer, editRec: fundEdit, onDoneEdit: () => setFundEdit(null) }),
         tab === "income" && isFinance && React.createElement(StudentIncomeGrid, { db: db, setDb: setDb, ui: ui, viewer: viewer, acc: acc, canEntry: financeMoneyHolder || isFinanceManager || (isFinance && finRank >= 6), lockRoom: finLockRoom, canManageCols: finFull }),
-        (tab === "addin" || tab === "addout" || tab === "refundin") && finFull && (React.createElement(Card, { style: { padding: 16, marginBottom: 12 } },
+        (tab === "addin" || tab === "addout" || tab === "refundin") && canRecordAny && (React.createElement(Card, { style: { padding: 16, marginBottom: 12 } },
             React.createElement("div", { style: { fontWeight: 700, color: tab === "addout" ? "#c0392b" : "#2f9e6b", marginBottom: 10 } }, editId ? (tab === "addout" ? "แก้ไขรายจ่าย" : "แก้ไขรายรับ") : (tab === "addout" ? "－ บันทึกรายจ่าย" : tab === "refundin" ? "↩️ บันทึกคืนเงิน" : "＋ บันทึกรายรับ")),
             React.createElement("span", { style: { display: "block", fontSize: 13, color: C.muted, marginBottom: 5 } }, "\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1D\u0E48\u0E32\u0E22 (\u0E20\u0E32\u0E1E\u0E23\u0E27\u0E21) \u0E2B\u0E23\u0E37\u0E2D \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E41\u0E02\u0E48\u0E07/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21"),
             React.createElement("select", { value: form.dept, onChange: (e) => setForm((p) => ({ ...p, dept: e.target.value })), style: selCss },
@@ -2559,7 +2559,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 React.createElement(Btn, { onClick: () => approveExpense(approveTarget), disabled: !billOpenedAt || billTick > 0 }, !billOpenedAt ? "กดเปิดบิลก่อน" : billTick > 0 ? `รอ ${billTick} วิ...` : "✓ ยืนยันรายจ่ายจริง + ออกใบเสร็จ"),
                 React.createElement("div", { style: { marginTop: 8 } },
                     React.createElement(Btn, { variant: "ghost", onClick: () => { setApproveTarget(null); setBillOpenedAt(0); } }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01")))),
-        (tab === "addin" || tab === "addout") && finFull && (() => {
+        (tab === "addin" || tab === "addout") && canRecordAny && (() => {
             const wantOut = tab === "addout";
             const mine = (db.finance || []).filter((f) => String(f.dept) !== "FUND" && (wantOut ? f.type === "out" : f.type === "in") && deptMatch(f)).slice().sort((a, b) => (String(b.date) + (b.time || "") + b.at).localeCompare(String(a.date) + (a.time || "") + a.at)).slice(0, 50);
             const sum = mine.reduce((s, f) => s + (Number(f.amount) || 0), 0);
@@ -2599,7 +2599,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                         f.receiptNo),
                     canEditRow(f) && React.createElement("button", { onClick: () => del(f), style: { fontSize: 11, border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 700 } }, "\u0E25\u0E1A")))))));
         })(),
-        tab === "refundin" && finFull && (() => {
+        tab === "refundin" && canRecordAny && (() => {
             const mine = (db.finance || []).filter((f) => String(f.dept) !== "FUND" && f.kind === "refund" && deptMatch(f)).slice().sort((a, b) => (String(b.date) + (b.time || "") + b.at).localeCompare(String(a.date) + (a.time || "") + a.at)).slice(0, 50);
             const sum = mine.reduce((s, f) => s + (Number(f.amount) || 0), 0);
             const dl = (f) => { const holder = receiptMoneyHolder(db); makeReceiptPdf({ title: "ใบเสร็จคืนเงิน · " + f.title, receiptNo: f.receiptNo, date: f.date, time: f.time, rows: (f.items && f.items.length ? f.items : [{ label: f.title, amount: f.amount }]), notify: ui.notify, payeeName: holder.name, payeePosition: holder.pos }); };
