@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v204";
-const BUILD_TIME = "31/08/2026 15:56 น.";
+const APP_VERSION = "v205";
+const BUILD_TIME = "31/08/2026 16:50 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -2086,15 +2086,27 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     const [payee, setPayee] = useState(null); // ผู้รับเงิน {name,pos} (รายจ่าย)
     const [payeeQ, setPayeeQ] = useState("");
     const [payeePos, setPayeePos] = useState("");
-    // เฟส 2/3: อนุมัติรายจ่าย (กรรมการฝ่ายการเงินที่เข้าระบบ) + popup + เปิดบิล 5 วิ
-    const pendingExpenses = (db.finance || []).filter((f) => f.type === "out" && f.payStatus === "pending");
+    // เฟส 2/3: อนุมัติรายจ่าย — ดึงคิวจากชีท moneywaitsport (แยกจาก db เพื่อลดขนาด)
+    const [moneyQueue, setMoneyQueue] = useState([]);
+    const [expBusy, setExpBusy] = useState(false);
+    const loadMoneyQueue = React.useCallback(() => { moneyList().then((rows) => setMoneyQueue(rows || [])); }, []);
+    useEffect(() => { loadMoneyQueue(); }, [loadMoneyQueue]);
+    const pendingExpenses = moneyQueue.filter((f) => f.type === "out");
+    const pendingIncomes = moneyQueue.filter((f) => f.type !== "out");
     const [approveModal, setApproveModal] = useState(false); // popup แจ้งเตือน
     const [approveTarget, setApproveTarget] = useState(null); // รายการที่กำลังตรวจ
     const [billOpenedAt, setBillOpenedAt] = useState(0); // เวลาเปิดบิล
     const [billTick, setBillTick] = useState(0);
     useEffect(() => { if (!billOpenedAt)
         return; const t = setInterval(() => setBillTick(Math.max(0, 5 - Math.floor((Date.now() - billOpenedAt) / 1000))), 250); return () => clearInterval(t); }, [billOpenedAt]);
-    const approveExpense = (f) => ui.run("อนุมัติรายจ่ายแล้ว — ออกใบเสร็จ", () => { commit((p) => ({ ...p, finance: (p.finance || []).map((x) => x.id === f.id ? { ...x, payStatus: "approved", payApprovedBy: viewer.name || "", payApprovedAt: Date.now() } : x) })); ui.notify("อนุมัติรายจ่าย + ออกใบเสร็จเลขที่ " + (f.receiptNo || "-") + " แล้ว"); setApproveTarget(null); setBillOpenedAt(0); });
+    const approveExpense = (f) => ui.run("อนุมัติแล้ว — ออกใบเสร็จ", () => {
+        commit((p) => ({ ...p, finance: [...(p.finance || []), { id: "fn" + Date.now() + Math.random().toString(36).slice(2, 6), dept: f.dept, type: f.type || "out", kind: f.kind || undefined, title: f.title, amount: f.amount, items: f.items || [], date: f.date, time: f.time, note: f.note || "", receiptNo: f.receiptNo, billUrl: f.billUrl || "", billId: f.billId || "", payerName: f.payerName || "", payerPos: f.payerPos || "", payeeName: f.payeeName || "", payeePos: f.payeePos || "", payStatus: "approved", payApprovedBy: viewer.name || "", payApprovedAt: Date.now(), by: f.by, byName: f.byName || "", at: f.at || Date.now() }] }));
+        moneyDelete(f.id).then(() => { setMoneyQueue((q) => q.filter((x) => String(x.id) !== String(f.id))); });
+        ui.notify("อนุมัติ + ออกใบเสร็จเลขที่ " + (f.receiptNo || "-") + " แล้ว · ลบออกจากคิว");
+        setApproveTarget(null);
+        setBillOpenedAt(0);
+    });
+    const cancelExpense = (f) => ui.run("ยกเลิกคำขอแล้ว", () => { moneyDelete(f.id).then(() => { setMoneyQueue((q) => q.filter((x) => String(x.id) !== String(f.id))); }); ui.notify("ยกเลิกคำขอจ่าย + ลบออกจากคิวแล้ว"); setApproveTarget(null); setBillOpenedAt(0); });
     useEffect(() => { if (isFinance && pendingExpenses.length > 0)
         setApproveModal(true); }, [isFinance, pendingExpenses.length]);
     const fundBuyEnabled = !!(db.settings && db.settings.fundBuyEnabled);
@@ -2184,11 +2196,17 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             return;
         }
         const total = lines.reduce((s, l) => s + l.amount, 0);
-        ui.run("บันทึกคืนเงิน + ออกใบเสร็จแล้ว (กดปุ่ม ⬇ ใบเสร็จ ในรายการเพื่อดาวน์โหลด)", () => {
-            commit((p) => ({ ...p, finance: [...(p.finance || []), { id: "fn" + Date.now() + Math.random().toString(36).slice(2, 6), dept: form.dept, type: "in", kind: "refund", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), receiptNo: nextReceiptNo(p), by: viewer.id, byName: viewer.name || "", at: Date.now() }] }));
+        const rec = { id: "mw" + Date.now() + Math.random().toString(36).slice(2, 6), dept: form.dept, deptName: compName(form.dept), type: "in", kind: "refund", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), receiptNo: nextReceiptNo(db), payerName: payer ? payer.name : "", payerPos: payer ? payer.pos : "", payeeName: payee ? payee.name : "", payeePos: payee ? payee.pos : "", by: viewer.id, byName: viewer.name || "", at: Date.now() };
+        ui.runAsync("ส่งขออนุมัติคืนเงิน...", async () => { const r = await moneyAppend(rec); if (r && r.ok) {
+            ui.notify("ส่งขออนุมัติคืนเงินแล้ว — รอแอดมิน/ผู้ถือเงินอนุมัติ");
+            loadMoneyQueue();
             resetRef();
             setForm((p) => ({ ...p, title: "", note: "" }));
-        });
+            setPayer(null);
+            setPayee(null);
+        }
+        else
+            ui.notify("ส่งไม่สำเร็จ: " + ((r && r.error) || "?")); });
     };
     const [expLines, setExpLines] = useState([{ label: "", amount: "" }]);
     const [expReceiptNo, setExpReceiptNo] = useState(""); // เลขที่ออกไว้ (จอง)
@@ -2250,34 +2268,37 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             return;
         } // บังคับแนบใบเสร็จ
         const total = lines.reduce((s, l) => s + l.amount, 0);
-        const fid = "fn" + Date.now() + Math.random().toString(36).slice(2, 6);
-        // บันทึกทันที (ไม่เก็บ base64 ใน db เพราะทำให้ฐานข้อมูลใหญ่/บันทึกล้มเหลว) — อัปโหลดบิลขึ้น Drive เบื้องหลังแล้วผูก URL
-        commit((p) => ({ ...p, finance: [...(p.finance || []), { id: fid, dept: form.dept, type: "out", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), receiptNo: expReceiptNo || nextReceiptNo(p), billUrl: "", billId: "", billPending: true, payerName: payer ? payer.name : "", payerPos: payer ? payer.pos : "", payeeName: payee ? payee.name : (payeeQ.trim() || ""), payeePos: payee ? payee.pos : payeePos, payStatus: "pending", by: viewer.id, byName: viewer.name || "", at: Date.now() }] }));
-        ui.notify("บันทึกรายจ่ายแล้ว — รอฝ่ายการเงินอนุมัติ (กำลังอัปโหลดใบเสร็จขึ้น Drive)");
+        const fid = "mw" + Date.now() + Math.random().toString(36).slice(2, 6);
+        const rec = { id: fid, dept: form.dept, deptName: compName(form.dept), type: "out", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), receiptNo: expReceiptNo || nextReceiptNo(db), payerName: payer ? payer.name : "", payerPos: payer ? payer.pos : "", payeeName: payee ? payee.name : (payeeQ.trim() || ""), payeePos: payee ? payee.pos : payeePos, by: viewer.id, byName: viewer.name || "", at: Date.now() };
         const billLocal = expBill;
-        reset();
-        resetExp();
-        setForm((p) => ({ ...p, title: "", note: "" }));
-        setPayer(null);
-        setPayee(null);
-        setPayeeQ("");
-        setPayeePos("");
-        // อัปโหลดรูปเบื้องหลัง แล้วผูก billUrl ในรายการเดิม
-        (async () => {
+        setExpBusy && setExpBusy(true);
+        ui.runAsync("อัปโหลดใบเสร็จ + ส่งขออนุมัติ...", async () => {
+            let billUrl = "", billId = "";
             try {
-                const up = await uploadImageRemote(billLocal, { id: "bill" + Date.now(), first: (form.title.trim() || "bill"), last: form.date }, "finance", "");
-                if (up && up.photoUrl)
-                    commit((p) => ({ ...p, finance: (p.finance || []).map((f) => f.id === fid ? { ...f, billUrl: up.photoUrl, billId: up.photoId, billPending: false } : f) }));
-                else {
-                    commit((p) => ({ ...p, finance: (p.finance || []).map((f) => f.id === fid ? { ...f, billPending: false, billFailed: true } : f) }));
-                    if (window.__uiNotify)
-                        window.__uiNotify("⚠ อัปโหลดใบเสร็จไม่สำเร็จ — เปิดรายการแล้วแนบใหม่ได้");
+                const up = await uploadImageRemote(billLocal, { id: "bill" + Date.now(), first: (rec.title || "bill"), last: rec.date }, "finance", "");
+                if (up && up.photoUrl) {
+                    billUrl = up.photoUrl;
+                    billId = up.photoId;
                 }
             }
-            catch (e) {
-                commit((p) => ({ ...p, finance: (p.finance || []).map((f) => f.id === fid ? { ...f, billPending: false, billFailed: true } : f) }));
+            catch (e) { }
+            rec.billUrl = billUrl;
+            rec.billId = billId;
+            const ok = await moneyAppend(rec);
+            if (ok) {
+                ui.notify("ส่งขออนุมัติจ่ายแล้ว — รอฝ่ายการเงินตรวจ/อนุมัติ (อยู่ในคิว moneywaitsport)");
+                reset();
+                resetExp();
+                setForm((p) => ({ ...p, title: "", note: "" }));
+                setPayer(null);
+                setPayee(null);
+                setPayeeQ("");
+                setPayeePos("");
             }
-        })();
+            else
+                ui.notify("ส่งขออนุมัติไม่สำเร็จ — ตรวจการเชื่อมต่อ/Deploy Code.gs ล่าสุด");
+            setExpBusy && setExpBusy(false);
+        });
     };
     const incTotal = incLines.reduce((s, l) => s + (Number(String(l.amount).replace(/[^0-9.]/g, "")) || 0), 0);
     const resetInc = () => setIncLines([{ label: "", amount: "" }]);
@@ -2303,13 +2324,17 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             return;
         }
         const total = lines.reduce((s, l) => s + l.amount, 0);
-        ui.run("บันทึกรายรับ + ออกใบเสร็จแล้ว (กดปุ่ม ⬇ ใบเสร็จ ในรายการเพื่อดาวน์โหลด)", () => {
-            commit((p) => ({ ...p, finance: [...(p.finance || []), { id: "fn" + Date.now() + Math.random().toString(36).slice(2, 6), dept: form.dept, type: "in", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), receiptNo: nextReceiptNo(p), payerName: payer ? payer.name : "", payerPos: payer ? payer.pos : "", payeeName: payee ? payee.name : "", payeePos: payee ? payee.pos : "", by: viewer.id, byName: viewer.name || "", at: Date.now() }] }));
+        const rec = { id: "mw" + Date.now() + Math.random().toString(36).slice(2, 6), dept: form.dept, deptName: compName(form.dept), type: "in", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), receiptNo: nextReceiptNo(db), payerName: payer ? payer.name : "", payerPos: payer ? payer.pos : "", payeeName: payee ? payee.name : "", payeePos: payee ? payee.pos : "", by: viewer.id, byName: viewer.name || "", at: Date.now() };
+        ui.runAsync("ส่งขออนุมัติรายรับ...", async () => { const r = await moneyAppend(rec); if (r && r.ok) {
+            ui.notify("ส่งขออนุมัติรายรับแล้ว — รอแอดมิน/ผู้ถือเงินอนุมัติ");
+            loadMoneyQueue();
             resetInc();
             setForm((p) => ({ ...p, title: "", note: "" }));
             setPayer(null);
             setPayee(null);
-        });
+        }
+        else
+            ui.notify("ส่งไม่สำเร็จ: " + ((r && r.error) || "?")); });
     };
     const startEdit = (f) => { if (String(f.dept) === "FUND") {
         setFundEdit(f);
@@ -2405,7 +2430,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                     acc.full && React.createElement(Btn, { small: true, variant: "ghost", onClick: () => setTab("income") }, "\u0E44\u0E1B\u0E2B\u0E19\u0E49\u0E32\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A\u0E2B\u0E49\u0E2D\u0E07\u0E19\u0E35\u0E49"),
                     React.createElement(Btn, { small: true, onClick: () => markRead(n.id) }, "\u2713 \u0E17\u0E23\u0E32\u0E1A\u0E41\u0E25\u0E49\u0E27")))))));
         })(),
-        React.createElement(Tabs, { tabs: [...(finFull ? [{ key: "fund", label: "🏦 กองทุนสำรอง" }] : []), ...(isFinance ? [{ key: "income", label: "รายรับนักเรียน" }] : []), ...(canRecordAny ? [{ key: "addin", label: editId && form.type !== "out" ? "แก้ไขรายรับ" : "＋ บันทึกรายรับ" }, { key: "loan", label: "บันทึกยืมเงิน" }, { key: "addout", label: editId && form.type === "out" ? "แก้ไขรายจ่าย" : "－ บันทึกรายจ่าย" }, { key: "refundin", label: "↩️ คืนเงิน" }] : []), ...(canBuy ? [{ key: "buy", label: "🛒 สร้างรายการซื้อ" }] : []), ...(isFinance ? [{ key: "approve", label: "⏳ รออนุมัติจ่าย" + (pendingExpenses.length ? " (" + pendingExpenses.length + ")" : "") }] : []), { key: "list", label: "แสดงรายการรับ-จ่าย" }, { key: "summary", label: "ภาพรวม/สรุป" }, ...(isFinance ? [{ key: "refund", label: "เฉลี่ยคืน" }] : []), { key: "trash", label: "🗑 ถังขยะ" }], active: tab, onChange: (k) => { if (k === "addin") {
+        React.createElement(Tabs, { tabs: [...(finFull ? [{ key: "fund", label: "🏦 กองทุนสำรอง" }] : []), ...(isFinance ? [{ key: "income", label: "รายรับนักเรียน" }] : []), ...(canRecordAny ? [{ key: "addin", label: editId && form.type !== "out" ? "แก้ไขรายรับ" : "＋ บันทึกรายรับ" }, { key: "loan", label: "บันทึกยืมเงิน" }, { key: "addout", label: editId && form.type === "out" ? "แก้ไขรายจ่าย" : "－ บันทึกรายจ่าย" }, { key: "refundin", label: "↩️ คืนเงิน" }] : []), ...(canBuy ? [{ key: "buy", label: "🛒 สร้างรายการซื้อ" }] : []), ...(isFinance ? [{ key: "approve", label: "⏳ รออนุมัติ" + ((pendingExpenses.length + pendingIncomes.length) ? " (" + (pendingExpenses.length + pendingIncomes.length) + ")" : "") }] : []), { key: "list", label: "แสดงรายการรับ-จ่าย" }, { key: "summary", label: "ภาพรวม/สรุป" }, ...(isFinance ? [{ key: "refund", label: "เฉลี่ยคืน" }] : []), { key: "trash", label: "🗑 ถังขยะ" }], active: tab, onChange: (k) => { if (k === "addin") {
                 reset();
                 setForm((p) => ({ ...p, type: "in" }));
             }
@@ -2671,26 +2696,49 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                     "\u23F3 \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19\u0E23\u0E2D\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34 (",
                     pendingExpenses.length,
                     ")"),
-                React.createElement(Btn, { small: true, variant: "ghost", onClick: () => { if (window.__reloadFromServer) {
-                        window.__reloadFromServer();
-                        ui.notify("กำลังดึงข้อมูลล่าสุด...");
-                    } } }, "\uD83D\uDD04 \u0E23\u0E35\u0E40\u0E1F\u0E23\u0E0A")),
+                React.createElement(Btn, { small: true, variant: "ghost", onClick: () => { loadMoneyQueue(); ui.notify("กำลังดึงคิวล่าสุด..."); } }, "\uD83D\uDD04 \u0E23\u0E35\u0E40\u0E1F\u0E23\u0E0A")),
             React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 12 } }, "\u0E01\u0E23\u0E38\u0E13\u0E32\u0E01\u0E14\u0E14\u0E39\u0E1A\u0E34\u0E25 \u0E40\u0E17\u0E35\u0E22\u0E1A\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19\u0E43\u0E2B\u0E49\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E48\u0E2D\u0E19\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34 (\u0E40\u0E1B\u0E34\u0E14\u0E1A\u0E34\u0E25\u0E41\u0E25\u0E49\u0E27\u0E23\u0E2D 5 \u0E27\u0E34\u0E19\u0E32\u0E17\u0E35 \u0E08\u0E36\u0E07\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E44\u0E14\u0E49) \u00B7 \u0E16\u0E49\u0E32\u0E44\u0E21\u0E48\u0E40\u0E2B\u0E47\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E40\u0E1E\u0E34\u0E48\u0E07\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 \u0E01\u0E14 \uD83D\uDD04 \u0E23\u0E35\u0E40\u0E1F\u0E23\u0E0A"),
-            pendingExpenses.length === 0 ? React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E23\u0E2D\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34" }) : React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, pendingExpenses.map((f) => (React.createElement("div", { key: f.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, borderLeft: "4px solid #c0392b" } },
+            pendingExpenses.length === 0 ? React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E08\u0E48\u0E32\u0E22\u0E23\u0E2D\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34" }) : React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, pendingExpenses.map((f) => (React.createElement("div", { key: f.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, borderLeft: "4px solid #c0392b" } },
                 React.createElement("div", { style: { flex: 1, minWidth: 0 } },
                     React.createElement("div", { style: { fontWeight: 700, color: C.ink, fontSize: 13.5 } },
                         f.title,
                         " \u00B7 ",
                         money(f.amount)),
                     React.createElement("div", { style: { fontSize: 11.5, color: C.muted } },
-                        compName(f.dept),
+                        f.deptName || compName(f.dept),
                         " \u00B7 \u0E08\u0E48\u0E32\u0E22\u0E42\u0E14\u0E22 ",
                         f.payerName || f.byName || "-",
                         " \u00B7 \uD83E\uDDFE ",
                         f.receiptNo,
                         " \u00B7 ",
                         f.date)),
-                React.createElement(Btn, { small: true, onClick: () => { setApproveTarget(f); setBillOpenedAt(0); } }, "\u0E15\u0E23\u0E27\u0E08/\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34"))))))),
+                React.createElement(Btn, { small: true, onClick: () => { setApproveTarget(f); setBillOpenedAt(0); } }, "\u0E15\u0E23\u0E27\u0E08/\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34"))))),
+            React.createElement("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "center", margin: "18px 0 4px" } },
+                React.createElement("div", { style: { fontWeight: 800, color: "#1e7a4d" } },
+                    "\uD83D\uDCB0 \u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A/\u0E04\u0E37\u0E19\u0E40\u0E07\u0E34\u0E19\u0E23\u0E2D\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34 (",
+                    pendingIncomes.length,
+                    ")")),
+            React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 10 } },
+                "\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34\u0E42\u0E14\u0E22\u0E41\u0E2D\u0E14\u0E21\u0E34\u0E19/\u0E1C\u0E39\u0E49\u0E16\u0E37\u0E2D\u0E40\u0E07\u0E34\u0E19",
+                isMoneyHolder ? "" : " (คุณไม่ใช่ผู้ถือเงิน — ดูได้แต่กดอนุมัติไม่ได้)"),
+            pendingIncomes.length === 0 ? React.createElement(Empty, { text: "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A\u0E23\u0E2D\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34" }) : React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, pendingIncomes.map((f) => (React.createElement("div", { key: f.id, style: { display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, borderLeft: "4px solid #2f9e6b" } },
+                React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+                    React.createElement("div", { style: { fontWeight: 700, color: C.ink, fontSize: 13.5 } },
+                        f.kind === "refund" ? "↩️ " : "",
+                        f.title,
+                        " \u00B7 ",
+                        money(f.amount)),
+                    React.createElement("div", { style: { fontSize: 11.5, color: C.muted } },
+                        f.deptName || compName(f.dept),
+                        " \u00B7 \u0E2A\u0E48\u0E07\u0E42\u0E14\u0E22 ",
+                        f.payerName || f.byName || "-",
+                        " \u00B7 \uD83E\uDDFE ",
+                        f.receiptNo,
+                        " \u00B7 ",
+                        f.date)),
+                isMoneyHolder ? React.createElement(React.Fragment, null,
+                    React.createElement(Btn, { small: true, onClick: () => approveExpense(f) }, "\u2713 \u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34"),
+                    React.createElement("button", { onClick: () => cancelExpense(f), style: { fontSize: 11, border: "1px solid #e0b4b4", background: "#fbeeee", color: "#c0392b", borderRadius: 8, padding: "4px 8px", fontWeight: 700, cursor: "pointer" } }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01")) : React.createElement("span", { style: { fontSize: 11.5, color: C.muted } }, "\u0E23\u0E2D\u0E1C\u0E39\u0E49\u0E16\u0E37\u0E2D\u0E40\u0E07\u0E34\u0E19"))))))),
         tab === "list" && (React.createElement(Card, { style: { padding: 16 } },
             React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" } },
                 React.createElement("span", { style: { fontSize: 12, color: C.muted } }, "\u0E1D\u0E48\u0E32\u0E22:"),
@@ -8507,6 +8555,49 @@ catch (e) {
 } }
 async function mineUpsert(rec) { try {
     await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "mineUpsert", rec }) });
+    return true;
+}
+catch (e) {
+    return false;
+} }
+async function moneyList() { try {
+    const r = await fetch(API_URL + "?sheet=moneywaitsport");
+    const j = JSON.parse(await r.text());
+    return j && j.ok && Array.isArray(j.rows) ? j.rows : [];
+}
+catch (e) {
+    return [];
+} }
+async function moneyAppend(rec) { try {
+    const r = await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "moneyAppend", rec }) });
+    const t = await r.text();
+    try {
+        return JSON.parse(t);
+    }
+    catch (e) {
+        return { ok: false, error: "ตอบกลับไม่ใช่ JSON (Deploy Code.gs ใหม่?)" };
+    }
+}
+catch (e) {
+    return { ok: false, error: "เชื่อมต่อไม่ได้" };
+} }
+async function moneyDelete(id) { try {
+    await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "moneyDelete", id }) });
+    return true;
+}
+catch (e) {
+    return false;
+} }
+async function moneyList() { try {
+    const r = await fetch(API_URL + "?sheet=moneywaitsport");
+    const j = JSON.parse(await r.text());
+    return j && j.ok && Array.isArray(j.rows) ? j.rows : [];
+}
+catch (e) {
+    return [];
+} }
+async function moneyDelete(id) { try {
+    await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "moneyDelete", id }) });
     return true;
 }
 catch (e) {
