@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v200";
-const BUILD_TIME = "31/08/2026 14:37 น.";
+const APP_VERSION = "v201";
+const BUILD_TIME = "31/08/2026 14:42 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -2098,6 +2098,9 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     useEffect(() => { if (isFinance && pendingExpenses.length > 0)
         setApproveModal(true); }, [isFinance, pendingExpenses.length]);
     const fundBuyEnabled = !!(db.settings && db.settings.fundBuyEnabled);
+    // ผู้ซื้อ = มีตำแหน่งชื่อ "ผู้ซื้อ" ในผัง org2 (ครู/นักเรียน)
+    const isBuyer = (db.org2 || []).some((n) => { if (String(n.personId) !== String(viewer.id))
+        return false; const d = (db.duties || []).find((x) => String(x.id) === String(n.dutyId)); return d && /ผู้ซื้อ/.test(d.name || ""); });
     const canBuy = fundBuyEnabled && isBuyer && !finFull; // ผู้ซื้อ (เมื่อเปิดสิทธิ์) เห็นเฉพาะแท็บสร้างรายการซื้อ
     const canEditRow = (f) => isFinance || isMoneyHolder; // ลบ/แก้ไข: สมาชิกฝ่ายการเงินและบัญชี (ทุกตำแหน่ง) หรือ ผู้ถือเงิน/แอดมิน
     const [form, setForm] = useState({ dept: "", type: "in", title: "", amount: "", date: todayStr(), time: nowTime(), note: "", billDataUrl: "", billUrl: "", billId: "" });
