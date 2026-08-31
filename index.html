@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v211";
-const BUILD_TIME = "31/08/2026 21:48 น.";
+const APP_VERSION = "v212";
+const BUILD_TIME = "31/08/2026 22:15 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -2092,6 +2092,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     // เฟส 2/3: อนุมัติรายจ่าย — ดึงคิวจากชีท moneywaitsport (แยกจาก db เพื่อลดขนาด)
     const [moneyQueue, setMoneyQueue] = useState([]);
     const [expBusy, setExpBusy] = useState(false);
+    const submitRef = useRef(false); // กันกดบันทึกซ้ำเร็ว ๆ (บล็อกทันที ไม่รอ state)
     const loadMoneyQueue = React.useCallback(() => { moneyList().then((rows) => setMoneyQueue(rows || [])); }, []);
     useEffect(() => { loadMoneyQueue(); }, [loadMoneyQueue]);
     const pendingExpenses = moneyQueue.filter((f) => f.type === "out");
@@ -2198,6 +2199,11 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             ui.notify("คุณไม่มีสิทธิ์บันทึกของฝ่าย/รายการนี้");
             return;
         }
+        if (submitRef.current) {
+            ui.notify("กำลังบันทึกอยู่ กรุณารอสักครู่...");
+            return;
+        }
+        submitRef.current = true;
         const total = lines.reduce((s, l) => s + l.amount, 0);
         const rec = { id: "mw" + Date.now() + Math.random().toString(36).slice(2, 6), dept: form.dept, deptName: compName(form.dept), type: "in", kind: "refund", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), payerName: payer ? payer.name : "", payerPos: payer ? payer.pos : "", payeeName: payee ? payee.name : "", payeePos: payee ? payee.pos : "", by: viewer.id, byName: viewer.name || "", at: Date.now() };
         ui.runAsync("ส่งขออนุมัติคืนเงิน...", async () => { const r = await moneyAppend(rec, Array.from(usedReceiptNums(db)), buddhistYear()); if (r && r.ok) {
@@ -2209,7 +2215,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             setPayee(null);
         }
         else
-            ui.notify("ส่งไม่สำเร็จ: " + ((r && r.error) || "?")); });
+            ui.notify("ส่งไม่สำเร็จ: " + ((r && r.error) || "?")); submitRef.current = false; });
     };
     const [expLines, setExpLines] = useState([{ label: "", amount: "" }]);
     const [expReceiptNo, setExpReceiptNo] = useState(""); // เลขที่ออกไว้ (จอง)
@@ -2270,6 +2276,11 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             setExpWarnModal(true);
             return;
         } // บังคับแนบใบเสร็จ
+        if (submitRef.current) {
+            ui.notify("กำลังบันทึกอยู่ กรุณารอสักครู่...");
+            return;
+        } // กันกดซ้ำ
+        submitRef.current = true;
         const total = lines.reduce((s, l) => s + l.amount, 0);
         const fid = "mw" + Date.now() + Math.random().toString(36).slice(2, 6);
         const rec = { id: fid, dept: form.dept, deptName: compName(form.dept), type: "out", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), payerName: payer ? payer.name : "", payerPos: payer ? payer.pos : "", payeeName: payee ? payee.name : (payeeQ.trim() || ""), payeePos: payee ? payee.pos : payeePos, by: viewer.id, byName: viewer.name || "", at: Date.now() };
@@ -2302,6 +2313,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             else
                 ui.notify("ส่งไม่สำเร็จ: " + ((r && r.error) || "?") + " — ตรวจการเชื่อมต่อ/Deploy Code.gs ล่าสุด");
             setExpBusy && setExpBusy(false);
+            submitRef.current = false;
         });
     };
     const incTotal = incLines.reduce((s, l) => s + (Number(String(l.amount).replace(/[^0-9.]/g, "")) || 0), 0);
@@ -2327,6 +2339,11 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             ui.notify("คุณไม่มีสิทธิ์บันทึกของฝ่าย/รายการนี้");
             return;
         }
+        if (submitRef.current) {
+            ui.notify("กำลังบันทึกอยู่ กรุณารอสักครู่...");
+            return;
+        }
+        submitRef.current = true;
         const total = lines.reduce((s, l) => s + l.amount, 0);
         const rec = { id: "mw" + Date.now() + Math.random().toString(36).slice(2, 6), dept: form.dept, deptName: compName(form.dept), type: "in", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), payerName: payer ? payer.name : "", payerPos: payer ? payer.pos : "", payeeName: payee ? payee.name : "", payeePos: payee ? payee.pos : "", by: viewer.id, byName: viewer.name || "", at: Date.now() };
         ui.runAsync("ส่งขออนุมัติรายรับ...", async () => { const r = await moneyAppend(rec, Array.from(usedReceiptNums(db)), buddhistYear()); if (r && r.ok) {
@@ -2338,7 +2355,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             setPayee(null);
         }
         else
-            ui.notify("ส่งไม่สำเร็จ: " + ((r && r.error) || "?")); });
+            ui.notify("ส่งไม่สำเร็จ: " + ((r && r.error) || "?")); submitRef.current = false; });
     };
     const startEdit = (f) => { if (String(f.dept) === "FUND") {
         setFundEdit(f);
@@ -2497,7 +2514,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 React.createElement(Field, { label: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", value: form.note, onChange: (v) => setForm((p) => ({ ...p, note: v })), placeholder: "\u0E23\u0E32\u0E22\u0E25\u0E30\u0E40\u0E2D\u0E35\u0E22\u0E14\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E40\u0E15\u0E34\u0E21 (\u0E16\u0E49\u0E32\u0E21\u0E35)" }),
                 React.createElement("div", { style: { fontSize: 11.5, color: C.muted, margin: "2px 0 8px" } }, "\uD83D\uDCA1 \u0E15\u0E49\u0E2D\u0E07\u0E41\u0E19\u0E1A\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07\u0E01\u0E48\u0E2D\u0E19\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 \u00B7 \u0E2D\u0E2D\u0E01\u0E40\u0E25\u0E02 \u2192 \u0E40\u0E02\u0E35\u0E22\u0E19\u0E40\u0E25\u0E02\u0E1A\u0E19\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08+\u0E02\u0E35\u0E14\u0E40\u0E2A\u0E49\u0E19\u0E41\u0E14\u0E07 \u2192 \u0E16\u0E48\u0E32\u0E22\u0E23\u0E39\u0E1B\u0E41\u0E19\u0E1A \u2192 \u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01"),
                 React.createElement("div", { style: { display: "flex", gap: 8 } },
-                    React.createElement(Btn, { onClick: saveExpense }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23")))) : tab === "addin" && !editId ? (React.createElement(React.Fragment, null,
+                    React.createElement(Btn, { onClick: saveExpense, disabled: expBusy }, expBusy ? "กำลังบันทึก..." : "บันทึกรายการ")))) : tab === "addin" && !editId ? (React.createElement(React.Fragment, null,
                 React.createElement(Field, { label: "\u0E0A\u0E37\u0E48\u0E2D\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08", value: form.title, onChange: (v) => setForm((p) => ({ ...p, title: v })), placeholder: "\u0E40\u0E0A\u0E48\u0E19 \u0E40\u0E07\u0E34\u0E19\u0E2A\u0E19\u0E31\u0E1A\u0E2A\u0E19\u0E38\u0E19\u0E2A\u0E35, \u0E04\u0E48\u0E32\u0E1A\u0E33\u0E23\u0E38\u0E07\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21" }),
                 React.createElement("div", { style: { fontSize: 13, color: C.muted, margin: "6px 0 4px", fontWeight: 600 } }, "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19 (\u0E43\u0E2A\u0E48\u0E44\u0E14\u0E49\u0E2B\u0E25\u0E32\u0E22\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E43\u0E19 1 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08)"),
                 React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 6 } }, incLines.map((l, i) => (React.createElement("div", { key: i, style: { display: "flex", gap: 6, alignItems: "center" } },
