@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v198";
-const BUILD_TIME = "24/08/2026 20:10 น.";
+const APP_VERSION = "v200";
+const BUILD_TIME = "31/08/2026 14:37 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -2315,70 +2315,6 @@ function FinanceManager({ db, setDb, ui, viewer }) {
         return String(f.dept) === "D:" + d.id || mem.includes(String(f.dept));
     } return String(f.dept) === fDept; };
     const [sortDir, setSortDir] = useState("desc");
-    const [selRows, setSelRows] = useState([]);
-    const toggleRow = (id) => setSelRows((c) => c.includes(id) ? c.filter((x) => x !== id) : [...c, id]);
-    const selObjs = () => (db.finance || []).filter((f) => selRows.includes(f.id));
-    const combineIncomeReceipt = () => { const picked = selObjs().filter((r) => r.type !== "out"); if (!picked.length) {
-        ui.notify("ติ๊กเลือกรายการรับก่อน");
-        return;
-    } const preview = nextReceiptSeq(db), receiptNo = preview + "/" + buddhistYear(); setDb((p) => { const seq = nextReceiptSeq(p); const ids = new Set(picked.map((x) => x.id)); return { ...p, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear() } : f) }; }); const recorder = receiptPersonInfo(db, picked[0].byId); const holder = receiptMoneyHolder(db); makeReceiptPdf({ title: "ใบเสร็จรับเงิน", receiptNo, date: picked[0].date, time: picked[0].time, rows: picked.map((r) => ({ label: r.title + " (" + compName(r.dept) + ")" + (r.note ? " · " + r.note : ""), amount: r.amount })), notify: ui.notify, payerName: recorder.name, payerPosition: recorder.pos, payeeName: holder.name, payeePosition: holder.pos }); setSelRows([]); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
-    const issueExpenseNo = () => { const picked = selObjs().filter((r) => r.type === "out"); if (!picked.length) {
-        ui.notify("ติ๊กเลือกรายการจ่ายก่อน");
-        return;
-    } setDb((p) => { const seq = nextReceiptSeq(p); const ids = new Set(picked.map((x) => x.id)); return { ...p, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear() } : f) }; }); ui.notify("ออกเลขใบเสร็จแล้ว — นำเลขไปเขียนบนใบเสร็จจริง"); setSelRows([]); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
-    const bundleBills = async () => { const picked = selObjs().filter((r) => r.type === "out" && r.billUrl); if (!picked.length) {
-        ui.notify("ต้องติ๊กรายการจ่ายที่มีรูปบิลก่อน (แนบบิลก่อนสร้าง PDF)");
-        return;
-    } if (!window.jspdf) {
-        ui.notify("ต้องเปิดผ่านเว็บจริง");
-        return;
-    } ui.notify("กำลังรวมบิลเป็น PDF..."); try {
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-        let first = true;
-        for (const r of picked) {
-            const dataUrl = await new Promise((res) => { const img = new Image(); img.crossOrigin = "anonymous"; img.onload = () => { const cv = document.createElement("canvas"); cv.width = img.naturalWidth; cv.height = img.naturalHeight; cv.getContext("2d").drawImage(img, 0, 0); try {
-                res(cv.toDataURL("image/jpeg", 0.9));
-            }
-            catch (e) {
-                res("");
-            } }; img.onerror = () => res(""); img.src = r.billUrl; });
-            if (!dataUrl)
-                continue;
-            if (!first)
-                pdf.addPage();
-            first = false;
-            pdf.setFontSize(11);
-            pdf.text((r.receiptNo ? "เลขที่ " + r.receiptNo + "  " : "") + r.title + "  " + (Number(r.amount) || 0).toLocaleString("th-TH") + " บาท", 10, 12);
-            const props = pdf.getImageProperties ? pdf.getImageProperties(dataUrl) : { width: 800, height: 1000 };
-            const w = 190, h = Math.min(props.height * w / props.width, 260);
-            pdf.addImage(dataUrl, "JPEG", 10, 16, w, h);
-        }
-        if (first) {
-            ui.notify("โหลดรูปบิลไม่สำเร็จ (อาจติดสิทธิ์เข้าถึง Drive)");
-            return;
-        }
-        pdf.save("รวมบิล-" + todayStr() + ".pdf");
-        setSelRows([]);
-    }
-    catch (e) {
-        ui.notify("สร้าง PDF บิลไม่สำเร็จ");
-    } };
-    const [expModalG, setExpModalG] = useState(null); // {ids, img, payeeName, payeePosition}
-    const openExpModalG = () => { const picked = selObjs().filter((r) => r.type === "out"); if (!picked.length) {
-        ui.notify("ติ๊กเลือกรายการจ่ายก่อน");
-        return;
-    } setExpModalG({ ids: picked.map((r) => r.id), imgs: [], payeeName: "", payeePosition: "" }); };
-    const onExpImgG = (e) => { const files = Array.from(e.target.files || []); if (!files.length)
-        return; files.forEach((f) => compressImage(f, 1280, 0.72).then((d) => { if (d)
-        setExpModalG((m) => m ? ({ ...m, imgs: [...(m.imgs || []), d] }) : m); })); e.target.value = ""; };
-    const delExpImgG = (i) => setExpModalG((m) => ({ ...m, imgs: (m.imgs || []).filter((_, idx) => idx !== i) }));
-    const doIssueExpenseG = () => { const m = expModalG; if (!m || !(m.imgs || []).length) {
-        ui.notify("ต้องแนบรูปใบเสร็จตัวจริงอย่างน้อย 1 รูปก่อน");
-        return;
-    } const picked = (db.finance || []).filter((r) => m.ids.includes(r.id)); const preview = nextReceiptSeq(db); const receiptNo = preview + "/" + buddhistYear(); setDb((p) => { const seq = nextReceiptSeq(p); const ids = new Set(m.ids); return { ...p, finance: (p.finance || []).map((f) => ids.has(f.id) ? { ...f, receiptNo: seq + "/" + buddhistYear(), billUrl: (m.imgs || [])[0], billUrls: m.imgs, payeeReal: m.payeeName, payeePosReal: m.payeePosition } : f) }; }); const recorder = receiptPersonInfo(db, picked[0].byId); makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน", kind: "out", receiptNo, date: picked[0].date, time: picked[0].time, rows: picked.map((r) => ({ label: r.title + " (" + compName(r.dept) + ")" + (r.note ? " · " + r.note : ""), amount: r.amount })), notify: ui.notify, payerName: recorder.name, payerLabel: "ผู้จ่ายเงิน", payerPosition: recorder.pos, payeeName: m.payeeName, payeePosition: m.payeePosition, bills: m.imgs }); setExpModalG(null); setSelRows([]); setTimeout(() => window.__forceSave && window.__forceSave(), 400); };
-    const selHasIncome = selObjs().some((r) => r.type !== "out");
-    const selHasExpense = selObjs().some((r) => r.type === "out");
     const rowKey = (f) => (f.date || "") + " " + (f.time || "00:00") + " " + (f.at || 0);
     const rows = (db.finance || []).filter((f) => deptMatch(f) && (!fType || f.type === fType) && (!fFrom || (f.date || "") >= fFrom) && (!fTo || (f.date || "") <= fTo)).slice().sort((a, b) => sortDir === "asc" ? rowKey(a).localeCompare(rowKey(b)) : rowKey(b).localeCompare(rowKey(a)));
     // รายการยืมเงิน (db.loans) — กรองตามฝ่าย/วันเดียวกัน
@@ -3001,30 +2937,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                                 money(s.out)),
                             " \u00B7 \u0E04\u0E07\u0E40\u0E2B\u0E25\u0E37\u0E2D ",
                             React.createElement("b", { style: { color: bal < 0 ? "#c0392b" : C.primaryDark } }, money(bal)))));
-                }))))),
-        expModalG && (React.createElement(Modal, { title: "\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E48\u0E32\u0E22", onClose: () => setExpModalG(null) },
-            React.createElement("div", { style: { padding: 18 } },
-                React.createElement("div", { style: { fontSize: 12.5, color: C.muted, marginBottom: 12 } },
-                    "\u0E40\u0E25\u0E37\u0E2D\u0E01 ",
-                    expModalG.ids.length,
-                    " \u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u00B7 ",
-                    React.createElement("b", { style: { color: "#c0392b" } }, "\u0E15\u0E49\u0E2D\u0E07\u0E41\u0E19\u0E1A\u0E23\u0E39\u0E1B\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E19\u0E49\u0E2D\u0E22 1 \u0E23\u0E39\u0E1B"),
-                    " \u00B7 \u0E41\u0E19\u0E1A\u0E2B\u0E25\u0E32\u0E22\u0E23\u0E39\u0E1B/\u0E2B\u0E25\u0E32\u0E22\u0E04\u0E23\u0E31\u0E49\u0E07\u0E44\u0E14\u0E49 \u0E25\u0E1A\u0E23\u0E39\u0E1B\u0E17\u0E35\u0E48\u0E1C\u0E34\u0E14\u0E01\u0E48\u0E2D\u0E19\u0E2D\u0E2D\u0E01\u0E44\u0E14\u0E49"),
-                React.createElement("label", { style: { fontSize: 13, fontWeight: 700, color: C.ink } },
-                    "\u0E23\u0E39\u0E1B\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E15\u0E31\u0E27\u0E08\u0E23\u0E34\u0E07 * (",
-                    (expModalG.imgs || []).length,
-                    " \u0E23\u0E39\u0E1B)"),
-                React.createElement("div", { style: { marginTop: 6, marginBottom: 12 } },
-                    React.createElement("input", { type: "file", accept: "image/*", multiple: true, onChange: onExpImgG }),
-                    (expModalG.imgs || []).length > 0 && React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 } }, (expModalG.imgs || []).map((im, i) => React.createElement("div", { key: i, style: { position: "relative" } },
-                        React.createElement("img", { src: im, alt: "บิล" + (i + 1), style: { height: 90, borderRadius: 8, border: `1px solid ${C.line}` } }),
-                        React.createElement("button", { onClick: () => delExpImgG(i), style: { position: "absolute", top: -6, right: -6, width: 22, height: 22, borderRadius: "50%", border: "none", background: "#c0392b", color: "#fff", fontWeight: 800, cursor: "pointer", lineHeight: "20px" } }, "\u00D7"))))),
-                React.createElement(Field, { label: "\u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19 (\u0E08\u0E32\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E23\u0E34\u0E07)", value: expModalG.payeeName, onChange: (v) => setExpModalG((m) => ({ ...m, payeeName: v })), placeholder: "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E0A\u0E37\u0E48\u0E2D\u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19\u0E15\u0E32\u0E21\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E23\u0E34\u0E07" }),
-                React.createElement(Field, { label: "\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19", value: expModalG.payeePosition, onChange: (v) => setExpModalG((m) => ({ ...m, payeePosition: v })), placeholder: "\u0E1E\u0E34\u0E21\u0E1E\u0E4C\u0E15\u0E33\u0E41\u0E2B\u0E19\u0E48\u0E07\u0E1C\u0E39\u0E49\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19" }),
-                React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 14 } },
-                    React.createElement(Btn, { onClick: doIssueExpenseG, disabled: !(expModalG.imgs || []).length }, "\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E48\u0E32\u0E22"),
-                    React.createElement(Btn, { variant: "ghost", onClick: () => setExpModalG(null) }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01")),
-                !(expModalG.imgs || []).length && React.createElement("div", { style: { fontSize: 11.5, color: "#b3762f", marginTop: 8 } }, "\u26A0 \u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49\u0E41\u0E19\u0E1A\u0E23\u0E39\u0E1B \u2014 \u0E1B\u0E38\u0E48\u0E21\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E30\u0E43\u0E0A\u0E49\u0E44\u0E21\u0E48\u0E44\u0E14\u0E49"))))));
+                })))))));
 }
 /* ============================================================
    ADMIN
@@ -7641,41 +7554,45 @@ function NotificationCenter({ db, setDb, ui, admin, viewerId, viewerRole, onGoRe
         reReq && React.createElement(ReplacementPicker, { title: "\u0E02\u0E2D\u0E16\u0E2D\u0E19\u0E15\u0E31\u0E27\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07 \u2014 \u0E40\u0E25\u0E37\u0E2D\u0E01\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19", note: "\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19\u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E01\u0E23\u0E23\u0E21\u0E01\u0E32\u0E23\u0E40\u0E17\u0E48\u0E32\u0E19\u0E31\u0E49\u0E19 \u00B7 \u0E23\u0E30\u0E1A\u0E1A\u0E08\u0E30\u0E41\u0E08\u0E49\u0E07\u0E1C\u0E39\u0E49\u0E21\u0E32\u0E41\u0E17\u0E19 + \u0E2B\u0E31\u0E27\u0E2B\u0E19\u0E49\u0E32\u0E15\u0E32\u0E21\u0E2A\u0E32\u0E22\u0E2D\u0E35\u0E01\u0E04\u0E23\u0E31\u0E49\u0E07", pool: poolFor(reReq), onPick: (s) => reRequestPick(reReq, s), onClose: () => setReReq(null) })));
 }
 function AttendSummary({ db, myComps, ui }) {
-    const [scope, setScope] = useState("comp");
+    const [scope, setScope] = useState("all");
     const [pick, setPick] = useState("");
-    const myIds = new Set(myComps.map((c) => String(c.id)));
+    const [timeMap, setTimeMap] = useState(null); // { sid: {name, days:{date:{in,out}}} }
+    useEffect(() => { timeDataMap().then((m) => setTimeMap(m || {})); }, []);
     const hm2min = (t) => { if (!t)
-        return 0; const [h, m] = t.split(":").map(Number); return h * 60 + m; };
-    // รวมทุกวัน: ต่อ นักเรียน+รายการ → นับวันที่มา + รวมนาที (ถ้ามีทั้งเข้า-ออก)
+        return 0; const [h, m] = String(t).split(":").map(Number); return (h || 0) * 60 + (m || 0); };
+    // สร้างสรุปต่อคน จาก time_sport (1 คน = หลายวัน) — นับวันที่มา + รวมนาที (เมื่อมีทั้งเข้า-ออก)
     const rowsByStudent = {};
-    Object.keys(db.attendance || {}).forEach((date) => { const d = db.attendance[date]; Object.keys(d).forEach((compId) => { if (!myIds.has(String(compId)) && compId !== "_none")
-        return; const cm = d[compId]; Object.keys(cm).forEach((sid) => { const r = cm[sid]; if (!r || (!r.in && !r.out))
-        return; const s = db.students.find((x) => String(x.id) === String(sid)); if (!s)
-        return; const key = sid + "|" + compId; rowsByStudent[key] = rowsByStudent[key] || { s, compId, days: 0, mins: 0, present: 0 }; rowsByStudent[key].present++; if (r.in && r.out)
-        rowsByStudent[key].mins += Math.max(0, hm2min(r.out) - hm2min(r.in)); }); }); });
+    Object.keys(timeMap || {}).forEach((sid) => {
+        const rec = timeMap[sid];
+        const days = (rec && rec.days) || {};
+        const s = db.students.find((x) => String(x.id) === String(sid));
+        if (!s)
+            return;
+        let present = 0, mins = 0;
+        Object.keys(days).forEach((date) => { const r = days[date]; if (!r || (!r.in && !r.out))
+            return; present++; if (r.in && r.out)
+            mins += Math.max(0, hm2min(r.out) - hm2min(r.in)); });
+        if (present > 0)
+            rowsByStudent[sid] = { s, present, mins };
+    });
     let list = Object.values(rowsByStudent);
     const comps = myComps;
     const grades = Array.from(new Set(list.map((r) => r.s.grade))).filter(Boolean).sort();
     const rooms = Array.from(new Set(list.map((r) => `${r.s.grade}/${r.s.room}`))).filter((r) => r !== "/").sort();
-    if (scope === "comp" && pick)
-        list = list.filter((r) => String(r.compId) === String(pick));
+    // กรอง: รายการ = นักเรียนที่เป็นผู้สมัคร/ผ่านคัดของรายการนั้น
+    if (scope === "comp" && pick) {
+        const c = comps.find((x) => String(x.id) === String(pick));
+        const sids = new Set((c ? (c.participants || []) : []).map((p) => String(p.sid)));
+        list = list.filter((r) => sids.has(String(r.s.id)));
+    }
     if (scope === "grade" && pick)
         list = list.filter((r) => r.s.grade === pick);
     if (scope === "room" && pick)
         list = list.filter((r) => `${r.s.grade}/${r.s.room}` === pick);
-    // รวมรายคน (ข้ามรายการ) เมื่อดูราย ชั้น/ห้อง/ทั้งหมด
-    let display;
-    if (scope === "comp")
-        display = list.map((r) => ({ name: `${r.s.first} ${r.s.last} (${r.s.grade}/${r.s.room})`, present: r.present, mins: r.mins }));
-    else {
-        const byS = {};
-        list.forEach((r) => { const k = r.s.id; byS[k] = byS[k] || { name: `${r.s.first} ${r.s.last} (${r.s.grade}/${r.s.room})`, present: 0, mins: 0 }; byS[k].present += r.present; byS[k].mins += r.mins; });
-        display = Object.values(byS);
-    }
+    const display = list.map((r) => ({ name: `${r.s.first} ${r.s.last} (${r.s.grade}/${r.s.room})`, present: r.present, mins: r.mins }));
     display.sort((a, b) => b.present - a.present || b.mins - a.mins);
     const fmtMin = (m) => m >= 60 ? `${Math.floor(m / 60)} ชม. ${m % 60} น.` : `${m} น.`;
-    const cName = (id) => { if (id === "_none")
-        return "บุคคลไม่มีส่วนร่วม"; const c = comps.find((x) => String(x.id) === String(id)); return c ? sportItemName(c) : id; };
+    const cName = (id) => { const c = comps.find((x) => String(x.id) === String(id)); return c ? sportItemName(c) : id; };
     const scopeLabel = () => scope === "comp" ? (pick ? cName(pick) : "ทุกรายการ") : scope === "grade" ? (pick ? "ชั้น " + pick : "ทุกชั้น") : scope === "room" ? (pick ? "ห้อง " + pick : "ทุกห้อง") : "ทั้งหมด";
     const exportExcel = () => { try {
         const aoa = [["ชื่อ-สกุล", "มา (ครั้ง)", "เวลารวม (นาที)", "เวลารวม"]];
@@ -7688,29 +7605,29 @@ function AttendSummary({ db, myComps, ui }) {
         ui.notify("ดาวน์โหลด Excel ไม่สำเร็จ (เปิดผ่านเว็บจริง)");
     } };
     return (React.createElement("div", null,
-        React.createElement(PageHead, { title: "\u23F1 \u0E2A\u0E23\u0E38\u0E1B\u0E40\u0E27\u0E25\u0E32\u0E23\u0E27\u0E21", sub: "\u0E23\u0E27\u0E21\u0E17\u0E38\u0E01\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E25\u0E07\u0E40\u0E27\u0E25\u0E32 \u00B7 \u0E08\u0E33\u0E19\u0E27\u0E19\u0E04\u0E23\u0E31\u0E49\u0E07\u0E17\u0E35\u0E48\u0E21\u0E32 + \u0E40\u0E27\u0E25\u0E32\u0E23\u0E27\u0E21 (\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E21\u0E35\u0E17\u0E31\u0E49\u0E07\u0E40\u0E02\u0E49\u0E32-\u0E2D\u0E2D\u0E01)" }),
+        React.createElement(PageHead, { title: "\u23F1 \u0E2A\u0E23\u0E38\u0E1B\u0E40\u0E27\u0E25\u0E32\u0E23\u0E27\u0E21", sub: "\u0E23\u0E27\u0E21\u0E17\u0E38\u0E01\u0E27\u0E31\u0E19\u0E08\u0E32\u0E01\u0E0A\u0E35\u0E17 time_sport \u00B7 \u0E08\u0E33\u0E19\u0E27\u0E19\u0E04\u0E23\u0E31\u0E49\u0E07\u0E17\u0E35\u0E48\u0E21\u0E32 + \u0E40\u0E27\u0E25\u0E32\u0E23\u0E27\u0E21 (\u0E40\u0E21\u0E37\u0E48\u0E2D\u0E21\u0E35\u0E17\u0E31\u0E49\u0E07\u0E40\u0E02\u0E49\u0E32-\u0E2D\u0E2D\u0E01)" }),
         React.createElement("div", { style: { display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12 } },
             React.createElement("span", { style: { fontSize: 13, color: C.muted } }, "\u0E14\u0E39\u0E15\u0E32\u0E21:"),
             React.createElement(Select, { value: scope, onChange: (v) => { setScope(v); setPick(""); } },
+                React.createElement("option", { value: "all" }, "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 (\u0E23\u0E32\u0E22\u0E04\u0E19)"),
                 React.createElement("option", { value: "comp" }, "\u0E23\u0E32\u0E22\u0E01\u0E35\u0E2C\u0E32/\u0E01\u0E34\u0E08\u0E01\u0E23\u0E23\u0E21"),
                 React.createElement("option", { value: "grade" }, "\u0E23\u0E32\u0E22\u0E0A\u0E31\u0E49\u0E19"),
-                React.createElement("option", { value: "room" }, "\u0E23\u0E32\u0E22\u0E2B\u0E49\u0E2D\u0E07"),
-                React.createElement("option", { value: "all" }, "\u0E17\u0E31\u0E49\u0E07\u0E2B\u0E21\u0E14 (\u0E23\u0E32\u0E22\u0E04\u0E19)")),
+                React.createElement("option", { value: "room" }, "\u0E23\u0E32\u0E22\u0E2B\u0E49\u0E2D\u0E07")),
             scope === "comp" && React.createElement(Select, { value: pick, onChange: setPick },
                 React.createElement("option", { value: "" }, "\u2014 \u0E17\u0E38\u0E01\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u2014"),
-                comps.map((c) => React.createElement("option", { key: c.id, value: c.id }, sportItemName(c))),
-                React.createElement("option", { value: "_none" }, "\u0E1A\u0E38\u0E04\u0E04\u0E25\u0E44\u0E21\u0E48\u0E21\u0E35\u0E2A\u0E48\u0E27\u0E19\u0E23\u0E48\u0E27\u0E21")),
+                comps.map((c) => React.createElement("option", { key: c.id, value: c.id }, sportItemName(c)))),
             scope === "grade" && React.createElement(Select, { value: pick, onChange: setPick },
                 React.createElement("option", { value: "" }, "\u2014 \u0E17\u0E38\u0E01\u0E0A\u0E31\u0E49\u0E19 \u2014"),
                 grades.map((g) => React.createElement("option", { key: g, value: g }, g))),
             scope === "room" && React.createElement(Select, { value: pick, onChange: setPick },
                 React.createElement("option", { value: "" }, "\u2014 \u0E17\u0E38\u0E01\u0E2B\u0E49\u0E2D\u0E07 \u2014"),
                 rooms.map((r) => React.createElement("option", { key: r, value: r }, r))),
+            React.createElement(Btn, { small: true, variant: "ghost", onClick: () => { setTimeMap(null); timeDataMap().then((m) => setTimeMap(m || {})); } }, "\uD83D\uDD04 \u0E23\u0E35\u0E40\u0E1F\u0E23\u0E0A"),
             display.length > 0 && React.createElement(React.Fragment, null,
                 React.createElement("span", { style: { flex: 1 } }),
                 React.createElement(Btn, { small: true, variant: "ghost", onClick: exportExcel }, "\u2B07 Excel"),
                 React.createElement(Btn, { small: true, variant: "ghost", onClick: () => pdfFromEl("attendSumArea", "portrait", `สรุปเวลา-${scopeLabel().replace(/[/\\]/g, "-")}.pdf`, ui.notify) }, "\u2B07 PDF"))),
-        display.length === 0 ? React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E25\u0E07\u0E40\u0E27\u0E25\u0E32" }) : (React.createElement("div", { id: "attendSumArea", style: { background: "#fff", padding: 12, borderRadius: 8 } },
+        timeMap === null ? React.createElement(Empty, { text: "\u0E01\u0E33\u0E25\u0E31\u0E07\u0E42\u0E2B\u0E25\u0E14\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E40\u0E27\u0E25\u0E32..." }) : display.length === 0 ? React.createElement(Empty, { text: "\u0E22\u0E31\u0E07\u0E44\u0E21\u0E48\u0E21\u0E35\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E25\u0E07\u0E40\u0E27\u0E25\u0E32\u0E43\u0E19 time_sport" }) : (React.createElement("div", { id: "attendSumArea", style: { background: "#fff", padding: 12, borderRadius: 8 } },
             React.createElement("div", { style: { fontWeight: 800, color: C.ink, marginBottom: 8 } },
                 "\u0E2A\u0E23\u0E38\u0E1B\u0E40\u0E27\u0E25\u0E32\u0E23\u0E27\u0E21 \u00B7 ",
                 scopeLabel(),
