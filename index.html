@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v223";
-const BUILD_TIME = "02/09/2026 22:24 น.";
+const APP_VERSION = "v224";
+const BUILD_TIME = "02/09/2026 22:35 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -9981,7 +9981,7 @@ function StudentResults({ me, db, ui }) {
    (เช่น "https://script.google.com/macros/s/xxxxx/exec")
    ถ้าเว้นว่าง = โหมดทดลอง ข้อมูลจะไม่ถูกบันทึกและรีเซ็ตเมื่อรีเฟรช
    ============================================================ */
-const API_URL = "https://script.google.com/macros/s/AKfycbzpV1GA5NDLcr3xfm1eODizmhLkrnZhIc-YTEiHGxqcg2tOHt_rYhkpQ9wjtQaDgG2r/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbw7I3lcOG74_I-ya-yBHhZaU8NM8_MmSFkjilrPZd7ULMUkOEWoa6qLgI8MnkmZJAwO/exec";
 // sync รายชื่อนักเรียนไปอีกฐาน: upsert เฉพาะฟิลด์ตัวตน + ลบคนที่ไม่มีในชุดปัจจุบัน (คงฟิลด์เฉพาะระบบของอีกฝั่งไว้)
 function mirrorStudentsInto(odb, students) {
     // ข้อมูลส่วนตัวเดียวกันทั้ง 2 ระบบ → คัดลอกทุกฟิลด์ (คงฟิลด์เฉพาะฝั่งที่ไม่มีในชุดใหม่ไว้)
