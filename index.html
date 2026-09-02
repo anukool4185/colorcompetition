@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v222";
-const BUILD_TIME = "02/09/2026 22:17 น.";
+const APP_VERSION = "v223";
+const BUILD_TIME = "02/09/2026 22:24 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -10247,6 +10247,22 @@ function App() {
         loadData();
     }
     catch (e) { } };
+    // กู้สถานะ "offline" อัตโนมัติ: ถ้าเน็ตกลับมา + ping ชีทได้ → คืนสถานะปกติ (กันขึ้น offline ค้างทั้งที่เน็ตดี)
+    useEffect(() => {
+        if (sync !== "offline" || !API_URL)
+            return;
+        const iv = setInterval(() => {
+            if (typeof navigator !== "undefined" && !navigator.onLine)
+                return;
+            fetch(API_URL + "?sheet=" + modeRef.current).then((r) => r.text()).then((t) => { try {
+                JSON.parse(t);
+                if (everLoadedRef.current)
+                    setSync("saved");
+            }
+            catch (e) { } }).catch(() => { });
+        }, 12000);
+        return () => clearInterval(iv);
+    }, [sync]);
     try {
         window.__uiNotify = (m) => toast(m);
     }
