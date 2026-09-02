@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v228";
-const BUILD_TIME = "02/09/2026 23:37 น.";
+const APP_VERSION = "v229";
+const BUILD_TIME = "02/09/2026 23:46 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -1102,6 +1102,7 @@ function CameraCapture() {
     // ลากปรับกรอบครอบ (มุม + ย้าย)
     const onPointer = (mode) => (e) => {
         e.preventDefault();
+        e.stopPropagation();
         const wrap = imgWrapRef.current;
         if (!wrap)
             return;
