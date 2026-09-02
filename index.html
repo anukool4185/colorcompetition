@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v227";
-const BUILD_TIME = "02/09/2026 23:12 น.";
+const APP_VERSION = "v228";
+const BUILD_TIME = "02/09/2026 23:37 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -1115,21 +1115,24 @@ function CameraCapture() {
             let dx = (px - px0) / rect.width;
             let dy = (py - py0) / rect.height;
             let c = { ...start };
+            const MIN = 0.08;
+            const L = (d) => { const nx = Math.min(start.x + start.w - MIN, Math.max(0, start.x + d)); c.x = nx; c.w = start.w + (start.x - nx); };
+            const R = (d) => { c.w = Math.min(1 - start.x, Math.max(MIN, start.w + d)); };
+            const T = (d) => { const ny = Math.min(start.y + start.h - MIN, Math.max(0, start.y + d)); c.y = ny; c.h = start.h + (start.y - ny); };
+            const B = (d) => { c.h = Math.min(1 - start.y, Math.max(MIN, start.h + d)); };
             if (mode === "move") {
                 c.x = Math.min(1 - start.w, Math.max(0, start.x + dx));
                 c.y = Math.min(1 - start.h, Math.max(0, start.y + dy));
             }
-            else if (mode === "br") {
-                c.w = Math.min(1 - start.x, Math.max(0.1, start.w + dx));
-                c.h = Math.min(1 - start.y, Math.max(0.1, start.h + dy));
-            }
-            else if (mode === "tl") {
-                const nx = Math.min(start.x + start.w - 0.1, Math.max(0, start.x + dx));
-                const ny = Math.min(start.y + start.h - 0.1, Math.max(0, start.y + dy));
-                c.x = nx;
-                c.y = ny;
-                c.w = start.w + (start.x - nx);
-                c.h = start.h + (start.y - ny);
+            else {
+                if (mode.indexOf("l") >= 0)
+                    L(dx);
+                if (mode.indexOf("r") >= 0)
+                    R(dx);
+                if (mode.indexOf("t") >= 0)
+                    T(dy);
+                if (mode.indexOf("b") >= 0)
+                    B(dy);
             }
             setCrop(c);
         };
@@ -1153,9 +1156,15 @@ function CameraCapture() {
             React.createElement("div", { ref: imgWrapRef, style: { position: "relative", display: "inline-block", maxWidth: "100%", maxHeight: "58vh", lineHeight: 0 } },
                 React.createElement("img", { src: shot, alt: "\u0E16\u0E48\u0E32\u0E22", style: { maxWidth: "100%", maxHeight: "58vh", borderRadius: 8, display: "block" } }),
                 crop && React.createElement("div", { onMouseDown: onPointer("move"), onTouchStart: onPointer("move"), style: { position: "absolute", left: crop.x * 100 + "%", top: crop.y * 100 + "%", width: crop.w * 100 + "%", height: crop.h * 100 + "%", border: "2px solid #2f6ba3", boxShadow: "0 0 0 9999px rgba(0,0,0,0.45)", cursor: "move", touchAction: "none" } },
-                    React.createElement("div", { onMouseDown: onPointer("tl"), onTouchStart: onPointer("tl"), style: { ...handle, left: -11, top: -11 } }),
-                    React.createElement("div", { onMouseDown: onPointer("br"), onTouchStart: onPointer("br"), style: { ...handle, right: -11, bottom: -11 } }))),
-            React.createElement("div", { style: { fontSize: 12, color: C.muted, marginTop: 8 } }, "\u0E25\u0E32\u0E01\u0E01\u0E23\u0E2D\u0E1A\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E04\u0E23\u0E2D\u0E1A \u00B7 \u0E21\u0E38\u0E21\u0E0B\u0E49\u0E32\u0E22\u0E1A\u0E19/\u0E02\u0E27\u0E32\u0E25\u0E48\u0E32\u0E07 = \u0E1B\u0E23\u0E31\u0E1A\u0E02\u0E19\u0E32\u0E14 \u00B7 \u0E01\u0E25\u0E32\u0E07\u0E01\u0E23\u0E2D\u0E1A = \u0E22\u0E49\u0E32\u0E22"),
+                    React.createElement("div", { onMouseDown: onPointer("tl"), onTouchStart: onPointer("tl"), style: { ...handle, left: -11, top: -11, cursor: "nwse-resize" } }),
+                    React.createElement("div", { onMouseDown: onPointer("tr"), onTouchStart: onPointer("tr"), style: { ...handle, right: -11, top: -11, cursor: "nesw-resize" } }),
+                    React.createElement("div", { onMouseDown: onPointer("bl"), onTouchStart: onPointer("bl"), style: { ...handle, left: -11, bottom: -11, cursor: "nesw-resize" } }),
+                    React.createElement("div", { onMouseDown: onPointer("br"), onTouchStart: onPointer("br"), style: { ...handle, right: -11, bottom: -11, cursor: "nwse-resize" } }),
+                    React.createElement("div", { onMouseDown: onPointer("t"), onTouchStart: onPointer("t"), style: { ...handle, left: "calc(50% - 11px)", top: -11, cursor: "ns-resize" } }),
+                    React.createElement("div", { onMouseDown: onPointer("b"), onTouchStart: onPointer("b"), style: { ...handle, left: "calc(50% - 11px)", bottom: -11, cursor: "ns-resize" } }),
+                    React.createElement("div", { onMouseDown: onPointer("l"), onTouchStart: onPointer("l"), style: { ...handle, left: -11, top: "calc(50% - 11px)", cursor: "ew-resize" } }),
+                    React.createElement("div", { onMouseDown: onPointer("r"), onTouchStart: onPointer("r"), style: { ...handle, right: -11, top: "calc(50% - 11px)", cursor: "ew-resize" } }))),
+            React.createElement("div", { style: { fontSize: 12, color: C.muted, marginTop: 8 } }, "\u0E25\u0E32\u0E01\u0E01\u0E23\u0E2D\u0E1A\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E04\u0E23\u0E2D\u0E1A \u00B7 \u0E25\u0E32\u0E01\u0E21\u0E38\u0E21-\u0E02\u0E2D\u0E1A\u0E17\u0E31\u0E49\u0E07 8 \u0E08\u0E38\u0E14 = \u0E1B\u0E23\u0E31\u0E1A\u0E02\u0E19\u0E32\u0E14\u0E17\u0E38\u0E01\u0E14\u0E49\u0E32\u0E19 \u00B7 \u0E01\u0E25\u0E32\u0E07\u0E01\u0E23\u0E2D\u0E1A = \u0E22\u0E49\u0E32\u0E22"),
             React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 12, justifyContent: "center", flexWrap: "wrap" } },
                 React.createElement(Btn, { onClick: applyCrop }, "\u2702\uFE0F \u0E04\u0E23\u0E2D\u0E1A + \u0E43\u0E0A\u0E49\u0E23\u0E39\u0E1B\u0E19\u0E35\u0E49"),
                 React.createElement(Btn, { variant: "ghost", onClick: useFull }, "\u0E43\u0E0A\u0E49\u0E40\u0E15\u0E47\u0E21\u0E20\u0E32\u0E1E"),
