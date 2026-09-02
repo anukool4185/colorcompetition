@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v216";
-const BUILD_TIME = "02/09/2026 15:11 น.";
+const APP_VERSION = "v217";
+const BUILD_TIME = "02/09/2026 20:18 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -2307,29 +2307,63 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             ui.notify("ส่งไม่สำเร็จ: " + ((r && r.error) || "?")); submitRef.current = false; });
     };
     const [expLines, setExpLines] = useState([{ label: "", amount: "" }]);
-    const [expReceiptNo, setExpReceiptNo] = useState(""); // เลขที่ออกไว้ (จอง)
+    const [expReceiptNo, setExpReceiptNo] = useState(""); // เลขที่จองจริง
+    const [expDraftId, setExpDraftId] = useState(""); // id ของ draft ใน moneywaitsport
     const [expBill, setExpBill] = useState(""); // dataURL ใบเสร็จที่แนบ
     const [expNoModal, setExpNoModal] = useState(false);
     const [expWarnModal, setExpWarnModal] = useState(false);
+    const expBillInputRef = useRef(null); // ปุ่มแนบไฟล์ (ให้ "รับทราบ" เปิดได้)
     const expTotal = expLines.reduce((s, l) => s + (Number(String(l.amount).replace(/[^0-9.]/g, "")) || 0), 0);
-    const resetExp = () => { setExpLines([{ label: "", amount: "" }]); setExpReceiptNo(""); setExpBill(""); };
+    const resetExp = () => { setExpLines([{ label: "", amount: "" }]); setExpReceiptNo(""); setExpDraftId(""); setExpBill(""); };
+    // ยกเลิกเลขที่จอง (ลบ draft) — ใช้ตอนกด "เพิ่มรายการ"/"ยกเลิก"/ออกจากหน้า/เปลี่ยนแท็บ
+    const cancelExpDraft = (silent) => { const id = expDraftId; if (id) {
+        moneyDelete(id).then(() => loadMoneyQueue());
+    } setExpReceiptNo(""); setExpDraftId(""); if (!silent)
+        ui.notify("ยกเลิกเลขใบเสร็จที่จองแล้ว — เลขถูกคืนสู่ระบบ"); };
     const issueExpReceiptNo = () => {
         if (!form.dept) {
             ui.notify("เลือกฝ่าย (รายการแข่ง/กิจกรรม) ก่อน");
             return;
         }
-        const lines = expLines.filter((l) => (l.label || "").trim() && (Number(String(l.amount).replace(/[^0-9.]/g, "")) || 0) > 0);
+        if (!form.title.trim()) {
+            ui.notify("ใส่ชื่อใบเสร็จก่อน");
+            return;
+        }
+        const lines = expLines.map((l) => ({ label: (l.label || "").trim(), amount: Number(String(l.amount).replace(/[^0-9.]/g, "")) || 0 })).filter((l) => l.label && l.amount > 0);
         if (!lines.length) {
             ui.notify("ใส่รายการจ่ายเงินอย่างน้อย 1 รายการก่อน");
             return;
         }
-        if (expReceiptNo) {
+        if (expReceiptNo && expDraftId) {
             setExpNoModal(true);
             return;
-        } // ออกแล้ว แสดงเลขเดิม
-        setExpReceiptNo("(ระบบจะจองเลขให้อัตโนมัติตอนกดบันทึก)");
-        setExpNoModal(true);
+        } // จองแล้ว แสดงเลขเดิม
+        const total = lines.reduce((s, l) => s + l.amount, 0);
+        const fid = "mw" + Date.now() + Math.random().toString(36).slice(2, 6);
+        const rec = { id: fid, dept: form.dept, deptName: compName(form.dept), type: "out", status: "draft", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), payerName: payer ? payer.name : "", payerPos: payer ? payer.pos : "", payeeName: payee ? payee.name : (payeeQ.trim() || ""), payeePos: payee ? payee.pos : payeePos, by: viewer.id, byName: viewer.name || "", at: Date.now() };
+        ui.runAsync("กำลังจองเลขใบเสร็จ...", async () => { const r = await moneyAppend(rec, Array.from(usedReceiptNums(db)), buddhistYear()); if (r && r.ok) {
+            setExpReceiptNo(r.receiptNo);
+            setExpDraftId(fid);
+            loadMoneyQueue();
+            setExpNoModal(true);
+        }
+        else
+            ui.notify("จองเลขไม่สำเร็จ: " + ((r && r.error) || "?") + " — ตรวจ Deploy Code.gs ล่าสุด"); });
     };
+    // เตือน + ยกเลิก draft เมื่อออกจากเว็บ / เปลี่ยนแท็บย่อย / unmount
+    useEffect(() => { const h = () => { if (expDraftId) {
+        try {
+            navigator.sendBeacon && navigator.sendBeacon(API_URL, JSON.stringify({ type: "moneyDelete", id: expDraftId }));
+        }
+        catch (e) { }
+    } }; window.addEventListener("beforeunload", h); return () => { window.removeEventListener("beforeunload", h); }; }, [expDraftId]);
+    useEffect(() => () => { if (expDraftId)
+        moneyDelete(expDraftId); }, []); // unmount component (เปลี่ยนเมนู)
+    useEffect(() => { if (expDraftId && tab !== "addout") {
+        moneyDelete(expDraftId).then(() => loadMoneyQueue());
+        setExpReceiptNo("");
+        setExpDraftId("");
+    } }, [tab]); // เปลี่ยนแท็บ
     const pickExpBill = (file) => { if (!file)
         return; const raw = () => { const r = new FileReader(); r.onload = () => setExpBill(r.result); r.readAsDataURL(file); }; try {
         compressImage(file, 1280, 0.72).then((d) => { if (d)
@@ -2341,8 +2375,12 @@ function FinanceManager({ db, setDb, ui, viewer }) {
         raw();
     } };
     const saveExpense = () => {
+        if (!expDraftId || !expReceiptNo) {
+            ui.notify("กรุณากด 'ออกเลขใบเสร็จ' เพื่อจองเลขก่อน");
+            return;
+        }
         if (!form.dept) {
-            ui.notify("เลือกฝ่าย (รายการแข่ง/กิจกรรม)");
+            ui.notify("เลือกฝ่าย (รายการแข่ง/รายการนี้)");
             return;
         }
         if (!form.title.trim()) {
@@ -2354,13 +2392,6 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             ui.notify("ใส่รายการจ่ายเงินอย่างน้อย 1 รายการ (พร้อมจำนวนเงิน)");
             return;
         }
-        const canRecordDept = (dept) => { if (acc.full)
-            return true; const dc = deptComps(dept); if (dc)
-            return acc.depts.size > 0 || dc.some((cid) => acc.depts.has(String(cid))); return acc.depts.has(String(dept)); };
-        if (!acc.full && !canRecordDept(form.dept)) {
-            ui.notify("คุณไม่มีสิทธิ์บันทึกของฝ่าย/รายการนี้");
-            return;
-        }
         if (!expBill) {
             setExpWarnModal(true);
             return;
@@ -2368,11 +2399,10 @@ function FinanceManager({ db, setDb, ui, viewer }) {
         if (submitRef.current) {
             ui.notify("กำลังบันทึกอยู่ กรุณารอสักครู่...");
             return;
-        } // กันกดซ้ำ
+        }
         submitRef.current = true;
         const total = lines.reduce((s, l) => s + l.amount, 0);
-        const fid = "mw" + Date.now() + Math.random().toString(36).slice(2, 6);
-        const rec = { id: fid, dept: form.dept, deptName: compName(form.dept), type: "out", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), payerName: payer ? payer.name : "", payerPos: payer ? payer.pos : "", payeeName: payee ? payee.name : (payeeQ.trim() || ""), payeePos: payee ? payee.pos : payeePos, by: viewer.id, byName: viewer.name || "", at: Date.now() };
+        const rec = { id: expDraftId, dept: form.dept, deptName: compName(form.dept), type: "out", status: "pending", title: form.title.trim(), amount: total, items: lines, date: form.date, time: form.time || nowTime(), note: form.note.trim(), receiptNo: expReceiptNo, payerName: payer ? payer.name : "", payerPos: payer ? payer.pos : "", payeeName: payee ? payee.name : (payeeQ.trim() || ""), payeePos: payee ? payee.pos : payeePos, by: viewer.id, byName: viewer.name || "", at: Date.now() };
         const billLocal = expBill;
         setExpBusy && setExpBusy(true);
         ui.runAsync("อัปโหลดใบเสร็จ + ส่งขออนุมัติ...", async () => {
@@ -2387,9 +2417,9 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             catch (e) { }
             rec.billUrl = billUrl;
             rec.billId = billId;
-            const r = await moneyAppend(rec, Array.from(usedReceiptNums(db)), buddhistYear());
+            const r = await moneyUpsert(rec); // อัปเดต draft เดิม → pending (เก็บเลขเดิม)
             if (r && r.ok) {
-                ui.notify("ส่งขออนุมัติจ่ายแล้ว เลขที่ " + (r.receiptNo || "-") + " — รอฝ่ายการเงินตรวจ/อนุมัติ");
+                ui.notify("ส่งขออนุมัติจ่ายแล้ว เลขที่ " + expReceiptNo + " — รอฝ่ายการเงินตรวจ/อนุมัติ");
                 loadMoneyQueue();
                 reset();
                 resetExp();
@@ -2593,10 +2623,10 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 React.createElement(PayerPicker, { label: "\u0E1C\u0E39\u0E49\u0E08\u0E48\u0E32\u0E22\u0E40\u0E07\u0E34\u0E19 (\u0E15\u0E34\u0E4A\u0E01\u0E0A\u0E37\u0E48\u0E2D\u0E08\u0E32\u0E01\u0E1C\u0E31\u0E07\u0E1D\u0E48\u0E32\u0E22 \u0E2B\u0E23\u0E37\u0E2D \u0E09\u0E31\u0E19)", people: orgPeopleOfDept(form.dept), value: payer, onChange: setPayer, viewerName: viewer.name, allowLogin: true }),
                 React.createElement(PayeeSearch, { allPeople: allPeople(), dutyLookup: dutyLookup, value: payee, onChange: setPayee, q: payeeQ, setQ: setPayeeQ, pos: payeePos, setPos: setPayeePos }),
                 React.createElement("div", { style: { display: "flex", gap: 8, margin: "10px 0" } },
-                    React.createElement("button", { onClick: issueExpReceiptNo, style: { flex: 1, padding: "10px", borderRadius: 10, border: "1.5px solid #2f9e6b", background: "#fff", color: "#1e7a4d", fontWeight: 800, fontSize: 13.5, cursor: "pointer" } }, expReceiptNo ? `เลขที่ ${expReceiptNo}` : "ออกเลขใบเสร็จ"),
+                    React.createElement("button", { onClick: issueExpReceiptNo, style: { flex: 1, padding: "10px", borderRadius: 10, border: `1.5px solid ${expReceiptNo ? "#c0392b" : "#2f9e6b"}`, background: expReceiptNo ? "#fbeeee" : "#fff", color: expReceiptNo ? "#c0392b" : "#1e7a4d", fontWeight: 800, fontSize: 13.5, cursor: "pointer" } }, expReceiptNo ? `จองเลข ${expReceiptNo}` : "ออกเลขใบเสร็จ (จองทันที)"),
                     React.createElement("label", { style: { flex: 1, padding: "10px", borderRadius: 10, border: `1.5px solid ${expBill ? "#2f9e6b" : "#2f9e6b"}`, background: expBill ? "#eefaf2" : "#fff", color: "#1e7a4d", fontWeight: 800, fontSize: 13.5, cursor: "pointer", textAlign: "center" } },
                         expBill ? "✓ แนบใบเสร็จแล้ว" : "แนบใบเสร็จ",
-                        React.createElement("input", { type: "file", accept: "image/*", onChange: (e) => pickExpBill(e.target.files && e.target.files[0]), style: { display: "none" } }))),
+                        React.createElement("input", { ref: expBillInputRef, type: "file", accept: "image/*", onChange: (e) => pickExpBill(e.target.files && e.target.files[0]), style: { display: "none" } }))),
                 expBill && React.createElement("img", { src: expBill, alt: "\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08", style: { width: "100%", maxHeight: 200, objectFit: "contain", borderRadius: 8, border: `1px solid ${C.line}`, marginBottom: 8 } }),
                 React.createElement(Field, { label: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48", type: "date", value: form.date, onChange: (v) => setForm((p) => ({ ...p, date: v })) }),
                 React.createElement(Field, { label: "\u0E40\u0E27\u0E25\u0E32", type: "time", value: form.time, onChange: (v) => setForm((p) => ({ ...p, time: v })) }),
@@ -2634,11 +2664,14 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                     editId && React.createElement(Btn, { variant: "ghost", onClick: reset }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01")))))),
         expNoModal && React.createElement(Modal, { onClose: () => setExpNoModal(false) },
             React.createElement("div", { style: { padding: 20, textAlign: "center" } },
-                React.createElement("div", { style: { fontSize: 15, fontWeight: 700, color: C.ink, marginBottom: 8 } }, "\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08"),
-                React.createElement("div", { style: { fontSize: 30, fontWeight: 800, color: "#c0392b", margin: "10px 0" } }, expReceiptNo),
-                React.createElement("div", { style: { fontSize: 13, color: C.muted, lineHeight: 1.6 } }, "\u0E01\u0E23\u0E38\u0E13\u0E32\u0E19\u0E33\u0E40\u0E25\u0E02\u0E19\u0E35\u0E49\u0E40\u0E02\u0E35\u0E22\u0E19\u0E25\u0E07\u0E1A\u0E19\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 \u0E41\u0E25\u0E30\u0E02\u0E35\u0E14\u0E40\u0E2A\u0E49\u0E19\u0E14\u0E49\u0E27\u0E22\u0E1B\u0E32\u0E01\u0E01\u0E32\u0E41\u0E14\u0E07\u0E43\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23 \u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E2A\u0E48\u0E07\u0E40\u0E1E\u0E37\u0E48\u0E2D\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 \u0E01\u0E48\u0E2D\u0E19\u0E16\u0E48\u0E32\u0E22\u0E23\u0E39\u0E1B\u0E41\u0E19\u0E1A"),
-                React.createElement("div", { style: { marginTop: 14 } },
-                    React.createElement(Btn, { onClick: () => setExpNoModal(false) }, "\u0E23\u0E31\u0E1A\u0E17\u0E23\u0E32\u0E1A")))),
+                React.createElement("div", { style: { fontSize: 15, fontWeight: 700, color: C.ink, marginBottom: 4 } }, "\u0E08\u0E2D\u0E07\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E41\u0E25\u0E49\u0E27"),
+                React.createElement("div", { style: { fontSize: 32, fontWeight: 800, color: "#c0392b", margin: "8px 0" } }, expReceiptNo),
+                React.createElement("div", { style: { fontSize: 13, color: C.muted, lineHeight: 1.6 } }, "\u0E19\u0E33\u0E40\u0E25\u0E02\u0E19\u0E35\u0E49\u0E40\u0E02\u0E35\u0E22\u0E19\u0E25\u0E07\u0E1A\u0E19\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 + \u0E02\u0E35\u0E14\u0E40\u0E2A\u0E49\u0E19\u0E14\u0E49\u0E27\u0E22\u0E1B\u0E32\u0E01\u0E01\u0E32\u0E41\u0E14\u0E07\u0E43\u0E19\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23\u0E17\u0E35\u0E48\u0E15\u0E49\u0E2D\u0E07\u0E01\u0E32\u0E23 \u0E41\u0E25\u0E49\u0E27\u0E16\u0E48\u0E32\u0E22\u0E23\u0E39\u0E1B\u0E41\u0E19\u0E1A"),
+                React.createElement("div", { style: { fontSize: 11.5, color: "#b3762f", marginTop: 8, fontWeight: 600 } }, "\u26A0 \u0E16\u0E49\u0E32\u0E44\u0E21\u0E48\u0E01\u0E14\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01 / \u0E2D\u0E2D\u0E01\u0E08\u0E32\u0E01\u0E2B\u0E19\u0E49\u0E32\u0E19\u0E35\u0E49 / \u0E40\u0E1B\u0E25\u0E35\u0E48\u0E22\u0E19\u0E41\u0E17\u0E47\u0E1A \u0E40\u0E25\u0E02\u0E19\u0E35\u0E49\u0E08\u0E30\u0E16\u0E39\u0E01\u0E04\u0E37\u0E19\u0E2D\u0E31\u0E15\u0E42\u0E19\u0E21\u0E31\u0E15\u0E34"),
+                React.createElement("div", { style: { display: "flex", flexDirection: "column", gap: 8, marginTop: 16 } },
+                    React.createElement(Btn, { onClick: () => { setExpNoModal(false); setTimeout(() => expBillInputRef.current && expBillInputRef.current.click(), 100); } }, "\u0E23\u0E31\u0E1A\u0E17\u0E23\u0E32\u0E1A + \u0E41\u0E19\u0E1A\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08"),
+                    React.createElement(Btn, { variant: "ghost", onClick: () => { setExpNoModal(false); cancelExpDraft(); } }, "\u0E40\u0E1E\u0E34\u0E48\u0E21\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23 (\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E40\u0E25\u0E02\u0E19\u0E35\u0E49 \u00B7 \u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E22\u0E31\u0E07\u0E2D\u0E22\u0E39\u0E48)"),
+                    React.createElement("button", { onClick: () => { setExpNoModal(false); cancelExpDraft(); }, style: { border: "1px solid #e0b4b4", background: "#fbeeee", color: "#c0392b", borderRadius: 10, padding: "8px", fontWeight: 700, fontSize: 13, cursor: "pointer" } }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E19\u0E35\u0E49")))),
         expWarnModal && React.createElement(Modal, { onClose: () => setExpWarnModal(false) },
             React.createElement("div", { style: { padding: 20, textAlign: "center" } },
                 React.createElement("div", { style: { fontSize: 34, marginBottom: 6 } }, "\uD83D\uDCCE"),
@@ -8699,6 +8732,19 @@ async function moneyDelete(id) { try {
 }
 catch (e) {
     return false;
+} }
+async function moneyUpsert(rec) { try {
+    const r = await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "moneyUpsert", rec }) });
+    const t = await r.text();
+    try {
+        return JSON.parse(t);
+    }
+    catch (e) {
+        return { ok: false, error: "ตอบกลับไม่ใช่ JSON" };
+    }
+}
+catch (e) {
+    return { ok: false, error: "เชื่อมต่อไม่ได้" };
 } }
 async function reserveReceiptNo(usedNums, bYear) { try {
     const r = await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "reserveReceiptNo", usedNums: usedNums || [], bYear }) });
