@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v214";
-const BUILD_TIME = "02/09/2026 14:24 น.";
+const APP_VERSION = "v215";
+const BUILD_TIME = "02/09/2026 14:30 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -2098,20 +2098,6 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     const canApproveExpense = String(viewer.role) === "admin" || financeMoneyHolder || (String(viewer.role) === "teacher" && finNodes.length > 0);
     // ขอเลขใบเสร็จใหม่ (แก้เลขซ้ำ) — หาเลขว่างที่เล็กสุดจากทุกฝั่ง/ฝ่าย (db + คิว) เขียนทับรายการนั้น
     // เลขใบเสร็จที่ซ้ำ (นับทุกฝั่ง: db.finance + loans + studentIncome + คิว) — ใช้ทำปุ่มสีแดง
-    const dupReceiptNums = React.useMemo(() => {
-        const cnt = {};
-        const add = (rn) => { if (rn == null || rn === "")
-            return; const k = String(rn).trim(); cnt[k] = (cnt[k] || 0) + 1; };
-        (db.finance || []).forEach((f) => add(f.receiptNo));
-        (db.loans || []).forEach((x) => add(x.receiptNo));
-        ((((db.studentIncome || {})["_submits"]) || [])).forEach((x) => add(x.receiptNo));
-        (moneyQueue || []).forEach((x) => add(x.receiptNo));
-        const s = new Set();
-        Object.keys(cnt).forEach((k) => { if (cnt[k] > 1)
-            s.add(k); });
-        return s;
-    }, [db.finance, db.loans, db.studentIncome, moneyQueue]);
-    const isDupRN = (rn) => rn && dupReceiptNums.has(String(rn).trim());
     const renumberFinance = (f) => ui.runAsync("กำลังขอเลขใบเสร็จใหม่...", async () => { const rn = await reserveReceiptNo(Array.from(usedReceiptNums(db)), buddhistYear()); if (!rn) {
         ui.notify("ขอเลขไม่สำเร็จ ลองใหม่");
         return;
@@ -2169,6 +2155,20 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     const [expBusy, setExpBusy] = useState(false);
     const submitRef = useRef(false); // กันกดบันทึกซ้ำเร็ว ๆ (บล็อกทันที ไม่รอ state)
     const loadMoneyQueue = React.useCallback(() => { moneyList().then((rows) => setMoneyQueue(rows || [])); }, []);
+    const dupReceiptNums = React.useMemo(() => {
+        const cnt = {};
+        const add = (rn) => { if (rn == null || rn === "")
+            return; const k = String(rn).trim(); cnt[k] = (cnt[k] || 0) + 1; };
+        (db.finance || []).forEach((f) => add(f.receiptNo));
+        (db.loans || []).forEach((x) => add(x.receiptNo));
+        ((((db.studentIncome || {})["_submits"]) || [])).forEach((x) => add(x.receiptNo));
+        (moneyQueue || []).forEach((x) => add(x.receiptNo));
+        const s = new Set();
+        Object.keys(cnt).forEach((k) => { if (cnt[k] > 1)
+            s.add(k); });
+        return s;
+    }, [db.finance, db.loans, db.studentIncome, moneyQueue]);
+    const isDupRN = (rn) => rn && dupReceiptNums.has(String(rn).trim());
     useEffect(() => { loadMoneyQueue(); }, [loadMoneyQueue]);
     const pendingExpenses = moneyQueue.filter((f) => f.type === "out");
     const pendingIncomes = moneyQueue.filter((f) => f.type !== "out");
