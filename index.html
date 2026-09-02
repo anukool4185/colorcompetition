@@ -93,7 +93,7 @@
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
 const APP_VERSION = "v222";
-const BUILD_TIME = "02/09/2026 22:11 น.";
+const BUILD_TIME = "02/09/2026 22:17 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -2371,8 +2371,8 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     const resetExp = () => { setExpLines([{ label: "", amount: "" }]); setExpReceiptNo(""); setExpDraftId(""); setExpBill(""); };
     // ยกเลิกเลขที่จอง (ลบ draft) — ใช้ตอนกด "เพิ่มรายการ"/"ยกเลิก"/ออกจากหน้า/เปลี่ยนแท็บ
     const cancelExpDraft = (silent) => { const id = expDraftId; setExpReceiptNo(""); setExpDraftId(""); if (!id)
-        return; ui.runAsync("กำลังยกเลิกเลขใบเสร็จ...", async () => { const ok = await moneyDelete(id); await new Promise((r) => setTimeout(r, 300)); loadMoneyQueue(); if (!silent)
-        ui.notify(ok ? "ยกเลิก + ลบเลขใบเสร็จออกจากระบบแล้ว" : "ยกเลิกไม่สำเร็จ — ตรวจการเชื่อมต่อ/Deploy Code.gs ล่าสุด"); }); };
+        return; ui.runAsync("กำลังยกเลิกเลขใบเสร็จ...", async () => { const ok = await moneyDelete(id); await new Promise((r) => setTimeout(r, 300)); const rows = await moneyList(); const still = (rows || []).some((x) => String(x.id) === String(id)); setMoneyQueue(rows || []); if (!silent)
+        ui.notify(ok && !still ? "ยกเลิก + ลบเลขใบเสร็จออกจากระบบแล้ว เลขถูกคืน" : "ยกเลิกไม่สำเร็จ (เลขยังค้าง) — กรุณา Deploy Code.gs เวอร์ชันล่าสุด แล้วลองใหม่"); }); };
     const issueExpReceiptNo = () => {
         if (!form.dept) {
             ui.notify("เลือกฝ่าย (รายการแข่ง/กิจกรรม) ก่อน");
