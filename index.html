@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v217";
-const BUILD_TIME = "02/09/2026 20:18 น.";
+const APP_VERSION = "v218";
+const BUILD_TIME = "02/09/2026 20:53 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -1042,6 +1042,50 @@ function ConnStatus({ compact }) {
         React.createElement("span", { style: { width: 8, height: 8, borderRadius: 4, background: dot, flexShrink: 0, display: "inline-block" } }),
         React.createElement("span", { style: { fontSize: compact ? 11 : 11.5, color, fontWeight: 600, lineHeight: 1.35, textAlign: compact ? "right" : "left" } }, msg)));
 }
+let __camCb = null;
+function openCamera(cb) { __camCb = cb; try {
+    window.dispatchEvent(new CustomEvent("opencam"));
+}
+catch (e) { } }
+function CameraCapture() {
+    const [open, setOpen] = useState(false);
+    const [err, setErr] = useState("");
+    const videoRef = useRef(null);
+    const streamRef = useRef(null);
+    useEffect(() => { const h = () => { setErr(""); setOpen(true); }; window.addEventListener("opencam", h); return () => window.removeEventListener("opencam", h); }, []);
+    useEffect(() => {
+        if (!open)
+            return;
+        let alive = true;
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            setErr("อุปกรณ์นี้ไม่รองรับกล้อง หรือไม่ได้เปิดผ่าน https");
+            return;
+        }
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false }).then((s) => { if (!alive) {
+            s.getTracks().forEach((t) => t.stop());
+            return;
+        } streamRef.current = s; if (videoRef.current) {
+            videoRef.current.srcObject = s;
+            videoRef.current.play().catch(() => { });
+        } }).catch(() => setErr("เปิดกล้องไม่ได้ — กรุณาอนุญาตการใช้กล้อง แล้วลองใหม่"));
+        return () => { alive = false; if (streamRef.current) {
+            streamRef.current.getTracks().forEach((t) => t.stop());
+            streamRef.current = null;
+        } };
+    }, [open]);
+    const shoot = () => { const v = videoRef.current; if (!v || !v.videoWidth)
+        return; const cv = document.createElement("canvas"); const maxW = 1280; const scale = Math.min(1, maxW / v.videoWidth); cv.width = v.videoWidth * scale; cv.height = v.videoHeight * scale; cv.getContext("2d").drawImage(v, 0, 0, cv.width, cv.height); const d = cv.toDataURL("image/jpeg", 0.75); const cb = __camCb; __camCb = null; setOpen(false); if (cb)
+        cb(d); };
+    const close = () => { __camCb = null; setOpen(false); };
+    if (!open)
+        return null;
+    return (React.createElement(Modal, { title: "\uD83D\uDCF7 \u0E16\u0E48\u0E32\u0E22\u0E23\u0E39\u0E1B\u0E14\u0E49\u0E27\u0E22\u0E01\u0E25\u0E49\u0E2D\u0E07", onClose: close, wide: true },
+        React.createElement("div", { style: { padding: 16, textAlign: "center" } },
+            err ? React.createElement("div", { style: { color: "#c0392b", fontSize: 14, padding: 20 } }, err) : React.createElement("video", { ref: videoRef, playsInline: true, style: { width: "100%", maxHeight: "60vh", borderRadius: 10, background: "#000" } }),
+            React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 12, justifyContent: "center" } },
+                !err && React.createElement(Btn, { onClick: shoot }, "\uD83D\uDCF8 \u0E16\u0E48\u0E32\u0E22\u0E23\u0E39\u0E1B"),
+                React.createElement(Btn, { variant: "ghost", onClick: close }, "\u0E1B\u0E34\u0E14\u0E01\u0E25\u0E49\u0E2D\u0E07")))));
+}
 function Shell({ role, nav, view, setView, onExit, children, ui, sz = {}, navOrder }) {
     const orderBy = (list) => { if (!list || !list.length)
         return nav; const idx = (k) => { const i = list.indexOf(k); return i < 0 ? 999 : i; }; return nav.slice().map((n, i) => ({ n, i })).sort((a, b) => (idx(a.n.key) - idx(b.n.key)) || (a.i - b.i)).map((x) => x.n); };
@@ -1200,7 +1244,8 @@ function useUI() {
 function resizeImage(file, max = 300) {
     return new Promise((resolve, reject) => {
         const img = new Image();
-        const url = URL.createObjectURL(file);
+        const isStr = typeof file === "string";
+        const url = isStr ? file : URL.createObjectURL(file);
         img.onload = () => {
             let w = img.width, h = img.height;
             const scale = Math.min(1, max / Math.max(w, h));
@@ -1210,7 +1255,8 @@ function resizeImage(file, max = 300) {
             cv.width = w;
             cv.height = h;
             cv.getContext("2d").drawImage(img, 0, 0, w, h);
-            URL.revokeObjectURL(url);
+            if (!isStr)
+                URL.revokeObjectURL(url);
             resolve(cv.toDataURL("image/jpeg", 0.85));
         };
         img.onerror = reject;
@@ -1473,6 +1519,7 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc, canEntry = true, lockRo
                 React.createElement("input", { type: "date", value: billDate, onChange: (e) => setBillDate(e.target.value), style: { ...selCss, width: "auto" } }),
                 React.createElement("input", { type: "time", value: billTime, onChange: (e) => setBillTime(e.target.value), style: { ...selCss, width: "auto" } }),
                 React.createElement("input", { type: "file", accept: "image/*", onChange: (e) => pickBill(e.target.files && e.target.files[0]), style: { fontSize: 12.5 } }),
+                React.createElement("button", { type: "button", onClick: () => openCamera((d) => setBillData(d)), style: { marginLeft: 6, border: "1px solid #2f6ba3", background: "#fff", color: "#2f6ba3", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" } }, "\uD83D\uDCF7 \u0E01\u0E25\u0E49\u0E2D\u0E07"),
                 React.createElement(Btn, { small: true, onClick: uploadBill, disabled: !billData }, "\u0E2D\u0E31\u0E1B\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E39\u0E1B")),
             billData && React.createElement("img", { src: billData, alt: "preview", style: { maxWidth: 150, maxHeight: 150, borderRadius: 8, border: `1px solid ${C.line}`, marginBottom: 8 } }),
             bills.length > 0 && React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } }, bills.map((b, i) => React.createElement("a", { key: i, href: b.url, target: "_blank", rel: "noreferrer", style: { fontSize: 12 } },
@@ -1607,6 +1654,7 @@ function LoanManager({ db, setDb, ui, viewer }) {
                 React.createElement("input", { value: note, onChange: (e) => setNote(e.target.value), placeholder: "\u0E40\u0E2B\u0E15\u0E38\u0E1C\u0E25/\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E2B\u0E15\u0E38", style: { flex: 1, minWidth: 140, padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14 } })),
             React.createElement("div", { style: { display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" } },
                 React.createElement("input", { type: "file", accept: "image/*", capture: "environment", onChange: (e) => pickPhoto(e.target.files && e.target.files[0]), style: { fontSize: 12.5 } }),
+                React.createElement("button", { type: "button", onClick: () => openCamera((d) => setPhoto(d)), style: { marginLeft: 6, border: "1px solid #2f6ba3", background: "#fff", color: "#2f6ba3", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" } }, "\uD83D\uDCF7 \u0E01\u0E25\u0E49\u0E2D\u0E07"),
                 photo && React.createElement("img", { src: photo, alt: "preview", style: { maxHeight: 54, borderRadius: 6, border: `1px solid ${C.line}` } }),
                 React.createElement("span", { style: { flex: 1 } }),
                 React.createElement(Btn, { onClick: add, disabled: !studentId || !amount }, "\u0E1A\u0E31\u0E19\u0E17\u0E36\u0E01\u0E01\u0E32\u0E23\u0E22\u0E37\u0E21\u0E40\u0E07\u0E34\u0E19"))),
@@ -2625,8 +2673,9 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 React.createElement("div", { style: { display: "flex", gap: 8, margin: "10px 0" } },
                     React.createElement("button", { onClick: issueExpReceiptNo, style: { flex: 1, padding: "10px", borderRadius: 10, border: `1.5px solid ${expReceiptNo ? "#c0392b" : "#2f9e6b"}`, background: expReceiptNo ? "#fbeeee" : "#fff", color: expReceiptNo ? "#c0392b" : "#1e7a4d", fontWeight: 800, fontSize: 13.5, cursor: "pointer" } }, expReceiptNo ? `จองเลข ${expReceiptNo}` : "ออกเลขใบเสร็จ (จองทันที)"),
                     React.createElement("label", { style: { flex: 1, padding: "10px", borderRadius: 10, border: `1.5px solid ${expBill ? "#2f9e6b" : "#2f9e6b"}`, background: expBill ? "#eefaf2" : "#fff", color: "#1e7a4d", fontWeight: 800, fontSize: 13.5, cursor: "pointer", textAlign: "center" } },
-                        expBill ? "✓ แนบใบเสร็จแล้ว" : "แนบใบเสร็จ",
-                        React.createElement("input", { ref: expBillInputRef, type: "file", accept: "image/*", onChange: (e) => pickExpBill(e.target.files && e.target.files[0]), style: { display: "none" } }))),
+                        expBill ? "✓ แนบแล้ว" : "📁 เลือกไฟล์",
+                        React.createElement("input", { ref: expBillInputRef, type: "file", accept: "image/*", onChange: (e) => pickExpBill(e.target.files && e.target.files[0]), style: { display: "none" } })),
+                    React.createElement("button", { onClick: () => openCamera((d) => setExpBill(d)), style: { flex: 1, padding: "10px", borderRadius: 10, border: "1.5px solid #2f6ba3", background: "#fff", color: "#2f6ba3", fontWeight: 800, fontSize: 13.5, cursor: "pointer" } }, "\uD83D\uDCF7 \u0E16\u0E48\u0E32\u0E22\u0E01\u0E25\u0E49\u0E2D\u0E07")),
                 expBill && React.createElement("img", { src: expBill, alt: "\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08", style: { width: "100%", maxHeight: 200, objectFit: "contain", borderRadius: 8, border: `1px solid ${C.line}`, marginBottom: 8 } }),
                 React.createElement(Field, { label: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48", type: "date", value: form.date, onChange: (v) => setForm((p) => ({ ...p, date: v })) }),
                 React.createElement(Field, { label: "\u0E40\u0E27\u0E25\u0E32", type: "time", value: form.time, onChange: (v) => setForm((p) => ({ ...p, time: v })) }),
@@ -4301,6 +4350,15 @@ function PersonForm({ kind, person, db, onClose, onSave, ui, houses }) {
             React.createElement(Avatar, { person: avatarPreview, size: 56 }),
             React.createElement("input", { id: "photo-input", type: "file", accept: "image/*", onChange: pickPhoto, style: { display: "none" } }),
             React.createElement(Btn, { variant: "ghost", small: true, onClick: () => document.getElementById("photo-input").click() }, "\u0E2D\u0E31\u0E1B\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E39\u0E1B (\u0E22\u0E48\u0E2D \u2264300px)"),
+            React.createElement(Btn, { variant: "ghost", small: true, onClick: () => openCamera(async (d) => { try {
+                    const r = await resizeImage(d, 300);
+                    setNewPhoto(r);
+                    setPreview(r);
+                }
+                catch (e) {
+                    setNewPhoto(d);
+                    setPreview(d);
+                } }) }, "\uD83D\uDCF7 \u0E16\u0E48\u0E32\u0E22\u0E01\u0E25\u0E49\u0E2D\u0E07"),
             preview && React.createElement(Btn, { variant: "ghost", small: true, onClick: clearPhoto }, "\u0E25\u0E1A\u0E23\u0E39\u0E1B")),
         React.createElement("div", { className: "md:grid md:grid-cols-2 md:gap-x-3" },
             React.createElement(Field, { label: "\u0E23\u0E2B\u0E31\u0E2A", value: f.id, onChange: set("id"), placeholder: kind === "student" ? "เช่น 10234" : "เช่น T05" }),
@@ -10525,7 +10583,8 @@ function App() {
         screen === "login" && React.createElement(Login, { db: db, mode: mode, onEnter: (a) => { setAuth(a); setScreen("app"); }, onBack: () => setScreen("choose") }),
         screen === "app" && (auth === null || auth === void 0 ? void 0 : auth.role) === "admin" && React.createElement(AdminApp, { db: db, setDb: setDb, onExit: exit }),
         screen === "app" && ((auth === null || auth === void 0 ? void 0 : auth.role) === "teacher" || (auth === null || auth === void 0 ? void 0 : auth.role) === "studentcom") && React.createElement(CommitteeApp, { role: auth.role, db: db, setDb: setDb, onExit: exit, meId: auth.id }),
-        screen === "app" && (auth === null || auth === void 0 ? void 0 : auth.role) === "student" && React.createElement(StudentApp, { meId: auth.id, db: db, setDb: setDb, onExit: exit })));
+        screen === "app" && (auth === null || auth === void 0 ? void 0 : auth.role) === "student" && React.createElement(StudentApp, { meId: auth.id, db: db, setDb: setDb, onExit: exit }),
+        React.createElement(CameraCapture, null)));
 }
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
