@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v218";
-const BUILD_TIME = "02/09/2026 20:53 น.";
+const APP_VERSION = "v219";
+const BUILD_TIME = "02/09/2026 21:20 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -1043,7 +1043,8 @@ function ConnStatus({ compact }) {
         React.createElement("span", { style: { fontSize: compact ? 11 : 11.5, color, fontWeight: 600, lineHeight: 1.35, textAlign: compact ? "right" : "left" } }, msg)));
 }
 let __camCb = null;
-function openCamera(cb) { __camCb = cb; try {
+let __camFacing = "user";
+function openCamera(cb, facing) { __camCb = cb; __camFacing = facing || "user"; try {
     window.dispatchEvent(new CustomEvent("opencam"));
 }
 catch (e) { } }
@@ -1061,7 +1062,7 @@ function CameraCapture() {
             setErr("อุปกรณ์นี้ไม่รองรับกล้อง หรือไม่ได้เปิดผ่าน https");
             return;
         }
-        navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false }).then((s) => { if (!alive) {
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: __camFacing }, width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false }).then((s) => { if (!alive) {
             s.getTracks().forEach((t) => t.stop());
             return;
         } streamRef.current = s; if (videoRef.current) {
@@ -1519,7 +1520,7 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc, canEntry = true, lockRo
                 React.createElement("input", { type: "date", value: billDate, onChange: (e) => setBillDate(e.target.value), style: { ...selCss, width: "auto" } }),
                 React.createElement("input", { type: "time", value: billTime, onChange: (e) => setBillTime(e.target.value), style: { ...selCss, width: "auto" } }),
                 React.createElement("input", { type: "file", accept: "image/*", onChange: (e) => pickBill(e.target.files && e.target.files[0]), style: { fontSize: 12.5 } }),
-                React.createElement("button", { type: "button", onClick: () => openCamera((d) => setBillData(d)), style: { marginLeft: 6, border: "1px solid #2f6ba3", background: "#fff", color: "#2f6ba3", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" } }, "\uD83D\uDCF7 \u0E01\u0E25\u0E49\u0E2D\u0E07"),
+                React.createElement("button", { type: "button", onClick: () => openCamera((d) => setBillData(d), "environment"), style: { marginLeft: 6, border: "1px solid #2f6ba3", background: "#fff", color: "#2f6ba3", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" } }, "\uD83D\uDCF7 \u0E01\u0E25\u0E49\u0E2D\u0E07"),
                 React.createElement(Btn, { small: true, onClick: uploadBill, disabled: !billData }, "\u0E2D\u0E31\u0E1B\u0E42\u0E2B\u0E25\u0E14\u0E23\u0E39\u0E1B")),
             billData && React.createElement("img", { src: billData, alt: "preview", style: { maxWidth: 150, maxHeight: 150, borderRadius: 8, border: `1px solid ${C.line}`, marginBottom: 8 } }),
             bills.length > 0 && React.createElement("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } }, bills.map((b, i) => React.createElement("a", { key: i, href: b.url, target: "_blank", rel: "noreferrer", style: { fontSize: 12 } },
@@ -2675,7 +2676,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                     React.createElement("label", { style: { flex: 1, padding: "10px", borderRadius: 10, border: `1.5px solid ${expBill ? "#2f9e6b" : "#2f9e6b"}`, background: expBill ? "#eefaf2" : "#fff", color: "#1e7a4d", fontWeight: 800, fontSize: 13.5, cursor: "pointer", textAlign: "center" } },
                         expBill ? "✓ แนบแล้ว" : "📁 เลือกไฟล์",
                         React.createElement("input", { ref: expBillInputRef, type: "file", accept: "image/*", onChange: (e) => pickExpBill(e.target.files && e.target.files[0]), style: { display: "none" } })),
-                    React.createElement("button", { onClick: () => openCamera((d) => setExpBill(d)), style: { flex: 1, padding: "10px", borderRadius: 10, border: "1.5px solid #2f6ba3", background: "#fff", color: "#2f6ba3", fontWeight: 800, fontSize: 13.5, cursor: "pointer" } }, "\uD83D\uDCF7 \u0E16\u0E48\u0E32\u0E22\u0E01\u0E25\u0E49\u0E2D\u0E07")),
+                    React.createElement("button", { onClick: () => openCamera((d) => setExpBill(d), "environment"), style: { flex: 1, padding: "10px", borderRadius: 10, border: "1.5px solid #2f6ba3", background: "#fff", color: "#2f6ba3", fontWeight: 800, fontSize: 13.5, cursor: "pointer" } }, "\uD83D\uDCF7 \u0E16\u0E48\u0E32\u0E22\u0E01\u0E25\u0E49\u0E2D\u0E07")),
                 expBill && React.createElement("img", { src: expBill, alt: "\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08", style: { width: "100%", maxHeight: 200, objectFit: "contain", borderRadius: 8, border: `1px solid ${C.line}`, marginBottom: 8 } }),
                 React.createElement(Field, { label: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48", type: "date", value: form.date, onChange: (v) => setForm((p) => ({ ...p, date: v })) }),
                 React.createElement(Field, { label: "\u0E40\u0E27\u0E25\u0E32", type: "time", value: form.time, onChange: (v) => setForm((p) => ({ ...p, time: v })) }),
