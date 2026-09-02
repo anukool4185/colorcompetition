@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v220";
-const BUILD_TIME = "02/09/2026 22:02 น.";
+const APP_VERSION = "v222";
+const BUILD_TIME = "02/09/2026 22:11 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -2370,10 +2370,9 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     const expTotal = expLines.reduce((s, l) => s + (Number(String(l.amount).replace(/[^0-9.]/g, "")) || 0), 0);
     const resetExp = () => { setExpLines([{ label: "", amount: "" }]); setExpReceiptNo(""); setExpDraftId(""); setExpBill(""); };
     // ยกเลิกเลขที่จอง (ลบ draft) — ใช้ตอนกด "เพิ่มรายการ"/"ยกเลิก"/ออกจากหน้า/เปลี่ยนแท็บ
-    const cancelExpDraft = (silent) => { const id = expDraftId; if (id) {
-        moneyDelete(id).then(() => loadMoneyQueue());
-    } setExpReceiptNo(""); setExpDraftId(""); if (!silent)
-        ui.notify("ยกเลิกเลขใบเสร็จที่จองแล้ว — เลขถูกคืนสู่ระบบ"); };
+    const cancelExpDraft = (silent) => { const id = expDraftId; setExpReceiptNo(""); setExpDraftId(""); if (!id)
+        return; ui.runAsync("กำลังยกเลิกเลขใบเสร็จ...", async () => { const ok = await moneyDelete(id); await new Promise((r) => setTimeout(r, 300)); loadMoneyQueue(); if (!silent)
+        ui.notify(ok ? "ยกเลิก + ลบเลขใบเสร็จออกจากระบบแล้ว" : "ยกเลิกไม่สำเร็จ — ตรวจการเชื่อมต่อ/Deploy Code.gs ล่าสุด"); }); };
     const issueExpReceiptNo = () => {
         if (!form.dept) {
             ui.notify("เลือกฝ่าย (รายการแข่ง/กิจกรรม) ก่อน");
@@ -2717,7 +2716,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                 React.createElement("div", { style: { display: "flex", gap: 8 } },
                     React.createElement(Btn, { onClick: save }, editId ? "บันทึกการแก้ไข" : "บันทึกรายการ"),
                     editId && React.createElement(Btn, { variant: "ghost", onClick: reset }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01")))))),
-        expNoModal && React.createElement(Modal, { onClose: () => setExpNoModal(false) },
+        expNoModal && React.createElement(Modal, { onClose: () => { setExpNoModal(false); cancelExpDraft(true); } },
             React.createElement("div", { style: { padding: 20, textAlign: "center" } },
                 React.createElement("div", { style: { fontSize: 15, fontWeight: 700, color: C.ink, marginBottom: 4 } }, "\u0E08\u0E2D\u0E07\u0E40\u0E25\u0E02\u0E17\u0E35\u0E48\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E41\u0E25\u0E49\u0E27"),
                 React.createElement("div", { style: { fontSize: 32, fontWeight: 800, color: "#c0392b", margin: "8px 0" } }, expReceiptNo),
@@ -8791,8 +8790,9 @@ catch (e) {
     return { ok: false, error: "เชื่อมต่อไม่ได้" };
 } }
 async function moneyDelete(id) { try {
-    await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "moneyDelete", id }) });
-    return true;
+    const r = await fetch(API_URL, { method: "POST", body: JSON.stringify({ type: "moneyDelete", id }) });
+    const j = JSON.parse(await r.text());
+    return !!(j && j.ok);
 }
 catch (e) {
     return false;
