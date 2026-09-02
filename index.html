@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v212";
-const BUILD_TIME = "31/08/2026 22:15 น.";
+const APP_VERSION = "v214";
+const BUILD_TIME = "02/09/2026 14:24 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -259,6 +259,34 @@ function usedReceiptNums(db) {
 function nextReceiptSeq(db) { const used = usedReceiptNums(db); let n = 1; while (used.has(n))
     n++; return n; } // เลขว่างที่เล็กที่สุด
 function nextReceiptNo(db) { return nextReceiptSeq(db) + "/" + buddhistYear(); }
+// เลขใบเสร็จซ้ำ (db.finance + loans + studentIncome) — ใช้ทำปุ่มสีแดงทุก component
+function dupReceiptSet(db) {
+    const cnt = {};
+    const add = (rn) => { if (rn == null || rn === "")
+        return; const k = String(rn).trim(); cnt[k] = (cnt[k] || 0) + 1; };
+    (db.finance || []).forEach((f) => add(f.receiptNo));
+    (db.loans || []).forEach((x) => add(x.receiptNo));
+    ((((db.studentIncome || {})["_submits"]) || [])).forEach((x) => add(x.receiptNo));
+    const s = new Set();
+    Object.keys(cnt).forEach((k) => { if (cnt[k] > 1)
+        s.add(k); });
+    return s;
+}
+// สิทธิ์ขอเลขใบเสร็จใหม่ = แอดมิน หรือ ผู้ถือเงิน หรือ ครูที่อยู่ในผังฝ่ายการเงิน
+function canRenumber(db, viewer) {
+    if (!viewer)
+        return false;
+    if (String(viewer.role) === "admin")
+        return true;
+    const finRe = /การเงิน|บัญชี|เหรัญญิก|เหรัญ|คลัง|ถือเงิน|เก็บเงิน|พัสดุ/;
+    const nodes = (db.org2 || []).filter((n) => String(n.personId) === String(viewer.id));
+    if (nodes.some((n) => n.money))
+        return true; // ผู้ถือเงิน
+    if (String(viewer.role) === "teacher") { // ครูในฝ่ายการเงิน
+        return nodes.some((n) => { const d = (db.departments || []).find((x) => String(x.id) === String(n.deptId)); const du = (db.duties || []).find((z) => String(z.id) === String(n.dutyId)); return (d && finRe.test(d.name || "")) || (du && finRe.test(du.name || "")); });
+    }
+    return false;
+}
 // สร้างใบเสร็จเป็น PDF (หัวใบเสร็จ / เลขที่ใบเสร็จ/ปีพ.ศ. / วันที่ เวลา / ตารางรายการ)
 async function makeReceiptPdf({ orgName, title, receiptNo, date, time, rows, notify, kind, payeeName, payeePosition, payerName, payerPosition, payerLabel, payeeLabel, bills }) {
     if (typeof html2canvas === "undefined" || !window.jspdf) {
@@ -1314,6 +1342,13 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc, canEntry = true, lockRo
     const removeSubmit = (id) => ui.run("ลบแล้ว", () => { setDb((p) => ({ ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: (((p.studentIncome || {})["_submits"]) || []).filter((x) => x.id !== id) } })); save(); });
     const acceptSubmit = (id) => ui.runAsync("ยอมรับเงินแล้ว — ออกใบเสร็จ + แจ้งผู้ดูแล", async () => { const sub = submits.find((x) => x.id === id); const amt = sub ? (Number(sub.amount) || 0) : 0; const dref = amt - grand; const rn = (await reserveReceiptNo(Array.from(usedReceiptNums(db)), buddhistYear())) || nextReceiptNo(db); setDb((p) => { return { ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: (((p.studentIncome || {})["_submits"]) || []).map((x) => x.id === id ? { ...x, status: "accepted", acceptedBy: viewer.name || "", acceptedById: viewer.id, acceptedAt: Date.now(), receiptNo: rn } : x) }, financeNotis: [{ id: "fnoti" + Date.now(), room, amount: amt, tableTotal: grand, diff: dref, acceptedBy: viewer.name || "", acceptorRank: myRankNum, date: sub ? sub.date : todayStr(), at: Date.now(), readBy: [] }, ...((p.financeNotis) || [])] }; }); save(); });
     const receiptFor = (x) => { const sender = receiptPersonInfo(db, x.byId); const holder = receiptMoneyHolder(db); makeReceiptPdf({ title: "ใบเสร็จรับเงิน (รายรับนักเรียน)", receiptNo: x.receiptNo, date: x.date, time: x.time, rows: [{ label: "รับเงินห้อง " + x.room + (x.note ? " · " + x.note : ""), amount: x.amount }], notify: ui.notify, payerName: sender.name || x.by || "", payerPosition: sender.pos, payeeName: holder.name, payeePosition: holder.pos }); };
+    const _dupRN = dupReceiptSet(db);
+    const isDupRN = (rn) => rn && _dupRN.has(String(rn).trim());
+    const canRenum = canRenumber(db, viewer);
+    const renumberInc = (x) => ui.runAsync("กำลังขอเลขใบเสร็จใหม่...", async () => { const rn = await reserveReceiptNo(Array.from(usedReceiptNums(db)), buddhistYear()); if (!rn) {
+        ui.notify("ขอเลขไม่สำเร็จ");
+        return;
+    } setDb((p) => ({ ...p, studentIncome: { ...(p.studentIncome || {}), ["_submits"]: (((p.studentIncome || {})["_submits"]) || []).map((y) => y.id === x.id ? { ...y, receiptNo: rn } : y) } })); setTimeout(() => window.__forceSave && window.__forceSave(), 200); ui.notify("เลขใบเสร็จใหม่: " + rn); });
     const diff = submitSum - grand;
     // สิทธิ์กดยอมรับเงิน: แอดมิน หรือ ผู้ดูแล(ลำดับ5)ขึ้นไป · ผู้ช่วย(ลำดับ6)เท่านั้น = กดไม่ได้ (เป็นผู้รวบรวมเงิน)
     const canAcceptMoney = (() => {
@@ -1398,9 +1433,11 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc, canEntry = true, lockRo
                 x.status === "accepted" ? React.createElement("span", { style: { fontSize: 11.5, color: "#1e7a4d", fontWeight: 700 } },
                     "\u2713 \u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A\u0E41\u0E25\u0E49\u0E27",
                     x.acceptedBy ? ` (${x.acceptedBy})` : "") : (canAcceptMoney ? React.createElement(Btn, { small: true, onClick: () => acceptSubmit(x.id) }, "\u2713 \u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A\u0E40\u0E07\u0E34\u0E19") : React.createElement("span", { style: { fontSize: 11.5, color: "#b3762f", fontWeight: 700 } }, "\u23F3 \u0E23\u0E2D\u0E1C\u0E39\u0E49\u0E14\u0E39\u0E41\u0E25\u0E22\u0E2D\u0E21\u0E23\u0E31\u0E1A")),
-                x.status === "accepted" && x.receiptNo && React.createElement("button", { onClick: () => receiptFor(x), title: "ใบเสร็จเลขที่ " + x.receiptNo, style: { border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" } },
+                x.status === "accepted" && x.receiptNo && React.createElement("button", { onClick: () => receiptFor(x), title: "ใบเสร็จเลขที่ " + x.receiptNo, style: { border: `1px solid ${isDupRN(x.receiptNo) ? "#c0392b" : C.primary}`, background: isDupRN(x.receiptNo) ? "#fbeeee" : C.soft, color: isDupRN(x.receiptNo) ? "#c0392b" : C.primaryDark, borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" } },
+                    isDupRN(x.receiptNo) ? "⚠ " : "",
                     "\u2B07 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 ",
                     x.receiptNo),
+                x.status === "accepted" && x.receiptNo && canRenum && React.createElement("button", { onClick: () => renumberInc(x), title: "\u0E02\u0E2D\u0E40\u0E25\u0E02\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E43\u0E2B\u0E21\u0E48 (\u0E41\u0E01\u0E49\u0E40\u0E25\u0E02\u0E0B\u0E49\u0E33)", style: { fontSize: 10.5, border: `1px solid ${C.line}`, background: "#fff", color: C.muted, borderRadius: 8, padding: "3px 6px", fontWeight: 700, cursor: "pointer", marginLeft: 4 } }, "#\u0E43\u0E2B\u0E21\u0E48"),
                 isMoneyHolder && x.status !== "accepted" && React.createElement("button", { onClick: () => startEditSub(x), style: { border: "none", background: "none", color: C.primary, cursor: "pointer", fontWeight: 700, fontSize: 11.5 } }, "\u0E41\u0E01\u0E49\u0E44\u0E02"),
                 React.createElement("button", { onClick: () => removeSubmit(x.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715")))))),
             React.createElement("div", { style: { borderTop: `1px solid ${C.line}`, paddingTop: 10, display: "flex", flexDirection: "column", gap: 4, fontSize: 13.5 } },
@@ -1433,6 +1470,13 @@ function StudentIncomeGrid({ db, setDb, ui, viewer, acc, canEntry = true, lockRo
         delColIdx !== null && React.createElement(ConfirmModal, { title: "\u0E22\u0E37\u0E19\u0E22\u0E31\u0E19\u0E25\u0E1A\u0E0A\u0E48\u0E2D\u0E07\u0E23\u0E32\u0E22\u0E23\u0E31\u0E1A", message: `ลบ "ครั้งที่ ${delColIdx + 1}" ของนักเรียนทุกคน (ข้อมูลในช่องนี้จะหายทั้งหมด)? ย้อนกลับไม่ได้`, onConfirm: () => delCol(delColIdx), onClose: () => setDelColIdx(null) })));
 }
 function LoanManager({ db, setDb, ui, viewer }) {
+    const _dupRN = dupReceiptSet(db);
+    const isDupRN = (rn) => rn && _dupRN.has(String(rn).trim());
+    const canRenum = canRenumber(db, viewer);
+    const renumberLoan = (x) => ui.runAsync("กำลังขอเลขใบเสร็จใหม่...", async () => { const rn = await reserveReceiptNo(Array.from(usedReceiptNums(db)), buddhistYear()); if (!rn) {
+        ui.notify("ขอเลขไม่สำเร็จ");
+        return;
+    } setDb((p) => ({ ...p, loans: (p.loans || []).map((y) => y.id === x.id ? { ...y, receiptNo: rn } : y) })); setTimeout(() => window.__forceSave && window.__forceSave(), 200); ui.notify("เลขใบเสร็จใหม่: " + rn); });
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff", marginBottom: 10 };
     const now = new Date();
     const [date, setDate] = useState(todayStr());
@@ -1587,9 +1631,11 @@ function LoanManager({ db, setDb, ui, viewer }) {
                 "\u2713 \u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34\u0E41\u0E25\u0E49\u0E27",
                 x.approvedBy ? " · " + x.approvedBy : "") : React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: "#b3762f", background: "#fff8ec", borderRadius: 8, padding: "3px 9px", whiteSpace: "nowrap" } }, "\u23F3 \u0E23\u0E2D\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34"),
             canApprove && (x.status !== "approved" ? React.createElement("button", { onClick: () => approve(x.id), style: { border: "1px solid #2f9e6b", background: "#eaf7f0", color: "#1e7a4d", borderRadius: 8, padding: "3px 10px", fontSize: 11, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" } }, "\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34") : React.createElement("button", { onClick: () => unapprove(x.id), style: { border: `1px solid ${C.line}`, background: "#fff", color: C.muted, borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" } }, "\u0E22\u0E01\u0E40\u0E25\u0E34\u0E01")),
-            x.receiptNo && React.createElement("button", { onClick: () => { const st = (db.students || []).find((s) => String(s.id) === String(x.studentId)); const payeeName = x.studentName + (st && (st.grade || st.room) ? ` ${st.grade || ""}${st.room ? "/" + st.room : ""}` : ""); const dutyNames = [...new Set((db.org2 || []).filter((n) => String(n.personId) === String(x.studentId) && (x.comps || []).map(String).includes(String(n.compId))).map((n) => { const dd = (db.duties || []).find((z) => String(z.id) === String(n.dutyId)); return dd ? dd.name : ""; }).filter(Boolean))]; const borrowerPos = ["นักเรียน", dutyNames.join(", "), (x.deptNames || []).join(", ")].filter(Boolean).join(" · "); const holder = receiptMoneyHolder(db); makeReceiptPdf({ title: "ใบเสร็จรับเงิน (ยืมเงิน)", receiptNo: x.receiptNo, date: x.date, time: x.time, rows: [{ label: "ยืมเงิน" + (x.note ? " · " + x.note : ""), amount: x.amount }], notify: ui.notify, payerName: payeeName, payerLabel: "ผู้รับเงิน (ผู้ยืม)", payerPosition: borrowerPos, payeeName: holder.name, payeeLabel: "ผู้จ่ายเงิน", payeePosition: holder.pos, bills: (x.photoUrls && x.photoUrls.length ? x.photoUrls : (x.photoUrl ? [x.photoUrl] : [])) }); }, title: "ใบเสร็จเลขที่ " + x.receiptNo, style: { border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" } },
+            x.receiptNo && React.createElement("button", { onClick: () => { const st = (db.students || []).find((s) => String(s.id) === String(x.studentId)); const payeeName = x.studentName + (st && (st.grade || st.room) ? ` ${st.grade || ""}${st.room ? "/" + st.room : ""}` : ""); const dutyNames = [...new Set((db.org2 || []).filter((n) => String(n.personId) === String(x.studentId) && (x.comps || []).map(String).includes(String(n.compId))).map((n) => { const dd = (db.duties || []).find((z) => String(z.id) === String(n.dutyId)); return dd ? dd.name : ""; }).filter(Boolean))]; const borrowerPos = ["นักเรียน", dutyNames.join(", "), (x.deptNames || []).join(", ")].filter(Boolean).join(" · "); const holder = receiptMoneyHolder(db); makeReceiptPdf({ title: "ใบเสร็จรับเงิน (ยืมเงิน)", receiptNo: x.receiptNo, date: x.date, time: x.time, rows: [{ label: "ยืมเงิน" + (x.note ? " · " + x.note : ""), amount: x.amount }], notify: ui.notify, payerName: payeeName, payerLabel: "ผู้รับเงิน (ผู้ยืม)", payerPosition: borrowerPos, payeeName: holder.name, payeeLabel: "ผู้จ่ายเงิน", payeePosition: holder.pos, bills: (x.photoUrls && x.photoUrls.length ? x.photoUrls : (x.photoUrl ? [x.photoUrl] : [])) }); }, title: "ใบเสร็จเลขที่ " + x.receiptNo, style: { border: `1px solid ${isDupRN(x.receiptNo) ? "#c0392b" : C.primary}`, background: isDupRN(x.receiptNo) ? "#fbeeee" : C.soft, color: isDupRN(x.receiptNo) ? "#c0392b" : C.primaryDark, borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" } },
+                isDupRN(x.receiptNo) ? "⚠ " : "",
                 "\u2B07 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 ",
                 x.receiptNo),
+            x.receiptNo && canRenum && React.createElement("button", { onClick: () => renumberLoan(x), title: "\u0E02\u0E2D\u0E40\u0E25\u0E02\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E43\u0E2B\u0E21\u0E48 (\u0E41\u0E01\u0E49\u0E40\u0E25\u0E02\u0E0B\u0E49\u0E33)", style: { fontSize: 10.5, border: `1px solid ${C.line}`, background: "#fff", color: C.muted, borderRadius: 8, padding: "3px 6px", fontWeight: 700, cursor: "pointer", marginLeft: 4 } }, "#\u0E43\u0E2B\u0E21\u0E48"),
             React.createElement("button", { onClick: () => del(x.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715"))))))));
 }
 function PayerPicker({ label, people, value, onChange, viewerName, allowLogin }) {
@@ -1635,6 +1681,13 @@ function PayeeSearch({ allPeople, dutyLookup, value, onChange, q, setQ, pos, set
 function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit, buyerMode }) {
     const selCss = { width: "100%", padding: "10px 12px", borderRadius: 10, border: `1px solid ${C.line}`, fontSize: 14, color: C.ink, background: "#fbfaff", marginBottom: 10 };
     const canApprove = String(viewer.role) === "admin" || (db.org2 || []).some((n) => String(n.personId) === String(viewer.id) && n.money); // แอดมิน หรือ ผู้ถือเงินในผัง
+    const _dupRN = dupReceiptSet(db);
+    const isDupRN = (rn) => rn && _dupRN.has(String(rn).trim());
+    const canRenum = canRenumber(db, viewer);
+    const renumberFund = (r) => ui.runAsync("กำลังขอเลขใบเสร็จใหม่...", async () => { const rn = await reserveReceiptNo(Array.from(usedReceiptNums(db)), buddhistYear()); if (!rn) {
+        ui.notify("ขอเลขไม่สำเร็จ");
+        return;
+    } setDb((p) => ({ ...p, finance: (p.finance || []).map((y) => y.id === r.id ? { ...y, receiptNo: rn } : y) })); setTimeout(() => window.__forceSave && window.__forceSave(), 200); ui.notify("เลขใบเสร็จใหม่: " + rn); });
     const [type, setType] = useState(buyerMode ? "out" : "in");
     const [title, setTitle] = useState("");
     const [amount, setAmount] = useState("");
@@ -1805,9 +1858,11 @@ function FundManager({ db, setDb, ui, viewer, editRec, onDoneEdit, buyerMode }) 
                     }
                     else {
                         makeReceiptPdf({ title: "ใบเสร็จรับเงิน (กองทุนสำรอง)", receiptNo: r.receiptNo, date: r.date, time: r.time, rows: [{ label: r.title + (r.note ? " · " + r.note : ""), amount: r.amount }], notify: ui.notify, payerName: receiptPersonInfo(db, r.byId).name, payerPosition: receiptPersonInfo(db, r.byId).pos, payeeName: holder.name, payeePosition: holder.pos, bills: (r.billUrls && r.billUrls.length ? r.billUrls : (r.billUrl ? [r.billUrl] : [])) });
-                    } }, style: { border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" } },
+                    } }, style: { border: `1px solid ${isDupRN(r.receiptNo) ? "#c0392b" : C.primary}`, background: isDupRN(r.receiptNo) ? "#fbeeee" : C.soft, color: isDupRN(r.receiptNo) ? "#c0392b" : C.primaryDark, borderRadius: 8, padding: "3px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" } },
+                    isDupRN(r.receiptNo) ? "⚠ " : "",
                     "\u2B07 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 ",
                     r.receiptNo),
+                r.receiptNo && canRenum && React.createElement("button", { onClick: () => renumberFund(r), title: "\u0E02\u0E2D\u0E40\u0E25\u0E02\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E43\u0E2B\u0E21\u0E48", style: { fontSize: 10.5, border: `1px solid ${C.line}`, background: "#fff", color: C.muted, borderRadius: 8, padding: "3px 6px", fontWeight: 700, cursor: "pointer", marginLeft: 4 } }, "#\u0E43\u0E2B\u0E21\u0E48"),
                 React.createElement("button", { onClick: () => { setType(r.type); setTitle(r.title); setAmount(String(r.amount)); setDate(r.date); setFundTime(r.time || nowTime()); setNote(r.note || ""); setEditId(r.id); }, style: { border: "none", background: "none", color: C.primary, cursor: "pointer", fontWeight: 700, fontSize: 12 } }, "\u0E41\u0E01\u0E49\u0E44\u0E02"),
                 React.createElement("button", { onClick: () => del(r.id), style: { border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 800 } }, "\u2715")))))),
         expModal && (React.createElement(Modal, { title: "\u0E2D\u0E2D\u0E01\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E08\u0E48\u0E32\u0E22 (\u0E01\u0E2D\u0E07\u0E17\u0E38\u0E19)", onClose: () => setExpModal(null) },
@@ -2041,6 +2096,26 @@ function FinanceManager({ db, setDb, ui, viewer }) {
     const isMoneyHolder = financeMoneyHolder;
     // สิทธิ์อนุมัติรายจ่าย = แอดมิน หรือ ผู้ถือเงิน หรือ "ครู" ที่อยู่ในผังฝ่ายการเงิน (นักเรียนอนุมัติไม่ได้)
     const canApproveExpense = String(viewer.role) === "admin" || financeMoneyHolder || (String(viewer.role) === "teacher" && finNodes.length > 0);
+    // ขอเลขใบเสร็จใหม่ (แก้เลขซ้ำ) — หาเลขว่างที่เล็กสุดจากทุกฝั่ง/ฝ่าย (db + คิว) เขียนทับรายการนั้น
+    // เลขใบเสร็จที่ซ้ำ (นับทุกฝั่ง: db.finance + loans + studentIncome + คิว) — ใช้ทำปุ่มสีแดง
+    const dupReceiptNums = React.useMemo(() => {
+        const cnt = {};
+        const add = (rn) => { if (rn == null || rn === "")
+            return; const k = String(rn).trim(); cnt[k] = (cnt[k] || 0) + 1; };
+        (db.finance || []).forEach((f) => add(f.receiptNo));
+        (db.loans || []).forEach((x) => add(x.receiptNo));
+        ((((db.studentIncome || {})["_submits"]) || [])).forEach((x) => add(x.receiptNo));
+        (moneyQueue || []).forEach((x) => add(x.receiptNo));
+        const s = new Set();
+        Object.keys(cnt).forEach((k) => { if (cnt[k] > 1)
+            s.add(k); });
+        return s;
+    }, [db.finance, db.loans, db.studentIncome, moneyQueue]);
+    const isDupRN = (rn) => rn && dupReceiptNums.has(String(rn).trim());
+    const renumberFinance = (f) => ui.runAsync("กำลังขอเลขใบเสร็จใหม่...", async () => { const rn = await reserveReceiptNo(Array.from(usedReceiptNums(db)), buddhistYear()); if (!rn) {
+        ui.notify("ขอเลขไม่สำเร็จ ลองใหม่");
+        return;
+    } commit((p) => ({ ...p, finance: (p.finance || []).map((x) => x.id === f.id ? { ...x, receiptNo: rn } : x) })); ui.notify("เปลี่ยนเป็นเลขใบเสร็จใหม่: " + rn); });
     // ผู้ช่วยการเงิน (ไม่ใช่ผู้ถือเงิน/ผู้ดูแลขึ้นไป/แอดมิน) → ลงเงินได้เฉพาะห้องตนเอง
     const viewerRoom = (() => { if (String(viewer.role).indexOf("student") === 0) {
         const s = (db.students || []).find((x) => String(x.id) === String(viewer.id));
@@ -2642,9 +2717,11 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                     React.createElement("div", { style: { fontWeight: 800, color: wantOut ? "#c0392b" : "#2f9e6b", whiteSpace: "nowrap" } },
                         wantOut ? "-" : "+",
                         money(f.amount)),
-                    f.receiptNo && React.createElement("button", { onClick: () => dl(f), style: { fontSize: 11, border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "3px 8px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" } },
+                    f.receiptNo && React.createElement("button", { onClick: () => dl(f), style: { fontSize: 11, border: `1px solid ${isDupRN(f.receiptNo) ? "#c0392b" : C.primary}`, background: isDupRN(f.receiptNo) ? "#fbeeee" : C.soft, color: isDupRN(f.receiptNo) ? "#c0392b" : C.primaryDark, borderRadius: 8, padding: "3px 8px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" } },
+                        isDupRN(f.receiptNo) ? "⚠ " : "",
                         "\u2B07 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 ",
                         f.receiptNo),
+                    f.receiptNo && canApproveExpense && React.createElement("button", { onClick: () => renumberFinance(f), title: "\u0E02\u0E2D\u0E40\u0E25\u0E02\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E43\u0E2B\u0E21\u0E48 (\u0E41\u0E01\u0E49\u0E40\u0E25\u0E02\u0E0B\u0E49\u0E33)", style: { fontSize: 10.5, border: `1px solid ${C.line}`, background: "#fff", color: C.muted, borderRadius: 8, padding: "2px 6px", fontWeight: 700, cursor: "pointer", marginLeft: 4 } }, "#\u0E43\u0E2B\u0E21\u0E48"),
                     canEditRow(f) && React.createElement("button", { onClick: () => del(f), style: { fontSize: 11, border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 700 } }, "\u0E25\u0E1A")))))));
         })(),
         tab === "refundin" && canRecordAny && (() => {
@@ -2675,9 +2752,11 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                     React.createElement("div", { style: { fontWeight: 800, color: "#2f6ba3", whiteSpace: "nowrap" } },
                         "+",
                         money(f.amount)),
-                    f.receiptNo && React.createElement("button", { onClick: () => dl(f), style: { fontSize: 11, border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "3px 8px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" } },
+                    f.receiptNo && React.createElement("button", { onClick: () => dl(f), style: { fontSize: 11, border: `1px solid ${isDupRN(f.receiptNo) ? "#c0392b" : C.primary}`, background: isDupRN(f.receiptNo) ? "#fbeeee" : C.soft, color: isDupRN(f.receiptNo) ? "#c0392b" : C.primaryDark, borderRadius: 8, padding: "3px 8px", fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" } },
+                        isDupRN(f.receiptNo) ? "⚠ " : "",
                         "\u2B07 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 ",
                         f.receiptNo),
+                    f.receiptNo && canApproveExpense && React.createElement("button", { onClick: () => renumberFinance(f), title: "\u0E02\u0E2D\u0E40\u0E25\u0E02\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E43\u0E2B\u0E21\u0E48 (\u0E41\u0E01\u0E49\u0E40\u0E25\u0E02\u0E0B\u0E49\u0E33)", style: { fontSize: 10.5, border: `1px solid ${C.line}`, background: "#fff", color: C.muted, borderRadius: 8, padding: "2px 6px", fontWeight: 700, cursor: "pointer", marginLeft: 4 } }, "#\u0E43\u0E2B\u0E21\u0E48"),
                     canEditRow(f) && React.createElement("button", { onClick: () => del(f), style: { fontSize: 11, border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 700 } }, "\u0E25\u0E1A")))))));
         })(),
         tab === "trash" && (() => {
@@ -2836,15 +2915,19 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                             React.createElement("div", { style: { fontWeight: 800, fontSize: 16, color: f.type === "out" ? "#c0392b" : "#2f9e6b" } },
                                 f.type === "out" ? "-" : "+",
                                 money(f.amount)),
-                            f.receiptNo && f.type !== "out" && React.createElement("button", { onClick: () => { const holder = receiptMoneyHolder(db); makeReceiptPdf({ title: "ใบเสร็จรับเงิน · " + f.title, receiptNo: f.receiptNo, date: f.date, time: f.time, rows: (f.items && f.items.length ? f.items : [{ label: f.title + " (" + compName(f.dept) + ")" + (f.note ? " · " + f.note : ""), amount: f.amount }]), notify: ui.notify, payerName: f.payerName || "", payerPosition: f.payerPos || "", payeeName: f.payeeName || holder.name, payeePosition: f.payeePos || holder.pos }); }, style: { fontSize: 11, border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "2px 7px", fontWeight: 700, cursor: "pointer", marginTop: 4 } },
+                            f.receiptNo && f.type !== "out" && React.createElement("button", { onClick: () => { const holder = receiptMoneyHolder(db); makeReceiptPdf({ title: "ใบเสร็จรับเงิน · " + f.title, receiptNo: f.receiptNo, date: f.date, time: f.time, rows: (f.items && f.items.length ? f.items : [{ label: f.title + " (" + compName(f.dept) + ")" + (f.note ? " · " + f.note : ""), amount: f.amount }]), notify: ui.notify, payerName: f.payerName || "", payerPosition: f.payerPos || "", payeeName: f.payeeName || holder.name, payeePosition: f.payeePos || holder.pos }); }, style: { fontSize: 11, border: `1px solid ${isDupRN(f.receiptNo) ? "#c0392b" : C.primary}`, background: isDupRN(f.receiptNo) ? "#fbeeee" : C.soft, color: isDupRN(f.receiptNo) ? "#c0392b" : C.primaryDark, borderRadius: 8, padding: "2px 7px", fontWeight: 700, cursor: "pointer", marginTop: 4 } },
+                                isDupRN(f.receiptNo) ? "⚠ " : "",
                                 "\u2B07 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 ",
                                 f.receiptNo),
+                            f.receiptNo && canApproveExpense && React.createElement("button", { onClick: () => renumberFinance(f), title: "\u0E02\u0E2D\u0E40\u0E25\u0E02\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E43\u0E2B\u0E21\u0E48 (\u0E41\u0E01\u0E49\u0E40\u0E25\u0E02\u0E0B\u0E49\u0E33)", style: { fontSize: 10.5, border: `1px solid ${C.line}`, background: "#fff", color: C.muted, borderRadius: 8, padding: "2px 6px", fontWeight: 700, cursor: "pointer", marginLeft: 4 } }, "#\u0E43\u0E2B\u0E21\u0E48"),
                             f.type === "out" && f.payStatus === "pending" && React.createElement("span", { style: { fontSize: 10.5, fontWeight: 700, color: "#b3762f", background: "#fff8ec", borderRadius: 8, padding: "2px 8px", marginTop: 4, display: "inline-block" } },
                                 "\u23F3 \u0E23\u0E2D\u0E1D\u0E48\u0E32\u0E22\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34",
                                 canApproveExpense ? React.createElement("button", { onClick: () => { setApproveTarget(f); setBillOpenedAt(0); }, style: { marginLeft: 6, border: "1px solid #2f9e6b", background: "#eaf7f0", color: "#1e7a4d", borderRadius: 6, padding: "1px 7px", fontSize: 10.5, fontWeight: 800, cursor: "pointer" } }, "\u0E15\u0E23\u0E27\u0E08/\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34") : null),
-                            f.receiptNo && f.type === "out" && f.payStatus !== "pending" && React.createElement("button", { onClick: () => { makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน · " + f.title, kind: "out", receiptNo: f.receiptNo, date: f.date, time: f.time, rows: (f.items && f.items.length ? f.items : [{ label: f.title + " (" + compName(f.dept) + ")" + (f.note ? " · " + f.note : ""), amount: f.amount }]), notify: ui.notify, payerName: f.payerName || "", payerLabel: "ผู้จ่ายเงิน", payerPosition: f.payerPos || "", payeeName: f.payeeName || "", payeeLabel: "ผู้รับเงิน", payeePosition: f.payeePos || "" }); }, style: { fontSize: 11, border: `1px solid ${C.primary}`, background: C.soft, color: C.primaryDark, borderRadius: 8, padding: "2px 7px", fontWeight: 700, cursor: "pointer", marginTop: 4 } },
+                            f.receiptNo && f.type === "out" && f.payStatus !== "pending" && React.createElement("button", { onClick: () => { makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน · " + f.title, kind: "out", receiptNo: f.receiptNo, date: f.date, time: f.time, rows: (f.items && f.items.length ? f.items : [{ label: f.title + " (" + compName(f.dept) + ")" + (f.note ? " · " + f.note : ""), amount: f.amount }]), notify: ui.notify, payerName: f.payerName || "", payerLabel: "ผู้จ่ายเงิน", payerPosition: f.payerPos || "", payeeName: f.payeeName || "", payeeLabel: "ผู้รับเงิน", payeePosition: f.payeePos || "" }); }, style: { fontSize: 11, border: `1px solid ${isDupRN(f.receiptNo) ? "#c0392b" : C.primary}`, background: isDupRN(f.receiptNo) ? "#fbeeee" : C.soft, color: isDupRN(f.receiptNo) ? "#c0392b" : C.primaryDark, borderRadius: 8, padding: "2px 7px", fontWeight: 700, cursor: "pointer", marginTop: 4 } },
+                                isDupRN(f.receiptNo) ? "⚠ " : "",
                                 "\u2B07 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 ",
                                 f.receiptNo),
+                            f.receiptNo && canApproveExpense && React.createElement("button", { onClick: () => renumberFinance(f), title: "\u0E02\u0E2D\u0E40\u0E25\u0E02\u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08\u0E43\u0E2B\u0E21\u0E48 (\u0E41\u0E01\u0E49\u0E40\u0E25\u0E02\u0E0B\u0E49\u0E33)", style: { fontSize: 10.5, border: `1px solid ${C.line}`, background: "#fff", color: C.muted, borderRadius: 8, padding: "2px 6px", fontWeight: 700, cursor: "pointer", marginLeft: 4 } }, "#\u0E43\u0E2B\u0E21\u0E48"),
                             canEditRow(f) && React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 4, justifyContent: "flex-end" } },
                                 React.createElement("button", { onClick: () => startEdit(f), style: { fontSize: 11.5, border: "none", background: "none", color: C.primary, cursor: "pointer", fontWeight: 700 } }, "\u0E41\u0E01\u0E49\u0E44\u0E02"),
                                 React.createElement("button", { onClick: () => del(f), style: { fontSize: 11.5, border: "none", background: "none", color: "#c0392b", cursor: "pointer", fontWeight: 700 } }, "\u0E25\u0E1A"))))));
