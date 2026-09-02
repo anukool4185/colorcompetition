@@ -92,8 +92,8 @@
 <script>
 "use strict";
 const { useState, useEffect, useRef, useMemo } = React;
-const APP_VERSION = "v215";
-const BUILD_TIME = "02/09/2026 14:30 น.";
+const APP_VERSION = "v216";
+const BUILD_TIME = "02/09/2026 15:11 น.";
 const MENU_REGISTRY = {};
 const BASE_NAVS = {
     student: [{ key: "home", label: "หน้าแรก", icon: "🏠" }, { key: "me", label: "ข้อมูลฉัน", icon: "🪪" }, { key: "register", label: "สมัครแข่ง", icon: "✍️" }, { key: "results", label: "ผลแข่ง", icon: "🏅" }, { key: "org2", label: "ผังงาน", icon: "🌳" }, { key: "schedule", label: "ตาราง", icon: "📅" }, { key: "finance", label: "การเงิน", icon: "💰" }],
@@ -288,12 +288,25 @@ function canRenumber(db, viewer) {
     return false;
 }
 // สร้างใบเสร็จเป็น PDF (หัวใบเสร็จ / เลขที่ใบเสร็จ/ปีพ.ศ. / วันที่ เวลา / ตารางรายการ)
-async function makeReceiptPdf({ orgName, title, receiptNo, date, time, rows, notify, kind, payeeName, payeePosition, payerName, payerPosition, payerLabel, payeeLabel, bills }) {
+async function makeReceiptPdf({ orgName, title, receiptNo, date, time, rows, notify, kind, payeeName, payeePosition, payerName, payerPosition, payerLabel, payeeLabel, bills, billUrl }) {
     if (typeof html2canvas === "undefined" || !window.jspdf) {
         notify && notify("ต้องเปิดผ่านหน้าเว็บจริง (มีอินเทอร์เน็ต)");
         return;
     }
     const total = (rows || []).reduce((s, r) => s + (Number(r.amount) || 0), 0);
+    const link = billUrl || ((bills && bills.length) ? bills[0] : "");
+    // สร้าง QR จากลิงก์ใบเสร็จตัวจริง (โหลดเป็น dataURL ก่อน เพื่อฝังใน PDF)
+    let qrDataUrl = "";
+    if (link) {
+        try {
+            const qr = await fetch("https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=" + encodeURIComponent(link));
+            const blob = await qr.blob();
+            qrDataUrl = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => res(""); r.readAsDataURL(blob); });
+        }
+        catch (e) {
+            qrDataUrl = "";
+        }
+    }
     const holder = document.createElement("div");
     holder.style.cssText = "position:fixed;left:-9999px;top:0;width:720px;background:#fff;padding:34px;font-family:'Noto Sans Thai',system-ui,sans-serif;color:#1f2937";
     const th = (t) => `<th style="border:1px solid #bbb;padding:7px;background:#eef4fb;font-size:13px">${t}</th>`;
@@ -309,7 +322,8 @@ async function makeReceiptPdf({ orgName, title, receiptNo, date, time, rows, not
             (payerName || payerPosition ? `<div style="margin-top:44px;text-align:right;font-size:15px">${payerLabel || "ผู้ส่งเงิน"} ..................................................</div>` + (payerName ? `<div style="text-align:right;font-size:14px;margin-top:6px">( ${payerName} )</div>` : "") + (payerPosition ? `<div style="text-align:right;font-size:14px;margin-top:4px">ตำแหน่ง ${payerPosition}</div>` : "") : "") +
             `<div style="margin-top:${payerName || payerPosition ? 40 : 48}px;text-align:right;font-size:15px">${payeeLabel || ("ผู้" + (kind === "out" ? "จ่ายเงิน" : "รับเงิน"))} ..................................................</div>` +
             (payeeName ? `<div style="text-align:right;font-size:14px;margin-top:6px">( ${payeeName} )</div>` : "") +
-            (payeePosition ? `<div style="text-align:right;font-size:14px;margin-top:4px">ตำแหน่ง ${payeePosition}</div>` : "");
+            (payeePosition ? `<div style="text-align:right;font-size:14px;margin-top:4px">ตำแหน่ง ${payeePosition}</div>` : "") +
+            (link ? `<div style="margin-top:30px;border-top:1px dashed #bbb;padding-top:14px;display:flex;align-items:center;gap:14px">${qrDataUrl ? `<img src="${qrDataUrl}" style="width:110px;height:110px" />` : ""}<div style="font-size:12px;color:#555;line-height:1.6"><div style="font-weight:700;color:#1f2937">📎 ใบเสร็จตัวจริง (สแกน QR เพื่อดูรูปเต็ม)</div><div style="word-break:break-all;color:#2563eb">${link}</div></div></div>` : "");
     document.body.appendChild(holder);
     try {
         const canvas = await html2canvas(holder, { scale: 2, backgroundColor: "#ffffff" });
@@ -2687,7 +2701,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
             const mine = (db.finance || []).filter((f) => String(f.dept) !== "FUND" && (wantOut ? f.type === "out" : f.type === "in") && deptMatch(f)).slice().sort((a, b) => (String(b.date) + (b.time || "") + b.at).localeCompare(String(a.date) + (a.time || "") + a.at)).slice(0, 50);
             const sum = mine.reduce((s, f) => s + (Number(f.amount) || 0), 0);
             const dl = (f) => { if (wantOut) {
-                makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน · " + f.title, kind: "out", receiptNo: f.receiptNo, date: f.date, time: f.time, rows: (f.items && f.items.length ? f.items : [{ label: f.title, amount: f.amount }]), notify: ui.notify, payerName: f.payerName || "", payerLabel: "ผู้จ่ายเงิน", payerPosition: f.payerPos || "", payeeName: f.payeeName || "", payeeLabel: "ผู้รับเงิน", payeePosition: f.payeePos || "" });
+                makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน · " + f.title, kind: "out", receiptNo: f.receiptNo, date: f.date, time: f.time, rows: (f.items && f.items.length ? f.items : [{ label: f.title, amount: f.amount }]), notify: ui.notify, payerName: f.payerName || "", payerLabel: "ผู้จ่ายเงิน", payerPosition: f.payerPos || "", payeeName: f.payeeName || "", payeeLabel: "ผู้รับเงิน", payeePosition: f.payeePos || "", billUrl: f.billUrl || "" });
             }
             else {
                 const holder = receiptMoneyHolder(db);
@@ -2923,7 +2937,7 @@ function FinanceManager({ db, setDb, ui, viewer }) {
                             f.type === "out" && f.payStatus === "pending" && React.createElement("span", { style: { fontSize: 10.5, fontWeight: 700, color: "#b3762f", background: "#fff8ec", borderRadius: 8, padding: "2px 8px", marginTop: 4, display: "inline-block" } },
                                 "\u23F3 \u0E23\u0E2D\u0E1D\u0E48\u0E32\u0E22\u0E01\u0E32\u0E23\u0E40\u0E07\u0E34\u0E19\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34",
                                 canApproveExpense ? React.createElement("button", { onClick: () => { setApproveTarget(f); setBillOpenedAt(0); }, style: { marginLeft: 6, border: "1px solid #2f9e6b", background: "#eaf7f0", color: "#1e7a4d", borderRadius: 6, padding: "1px 7px", fontSize: 10.5, fontWeight: 800, cursor: "pointer" } }, "\u0E15\u0E23\u0E27\u0E08/\u0E2D\u0E19\u0E38\u0E21\u0E31\u0E15\u0E34") : null),
-                            f.receiptNo && f.type === "out" && f.payStatus !== "pending" && React.createElement("button", { onClick: () => { makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน · " + f.title, kind: "out", receiptNo: f.receiptNo, date: f.date, time: f.time, rows: (f.items && f.items.length ? f.items : [{ label: f.title + " (" + compName(f.dept) + ")" + (f.note ? " · " + f.note : ""), amount: f.amount }]), notify: ui.notify, payerName: f.payerName || "", payerLabel: "ผู้จ่ายเงิน", payerPosition: f.payerPos || "", payeeName: f.payeeName || "", payeeLabel: "ผู้รับเงิน", payeePosition: f.payeePos || "" }); }, style: { fontSize: 11, border: `1px solid ${isDupRN(f.receiptNo) ? "#c0392b" : C.primary}`, background: isDupRN(f.receiptNo) ? "#fbeeee" : C.soft, color: isDupRN(f.receiptNo) ? "#c0392b" : C.primaryDark, borderRadius: 8, padding: "2px 7px", fontWeight: 700, cursor: "pointer", marginTop: 4 } },
+                            f.receiptNo && f.type === "out" && f.payStatus !== "pending" && React.createElement("button", { onClick: () => { makeReceiptPdf({ title: "ใบเสร็จจ่ายเงิน · " + f.title, kind: "out", receiptNo: f.receiptNo, date: f.date, time: f.time, rows: (f.items && f.items.length ? f.items : [{ label: f.title + " (" + compName(f.dept) + ")" + (f.note ? " · " + f.note : ""), amount: f.amount }]), notify: ui.notify, payerName: f.payerName || "", payerLabel: "ผู้จ่ายเงิน", payerPosition: f.payerPos || "", payeeName: f.payeeName || "", payeeLabel: "ผู้รับเงิน", payeePosition: f.payeePos || "", billUrl: f.billUrl || "" }); }, style: { fontSize: 11, border: `1px solid ${isDupRN(f.receiptNo) ? "#c0392b" : C.primary}`, background: isDupRN(f.receiptNo) ? "#fbeeee" : C.soft, color: isDupRN(f.receiptNo) ? "#c0392b" : C.primaryDark, borderRadius: 8, padding: "2px 7px", fontWeight: 700, cursor: "pointer", marginTop: 4 } },
                                 isDupRN(f.receiptNo) ? "⚠ " : "",
                                 "\u2B07 \u0E43\u0E1A\u0E40\u0E2A\u0E23\u0E47\u0E08 ",
                                 f.receiptNo),
